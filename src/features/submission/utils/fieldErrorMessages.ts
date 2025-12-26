@@ -130,13 +130,13 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // Section 3.4
   "section3_4.projects": "At least one project is required.",
   "section3_4.totalProjectsAwarded":
-    "Total number of infrastructure projects awarded is required.",
+    "Total Budgeted capital allocation (INR - values is in CRORES) is required.",
   "section3_4.totalProjectCostAwarded":
-    "Total project cost of infrastructure projects awarded is required.",
+    "Total of all TPC of all Projects (INR - values is in CRORES) is required.",
   "section3_4.projects.totalProjectCost":
     "Enter a valid non-negative amount with up to two decimal places.",
-  "section3_4.projects.capexPercentage":
-    "Enter a valid non-negative percentage.",
+  "section3_4.projects.infrastructureSector":
+    "Infrastructure Sector is required.",
 
   // Section 4.1
   "section4_1.available": "Please select Yes or No.",

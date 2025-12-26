@@ -134,11 +134,11 @@ export const PPPDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  
+
   // State for edit functionality indicator wise - moved here to be available before useMemo
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
-  
+
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -153,22 +153,28 @@ export const PPPDevelopmentReview = ({
   } = useFieldValidation();
 
   // Helper to check if field is touched
-  const isFieldTouched = useCallback((path: string) => {
-    return touchedFields.has(path);
-  }, [touchedFields]);
+  const isFieldTouched = useCallback(
+    (path: string) => {
+      return touchedFields.has(path);
+    },
+    [touchedFields]
+  );
 
   // Helper function to format date for HTML5 date input (YYYY-MM-DD)
-  const formatDateForInput = useCallback((dateValue: string | undefined | null): string => {
-    if (!dateValue) return "";
-    try {
-      const date = new Date(dateValue);
-      if (isNaN(date.getTime())) return "";
-      return date.toISOString().split("T")[0];
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return "";
-    }
-  }, []);
+  const formatDateForInput = useCallback(
+    (dateValue: string | undefined | null): string => {
+      if (!dateValue) return "";
+      try {
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return "";
+        return date.toISOString().split("T")[0];
+      } catch (error) {
+        console.error("Error formatting date:", error);
+        return "";
+      }
+    },
+    []
+  );
 
   // Real-time validation state
   const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -296,11 +302,8 @@ export const PPPDevelopmentReview = ({
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
   const [newProject, setNewProject] = useState({
     nameOfProject: "",
-    nipId: "",
-    fundingSource: "",
     infrastructureSector: "",
     dateOfAward: "",
-    capexPercentage: "",
     totalProjectCost: "",
   });
 
@@ -414,24 +417,34 @@ export const PPPDevelopmentReview = ({
         ? (sectionData as any)?.mospi_status
         : sectionData?.mospi_status;
 
-      console.log(`[PPPDevelopmentReview] shouldBeEditable(${sectionId}) - STATE_APPROVER:`, {
-        sectionKey,
-        sectionStatus,
-        mospiStatus,
-        isEditable: isEditable(sectionId),
-        hasFormDataState: !!(state && state[sectionKey]),
-        hasFormData: !!(formData && formData[sectionKey]),
-        sectionData: sectionData ? (Array.isArray(sectionData) ? 'array' : 'object') : 'null',
-      });
+      console.log(
+        `[PPPDevelopmentReview] shouldBeEditable(${sectionId}) - STATE_APPROVER:`,
+        {
+          sectionKey,
+          sectionStatus,
+          mospiStatus,
+          isEditable: isEditable(sectionId),
+          hasFormDataState: !!(state && state[sectionKey]),
+          hasFormData: !!(formData && formData[sectionKey]),
+          sectionData: sectionData
+            ? Array.isArray(sectionData)
+              ? "array"
+              : "object"
+            : "null",
+        }
+      );
 
       // If section status is RESUBMITTED, allow editing if section is in edit mode
       if (sectionStatus === "RESUBMITTED") {
         const result = isEditable(sectionId);
-        console.log(`[PPPDevelopmentReview] RESUBMITTED check for ${sectionId}:`, {
-          sectionStatus,
-          isEditable: isEditable(sectionId),
-          result,
-        });
+        console.log(
+          `[PPPDevelopmentReview] RESUBMITTED check for ${sectionId}:`,
+          {
+            sectionStatus,
+            isEditable: isEditable(sectionId),
+            result,
+          }
+        );
         return result;
       }
 
@@ -656,18 +669,24 @@ export const PPPDevelopmentReview = ({
 
   // Handle cancel - restore original state
   const handleCancel = async (sectionId: string) => {
-    console.log(`[PPPDevelopmentReview] handleCancel called for section ${sectionId}`, {
-      hasSnapshot: !!originalFormDataSnapshot,
-      hasFormData: !!formData,
-    });
-    
+    console.log(
+      `[PPPDevelopmentReview] handleCancel called for section ${sectionId}`,
+      {
+        hasSnapshot: !!originalFormDataSnapshot,
+        hasFormData: !!formData,
+      }
+    );
+
     if (originalFormDataSnapshot) {
       isRestoringRef.current = true;
       // Create a fresh deep copy to ensure React detects the change
       const restoredState = JSON.parse(
         JSON.stringify(originalFormDataSnapshot)
       );
-      console.log(`[PPPDevelopmentReview] Restoring from snapshot for ${sectionId}:`, restoredState);
+      console.log(
+        `[PPPDevelopmentReview] Restoring from snapshot for ${sectionId}:`,
+        restoredState
+      );
       setFormDataState(restoredState);
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
@@ -709,11 +728,8 @@ export const PPPDevelopmentReview = ({
         setShowAddProjectForm(false);
         setNewProject({
           nameOfProject: "",
-          nipId: "",
-          fundingSource: "",
           infrastructureSector: "",
           dateOfAward: "",
-          capexPercentage: "",
           totalProjectCost: "",
         });
       }
@@ -730,20 +746,30 @@ export const PPPDevelopmentReview = ({
       isRestoringRef.current = true;
       (async () => {
         try {
-          console.log(`[PPPDevelopmentReview] No snapshot found, fetching fresh data for ${sectionId}`);
+          console.log(
+            `[PPPDevelopmentReview] No snapshot found, fetching fresh data for ${sectionId}`
+          );
           const freshSubmission = await apiService.getSubmission(submissionId);
           if (freshSubmission && (freshSubmission as any).formData) {
             const freshFormData = (freshSubmission as any).formData;
             if (freshFormData.pppDevelopment) {
               // Create a fresh deep copy to ensure React detects the change
-              const restoredState = JSON.parse(JSON.stringify(freshFormData.pppDevelopment));
-              console.log(`[PPPDevelopmentReview] Restored from fresh server data for ${sectionId}:`, restoredState);
+              const restoredState = JSON.parse(
+                JSON.stringify(freshFormData.pppDevelopment)
+              );
+              console.log(
+                `[PPPDevelopmentReview] Restored from fresh server data for ${sectionId}:`,
+                restoredState
+              );
               setFormDataState(restoredState);
             } else if (formData) {
               // Fallback to formData prop if server fetch doesn't have the data
               const rawData = (formData as any)?.pppDevelopment || formData;
               const restoredState = JSON.parse(JSON.stringify(rawData));
-              console.log(`[PPPDevelopmentReview] Restored from formData prop for ${sectionId}:`, restoredState);
+              console.log(
+                `[PPPDevelopmentReview] Restored from formData prop for ${sectionId}:`,
+                restoredState
+              );
               setFormDataState(restoredState);
             }
           } else if (formData) {
@@ -753,7 +779,10 @@ export const PPPDevelopmentReview = ({
             setFormDataState(restoredState);
           }
         } catch (error) {
-          console.error(`[PPPDevelopmentReview] Error fetching fresh data for ${sectionId}:`, error);
+          console.error(
+            `[PPPDevelopmentReview] Error fetching fresh data for ${sectionId}:`,
+            error
+          );
           // Fallback to formData prop if fetch fails
           if (formData) {
             const rawData = (formData as any)?.pppDevelopment || formData;
@@ -798,11 +827,8 @@ export const PPPDevelopmentReview = ({
         setShowAddProjectForm(false);
         setNewProject({
           nameOfProject: "",
-          nipId: "",
-          fundingSource: "",
           infrastructureSector: "",
           dateOfAward: "",
-          capexPercentage: "",
           totalProjectCost: "",
         });
       }
@@ -875,80 +901,110 @@ export const PPPDevelopmentReview = ({
   // This ensures we remember sections even if they're removed from formData after deletion
   // Once a section is marked as submitted, it stays in the set (never removed)
   const initiallySubmittedSections = useRef<Set<string>>(new Set());
-  
+
   useEffect(() => {
     // Check which sections were submitted and add them to the set
     // This runs on mount and when formData/submission changes
     // We only ADD sections, never remove them (once submitted, always submitted)
-    const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
+    const allPossibleSections = [
+      "section3_1",
+      "section3_2",
+      "section3_3",
+      "section3_4",
+    ];
     allPossibleSections.forEach((sectionKey) => {
       // Skip if already marked as submitted
       if (initiallySubmittedSections.current.has(sectionKey)) {
         return;
       }
-      
+
       // Check submission.section_status first (most reliable)
       let wasSubmitted = false;
-      if (submission?.section_status && typeof submission.section_status === "object") {
+      if (
+        submission?.section_status &&
+        typeof submission.section_status === "object"
+      ) {
         const sectionStatus = (submission.section_status as any)[sectionKey];
-        if (sectionStatus && 
-            sectionStatus !== "NOT_STARTED" && 
-            sectionStatus !== null && 
-            sectionStatus !== undefined) {
+        if (
+          sectionStatus &&
+          sectionStatus !== "NOT_STARTED" &&
+          sectionStatus !== null &&
+          sectionStatus !== undefined
+        ) {
           wasSubmitted = true;
         }
       }
-      
+
       // Also check if section exists in formData
       if (!wasSubmitted && formData && typeof formData === "object") {
         const pppDev = (formData as any).pppDevelopment;
-        if (pppDev && typeof pppDev === "object" && pppDev[sectionKey] !== undefined && pppDev[sectionKey] !== null) {
+        if (
+          pppDev &&
+          typeof pppDev === "object" &&
+          pppDev[sectionKey] !== undefined &&
+          pppDev[sectionKey] !== null
+        ) {
           wasSubmitted = true;
         }
       }
-      
+
       if (wasSubmitted) {
         initiallySubmittedSections.current.add(sectionKey);
-        console.log(`[PPPDevelopmentReview] Marking ${sectionKey} as submitted`);
+        console.log(
+          `[PPPDevelopmentReview] Marking ${sectionKey} as submitted`
+        );
       }
     });
-    console.log(`[PPPDevelopmentReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+    console.log(
+      `[PPPDevelopmentReview] Submitted sections set:`,
+      Array.from(initiallySubmittedSections.current)
+    );
   }, [formData, submission]); // Run when formData or submission changes
 
   // Helper function to check if a section was previously submitted/saved
   // Uses initiallySubmittedSections ref (set on mount) as the source of truth
   // Also checks current submission.section_status as a fallback
-  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
-    // PRIORITY 1: Check if section was marked as initially submitted on mount
-    if (initiallySubmittedSections.current.has(sectionKey)) {
-      return true;
-    }
-    
-    // PRIORITY 2: Check submission.section_status - this is also reliable
-    if (submission?.section_status && typeof submission.section_status === "object") {
-      const sectionStatus = (submission.section_status as any)[sectionKey];
-      if (sectionStatus && 
-          sectionStatus !== "NOT_STARTED" && 
-          sectionStatus !== null && 
-          sectionStatus !== undefined) {
+  const wasSectionPreviouslySubmitted = useCallback(
+    (sectionKey: string): boolean => {
+      // PRIORITY 1: Check if section was marked as initially submitted on mount
+      if (initiallySubmittedSections.current.has(sectionKey)) {
         return true;
       }
-    }
-    
-    // PRIORITY 3: Check original formData prop (from backend) - fallback check
-    const pppDevFromFormData = formData && 
-      typeof formData === "object" && 
-      (formData as any).pppDevelopment 
-      ? (formData as any).pppDevelopment 
-      : null;
-    
-    const inFormData = pppDevFromFormData && 
-      typeof pppDevFromFormData === "object" && 
-      (pppDevFromFormData as any)[sectionKey] !== undefined &&
-      (pppDevFromFormData as any)[sectionKey] !== null;
-    
-    return inFormData;
-  }, [formData, submission]);
+
+      // PRIORITY 2: Check submission.section_status - this is also reliable
+      if (
+        submission?.section_status &&
+        typeof submission.section_status === "object"
+      ) {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (
+          sectionStatus &&
+          sectionStatus !== "NOT_STARTED" &&
+          sectionStatus !== null &&
+          sectionStatus !== undefined
+        ) {
+          return true;
+        }
+      }
+
+      // PRIORITY 3: Check original formData prop (from backend) - fallback check
+      const pppDevFromFormData =
+        formData &&
+        typeof formData === "object" &&
+        (formData as any).pppDevelopment
+          ? (formData as any).pppDevelopment
+          : null;
+
+      const inFormData =
+        pppDevFromFormData &&
+        typeof pppDevFromFormData === "object" &&
+        (pppDevFromFormData as any)[sectionKey] !== undefined &&
+        (pppDevFromFormData as any)[sectionKey] !== null;
+
+      return inFormData;
+    },
+    [formData, submission]
+  );
 
   // Check if this section has any data
   const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
@@ -959,11 +1015,18 @@ export const PPPDevelopmentReview = ({
 
   // ALWAYS include sections that were previously submitted, even if they have no data now
   // This ensures submitted indicators never disappear from the UI
-  const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
-  const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
-    return wasSectionPreviouslySubmitted(sectionKey);
-  });
-  
+  const allPossibleSections = [
+    "section3_1",
+    "section3_2",
+    "section3_3",
+    "section3_4",
+  ];
+  const previouslySubmittedSections = allPossibleSections.filter(
+    (sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    }
+  );
+
   // Merge previously submitted sections with sectionsWithData
   sectionsWithData = Array.from(
     new Set([...sectionsWithData, ...previouslySubmittedSections])
@@ -1069,10 +1132,10 @@ export const PPPDevelopmentReview = ({
     ];
     // Map sectionKey to sectionId for edit mode check
     const sectionIdMap: Record<string, string> = {
-      "section3_1": "3.1",
-      "section3_2": "3.2",
-      "section3_3": "3.3",
-      "section3_4": "3.4",
+      section3_1: "3.1",
+      section3_2: "3.2",
+      section3_3: "3.3",
+      section3_4: "3.4",
     };
 
     // Helper function to check if a section has meaningful data
@@ -1113,14 +1176,14 @@ export const PPPDevelopmentReview = ({
       const section = formDataState[sectionKey];
       const hasData = sectionHasMeaningfulData(sectionKey, section);
       // return hasSectionData(sectionKey, sectionData);
-      
+
       // Check if section is currently in edit mode
       const sectionId = sectionIdMap[sectionKey];
       const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
-      
+
       // Check if section was previously submitted
       const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
-      
+
       // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
       return hasData || isCurrentlyEditable || wasSubmitted;
     });
@@ -1133,19 +1196,26 @@ export const PPPDevelopmentReview = ({
 
   // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
   // This prevents sections from disappearing when user deletes all entries in edit mode
-  const allPossibleSectionsForEditMode = ["section3_1", "section3_2", "section3_3", "section3_4"];
+  const allPossibleSectionsForEditMode = [
+    "section3_1",
+    "section3_2",
+    "section3_3",
+    "section3_4",
+  ];
   const sectionIdMap: Record<string, string> = {
-    "section3_1": "3.1",
-    "section3_2": "3.2",
-    "section3_3": "3.3",
-    "section3_4": "3.4",
+    section3_1: "3.1",
+    section3_2: "3.2",
+    section3_3: "3.3",
+    section3_4: "3.4",
   };
-  
-  const sectionsInEditMode = allPossibleSectionsForEditMode.filter((sectionKey) => {
-    const sectionId = sectionIdMap[sectionKey];
-    return sectionId ? isEditable(sectionId) : false;
-  });
-  
+
+  const sectionsInEditMode = allPossibleSectionsForEditMode.filter(
+    (sectionKey) => {
+      const sectionId = sectionIdMap[sectionKey];
+      return sectionId ? isEditable(sectionId) : false;
+    }
+  );
+
   // Merge sections in edit mode with sectionsWithData
   sectionsWithData = Array.from(
     new Set([...sectionsWithData, ...sectionsInEditMode])
@@ -1153,9 +1223,11 @@ export const PPPDevelopmentReview = ({
 
   // Final merge: ensure previously submitted sections are always included
   // This ensures submitted indicators never disappear, even after canceling edit or deleting entries
-  const previouslySubmittedSectionsFinal = allPossibleSections.filter((sectionKey) => {
-    return wasSectionPreviouslySubmitted(sectionKey);
-  });
+  const previouslySubmittedSectionsFinal = allPossibleSections.filter(
+    (sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    }
+  );
   sectionsWithData = Array.from(
     new Set([...sectionsWithData, ...previouslySubmittedSectionsFinal])
   );
@@ -1446,10 +1518,10 @@ export const PPPDevelopmentReview = ({
     setFormDataState((prev: any) => {
       const sectionKey = `section${sectionId.replace(".", "_")}`;
       const currentSection = prev?.[sectionKey] || {};
-      
+
       // When switching from "yes" to "no", clear related fields
       let clearedFields: any = {};
-      
+
       if (value === "no") {
         switch (sectionId) {
           case "3.1":
@@ -1463,9 +1535,12 @@ export const PPPDevelopmentReview = ({
             }
             break;
         }
-        console.log(`[PPPDevelopmentReview] Clearing fields for ${sectionId}.${fieldName}:`, clearedFields);
+        console.log(
+          `[PPPDevelopmentReview] Clearing fields for ${sectionId}.${fieldName}:`,
+          clearedFields
+        );
       }
-      
+
       return {
         ...prev,
         [sectionKey]: {
@@ -1581,34 +1656,42 @@ export const PPPDevelopmentReview = ({
 
   // Handle removing entry from section 3.3
   const handleRemoveVGFEntry = (idOrIndex: string | number) => {
-    console.log(`[PPPDevelopmentReview] handleRemoveVGFEntry called for idOrIndex: ${idOrIndex}`);
+    console.log(
+      `[PPPDevelopmentReview] handleRemoveVGFEntry called for idOrIndex: ${idOrIndex}`
+    );
     setFormDataState((prev: any) => {
       const current = prev?.section3_3?.VGFArray;
       const currentSection = prev?.section3_3 || {};
       const rows = Array.isArray(current)
         ? current.filter((item: any, index: number) => {
             // If idOrIndex is a number or starts with "item-", it's an index-based delete
-            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            const isIndexBased =
+              typeof idOrIndex === "number" ||
+              String(idOrIndex).startsWith("item-");
             let shouldKeep: boolean;
-            
+
             if (isIndexBased) {
               // Extract index from "item-0" format or use number directly
-              const targetIndex = typeof idOrIndex === 'number' 
-                ? idOrIndex 
-                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              const targetIndex =
+                typeof idOrIndex === "number"
+                  ? idOrIndex
+                  : parseInt(String(idOrIndex).replace("item-", ""), 10);
               shouldKeep = index !== targetIndex;
             } else {
               // ID-based delete: match by item.id
               shouldKeep = item.id !== idOrIndex;
             }
-            
-            console.log(`[PPPDevelopmentReview] Filtering item at index ${index}:`, {
-              itemId: item.id,
-              itemIndex: index,
-              targetIdOrIndex: idOrIndex,
-              isIndexBased,
-              shouldKeep,
-            });
+
+            console.log(
+              `[PPPDevelopmentReview] Filtering item at index ${index}:`,
+              {
+                itemId: item.id,
+                itemIndex: index,
+                targetIdOrIndex: idOrIndex,
+                isIndexBased,
+                shouldKeep,
+              }
+            );
             return shouldKeep;
           })
         : [];
@@ -1637,14 +1720,17 @@ export const PPPDevelopmentReview = ({
       const projects = Array.isArray(current)
         ? current.filter((item: any, index: number) => {
             // If idOrIndex is a number or starts with "item-", it's an index-based delete
-            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            const isIndexBased =
+              typeof idOrIndex === "number" ||
+              String(idOrIndex).startsWith("item-");
             let shouldKeep: boolean;
-            
+
             if (isIndexBased) {
               // Extract index from "item-0" format or use number directly
-              const targetIndex = typeof idOrIndex === 'number' 
-                ? idOrIndex 
-                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              const targetIndex =
+                typeof idOrIndex === "number"
+                  ? idOrIndex
+                  : parseInt(String(idOrIndex).replace("item-", ""), 10);
               shouldKeep = index !== targetIndex;
             } else {
               // ID-based delete: match by item.id
@@ -1687,11 +1773,8 @@ export const PPPDevelopmentReview = ({
     // Reset form
     setNewProject({
       nameOfProject: "",
-      nipId: "",
-      fundingSource: "",
       infrastructureSector: "",
       dateOfAward: "",
-      capexPercentage: "",
       totalProjectCost: "",
     });
     setShowAddProjectForm(false);
@@ -1701,11 +1784,8 @@ export const PPPDevelopmentReview = ({
   const handleCancelAddProject = () => {
     setNewProject({
       nameOfProject: "",
-      nipId: "",
-      fundingSource: "",
       infrastructureSector: "",
       dateOfAward: "",
-      capexPercentage: "",
       totalProjectCost: "",
     });
     setShowAddProjectForm(false);
@@ -1914,8 +1994,6 @@ export const PPPDevelopmentReview = ({
             (sectionData as any).projects.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.projects.${index}.nameOfProject`,
-                `${sectionPrefix}.projects.${index}.nipId`,
-                `${sectionPrefix}.projects.${index}.fundingSource`,
                 `${sectionPrefix}.projects.${index}.infrastructureSector`,
                 `${sectionPrefix}.projects.${index}.dateOfAward`,
                 `${sectionPrefix}.projects.${index}.totalProjectCost`
@@ -2046,11 +2124,8 @@ export const PPPDevelopmentReview = ({
               projects: (state?.section3_4?.projects || []).map(
                 (project: any) => ({
                   nameOfProject: project?.nameOfProject ?? null,
-                  nipId: project?.nipId ?? null,
-                  fundingSource: project?.fundingSource ?? null,
                   infrastructureSector: project?.infrastructureSector ?? null,
                   dateOfAward: project?.dateOfAward ?? null,
-                  capexPercentage: project?.capexPercentage ?? null,
                   totalProjectCost: project?.totalProjectCost ?? null,
                 })
               ),
@@ -3787,490 +3862,514 @@ export const PPPDevelopmentReview = ({
 
                       return VGFArray.map((item: any, index: number) => {
                         const isEditable3_3 = shouldBeEditable("3.3");
-                        console.log(`[PPPDevelopmentReview] Rendering row ${index} for section 3.3:`, {
-                          itemId: item.id,
-                          index,
-                          isEditable3_3,
-                          willShowDeleteButton: isEditable3_3,
-                        });
+                        console.log(
+                          `[PPPDevelopmentReview] Rendering row ${index} for section 3.3:`,
+                          {
+                            itemId: item.id,
+                            index,
+                            isEditable3_3,
+                            willShowDeleteButton: isEditable3_3,
+                          }
+                        );
                         return (
-                        <tr key={item.id || index} className="border-b">
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable3_3 ? (
-                              <div>
-                                <Input
-                                  value={item.projectName || ""}
-                                  onChange={(e) =>
-                                    handleTableFieldUpdate(
-                                      index,
-                                      "projectName",
-                                      e.target.value
-                                    )
-                                  }
-                                  className={
-                                    getFieldError(
-                                      `section3_3.VGFArray.${index}.projectName`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                />
-                                {renderFieldError(
-                                  `section3_3.VGFArray.${index}.projectName`
-                                )}
-                              </div>
-                            ) : (
-                              item.projectName || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.3") ? (
-                              <div>
-                                <Select
-                                  key={`sector-${index}-${selectResetKey}`}
-                                  value={item.sector || ""}
-                                  onValueChange={(value) =>
-                                    handleTableFieldUpdate(
-                                      index,
-                                      "sector",
-                                      value
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger
-                                    className={
-                                      getFieldError(
-                                        `section3_3.VGFArray.${index}.sector`
-                                      )
-                                        ? "w-full border-red-500"
-                                        : "w-full"
-                                    }
-                                  >
-                                    <SelectValue placeholder="Select sector" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {SECTOR_OPTIONS.map((sector) => (
-                                      <SelectItem key={sector} value={sector}>
-                                        {sector}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {getFieldError(
-                                  `section3_3.VGFArray.${index}.sector`
-                                ) && (
-                                  <p className="text-sm text-red-500 mt-1">
-                                    {getFieldError(
-                                      `section3_3.VGFArray.${index}.sector`
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              item.sector || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.3") ? (
-                              <div>
-                                <Select
-                                  key={`scheme-${index}-${selectResetKey}`}
-                                  value={item.scheme || ""}
-                                  onValueChange={(value) =>
-                                    handleTableFieldUpdate(
-                                      index,
-                                      "scheme",
-                                      value
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger
-                                    className={
-                                      getFieldError(
-                                        `section3_3.VGFArray.${index}.scheme`
-                                      )
-                                        ? "w-full border-red-500"
-                                        : "w-full"
-                                    }
-                                  >
-                                    <SelectValue placeholder="Select scheme" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="IIPDF">IIPDF</SelectItem>
-                                    <SelectItem value="VGF">VGF</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {getFieldError(
-                                  `section3_3.VGFArray.${index}.scheme`
-                                ) && (
-                                  <p className="text-sm text-red-500 mt-1">
-                                    {getFieldError(
-                                       `section3_3.VGFArray.${index}.statusOfProject`
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              item.scheme || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.3") ? (
-                              <div>
-                                <Input
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="Enter project cost in crores"
-                                  value={item.totalProjectCost || ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (
-                                      value === "" ||
-                                      /^\d*\.?\d*$/.test(value)
-                                    ) {
+                          <tr key={item.id || index} className="border-b">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {isEditable3_3 ? (
+                                <div>
+                                  <Input
+                                    value={item.projectName || ""}
+                                    onChange={(e) =>
                                       handleTableFieldUpdate(
                                         index,
-                                        "totalProjectCost",
-                                        value
-                                      );
+                                        "projectName",
+                                        e.target.value
+                                      )
                                     }
-                                  }}
-                                  className={
-                                    getFieldError(
-                                      `section3_3.VGFArray.${index}.totalProjectCost`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                />
-                                {getFieldError(
-                                  `section3_3.VGFArray.${index}.totalProjectCost`
-                                ) && (
-                                  <p className="text-sm text-red-500 mt-1">
-                                    {getFieldError(
-                                      `section3_3.VGFArray.${index}.totalProjectCost`
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              item.totalProjectCost || "-"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.3") ? (
-                              <div>
-                                <Select
-                                  key={`status-${index}-${selectResetKey}`}
-                                  value={item.statusOfProject || ""}
-                                  onValueChange={(value) =>
-                                    handleTableFieldUpdate(
-                                      index,
-                                      "statusOfProject",
-                                      value
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger
                                     className={
                                       getFieldError(
-                                        `section3_3.VGFArray.${index}.statusOfProject`
+                                        `section3_3.VGFArray.${index}.projectName`
                                       )
                                         ? "w-full border-red-500"
                                         : "w-full"
                                     }
-                                  >
-                                    <SelectValue placeholder="Select status" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {PROJECT_STATUS_OPTIONS.map((status) => (
-                                      <SelectItem key={status} value={status}>
-                                        {status}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {getFieldError(
-                                  `section3_3.VGFArray.${index}.statusOfProject`
-                                ) && (
-                                  <p className="text-sm text-red-500 mt-1">
-                                    {getFieldError(
-                                      `section3_3.VGFArray.${index}.statusOfProject`
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              item.statusOfProject || "-"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
-                            {shouldBeEditable("3.3") ? (
-                              <div>
-                                <Input
-                                  type="date"
-                                  value={
-                                    item.submissionDate
-                                      ? (() => {
-                                          const d = new Date(item.submissionDate);
-                                          if (isNaN(d.getTime())) return "";
-                                          const year = d.getFullYear();
-                                          const month = String(d.getMonth() + 1).padStart(2, "0");
-                                          const day = String(d.getDate()).padStart(2, "0");
-                                          return `${year}-${month}-${day}`;
-                                        })()
-                                      : ""
-                                  }
-                                  onChange={(e) => {
-                                    handleTableFieldUpdate(
-                                      index,
-                                      "submissionDate",
-                                      e.target.value
-                                        ? new Date(e.target.value).toISOString()
-                                        : ""
-                                    );
-                                  }}
-                                  className={
-                                    getFieldError(
-                                      `section3_3.VGFArray.${index}.submissionDate`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                />
-                                {getFieldError(
-                                  `section3_3.VGFArray.${index}.submissionDate`
-                                ) && (
-                                  <p className="text-sm text-red-500 mt-1">
-                                    {getFieldError(
-                                      `section3_3.VGFArray.${index}.submissionDate`
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            ) : item.submissionDate ? (
-                              new Date(item.submissionDate).toLocaleDateString()
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.3") ? (
-                              <div className="space-y-1.5">
-                                {item.file ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                    title={
-                                      extractOriginalName(
-                                        item.file.fileName || "",
-                                        (item.file as any)?.originalName
-                                      ) || "Unknown file"
+                                  />
+                                  {renderFieldError(
+                                    `section3_3.VGFArray.${index}.projectName`
+                                  )}
+                                </div>
+                              ) : (
+                                item.projectName || ""
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {shouldBeEditable("3.3") ? (
+                                <div>
+                                  <Select
+                                    key={`sector-${index}-${selectResetKey}`}
+                                    value={item.sector || ""}
+                                    onValueChange={(value) =>
+                                      handleTableFieldUpdate(
+                                        index,
+                                        "sector",
+                                        value
+                                      )
                                     }
                                   >
-                                    <Upload className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate">
-                                      {extractOriginalName(
-                                        item.file.fileName || "",
-                                        (item.file as any)?.originalName
-                                      ) || "Unknown file"}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
+                                    <SelectTrigger
+                                      className={
+                                        getFieldError(
+                                          `section3_3.VGFArray.${index}.sector`
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                    >
+                                      <SelectValue placeholder="Select sector" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {SECTOR_OPTIONS.map((sector) => (
+                                        <SelectItem key={sector} value={sector}>
+                                          {sector}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {getFieldError(
+                                    `section3_3.VGFArray.${index}.sector`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_3.VGFArray.${index}.sector`
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                item.sector || ""
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {shouldBeEditable("3.3") ? (
+                                <div>
+                                  <Select
+                                    key={`scheme-${index}-${selectResetKey}`}
+                                    value={item.scheme || ""}
+                                    onValueChange={(value) =>
+                                      handleTableFieldUpdate(
+                                        index,
+                                        "scheme",
+                                        value
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger
+                                      className={
+                                        getFieldError(
+                                          `section3_3.VGFArray.${index}.scheme`
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                    >
+                                      <SelectValue placeholder="Select scheme" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="IIPDF">
+                                        IIPDF
+                                      </SelectItem>
+                                      <SelectItem value="VGF">VGF</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {getFieldError(
+                                    `section3_3.VGFArray.${index}.scheme`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_3.VGFArray.${index}.statusOfProject`
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                item.scheme || ""
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {shouldBeEditable("3.3") ? (
+                                <div>
+                                  <Input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="Enter project cost in crores"
+                                    value={item.totalProjectCost || ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      if (
+                                        value === "" ||
+                                        /^\d*\.?\d*$/.test(value)
+                                      ) {
                                         handleTableFieldUpdate(
                                           index,
-                                          "file",
-                                          null
+                                          "totalProjectCost",
+                                          value
                                         );
-                                      }}
-                                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                    </button>
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    No file
-                                  </span>
-                                )}
-                                <div className="flex items-center">
-                                  <input
-                                    type="file"
-                                    accept=".pdf,.doc,.docx"
-                                    onChange={async (e) => {
-                                      const selectedFile = e.target.files?.[0];
-                                      if (selectedFile) {
-                                        // Upload file immediately (same as create submission)
-                                        try {
-                                          const response =
-                                            await apiService.uploadFile(
-                                              submissionId,
-                                              selectedFile
-                                            );
-                                          const fileData =
-                                            response?.data || response;
-
-                                          const newFile: FileUpload = {
-                                            id:
-                                              fileData.id ??
-                                              crypto.randomUUID(),
-                                            file: null, // File not stored locally when backend handles upload
-                                            fileName:
-                                              fileData.fileName ||
-                                              fileData.filename ||
-                                              selectedFile.name,
-                                            originalName:
-                                              selectedFile.name ||
-                                              fileData.originalName ||
-                                              fileData.data?.originalName, // Preserve original file name
-                                            fileSize: Number(
-                                              fileData.fileSize ??
-                                                fileData.size ??
-                                                selectedFile.size ??
-                                                0
-                                            ),
-                                            uploadedAt: Number(
-                                              fileData.uploadedAt ?? Date.now()
-                                            ),
-                                            filePath:
-                                              fileData.filePath ??
-                                              fileData.file ??
-                                              fileData.url ??
-                                              fileData.path,
-                                            fileUrl:
-                                              fileData.fileUrl || fileData.url,
-                                            mimeType: fileData.mimeType,
-                                          };
-
-                                          await handleTableFieldUpdate(
-                                            index,
-                                            "file",
-                                            newFile
-                                          );
-                                          e.target.value = ""; // Reset input
-                                        } catch (error: any) {
-                                          console.error(
-                                            "Failed to upload file:",
-                                            error
-                                          );
-                                        }
                                       }
                                     }}
-                                    className="hidden"
-                                    id={`file-input-3.3-${index}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      document
-                                        .getElementById(
-                                          `file-input-3.3-${index}`
-                                        )
-                                        ?.click()
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.totalProjectCost`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
                                     }
-                                    className="h-6 px-2 text-xs"
-                                  >
-                                    <Plus className="w-3 h-3 mr-1" />
-                                    Add
-                                  </Button>
+                                  />
+                                  {getFieldError(
+                                    `section3_3.VGFArray.${index}.totalProjectCost`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_3.VGFArray.${index}.totalProjectCost`
+                                      )}
+                                    </p>
+                                  )}
                                 </div>
-                              </div>
-                            ) : item.file ? (
-                              <div className="flex items-center gap-1">
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                  title={
-                                    (item.file as any).originalName ||
-                                    item.file.fileName ||
-                                    "Unknown file"
-                                  }
-                                >
-                                  <Upload className="w-3 h-3" />
-                                  <span className="truncate">
-                                    {(item.file as any).originalName ||
-                                      item.file.fileName ||
-                                      "Unknown file"}
-                                  </span>
-                                </Badge>
-                                {(() => {
-                                  const fileKey = `3.3-${index}`;
-                                  const isLoading = !!fileLoading[fileKey];
-                                  const hasFileAccess = !!(
-                                    item.file.filePath ||
-                                    item.file.file ||
-                                    item.file.fileUrl
-                                  );
-                                  return hasFileAccess ? (
-                                    <>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleViewFile(item.file, fileKey)
-                                        }
-                                        disabled={isLoading}
-                                        className="h-7 w-7 p-0"
-                                        title="View file"
-                                      >
-                                        <Eye className="w-3 h-3" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleDownloadFile(item.file, fileKey)
-                                        }
-                                        disabled={isLoading}
-                                        className="h-7 w-7 p-0"
-                                        title="Download file"
-                                      >
-                                        <Download className="w-3 h-3" />
-                                      </Button>
-                                    </>
-                                  ) : null;
-                                })()}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                No file
-                              </span>
-                            )}
-                          </td>
-                          {isEditable3_3 && (
-                            <td className="py-3 px-4 text-sm font-normal">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  console.log(`[PPPDevelopmentReview] Delete button clicked for item:`, {
-                                    itemId: item.id,
-                                    index,
-                                    item,
-                                    timestamp: new Date().toISOString(),
-                                  });
-                                  // Use index for deletion since items may not have IDs
-                                  handleRemoveVGFEntry(index);
-                                }}
-                                className="text-red-500 hover:text-red-700 border-none bg-none cursor-pointer"
-                                disabled={false}
-                                title="Delete entry"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
+                              ) : (
+                                item.totalProjectCost || "-"
+                              )}
                             </td>
-                          )}
-                        </tr>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {shouldBeEditable("3.3") ? (
+                                <div>
+                                  <Select
+                                    key={`status-${index}-${selectResetKey}`}
+                                    value={item.statusOfProject || ""}
+                                    onValueChange={(value) =>
+                                      handleTableFieldUpdate(
+                                        index,
+                                        "statusOfProject",
+                                        value
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger
+                                      className={
+                                        getFieldError(
+                                          `section3_3.VGFArray.${index}.statusOfProject`
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                    >
+                                      <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {PROJECT_STATUS_OPTIONS.map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                          {status}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {getFieldError(
+                                    `section3_3.VGFArray.${index}.statusOfProject`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_3.VGFArray.${index}.statusOfProject`
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                item.statusOfProject || "-"
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
+                              {shouldBeEditable("3.3") ? (
+                                <div>
+                                  <Input
+                                    type="date"
+                                    value={
+                                      item.submissionDate
+                                        ? (() => {
+                                            const d = new Date(
+                                              item.submissionDate
+                                            );
+                                            if (isNaN(d.getTime())) return "";
+                                            const year = d.getFullYear();
+                                            const month = String(
+                                              d.getMonth() + 1
+                                            ).padStart(2, "0");
+                                            const day = String(
+                                              d.getDate()
+                                            ).padStart(2, "0");
+                                            return `${year}-${month}-${day}`;
+                                          })()
+                                        : ""
+                                    }
+                                    onChange={(e) => {
+                                      handleTableFieldUpdate(
+                                        index,
+                                        "submissionDate",
+                                        e.target.value
+                                          ? new Date(
+                                              e.target.value
+                                            ).toISOString()
+                                          : ""
+                                      );
+                                    }}
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.submissionDate`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
+                                    }
+                                  />
+                                  {getFieldError(
+                                    `section3_3.VGFArray.${index}.submissionDate`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_3.VGFArray.${index}.submissionDate`
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : item.submissionDate ? (
+                                new Date(
+                                  item.submissionDate
+                                ).toLocaleDateString()
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {shouldBeEditable("3.3") ? (
+                                <div className="space-y-1.5">
+                                  {item.file ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                      title={
+                                        extractOriginalName(
+                                          item.file.fileName || "",
+                                          (item.file as any)?.originalName
+                                        ) || "Unknown file"
+                                      }
+                                    >
+                                      <Upload className="w-3 h-3 flex-shrink-0" />
+                                      <span className="truncate">
+                                        {extractOriginalName(
+                                          item.file.fileName || "",
+                                          (item.file as any)?.originalName
+                                        ) || "Unknown file"}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleTableFieldUpdate(
+                                            index,
+                                            "file",
+                                            null
+                                          );
+                                        }}
+                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                      </button>
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">
+                                      No file
+                                    </span>
+                                  )}
+                                  <div className="flex items-center">
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.doc,.docx"
+                                      onChange={async (e) => {
+                                        const selectedFile =
+                                          e.target.files?.[0];
+                                        if (selectedFile) {
+                                          // Upload file immediately (same as create submission)
+                                          try {
+                                            const response =
+                                              await apiService.uploadFile(
+                                                submissionId,
+                                                selectedFile
+                                              );
+                                            const fileData =
+                                              response?.data || response;
+
+                                            const newFile: FileUpload = {
+                                              id:
+                                                fileData.id ??
+                                                crypto.randomUUID(),
+                                              file: null, // File not stored locally when backend handles upload
+                                              fileName:
+                                                fileData.fileName ||
+                                                fileData.filename ||
+                                                selectedFile.name,
+                                              originalName:
+                                                selectedFile.name ||
+                                                fileData.originalName ||
+                                                fileData.data?.originalName, // Preserve original file name
+                                              fileSize: Number(
+                                                fileData.fileSize ??
+                                                  fileData.size ??
+                                                  selectedFile.size ??
+                                                  0
+                                              ),
+                                              uploadedAt: Number(
+                                                fileData.uploadedAt ??
+                                                  Date.now()
+                                              ),
+                                              filePath:
+                                                fileData.filePath ??
+                                                fileData.file ??
+                                                fileData.url ??
+                                                fileData.path,
+                                              fileUrl:
+                                                fileData.fileUrl ||
+                                                fileData.url,
+                                              mimeType: fileData.mimeType,
+                                            };
+
+                                            await handleTableFieldUpdate(
+                                              index,
+                                              "file",
+                                              newFile
+                                            );
+                                            e.target.value = ""; // Reset input
+                                          } catch (error: any) {
+                                            console.error(
+                                              "Failed to upload file:",
+                                              error
+                                            );
+                                          }
+                                        }
+                                      }}
+                                      className="hidden"
+                                      id={`file-input-3.3-${index}`}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        document
+                                          .getElementById(
+                                            `file-input-3.3-${index}`
+                                          )
+                                          ?.click()
+                                      }
+                                      className="h-6 px-2 text-xs"
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      Add
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : item.file ? (
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                    title={
+                                      (item.file as any).originalName ||
+                                      item.file.fileName ||
+                                      "Unknown file"
+                                    }
+                                  >
+                                    <Upload className="w-3 h-3" />
+                                    <span className="truncate">
+                                      {(item.file as any).originalName ||
+                                        item.file.fileName ||
+                                        "Unknown file"}
+                                    </span>
+                                  </Badge>
+                                  {(() => {
+                                    const fileKey = `3.3-${index}`;
+                                    const isLoading = !!fileLoading[fileKey];
+                                    const hasFileAccess = !!(
+                                      item.file.filePath ||
+                                      item.file.file ||
+                                      item.file.fileUrl
+                                    );
+                                    return hasFileAccess ? (
+                                      <>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleViewFile(item.file, fileKey)
+                                          }
+                                          disabled={isLoading}
+                                          className="h-7 w-7 p-0"
+                                          title="View file"
+                                        >
+                                          <Eye className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleDownloadFile(
+                                              item.file,
+                                              fileKey
+                                            )
+                                          }
+                                          disabled={isLoading}
+                                          className="h-7 w-7 p-0"
+                                          title="Download file"
+                                        >
+                                          <Download className="w-3 h-3" />
+                                        </Button>
+                                      </>
+                                    ) : null;
+                                  })()}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">
+                                  No file
+                                </span>
+                              )}
+                            </td>
+                            {isEditable3_3 && (
+                              <td className="py-3 px-4 text-sm font-normal">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log(
+                                      `[PPPDevelopmentReview] Delete button clicked for item:`,
+                                      {
+                                        itemId: item.id,
+                                        index,
+                                        item,
+                                        timestamp: new Date().toISOString(),
+                                      }
+                                    );
+                                    // Use index for deletion since items may not have IDs
+                                    handleRemoveVGFEntry(index);
+                                  }}
+                                  className="text-red-500 hover:text-red-700 border-none bg-none cursor-pointer"
+                                  disabled={false}
+                                  title="Delete entry"
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </Button>
+                              </td>
+                            )}
+                          </tr>
                         );
                       });
                     })()}
@@ -4407,7 +4506,9 @@ export const PPPDevelopmentReview = ({
                         onChange={(e) => {
                           setNewVGFItem({
                             ...newVGFItem,
-                            submissionDate: e.target.value ? new Date(e.target.value).toISOString() : "",
+                            submissionDate: e.target.value
+                              ? new Date(e.target.value).toISOString()
+                              : "",
                           });
                         }}
                         className={cn(
@@ -4508,7 +4609,10 @@ export const PPPDevelopmentReview = ({
               {/* Summary Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <Label>Total Projects Awarded</Label>
+                  <Label>
+                    Total Budgeted capital allocation (INR - values is in
+                    CRORES)
+                  </Label>
                   {shouldBeEditable("3.4") ? (
                     <div>
                       <Input
@@ -4531,7 +4635,7 @@ export const PPPDevelopmentReview = ({
                             ? "bg-white border-red-500"
                             : "bg-white"
                         }
-                        placeholder="Enter total projects awarded"
+                        placeholder="Enter total budgeted capital allocation"
                       />
                       {getFieldError("section3_4.totalProjectsAwarded") && (
                         <p className="text-sm text-red-500 mt-1">
@@ -4549,7 +4653,7 @@ export const PPPDevelopmentReview = ({
                 </div>
                 <div>
                   <Label>
-                    Total Project Cost Awarded (INR - values is in CRORES){" "}
+                    Total of all TPC of all Projects (INR - values is in CRORES){" "}
                   </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
                   {shouldBeEditable("3.4") ? (
@@ -4575,7 +4679,7 @@ export const PPPDevelopmentReview = ({
                             ? "bg-white border-red-500"
                             : "bg-white"
                         }
-                        placeholder="Enter total project cost awarded"
+                        placeholder="Enter total of all TPC"
                       />
                       {getFieldError("section3_4.totalProjectCostAwarded") && (
                         <p className="text-sm text-red-500 mt-1">
@@ -4598,29 +4702,20 @@ export const PPPDevelopmentReview = ({
                 <table className="min-w-full border-separate border-spacing-0">
                   <thead>
                     <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
                         Name of Project
                       </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        NIP ID
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Funding Source
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
+                      <th className="py-2 px-2 text-left text-sm font-normal">
                         Infrastructure Sector
                       </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
+                      <th className="py-2 px-2 text-left text-sm font-normal">
                         Date of Award
                       </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        % Capex
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
+                      <th className="py-2 px-2 text-left text-sm font-normal">
                         Total Project Cost
                       </th>
                       {shouldBeEditable("3.4") && (
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                        <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
                           Action
                         </th>
                       )}
@@ -4642,7 +4737,7 @@ export const PPPDevelopmentReview = ({
                         return (
                           <tr>
                             <td
-                              colSpan={shouldBeEditable("3.4") ? 8 : 7}
+                              colSpan={shouldBeEditable("3.4") ? 5 : 4}
                               className="py-8 text-center text-muted-foreground"
                             >
                               No projects available
@@ -4653,7 +4748,7 @@ export const PPPDevelopmentReview = ({
 
                       return projects.map((project: any, idx: number) => (
                         <tr key={project.id || idx} className="border-b">
-                          <td className="py-3 px-4 text-sm font-normal">
+                          <td className="py-2 px-2 text-sm font-normal">
                             {shouldBeEditable("3.4") ? (
                               <Input
                                 value={project.nameOfProject || ""}
@@ -4664,47 +4759,13 @@ export const PPPDevelopmentReview = ({
                                     e.target.value
                                   )
                                 }
-                                className="w-full"
+                                className="w-full h-8 text-sm"
                               />
                             ) : (
                               project.nameOfProject || "N/A"
                             )}
                           </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Input
-                                value={project.nipId || ""}
-                                onChange={(e) =>
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "nipId",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full"
-                              />
-                            ) : (
-                              project.nipId || "N/A"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Input
-                                value={project.fundingSource || ""}
-                                onChange={(e) =>
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "fundingSource",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full"
-                              />
-                            ) : (
-                              project.fundingSource || "N/A"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
+                          <td className="py-2 px-2 text-sm font-normal">
                             {shouldBeEditable("3.4") ? (
                               <Select
                                 key={`infrastructureSector-${idx}-${selectResetKey}`}
@@ -4717,7 +4778,14 @@ export const PPPDevelopmentReview = ({
                                   )
                                 }
                               >
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger
+                                  className={cn(
+                                    "w-full h-8 text-sm",
+                                    getFieldError(
+                                      `section3_4.projects.${idx}.infrastructureSector`
+                                    ) && "border-red-500"
+                                  )}
+                                >
                                   <SelectValue placeholder="Select sector" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -4731,61 +4799,53 @@ export const PPPDevelopmentReview = ({
                             ) : (
                               project.infrastructureSector || "N/A"
                             )}
+                            {shouldBeEditable("3.4") &&
+                              getFieldError(
+                                `section3_4.projects.${idx}.infrastructureSector`
+                              ) && (
+                                <p className="text-sm text-red-500 mt-1">
+                                  {getFieldError(
+                                    `section3_4.projects.${idx}.infrastructureSector`
+                                  )}
+                                </p>
+                              )}
                           </td>
-                          <td className="py-3 px-4 text-sm font-normal">
+                          <td className="py-2 px-2 text-sm font-normal">
                             {shouldBeEditable("3.4") ? (
                               <Input
                                 type="date"
-                                value={project.dateOfAward ? new Date(project.dateOfAward).toISOString().split("T")[0] : ""}
+                                value={
+                                  project.dateOfAward
+                                    ? new Date(project.dateOfAward)
+                                        .toISOString()
+                                        .split("T")[0]
+                                    : ""
+                                }
                                 onChange={(e) => {
                                   handleProjectFieldUpdate(
                                     idx,
                                     "dateOfAward",
-                                    e.target.value ? new Date(e.target.value).toISOString() : null
+                                    e.target.value
+                                      ? new Date(e.target.value).toISOString()
+                                      : null
                                   );
                                 }}
                                 className={cn(
-                                  "w-full bg-[#fff] border border-[#C6C6C6]",
-                                  !project.dateOfAward && "text-muted-foreground"
+                                  "w-full h-8 text-sm bg-[#fff] border border-[#C6C6C6]",
+                                  !project.dateOfAward &&
+                                    "text-muted-foreground"
                                 )}
                               />
                             ) : project.dateOfAward ? (
-                              format(new Date(project.dateOfAward), "dd-MM-yyyy")
+                              format(
+                                new Date(project.dateOfAward),
+                                "dd-MM-yyyy"
+                              )
                             ) : (
                               "-"
                             )}
                           </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Input
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                value={project.capexPercentage || ""}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  // Only allow numbers and decimal point
-                                  if (
-                                    value === "" ||
-                                    /^\d*\.?\d*$/.test(value)
-                                  ) {
-                                    handleProjectFieldUpdate(
-                                      idx,
-                                      "capexPercentage",
-                                      value
-                                    );
-                                  }
-                                }}
-                                className="w-full"
-                                placeholder="Enter percentage"
-                              />
-                            ) : (
-                              project.capexPercentage || "N/A"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
+                          <td className="py-2 px-2 text-sm font-normal">
                             {shouldBeEditable("3.4") ? (
                               <Input
                                 type="number"
@@ -4807,7 +4867,7 @@ export const PPPDevelopmentReview = ({
                                     );
                                   }
                                 }}
-                                className="w-full"
+                                className="w-full h-8 text-sm"
                                 placeholder="Enter cost"
                               />
                             ) : (
@@ -4815,7 +4875,7 @@ export const PPPDevelopmentReview = ({
                             )}
                           </td>
                           {shouldBeEditable("3.4") && (
-                            <td className="py-3 px-4 text-sm font-normal">
+                            <td className="py-2 px-2 text-sm font-normal text-center w-12">
                               <Button
                                 variant="outline"
                                 size="icon"
@@ -4823,9 +4883,9 @@ export const PPPDevelopmentReview = ({
                                   // Use index for deletion since items may not have IDs
                                   handleRemoveProjectEntry(idx);
                                 }}
-                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                                className="text-red-500 hover:text-red-700 border-none bg-none h-8 w-8"
                               >
-                                <Trash2 className="h-5 w-5" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </td>
                           )}
@@ -4869,35 +4929,10 @@ export const PPPDevelopmentReview = ({
                       />
                     </div>
                     <div>
-                      <Label>NIP ID</Label>
-                      <Input
-                        value={newProject.nipId}
-                        onChange={(e) =>
-                          setNewProject({
-                            ...newProject,
-                            nipId: e.target.value,
-                          })
-                        }
-                        className="bg-white"
-                        placeholder="Enter NIP ID"
-                      />
-                    </div>
-                    <div>
-                      <Label>Funding Source</Label>
-                      <Input
-                        value={newProject.fundingSource}
-                        onChange={(e) =>
-                          setNewProject({
-                            ...newProject,
-                            fundingSource: e.target.value,
-                          })
-                        }
-                        className="bg-white"
-                        placeholder="Enter funding source"
-                      />
-                    </div>
-                    <div>
-                      <Label>Infrastructure Sector</Label>
+                      <Label>
+                        Infrastructure Sector{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
                       <Select
                         value={newProject.infrastructureSector}
                         onValueChange={(value) =>
@@ -4907,7 +4942,14 @@ export const PPPDevelopmentReview = ({
                           })
                         }
                       >
-                        <SelectTrigger className="bg-white">
+                        <SelectTrigger
+                          className={cn(
+                            "bg-white",
+                            getFieldError(
+                              "section3_4.projects.new.infrastructureSector"
+                            ) && "border-red-500"
+                          )}
+                        >
                           <SelectValue placeholder="Select sector" />
                         </SelectTrigger>
                         <SelectContent>
@@ -4918,6 +4960,15 @@ export const PPPDevelopmentReview = ({
                           ))}
                         </SelectContent>
                       </Select>
+                      {getFieldError(
+                        "section3_4.projects.new.infrastructureSector"
+                      ) && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError(
+                            "section3_4.projects.new.infrastructureSector"
+                          )}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label>Date of Award</Label>
@@ -4927,36 +4978,15 @@ export const PPPDevelopmentReview = ({
                         onChange={(e) => {
                           setNewProject({
                             ...newProject,
-                            dateOfAward: e.target.value ? new Date(e.target.value).toISOString() : "",
+                            dateOfAward: e.target.value
+                              ? new Date(e.target.value).toISOString()
+                              : "",
                           });
                         }}
                         className={cn(
                           "w-full bg-[#fff] border border-[#C6C6C6]",
                           !newProject.dateOfAward && "text-muted-foreground"
                         )}
-                      />
-                    </div>
-                    <div>
-                      <Label>% of Capex funded by non-Govt sources</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={newProject.capexPercentage}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Only allow numbers and decimal point
-                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                            setNewProject({
-                              ...newProject,
-                              capexPercentage: value,
-                            });
-                          }
-                        }}
-                        className="bg-white"
-                        placeholder="Enter percentage (0-100)"
                       />
                     </div>
                     <div>

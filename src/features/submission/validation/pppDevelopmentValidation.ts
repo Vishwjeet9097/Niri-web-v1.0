@@ -191,7 +191,7 @@ export const validatePPPDevelopment = (
           : "";
       if (!totalProjectsAwardedStr || totalProjectsAwardedStr.trim() === "") {
         errors["section3_4.totalProjectsAwarded"] =
-          "Total number of infrastructure projects awarded is required.";
+          "Total Budgeted capital allocation is required.";
       } else if (!isValidInteger(totalProjectsAwardedStr)) {
         errors["section3_4.totalProjectsAwarded"] =
           "Enter a valid non-negative integer.";
@@ -206,7 +206,7 @@ export const validatePPPDevelopment = (
         totalProjectCostAwardedStr.trim() === ""
       ) {
         errors["section3_4.totalProjectCostAwarded"] =
-          "Total project cost of infrastructure projects awarded is required.";
+          "Total of all TPC of all Projects is required.";
       } else if (
         !isNonNegativeDecimal(totalProjectCostAwardedStr) ||
         !hasMaxTwoDecimals(totalProjectCostAwardedStr)
@@ -219,6 +219,15 @@ export const validatePPPDevelopment = (
       // but if projects are added, they should be validated for completeness
       if (section34.projects && section34.projects.length > 0) {
         section34.projects.forEach((project, index) => {
+          // Validate infrastructureSector (required)
+          if (
+            !project.infrastructureSector ||
+            project.infrastructureSector.trim() === ""
+          ) {
+            errors[`section3_4.projects.${index}.infrastructureSector`] =
+              "Infrastructure Sector is required.";
+          }
+
           // Validate decimal fields if they have values
           const totalProjectCostStr =
             project.totalProjectCost != null
@@ -231,16 +240,6 @@ export const validatePPPDevelopment = (
             ) {
               errors[`section3_4.projects.${index}.totalProjectCost`] =
                 "Enter a valid non-negative amount with up to two decimal places.";
-            }
-          }
-          const capexPercentageStr =
-            project.capexPercentage != null
-              ? String(project.capexPercentage)
-              : "";
-          if (capexPercentageStr && capexPercentageStr.trim() !== "") {
-            if (!isNonNegativeDecimal(capexPercentageStr)) {
-              errors[`section3_4.projects.${index}.capexPercentage`] =
-                "Enter a valid non-negative percentage.";
             }
           }
         });

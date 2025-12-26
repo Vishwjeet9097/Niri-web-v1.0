@@ -232,11 +232,8 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       d?.projects,
       (r) =>
         hasMeaningfulValue(r.nameOfProject) &&
-        hasMeaningfulValue(r.nipId) &&
-        hasMeaningfulValue(r.fundingSource) &&
         hasMeaningfulValue(r.infrastructureSector) &&
-        hasMeaningfulValue(r.dateOfAward) &&
-        hasMeaningfulValue(r.capexPercentage)
+        hasMeaningfulValue(r.dateOfAward)
     );
 
     // Section is complete if mandatory summary fields are filled
