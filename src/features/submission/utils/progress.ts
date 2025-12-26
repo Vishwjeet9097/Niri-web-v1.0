@@ -222,25 +222,33 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         }
       | undefined;
 
-    // Check if mandatory summary fields are filled
+    const projects = Array.isArray(d?.projects) ? d.projects : [];
+    const hasProjects = projects.length > 0;
+
+    // If there are no projects, only require totalProjectsAwarded
+    if (!hasProjects) {
+      return hasMeaningfulValue(d?.totalProjectsAwarded);
+    }
+
+    // If there are projects:
+    // 1. Both summary fields must be filled
     const hasSummaryFields =
       hasMeaningfulValue(d?.totalProjectsAwarded) &&
       hasMeaningfulValue(d?.totalProjectCostAwarded);
 
-    // Also check if projects array has valid entries (optional but can be used for completion)
-    const hasValidProjects = anyValid(
-      d?.projects,
-      (r) =>
-        hasMeaningfulValue(r.nameOfProject) &&
-        hasMeaningfulValue(r.nipId) &&
-        hasMeaningfulValue(r.fundingSource) &&
-        hasMeaningfulValue(r.infrastructureSector) &&
-        hasMeaningfulValue(r.dateOfAward) &&
-        hasMeaningfulValue(r.capexPercentage)
-    );
+    // 2. ALL projects must have required fields including infrastructureSector
+    let allProjectsValid = true;
+    if (hasProjects) {
+      allProjectsValid = projects.every(
+        (r: any) =>
+          hasMeaningfulValue(r.nameOfProject) &&
+          hasMeaningfulValue(r.infrastructureSector) &&
+          hasMeaningfulValue(r.dateOfAward)
+      );
+    }
 
-    // Section is complete if mandatory summary fields are filled
-    return hasSummaryFields || hasValidProjects;
+    // Section is complete only if both conditions are met
+    return hasSummaryFields && allProjectsValid;
   },
 
   // 4.x Infra Enablers
