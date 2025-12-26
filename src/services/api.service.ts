@@ -3939,6 +3939,70 @@ class ApiService implements HttpClient {
     }
   }
 
+  /**
+   * Get all indicator scores for a submission
+   */
+  async getIndicatorScores(submissionId: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/indicator-scores/${submissionId}`);
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get indicator score for a specific indicator
+   */
+  async getIndicatorScore(submissionId: string, indicatorCode: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/indicator-scores/${submissionId}/${indicatorCode}`);
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get score history for a submission
+   */
+  async getScoreHistory(submissionId: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/history/${submissionId}`);
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get score history for a specific indicator
+   */
+  async getIndicatorScoreHistory(submissionId: string, indicatorCode: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/history/${submissionId}/indicator/${indicatorCode}`);
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      throw error;
+    }
+  }
+
   async calculateScore(submissionId: string): Promise<any> {
     try {
       const response = await this.axios.get(

@@ -27,19 +27,40 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
     });
 
     console.log(`[handleSaveSection] ✅ API call successful:`, result);
-    notificationService.success("Section updated successfully");
     
-    // Dispatch custom event to notify components that submission was updated
-    // This allows DocumentsTab and other components to refresh without page reload
-    window.dispatchEvent(
-      new CustomEvent("niri-submission-updated", {
-        detail: {
-          submissionId: payload.submissionId,
-          category: payload.category,
-          section: payload.section,
-        },
-      })
-    );
+    // Check if indicator score is in response
+    if (result?.indicatorScore) {
+      const score = result.indicatorScore;
+      const indicatorCode = score.indicatorCode || payload.section.replace('section', '').replace('_', '.');
+      notificationService.success(
+        `Section updated successfully. Score: ${score.score}/${score.maxScore} points`
+      );
+      
+      // Dispatch custom event with score information
+      window.dispatchEvent(
+        new CustomEvent("niri-submission-updated", {
+          detail: {
+            submissionId: payload.submissionId,
+            category: payload.category,
+            section: payload.section,
+            indicatorScore: score,
+          },
+        })
+      );
+    } else {
+      notificationService.success("Section updated successfully");
+      
+      // Dispatch custom event to notify components that submission was updated
+      window.dispatchEvent(
+        new CustomEvent("niri-submission-updated", {
+          detail: {
+            submissionId: payload.submissionId,
+            category: payload.category,
+            section: payload.section,
+          },
+        })
+      );
+    }
     
     return result;
   } catch (error: any) {
