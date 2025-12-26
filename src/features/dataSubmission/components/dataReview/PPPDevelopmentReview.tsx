@@ -1792,6 +1792,33 @@ export const PPPDevelopmentReview = ({
   };
 
   // Helper to update section 3.4 summary fields
+  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  const calculatedTotalTPC = useMemo(() => {
+    const projects = formDataState?.section3_4?.projects || [];
+    const sum = projects.reduce((total: number, project: any) => {
+      const cost = project.totalProjectCost
+        ? parseFloat(String(project.totalProjectCost))
+        : 0;
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+    return sum.toFixed(2);
+  }, [formDataState?.section3_4?.projects]);
+
+  useEffect(() => {
+    // Only update if the calculated value is different from current value
+    const currentValue =
+      formDataState?.section3_4?.totalProjectCostAwarded || "";
+    if (currentValue !== calculatedTotalTPC) {
+      setFormDataState((prev: any) => ({
+        ...prev,
+        section3_4: {
+          ...prev?.section3_4,
+          totalProjectCostAwarded: calculatedTotalTPC,
+        },
+      }));
+    }
+  }, [calculatedTotalTPC, formDataState?.section3_4?.totalProjectCostAwarded]);
+
   const handleSection3_4FieldUpdate = (fieldName: string, value: any) => {
     setFormDataState((prev: any) => {
       return {
@@ -4656,44 +4683,29 @@ export const PPPDevelopmentReview = ({
                     Total of all TPC of all Projects (INR - values is in CRORES){" "}
                   </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
-                  {shouldBeEditable("3.4") ? (
-                    <div>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        value={state?.section3_4?.totalProjectCostAwarded || ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Only allow numbers and decimal point
-                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                            handleSection3_4FieldUpdate(
-                              "totalProjectCostAwarded",
-                              value
-                            );
-                          }
-                        }}
-                        className={
-                          getFieldError("section3_4.totalProjectCostAwarded")
-                            ? "bg-white border-red-500"
-                            : "bg-white"
-                        }
-                        placeholder="Enter total of all TPC"
-                      />
-                      {getFieldError("section3_4.totalProjectCostAwarded") && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {getFieldError("section3_4.totalProjectCostAwarded")}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <Input
-                      value={state?.section3_4?.totalProjectCostAwarded || ""}
-                      readOnly
-                      className="bg-gray-50"
-                    />
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={state?.section3_4?.totalProjectCostAwarded || ""}
+                    readOnly
+                    disabled
+                    className={cn(
+                      getFieldError("section3_4.totalProjectCostAwarded")
+                        ? "bg-gray-50 border-red-500 cursor-not-allowed"
+                        : "bg-gray-50 cursor-not-allowed"
+                    )}
+                    placeholder="Auto-calculated"
+                  />
+                  {getFieldError("section3_4.totalProjectCostAwarded") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getFieldError("section3_4.totalProjectCostAwarded")}
+                    </p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Automatically calculated from sum of all project costs
+                  </p>
                 </div>
               </div>
 
