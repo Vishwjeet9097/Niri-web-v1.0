@@ -28,6 +28,7 @@ import { apiService } from "@/services/api.service";
 import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
+import { getAllAssignedMinistryIds } from "@/services/ministry.service";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
@@ -147,6 +148,35 @@ export function UserForm({
   const [ministries, setMinistries] = React.useState<{ id: string; name: string }[]>([]);
   const [loadingMinistries, setLoadingMinistries] = React.useState(false);
   const [ministryError, setMinistryError] = React.useState<string | null>(null);
+
+  
+
+  // State to hold assigned ministry IDs
+  const [assignedMinistryIds, setAssignedMinistryIds] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Only fetch if role is MINISTRY_APPROVER (to avoid unnecessary API calls)
+    if (formData.role === "MINISTRY_APPROVER") {
+      (async () => {
+        try {
+          const result = await getAllAssignedMinistryIds();
+          if (typeof window !== 'undefined') {
+            console.log('[AssignedMinistryIds API Result]', result);
+          }
+          // Filter out falsy values (undefined, null, empty string, 0)
+          const filtered = Array.isArray(result) ? result.filter((id) => !!id && id !== "") : [];
+          setAssignedMinistryIds(filtered);
+        } catch (e) {
+          if (typeof window !== 'undefined') {
+            console.error('[AssignedMinistryIds API Error]', e);
+          }
+          setAssignedMinistryIds([]);
+        }
+      })();
+    } else {
+      setAssignedMinistryIds([]);
+    }
+  }, [formData.role]);
 
  
   // Auto-load ministries if initial role is MINISTRY_APPROVER
@@ -1887,11 +1917,31 @@ const handleStateChange = (values: string | string[]) => {
                 ) : ministryError ? (
                   <div className="p-2 text-destructive">{ministryError}</div>
                 ) : ministries.length > 0 ? (
-                  ministries.map((ministry) => (
-                    <SelectItem key={ministry.id} value={ministry.id}>
-                      {ministry.name}
-                    </SelectItem>
-                  ))
+                  ministries.map((ministry) => {
+                    // getAllAssignedMinistryIds should return an array of ministry IDs (strings or numbers)
+                    // Use assignedMinistryIds from state directly
+                    const assignedIds = assignedMinistryIds || [];
+                    if (typeof window !== 'undefined') {
+                      console.log('[Ministry Dropdown Debug]', {
+                        assignedIds,
+                        ministryId: ministry.id,
+                        ministryIdType: typeof ministry.id,
+                        assignedIdsTypes: assignedIds.map(id => typeof id),
+                        assignedIdsStr: assignedIds.map(id => String(id)),
+                        assignedIdsNum: assignedIds.map(id => Number(id)),
+                      });
+                    }
+                    // Try to match both as strings and as numbers for robustness
+                    const ministryIdStr = String(ministry.id);
+                    const isAssigned = assignedIds.some(
+                      (id) => String(id) === ministryIdStr || Number(id) === Number(ministry.id)
+                    );
+                    return (
+                      <SelectItem key={ministry.id} value={ministry.id} disabled={isAssigned}>
+                        {ministry.name}
+                      </SelectItem>
+                    );
+                  })
                 ) : (
                   <div className="p-2 text-muted-foreground">No ministries available</div>
                 )}
