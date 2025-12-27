@@ -49,6 +49,26 @@ export function UserManagementPage() {
   const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<string[]>([]);
 
   const { refresh } = useIndicatorAccess();
+
+   const [ministries, setMinistries] = useState<any[]>([]);
+    useEffect(() => {
+      apiService.get<any>("/ministries").then((result) => {
+        if (Array.isArray(result)) {
+          setMinistries(result);
+        } else if (result && Array.isArray(result.data)) {
+          setMinistries(result.data);
+        } else {
+          setMinistries([]);
+        }
+      });
+    }, []);
+  
+    // Helper to get ministry name by id
+    const getMinistryName = (id?: string) => {
+      if (!id) return "";
+      const ministry = ministries.find((m: any) => m.id === id);
+      return ministry ? ministry.name : "";
+    };
   
   // Check if state approver has submitted their form
   const { hasSubmission: stateApproverHasSubmission } = useUserSubmissionStatus();
@@ -70,7 +90,7 @@ export function UserManagementPage() {
       // Try to load from backend API first
       // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
       let backendUsers;
-      if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
+      if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" || user?.role === "MINISTRY_APPROVER") {
         // Admin and MOSPI Approver can see all users across all states
         // Debug logging removed for performance
 
@@ -103,12 +123,14 @@ export function UserManagementPage() {
             | "NODAL_OFFICER"
             | "STATE_APPROVER"
             | "MOSPI_REVIEWER"
-            | "MOSPI_APPROVER",
+            | "MOSPI_APPROVER"
+            | "MINISTRY_APPROVER",
           state: user.stateUt || user.state || "",
           stateId: user.stateId || "", // Will be set later when states are loaded
           assignedIndicator: user.assignedIndicator,
           assignedIndicators: user.assignedIndicators || [],
           isActive: user.isActive,
+          ministryId: user.ministryId,
           createdAt: new Date(user.createdAt).getTime(),
         })
       );
@@ -500,9 +522,11 @@ export function UserManagementPage() {
             | "NODAL_OFFICER"
             | "STATE_APPROVER"
             | "MOSPI_REVIEWER"
-            | "MOSPI_APPROVER",
+            | "MOSPI_APPROVER"
+            | "MINISTRY_APPROVER",
           indicatorCodes: officerData.assignedIndicators || [],
           stateUt: officerData.stateUt,
+          ministryId: officerData.ministryId,
           // Include assigned indicators in update payload with correct key
           // Note: email and stateUt are not included in update payload as they should not be changed
         } as any);
@@ -827,6 +851,7 @@ export function UserManagementPage() {
 
   // ✅ getStateNameById function removed - using stateId directly as state name
 
+  
   // Filter and sort officers
   const filteredOfficers = officers
     .filter((officer) => {
@@ -836,6 +861,7 @@ export function UserManagementPage() {
         officer.firstName.toLowerCase().includes(lowerSearch) ||
         officer.lastName.toLowerCase().includes(lowerSearch) ||
         officer.email.toLowerCase().includes(lowerSearch) ||
+        getMinistryName(officer.ministryId).toLowerCase().includes(lowerSearch) ||
         (officer.state && officer.state.toLowerCase().includes(lowerSearch)) ||
         (officer.stateId && officer.stateId.toLowerCase().includes(lowerSearch));
 
@@ -1134,7 +1160,7 @@ export function UserManagementPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search by name, email or state name..."
+            placeholder="Search by name, email or state name / Ministry name"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -1173,6 +1199,9 @@ export function UserManagementPage() {
                   </SelectItem>
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
+                  </SelectItem>
+                   <SelectItem value="MINISTRY_APPROVER">
+                    {getRoleDisplayName("MINISTRY_APPROVER")}
                   </SelectItem>
                   
                 </>

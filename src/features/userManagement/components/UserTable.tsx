@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -26,6 +26,7 @@ import { MoreVertical, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-rea
 import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
 import { getRoleDisplayName } from "@/utils/roles";
+import { apiService } from "@/services/api.service";
 
 interface UserTableProps {
   officers: NodalOfficer[];
@@ -89,6 +90,26 @@ export function UserTable({
     );
   };
 
+  const [ministries, setMinistries] = useState<any[]>([]);
+  useEffect(() => {
+    apiService.get<any>("/ministries").then((result) => {
+      if (Array.isArray(result)) {
+        setMinistries(result);
+      } else if (result && Array.isArray(result.data)) {
+        setMinistries(result.data);
+      } else {
+        setMinistries([]);
+      }
+    });
+  }, []);
+
+  // Helper to get ministry name by id
+  const getMinistryName = (id?: string) => {
+    if (!id) return "";
+    const ministry = ministries.find((m: any) => m.id === id);
+    return ministry ? ministry.name : "";
+  };
+
   return (
     <div className="border rounded-lg bg-card">
       <Table>
@@ -103,7 +124,7 @@ export function UserTable({
             <TableHead className="w-20 text-[#212121] text-xs font-semibold">S.no.</TableHead>
             <SortableHeader field="firstName">Officer Name</SortableHeader>
             <SortableHeader field="role">Role</SortableHeader>
-            <SortableHeader field="state">State/UT</SortableHeader>
+            <SortableHeader field="state">State UT/Ministry</SortableHeader>
             <TableHead className="text-[#212121] text-xs font-semibold">Contact Number</TableHead>
             <SortableHeader field="email">Email</SortableHeader>
             {/* <TableHead>Assigned Indicator</TableHead> */}
@@ -130,51 +151,14 @@ export function UserTable({
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.stateId || officer.state}</TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                {officer.stateId || officer.state}
+                {officer.ministryId && getMinistryName(officer.ministryId) &&
+                  `  ${getMinistryName(officer.ministryId)}`}
+              </TableCell>
               <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
               <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
-              {/* <TableCell>
-                {officer.assignedIndicator ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-primary text-primary-foreground">
-                      Assigned
-                    </Badge>
-                    <Select
-                      value={officer.assignedIndicator}
-                      onValueChange={(value) =>
-                        onAssignIndicator(officer.id, value)
-                      }
-                    >
-                      <SelectTrigger className="w-[140px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Indicator 1">Indicator 1</SelectItem>
-                        <SelectItem value="Indicator 2">Indicator 2</SelectItem>
-                        <SelectItem value="Indicator 3">Indicator 3</SelectItem>
-                        <SelectItem value="Indicator 4">Indicator 4</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <Select
-                    value=""
-                    onValueChange={(value) =>
-                      onAssignIndicator(officer.id, value)
-                    }
-                  >
-                    <SelectTrigger className="w-[180px] h-8">
-                      <SelectValue placeholder="Select Indicator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Indicator 1">Indicator 1</SelectItem>
-                      <SelectItem value="Indicator 2">Indicator 2</SelectItem>
-                      <SelectItem value="Indicator 3">Indicator 3</SelectItem>
-                      <SelectItem value="Indicator 4">Indicator 4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </TableCell> */}
+              {/* ...existing code... */}
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

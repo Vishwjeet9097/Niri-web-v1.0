@@ -144,10 +144,11 @@ export function UserForm({
   const [nodalHasSubmission, setNodalHasSubmission] = useState(false);
   const [checkingNodalSubmission, setCheckingNodalSubmission] = useState(false);
 
-  // Ministry dropdown state (for MINISTRY_APPROVER role)
   const [ministries, setMinistries] = React.useState<{ id: string; name: string }[]>([]);
   const [loadingMinistries, setLoadingMinistries] = React.useState(false);
   const [ministryError, setMinistryError] = React.useState<string | null>(null);
+
+ 
   // Auto-load ministries if initial role is MINISTRY_APPROVER
   useEffect(() => {
     if (formData.role === "MINISTRY_APPROVER") {
@@ -158,6 +159,7 @@ export function UserForm({
           let data = res?.data?.data || res?.data || res;
           if (Array.isArray(data)) {
             setMinistries(data);
+            // Do not auto-select the first ministry. Only set ministryId if not set and only for new user elsewhere.
           } else {
             setMinistries([]);
           }
@@ -171,6 +173,8 @@ export function UserForm({
         });
     }
   }, [formData.role]);
+
+  
 
   // State for API response
   const [availableIndicatorsForState, setAvailableIndicatorsForState] = useState<any[]>([]);
@@ -628,7 +632,7 @@ export function UserForm({
         password: "",
         role: officer.role || "NODAL_OFFICER",
         stateId: stateIds,
-        ministryId:  officer.ministryId || "",
+        ministryId: officer.ministryId || "",
         stateUt: uniqueStateNames.join(", "),
         assignedIndicators: (() => {
           if (Array.isArray(officer.assignedIndicators)) {
@@ -677,7 +681,10 @@ export function UserForm({
         try {
           const parsed = JSON.parse(savedFormData);
           if (parsed && parsed.data) {
-            setFormData(parsed.data);
+            setFormData({
+              ...parsed.data,
+              ministryId: parsed.data.ministryId !== undefined && parsed.data.ministryId !== "" ? parsed.data.ministryId : (officer?.ministryId || "")
+            });
           }
         } catch (e) {
           // If parsing fails, fall back to default
@@ -877,57 +884,9 @@ export function UserForm({
     return Object.keys(newErrors).length === 0;
   };
 
-  
-  
-   const handleSubmit1 = () => {
-  if (!validate()) return;
-
-  const normalizedStateId =
-    formData.role === "MOSPI_REVIEWER"
-      ? Array.isArray(formData.stateId)
-        ? formData.stateId.filter(Boolean)
-        : formData.stateId
-        ? [formData.stateId]
-        : []
-      : Array.isArray(formData.stateId)
-      ? [formData.stateId[0] ?? ""].filter(Boolean)
-      : formData.stateId
-      ? [formData.stateId]
-      : [];
-
-  const stateNames = normalizedStateId.map(
-    (id) => states.find((s) => s.id === id)?.name ?? id
-  );
-
-  const payload = {
-    ...formData,
-    stateUt: stateNames.join(", "),      // string for backend
-    stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
-    ministryId: formData.ministryId || "",
-  };
-    type SubmitPayload = Omit<
-  NodalOfficer,
-  "id" | "state" | "createdAt" | "assignedIndicator"
-> & {
-  password?: string;
-  assignedIndicators?: string[];
-  stateId?: string | string[];
-  stateUt?: string; // ✅ string, since we're joining 
-};
-
-  // Clear saved draft before saving
-  if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('userManagementFormDraft');
-  }
-
  
-  onSave(payload  as SubmitPayload); // Make sure onSave type includes stateUt
 
-   
-};
-
- const handleSubmit = async () => {
-  console.log('[UserForm] Save User button clicked');
+ const handleSubmit = async () => { 
   const isValid = validate();
   if (!isValid) {
     console.log('[UserForm] Validation failed:', errors);
@@ -1901,7 +1860,7 @@ const handleStateChange = (values: string | string[]) => {
               <span className="text-destructive">*</span>
             </Label>
             <Select
-              value={formData.ministryId || ''}
+              value={formData.ministryId !== undefined ? String(formData.ministryId) : ''}
               onValueChange={(value) => {
                 // Always coerce ministryId to string
                 let ministryIdValue = Array.isArray(value) ? (value[0] || '') : value;
