@@ -114,6 +114,7 @@ const App = () => (
                       allowedRoles={[
                         "STATE_APPROVER",
                         "MOSPI_APPROVER",
+                        "MINISTRY_APPROVER",
                         "ADMIN",
                       ]}
                     >

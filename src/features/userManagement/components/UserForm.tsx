@@ -217,7 +217,11 @@ export function UserForm({
 
   // Load ministries when role changes (MINISTRY_APPROVER or MOSPI_REVIEWER)
   React.useEffect(() => {
-    if (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") {
+    if (
+      formData.role === "MINISTRY_APPROVER" ||
+      formData.role === "MOSPI_REVIEWER" ||
+      user?.role === "MINISTRY_APPROVER"
+    ) {
       setLoadingMinistries(true);
       setMinistryError(null);
       apiService
@@ -239,7 +243,7 @@ export function UserForm({
       setMinistries([]);
       setMinistryError(null);
     }
-  }, [formData.role]);
+  }, [formData.role, user?.role]);
 
   // Compute available indicators for selected state (using backend API for real-time data)
   useEffect(() => {
@@ -1749,10 +1753,11 @@ const handleStateChange = (values: string | string[]) => {
             <p className="text-sm text-destructive">{errors.role}</p>
           )}
         </div>
+ 
 
- {/* State/UT Dropdown - hide if MINISTRY_APPROVER */}
-        {/* Hide state dropdown for MINISTRY_APPROVER, show ministry dropdown below */}
-        {(formData.role && formData.role !== "MINISTRY_APPROVER") && (
+  {/* State/UT Dropdown - hide if MINISTRY_APPROVER is logged in */}
+  {/* Hide state dropdown for MINISTRY_APPROVER login, show ministry dropdown below */}
+  {(formData.role && formData.role !== "MINISTRY_APPROVER" && user?.role !== "MINISTRY_APPROVER") && (
         <div className="space-y-2">
           {formData?.role !== "MOSPI_APPROVER" && formData?.role !== "ADMIN" && (<>
           <Label htmlFor="stateId" className="flex items-center gap-2">
@@ -1890,21 +1895,25 @@ const handleStateChange = (values: string | string[]) => {
           )}
         </div>
   )}
-  {/* Ministry Dropdown - show left side, aligned with State/UT, for MINISTRY_APPROVER */}
-        {(formData.role && (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER")) && (
+  {/* Ministry Dropdown - show for MINISTRY_APPROVER login or if assigning MINISTRY_APPROVER/MOSPI_REVIEWER role */}
+  {((formData.role && (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER")) || user?.role === "MINISTRY_APPROVER") && (
           <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
             <Label htmlFor="ministryId" className="flex items-center gap-2">
               Ministry
               <span className="text-destructive">*</span>
             </Label>
             <Select
-              value={formData.ministryId !== undefined ? String(formData.ministryId) : ''}
+              value={
+                user?.role === "MINISTRY_APPROVER"
+                  ? (user?.ministry || user?.ministryId || formData.ministryId || "")
+                  : (formData.ministryId !== undefined ? String(formData.ministryId) : "")
+              }
               onValueChange={(value) => {
                 // Always coerce ministryId to string
                 let ministryIdValue = Array.isArray(value) ? (value[0] || '') : value;
                 setFormData(prev => ({ ...prev, ministryId: ministryIdValue }));
               }}
-              disabled={loadingMinistries}
+              disabled={loadingMinistries || user?.role === "MINISTRY_APPROVER"}
             >
               <SelectTrigger className={ministryError || errors.ministryId ? "border-destructive" : ""}>
                 <SelectValue placeholder={
@@ -1955,23 +1964,136 @@ const handleStateChange = (values: string | string[]) => {
         )}
 
         {/* Indicator Assignment Section - Only for NODAL_OFFICER */}
-        {formData.role === "NODAL_OFFICER" && (
+        {formData.role === "NODAL_OFFICER" && user?.role !== "MINISTRY_APPROVER" && (
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
-              Assign Indicators
-              {/* <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      Select indicators that this Nodal Officer will be
-                      responsible for
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider> */}
+              Assign Indicators               
+            </Label>
+
+            {/* Warning if state approver has submitted */}
+            {stateApproverHasSubmission && officer && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> Indicator reassignment is disabled because you have already submitted your consolidated submission.
+                </p>
+              </div>
+            )}
+
+            {/* Warning if nodal officer has submitted */}
+            {nodalHasSubmission && officer && !stateApproverHasSubmission && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>Note:</strong> Indicator modification is disabled because this nodal officer has already submitted their submission. No indicator changes are allowed.
+                </p>
+              </div>
+            )}
+
+            {checkingNodalSubmission && (
+              <p className="text-sm text-muted-foreground">
+                Checking submission status...
+              </p>
+            )}
+
+            {/* Warning about submitted indicators - only show if at least one submitted indicator is present in the options list */}
+            {(() => {
+              // Check if any submitted indicators are actually present in the options list
+              const submittedInOptions = indicatorOptions.some(opt => 
+                effectiveSubmittedIndicators.includes(opt.value) && opt.disabled
+              );
+              return submittedInOptions;
+            })() && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Some indicators are disabled because they have already been submitted by the nodal officer in your state. These indicators cannot be reassigned to prevent duplicate submissions.
+                </p>
+              </div>
+            )}
+
+            <MultiSelect
+              options={indicatorOptions}
+              value={multiSelectValue}
+              onChange={handleIndicatorChange}
+              placeholder={
+                loadingIndicators
+                  ? "Loading indicators..."
+                  : "Search and select indicators..."
+              }
+              searchPlaceholder="Type to search indicators..."
+              showSearch={true}
+              showSelectAll={!loadingIndicators}
+              showSectionHeaders={true}
+              groupBySection={true}
+              className="w-full"
+              maxHeight="250px"
+              disabled={loadingIndicators || (stateApproverHasSubmission && !!officer) || (nodalHasSubmission && !!officer)}
+            />
+            {loadingIndicators && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Fetching available indicators...
+              </p>
+            )}
+
+            {errors.assignedIndicators && (
+              <p className="text-sm text-destructive">
+                {errors.assignedIndicators}
+              </p>
+            )}
+
+            {/* Selected Indicators Summary */}
+            {formData.assignedIndicators.length > 0 && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
+                    Selected ({formData.assignedIndicators.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {(showAllSelectedIndicators
+                    ? formData.assignedIndicators
+                    : formData.assignedIndicators.slice(0, 3)
+                  ).map((indicator, index) => (
+                    <Badge
+                      key={`indicator-${index}-${indicator}`}
+                      variant="secondary"
+                      className="text-xs bg-blue-100 text-blue-800"
+                    >
+                      {indicator}
+                    </Badge>
+                  ))}
+                  {formData.assignedIndicators.length > 3 &&
+                    !showAllSelectedIndicators && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSelectedIndicators(true)}
+                        className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                      >
+                        +{formData.assignedIndicators.length - 3} more
+                      </button>
+                    )}
+                  {showAllSelectedIndicators &&
+                    formData.assignedIndicators.length > 3 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSelectedIndicators(false)}
+                        className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                      >
+                        Show less
+                      </button>
+                    )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+
+        {/* Ministry Indicators */}
+
+         {user?.role == "MINISTRY_APPROVER" && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Ministry Assign Indicators               
             </Label>
 
             {/* Warning if state approver has submitted */}

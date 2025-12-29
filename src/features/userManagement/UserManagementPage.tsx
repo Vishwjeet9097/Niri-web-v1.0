@@ -1051,6 +1051,7 @@ export function UserManagementPage() {
   if (
     user?.role !== "STATE_APPROVER" &&
     user?.role !== "MOSPI_APPROVER" &&
+    user?.role !== "MINISTRY_APPROVER" &&
     user?.role !== "ADMIN"
   ) {
     return (
