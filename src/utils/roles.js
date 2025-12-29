@@ -42,6 +42,7 @@ export const MENU_CONFIG = [
       ROLES.MOSPI_REVIEWER,
       ROLES.MOSPI_APPROVER,
       ROLES.STATE_APPROVER,
+      ROLES.MINISTRY_APPROVER,
       ROLES.ADMIN, // Admin doesn't have dashboard access
     ],
     icon: "dashboard",
@@ -95,6 +96,7 @@ export const MENU_CONFIG = [
       ROLES.MOSPI_APPROVER,
       ROLES.MOSPI_REVIEWER,
       ROLES.STATE_APPROVER,
+      ROLES.MINISTRY_APPROVER,
       // ROLES.ADMIN, // Admin doesn't need ranking & scoring
     ],
     icon: "ranking",
@@ -107,6 +109,7 @@ export const MENU_CONFIG = [
       ROLES.MOSPI_APPROVER,
       ROLES.MOSPI_REVIEWER,
       ROLES.STATE_APPROVER,
+      ROLES.MINISTRY_APPROVER,
       ROLES.ADMIN,
     ],
     icon: "support",
@@ -120,6 +123,7 @@ export const MENU_CONFIG = [
       ROLES.MOSPI_REVIEWER,
       ROLES.ADMIN,
       ROLES.STATE_APPROVER,
+      ROLES.MINISTRY_APPROVER,
     ],
     icon: "settings",
   },
