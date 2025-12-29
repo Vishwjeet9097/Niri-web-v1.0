@@ -155,14 +155,12 @@ export function UserForm({
   const [assignedMinistryIds, setAssignedMinistryIds] = useState<any[]>([]);
 
   useEffect(() => {
-    // Only fetch if role is MINISTRY_APPROVER (to avoid unnecessary API calls)
-    if (formData.role === "MINISTRY_APPROVER") {
+    // Fetch assigned ministry IDs if role is MINISTRY_APPROVER or MOSPI_REVIEWER
+    if (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") {
       (async () => {
         try {
           const result = await getAllAssignedMinistryIds();
-          if (typeof window !== 'undefined') {
-            console.log('[AssignedMinistryIds API Result]', result);
-          }
+        
           // Filter out falsy values (undefined, null, empty string, 0)
           const filtered = Array.isArray(result) ? result.filter((id) => !!id && id !== "") : [];
           setAssignedMinistryIds(filtered);
@@ -179,9 +177,9 @@ export function UserForm({
   }, [formData.role]);
 
  
-  // Auto-load ministries if initial role is MINISTRY_APPROVER
+  // Auto-load ministries if initial role is MINISTRY_APPROVER or MOSPI_REVIEWER
   useEffect(() => {
-    if (formData.role === "MINISTRY_APPROVER") {
+    if (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") {
       setLoadingMinistries(true);
       setMinistryError(null);
       apiService.get("/ministries")
@@ -217,9 +215,9 @@ export function UserForm({
   const debouncedEmail = useDebounce(formData.email, 500);
   const debouncedContactNumber = useDebounce(formData.contactNumber, 500);
 
-  // Load ministries when role changes (MINISTRY_APPROVER)
+  // Load ministries when role changes (MINISTRY_APPROVER or MOSPI_REVIEWER)
   React.useEffect(() => {
-    if (formData.role === "MINISTRY_APPROVER") {
+    if (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") {
       setLoadingMinistries(true);
       setMinistryError(null);
       apiService
@@ -888,8 +886,8 @@ export function UserForm({
     // Indicator assignment is optional for NODAL_OFFICER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
-    // Ministry validation for MINISTRY_APPROVER
-    if (formData.role === "MINISTRY_APPROVER") {
+    // Ministry validation for MINISTRY_APPROVER and MOSPI_REVIEWER
+    if (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") {
       if (!formData.ministryId || formData.ministryId === "") {
         newErrors.ministryId = "Please select a ministry";
       }
@@ -917,6 +915,7 @@ export function UserForm({
  
 
  const handleSubmit = async () => { 
+  console.log('[UserForm] Save User button clicked');
   const isValid = validate();
   if (!isValid) {
     console.log('[UserForm] Validation failed:', errors);
@@ -1060,6 +1059,7 @@ export function UserForm({
 };
 
   try {
+    console.log('[UserForm] Calling onSave with payload:', payload);
     await onSave(payload as SubmitPayload);
     // Only clear form and draft if save succeeded
     setFormData(prev => ({
@@ -1079,6 +1079,7 @@ export function UserForm({
       sessionStorage.removeItem('userManagementFormDraft');
     }
   } catch (error) {
+    console.error('[UserForm] Error in onSave:', error);
     toast({
       title: "Save Failed",
       description: "Could not save user. Please try again.",
@@ -1883,7 +1884,7 @@ const handleStateChange = (values: string | string[]) => {
         </div>
   )}
   {/* Ministry Dropdown - show left side, aligned with State/UT, for MINISTRY_APPROVER */}
-        {(formData.role && formData.role === "MINISTRY_APPROVER") && (
+        {(formData.role && formData.role === "MINISTRY_APPROVER" ||  formData.role === "MOSPI_REVIEWER") && (
           <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
             <Label htmlFor="ministryId" className="flex items-center gap-2">
               Ministry
@@ -1921,16 +1922,6 @@ const handleStateChange = (values: string | string[]) => {
                     // getAllAssignedMinistryIds should return an array of ministry IDs (strings or numbers)
                     // Use assignedMinistryIds from state directly
                     const assignedIds = assignedMinistryIds || [];
-                    if (typeof window !== 'undefined') {
-                      console.log('[Ministry Dropdown Debug]', {
-                        assignedIds,
-                        ministryId: ministry.id,
-                        ministryIdType: typeof ministry.id,
-                        assignedIdsTypes: assignedIds.map(id => typeof id),
-                        assignedIdsStr: assignedIds.map(id => String(id)),
-                        assignedIdsNum: assignedIds.map(id => Number(id)),
-                      });
-                    }
                     // Try to match both as strings and as numbers for robustness
                     const ministryIdStr = String(ministry.id);
                     const isAssigned = assignedIds.some(

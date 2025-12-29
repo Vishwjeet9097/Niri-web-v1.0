@@ -21,16 +21,14 @@ class StatesService {
     }
 
     try {
-      console.log("🌍 Fetching states from API...");
-      const response = await fetch(`${config.apiBaseUrl}/states`);
+       const response = await fetch(`${config.apiBaseUrl}/states`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch states: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("🌍 States API Response:", data);
-
+ 
 
       // Handle different response formats
       let states: State[];
@@ -47,6 +45,19 @@ class StatesService {
       } else if (data.data && data.data.data && Array.isArray(data.data.data)) {
         // Nested API response: data.data.data is the array
         states = data.data.data.map((state: any, index: number) => ({
+          id: (index + 1).toString(),
+          name: state.value || state.label,
+          code: state.value || state.label,
+          isActive: true,
+        }));
+      } else if (
+        data.data &&
+        data.data.data &&
+        data.data.data.states &&
+        Array.isArray(data.data.data.states)
+      ) {
+        // Deeply nested API response: data.data.data.states is the array
+        states = data.data.data.states.map((state: any, index: number) => ({
           id: (index + 1).toString(),
           name: state.value || state.label,
           code: state.value || state.label,

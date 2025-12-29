@@ -2644,20 +2644,11 @@ export class ApiService {
   async getAllUsers(): Promise<NiriUser[]> {
     try {
       const response = await this.axios.get("/users");
-      console.log(
-        "🔍 API Service - Get All Users Response Status:",
-        response.status
-      );
-      console.log(
-        "🔍 API Service - Get All Users Response Data:",
-        response.data
-      );
 
       // Handle response.data.data pattern
       const usersData =
         response.data?.data !== undefined ? response.data.data : response.data;
-      console.log("🔍 API Service - Processed Get All Users Data:", usersData);
-
+ 
       return usersData;
     } catch (error: any) {
       // Handle 304 as success
