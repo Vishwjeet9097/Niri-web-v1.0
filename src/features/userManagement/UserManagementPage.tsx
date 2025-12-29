@@ -609,15 +609,7 @@ export function UserManagementPage() {
                 );
               }
             }
-
-            console.log("🔍 ADMIN - Using selected state for creation:", {
-              originalStateId: officerData.stateId,
-              selectedStateId: selectedStateId,
-              selectedStateName: selectedStateName,
-              stateIdType: typeof officerData.stateId,
-              stateIdLength: officerData.stateId.length,
-              isNumber: !isNaN(Number(officerData.stateId)),
-            });
+ 
           } else {
            // throw new Error("State selection is required for Admin");
           }
@@ -638,7 +630,7 @@ export function UserManagementPage() {
         const stateUtToSend = 
             selectedStateName || officerData.stateUt || selectedStateId || "";
  
-
+ 
          // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
           {
@@ -650,7 +642,7 @@ export function UserManagementPage() {
             role: officerData.role,
             stateUt: officerData.stateUt,
             stateId: selectedStateId,
-            ministryId: officerData?.ministryId ? String(officerData.ministryId) : undefined,
+            ministryId: officerData.ministryId ? String(officerData.ministryId) : "",
             indicatorCodes: officerData.assignedIndicators,
           }
         );

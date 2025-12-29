@@ -152,9 +152,21 @@ export function UserTable({
                 </Badge>
               </TableCell>
               <TableCell className="text-xs text-[#212121]">
-                {officer.stateId || officer.state}
-                {officer.ministryId && getMinistryName(officer.ministryId) &&
-                  `  ${getMinistryName(officer.ministryId)}`}
+                {/* MINISTRY_APPROVER: only ministry */}
+                {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                {/* STATE_APPROVER: only state */}
+                {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
+                {/* MOSPI_REVIEWER: state and ministry if both, else only state */}
+                {officer.role === "MOSPI_REVIEWER" && (
+                  <>
+                    {officer.stateId || officer.state}
+                    {officer.ministryId && getMinistryName(officer.ministryId)
+                      ? ` / ${getMinistryName(officer.ministryId)}`
+                      : ""}
+                  </>
+                )}
+                {/* fallback for other roles */}
+                {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
               </TableCell>
               <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
               <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>

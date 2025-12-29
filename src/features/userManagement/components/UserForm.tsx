@@ -652,6 +652,13 @@ export function UserForm({
         const found = states.find(s => s.id === id);
         return found ? found.name : id;
       })));
+
+      // Ensure stateId is always an array for MOSPI_REVIEWER
+      let stateIdValue: string | string[] = stateIds;
+      if (officer.role === "MOSPI_REVIEWER") {
+        stateIdValue = Array.isArray(stateIds) ? stateIds : stateIds ? [stateIds] : [];
+      }
+
       setFormData({
         firstName: officer.firstName || "",
         lastName: officer.lastName || "",
@@ -659,7 +666,7 @@ export function UserForm({
         email: officer.email || "",
         password: "",
         role: officer.role || "NODAL_OFFICER",
-        stateId: stateIds,
+        stateId: stateIdValue,
         ministryId: officer.ministryId || "",
         stateUt: uniqueStateNames.join(", "),
         assignedIndicators: (() => {
@@ -846,6 +853,7 @@ export function UserForm({
   }, [officer, states, formData.stateId]);
 
   const validate = () => {
+       
     const newErrors: Record<string, string> = {};
 
     if (!formData.firstName.trim()) {
@@ -1043,7 +1051,7 @@ export function UserForm({
     ...formData,
     stateUt: stateNames.join(", "), // always only the selected unique state(s)
     stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
-    ministryId: formData.ministryId || "",
+    ministryId: formData.ministryId ? String(formData.ministryId) : "",
   };
  
   
@@ -1058,8 +1066,7 @@ export function UserForm({
   stateUt?: string; // string joined for backend
 };
 
-  try {
-    console.log('[UserForm] Calling onSave with payload:', payload);
+  try { 
     await onSave(payload as SubmitPayload);
     // Only clear form and draft if save succeeded
     setFormData(prev => ({
@@ -1884,7 +1891,7 @@ const handleStateChange = (values: string | string[]) => {
         </div>
   )}
   {/* Ministry Dropdown - show left side, aligned with State/UT, for MINISTRY_APPROVER */}
-        {(formData.role && formData.role === "MINISTRY_APPROVER" ||  formData.role === "MOSPI_REVIEWER") && (
+        {(formData.role && (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER")) && (
           <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
             <Label htmlFor="ministryId" className="flex items-center gap-2">
               Ministry
