@@ -1,6 +1,3 @@
-
-
-
 import { apiService } from "./api.service";
 import { config } from "@/config/environment";
 
@@ -55,3 +52,14 @@ export async function getAllAssignedMinistryIds() {
 
 }
  
+// Fetch indicators for ministry form creation
+export async function getMinistryFormIndicators() {
+    try {
+        const url = getApiUrl("/ministry/form/create/indicators");
+        const response = await apiService.get(url, { withCredentials: true });
+        return response.data?.data || response.data || [];
+    } catch (error) {
+        console.error('[getMinistryFormIndicators] API Error:', error);
+        return [];
+    }
+}
