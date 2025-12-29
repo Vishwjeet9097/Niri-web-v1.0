@@ -102,6 +102,8 @@ export const PPPDevelopmentReview = ({
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [isIndicator1_1AcceptedState, setIsIndicator1_1AcceptedState] =
     useState<boolean | null>(null);
+  const [indicator1_1CapitalAllocation, setIndicator1_1CapitalAllocation] =
+    useState<string | null>(null);
 
   // Normalization function for PPP Development data
   const normalizePPPDevelopment = (data: any) => {
@@ -256,6 +258,77 @@ export const PPPDevelopmentReview = ({
     formDataState?.section3_4?.totalProjectCostAwarded,
   ]);
 
+  // Validate that totalProjectsAwarded matches indicator 1.1 capitalAllocation (STATE_APPROVER only)
+  useEffect(() => {
+    const userRole = getUserRole();
+    if (userRole !== "STATE_APPROVER") {
+      // Clear validation error for non-STATE_APPROVER users
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section3_4.totalProjectsAwarded"];
+        return updated;
+      });
+      return;
+    }
+
+    // Only validate if indicator 1.1 is accepted and capitalAllocation is available
+    // Use state directly instead of function to avoid dependency issues
+    if (!isIndicator1_1AcceptedState || !indicator1_1CapitalAllocation) {
+      // Clear validation error if indicator 1.1 is not accepted
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section3_4.totalProjectsAwarded"];
+        return updated;
+      });
+      return;
+    }
+
+    const currentValue = formDataState?.section3_4?.totalProjectsAwarded || "";
+    if (!currentValue) {
+      // Field is empty, don't show validation error yet (let normal validation handle it)
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section3_4.totalProjectsAwarded"];
+        return updated;
+      });
+      return;
+    }
+
+    // Compare values
+    const indicator1_1Value = parseFloat(
+      String(indicator1_1CapitalAllocation).trim()
+    );
+    const currentValueNum = parseFloat(String(currentValue).trim());
+
+    if (isNaN(indicator1_1Value) || isNaN(currentValueNum)) {
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section3_4.totalProjectsAwarded"];
+        return updated;
+      });
+      return;
+    }
+
+    if (indicator1_1Value !== currentValueNum) {
+      // Values don't match, show validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section3_4.totalProjectsAwarded": `This value must equal the Capital Allocation for FY (${indicator1_1CapitalAllocation} CRORES) from indicator 1.1`,
+      }));
+    } else {
+      // Values match, clear validation error
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section3_4.totalProjectsAwarded"];
+        return updated;
+      });
+    }
+  }, [
+    formDataState?.section3_4?.totalProjectsAwarded,
+    indicator1_1CapitalAllocation,
+    isIndicator1_1AcceptedState,
+  ]);
+
   // Fetch all submissions for the same state and check if indicator 1.1 is accepted in any of them
   useEffect(() => {
     const checkIndicator1_1AcrossSubmissions = async () => {
@@ -316,6 +389,9 @@ export const PPPDevelopmentReview = ({
 
         // Check each submission for indicator 1.1 acceptance
         for (const sub of sameStateSubmissions) {
+          let isAccepted = false;
+          let capitalAllocValue: string | null = null;
+
           // Check section_status first
           if (sub?.section_status && typeof sub.section_status === "object") {
             const sectionStatus = (sub.section_status as any)["section1_1"];
@@ -324,8 +400,7 @@ export const PPPDevelopmentReview = ({
                 "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in submission:",
                 sub.id
               );
-              setIsIndicator1_1AcceptedState(true);
-              return;
+              isAccepted = true;
             }
           }
 
@@ -339,8 +414,7 @@ export const PPPDevelopmentReview = ({
                 "✅ [isIndicator1_1Accepted] Found indicator 1.1 in completedIndicators for submission:",
                 sub.id
               );
-              setIsIndicator1_1AcceptedState(true);
-              return;
+              isAccepted = true;
             }
           }
 
@@ -356,9 +430,26 @@ export const PPPDevelopmentReview = ({
                 "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in formData for submission:",
                 sub.id
               );
-              setIsIndicator1_1AcceptedState(true);
-              return;
+              isAccepted = true;
             }
+
+            // Extract capitalAllocation value from accepted indicator 1.1
+            if (isAccepted && section1_1Data.capitalAllocation) {
+              capitalAllocValue = String(
+                section1_1Data.capitalAllocation
+              ).trim();
+              console.log(
+                "📊 [isIndicator1_1Accepted] Found capitalAllocation value:",
+                capitalAllocValue
+              );
+            }
+          }
+
+          // If indicator 1.1 is accepted, set state and return
+          if (isAccepted) {
+            setIsIndicator1_1AcceptedState(true);
+            setIndicator1_1CapitalAllocation(capitalAllocValue);
+            return;
           }
         }
 
@@ -387,6 +478,42 @@ export const PPPDevelopmentReview = ({
       return false;
     }
     return isIndicator1_1AcceptedState;
+  };
+
+  // Helper function to check if totalProjectsAwarded matches indicator 1.1 capitalAllocation
+  const doesCapitalAllocationMatch = (): boolean => {
+    // Only check at STATE_APPROVER level
+    const userRole = getUserRole();
+    if (userRole !== "STATE_APPROVER") {
+      return true; // No validation for other roles
+    }
+
+    // If indicator 1.1 is not accepted, don't validate
+    if (!isIndicator1_1Accepted()) {
+      return true;
+    }
+
+    // If capitalAllocation is not available, don't validate
+    if (!indicator1_1CapitalAllocation) {
+      return true;
+    }
+
+    const currentValue = formDataState?.section3_4?.totalProjectsAwarded || "";
+    if (!currentValue) {
+      return false; // Field is empty, doesn't match
+    }
+
+    // Compare values (normalize by removing leading zeros and comparing as numbers)
+    const indicator1_1Value = parseFloat(
+      String(indicator1_1CapitalAllocation).trim()
+    );
+    const currentValueNum = parseFloat(String(currentValue).trim());
+
+    if (isNaN(indicator1_1Value) || isNaN(currentValueNum)) {
+      return false;
+    }
+
+    return indicator1_1Value === currentValueNum;
   };
 
   // Clear valid field errors when validation passes
@@ -1059,14 +1186,17 @@ export const PPPDevelopmentReview = ({
     };
 
     const handleSubmissionUpdate = async (event: CustomEvent) => {
-      const { submissionId: eventSubmissionId, indicatorScore } = event.detail || {};
+      const { submissionId: eventSubmissionId, indicatorScore } =
+        event.detail || {};
       if (eventSubmissionId === submissionId) {
         // Add a small delay to ensure backend has processed the update
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Refresh complete submission data to get updated indicator scores
         try {
-          console.log("🔄 Refreshing submission data after indicator update...");
+          console.log(
+            "🔄 Refreshing submission data after indicator update..."
+          );
           const freshSubmission = await apiService.getSubmission(submissionId);
 
           if (freshSubmission) {
@@ -1080,10 +1210,16 @@ export const PPPDevelopmentReview = ({
               );
             }
 
-            console.log("✅ Fresh submission data loaded with updated indicator scores:", freshSubmission);
+            console.log(
+              "✅ Fresh submission data loaded with updated indicator scores:",
+              freshSubmission
+            );
           }
         } catch (error) {
-          console.error("❌ Failed to refresh submission data after update:", error);
+          console.error(
+            "❌ Failed to refresh submission data after update:",
+            error
+          );
         }
       }
     };
@@ -2559,7 +2695,8 @@ export const PPPDevelopmentReview = ({
           }
           // Find and update existing score or add new one
           const existingIndex = updated.indicatorScores.findIndex(
-            (score: any) => score.indicatorCode === saveResult.indicatorScore.indicatorCode
+            (score: any) =>
+              score.indicatorCode === saveResult.indicatorScore.indicatorCode
           );
           if (existingIndex >= 0) {
             updated.indicatorScores[existingIndex] = saveResult.indicatorScore;
@@ -3300,11 +3437,20 @@ export const PPPDevelopmentReview = ({
               // For STATE_APPROVER, check if indicator 1.1 is accepted before allowing acceptance of 3.4
               const isEditing = shouldBeEditable(sectionId);
               const isIndicator1_1AcceptedValue = isIndicator1_1Accepted();
-              const shouldDisableFor3_4 =
+              const capitalAllocationMatches = doesCapitalAllocationMatch();
+              const shouldDisableFor3_4_NotAccepted =
                 isStateApprover &&
                 sectionId === "3.4" &&
                 !isIndicator1_1AcceptedValue;
-              const isDisabled = isEditing || shouldDisableFor3_4;
+              const shouldDisableFor3_4_NotMatching =
+                isStateApprover &&
+                sectionId === "3.4" &&
+                isIndicator1_1AcceptedValue &&
+                !capitalAllocationMatches;
+              const isDisabled =
+                isEditing ||
+                shouldDisableFor3_4_NotAccepted ||
+                shouldDisableFor3_4_NotMatching;
 
               return (
                 <TooltipProvider>
@@ -3326,8 +3472,10 @@ export const PPPDevelopmentReview = ({
                     {isDisabled && (
                       <TooltipContent side="top" className="max-w-xs">
                         <p className="text-sm">
-                          {shouldDisableFor3_4
+                          {shouldDisableFor3_4_NotAccepted
                             ? "Indicator 1.1 must be accepted before accepting indicator 3.4"
+                            : shouldDisableFor3_4_NotMatching
+                            ? `Total Budgeted capital allocation must equal Capital Allocation for FY (${indicator1_1CapitalAllocation} CRORES) from indicator 1.1`
                             : isEditing
                             ? "Please save your changes before accepting"
                             : ""}
@@ -3705,11 +3853,20 @@ export const PPPDevelopmentReview = ({
             // For STATE_APPROVER, check if indicator 1.1 is accepted before allowing acceptance of 3.4
             const isEditing = shouldBeEditable(sectionId);
             const isIndicator1_1AcceptedValue = isIndicator1_1Accepted();
-            const shouldDisableFor3_4 =
+            const capitalAllocationMatches = doesCapitalAllocationMatch();
+            const shouldDisableFor3_4_NotAccepted =
               isStateApprover &&
               sectionId === "3.4" &&
               !isIndicator1_1AcceptedValue;
-            const isDisabled = isEditing || shouldDisableFor3_4;
+            const shouldDisableFor3_4_NotMatching =
+              isStateApprover &&
+              sectionId === "3.4" &&
+              isIndicator1_1AcceptedValue &&
+              !capitalAllocationMatches;
+            const isDisabled =
+              isEditing ||
+              shouldDisableFor3_4_NotAccepted ||
+              shouldDisableFor3_4_NotMatching;
 
             return (
               <TooltipProvider>
@@ -3731,8 +3888,10 @@ export const PPPDevelopmentReview = ({
                   {isDisabled && (
                     <TooltipContent side="top" className="max-w-xs">
                       <p className="text-sm">
-                        {shouldDisableFor3_4
+                        {shouldDisableFor3_4_NotAccepted
                           ? "Indicator 1.1 must be accepted before accepting indicator 3.4"
+                          : shouldDisableFor3_4_NotMatching
+                          ? `Total Budgeted capital allocation must equal Capital Allocation for FY (${indicator1_1CapitalAllocation} CRORES) from indicator 1.1`
                           : isEditing
                           ? "Please save your changes before accepting"
                           : ""}
