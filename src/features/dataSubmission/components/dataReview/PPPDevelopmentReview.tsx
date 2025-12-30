@@ -3961,6 +3961,7 @@ export const PPPDevelopmentReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="3.1"
           >
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
@@ -4090,6 +4091,7 @@ export const PPPDevelopmentReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="3.2"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("3.2")}
@@ -4239,6 +4241,7 @@ export const PPPDevelopmentReview = ({
               </div>
             }
             subtitle=""
+            indicatorCode="3.3"
             className="mb-6"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
@@ -5042,6 +5045,7 @@ export const PPPDevelopmentReview = ({
               </div>
             }
             subtitle=""
+            indicatorCode="3.4"
             className="mb-6"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}

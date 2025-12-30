@@ -790,18 +790,24 @@ export const InfraDevelopmentReview = ({
 
   // Handle cancel - restore original state
   const handleCancel = async (sectionId: string) => {
-    console.log(`[InfraDevelopmentReview] handleCancel called for section ${sectionId}`, {
-      hasSnapshot: !!originalFormDataSnapshot,
-      hasFormData: !!formData,
-    });
-    
+    console.log(
+      `[InfraDevelopmentReview] handleCancel called for section ${sectionId}`,
+      {
+        hasSnapshot: !!originalFormDataSnapshot,
+        hasFormData: !!formData,
+      }
+    );
+
     if (originalFormDataSnapshot) {
       isRestoringRef.current = true;
       // Create a fresh deep copy to ensure React detects the change
       const restoredState = JSON.parse(
         JSON.stringify(originalFormDataSnapshot)
       );
-      console.log(`[InfraDevelopmentReview] Restoring from snapshot for ${sectionId}:`, restoredState);
+      console.log(
+        `[InfraDevelopmentReview] Restoring from snapshot for ${sectionId}:`,
+        restoredState
+      );
       setFormDataState(restoredState);
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
@@ -835,7 +841,9 @@ export const InfraDevelopmentReview = ({
       isRestoringRef.current = true;
       (async () => {
         try {
-          console.log(`[InfraDevelopmentReview] No snapshot found, fetching fresh data for ${sectionId}`);
+          console.log(
+            `[InfraDevelopmentReview] No snapshot found, fetching fresh data for ${sectionId}`
+          );
           const freshSubmission = await apiService.getSubmission(submissionId);
           if (freshSubmission && (freshSubmission as any).formData) {
             const freshFormData = (freshSubmission as any).formData;
@@ -845,14 +853,20 @@ export const InfraDevelopmentReview = ({
               );
               // Create a fresh deep copy to ensure React detects the change
               const restoredState = JSON.parse(JSON.stringify(normalized));
-              console.log(`[InfraDevelopmentReview] Restored from fresh server data for ${sectionId}:`, restoredState);
+              console.log(
+                `[InfraDevelopmentReview] Restored from fresh server data for ${sectionId}:`,
+                restoredState
+              );
               setFormDataState(restoredState);
             } else if (formData) {
               // Fallback to formData prop if server fetch doesn't have the data
               const rawData = (formData as any)?.infraDevelopment || formData;
               const normalized = normalizeInfraDevelopment(rawData);
               const restoredState = JSON.parse(JSON.stringify(normalized));
-              console.log(`[InfraDevelopmentReview] Restored from formData prop for ${sectionId}:`, restoredState);
+              console.log(
+                `[InfraDevelopmentReview] Restored from formData prop for ${sectionId}:`,
+                restoredState
+              );
               setFormDataState(restoredState);
             }
           } else if (formData) {
@@ -860,11 +874,17 @@ export const InfraDevelopmentReview = ({
             const rawData = (formData as any)?.infraDevelopment || formData;
             const normalized = normalizeInfraDevelopment(rawData);
             const restoredState = JSON.parse(JSON.stringify(normalized));
-            console.log(`[InfraDevelopmentReview] Restored from formData prop for ${sectionId}:`, restoredState);
+            console.log(
+              `[InfraDevelopmentReview] Restored from formData prop for ${sectionId}:`,
+              restoredState
+            );
             setFormDataState(restoredState);
           }
         } catch (error) {
-          console.error(`[InfraDevelopmentReview] Error fetching fresh data for ${sectionId}:`, error);
+          console.error(
+            `[InfraDevelopmentReview] Error fetching fresh data for ${sectionId}:`,
+            error
+          );
           // Fallback to formData prop if fetch fails
           if (formData) {
             const rawData = (formData as any)?.infraDevelopment || formData;
@@ -872,7 +892,9 @@ export const InfraDevelopmentReview = ({
             const restoredState = JSON.parse(JSON.stringify(normalized));
             setFormDataState(restoredState);
           } else {
-            console.warn(`[InfraDevelopmentReview] No formData available to restore for ${sectionId}`);
+            console.warn(
+              `[InfraDevelopmentReview] No formData available to restore for ${sectionId}`
+            );
           }
         }
       })();
@@ -1013,11 +1035,14 @@ export const InfraDevelopmentReview = ({
     const existingArray = Array.isArray(currentSection?.infraActArray)
       ? currentSection.infraActArray.filter((item: any, index: number) => {
           // If idOrIndex is a number or starts with "item-", it's an index-based delete
-          const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+          const isIndexBased =
+            typeof idOrIndex === "number" ||
+            String(idOrIndex).startsWith("item-");
           if (isIndexBased) {
-            const targetIndex = typeof idOrIndex === 'number' 
-              ? idOrIndex 
-              : parseInt(String(idOrIndex).replace('item-', ''), 10);
+            const targetIndex =
+              typeof idOrIndex === "number"
+                ? idOrIndex
+                : parseInt(String(idOrIndex).replace("item-", ""), 10);
             return index !== targetIndex;
           } else {
             return item.id !== idOrIndex;
@@ -1044,11 +1069,14 @@ export const InfraDevelopmentReview = ({
       ? currentSection.specializedEntityArray.filter(
           (item: any, index: number) => {
             // If idOrIndex is a number or starts with "item-", it's an index-based delete
-            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            const isIndexBased =
+              typeof idOrIndex === "number" ||
+              String(idOrIndex).startsWith("item-");
             if (isIndexBased) {
-              const targetIndex = typeof idOrIndex === 'number' 
-                ? idOrIndex 
-                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              const targetIndex =
+                typeof idOrIndex === "number"
+                  ? idOrIndex
+                  : parseInt(String(idOrIndex).replace("item-", ""), 10);
               return index !== targetIndex;
             } else {
               return item.id !== idOrIndex;
@@ -1076,11 +1104,14 @@ export const InfraDevelopmentReview = ({
       ? currentSection.infraDevelopmentArray.filter(
           (item: any, index: number) => {
             // If idOrIndex is a number or starts with "item-", it's an index-based delete
-            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            const isIndexBased =
+              typeof idOrIndex === "number" ||
+              String(idOrIndex).startsWith("item-");
             if (isIndexBased) {
-              const targetIndex = typeof idOrIndex === 'number' 
-                ? idOrIndex 
-                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              const targetIndex =
+                typeof idOrIndex === "number"
+                  ? idOrIndex
+                  : parseInt(String(idOrIndex).replace("item-", ""), 10);
               return index !== targetIndex;
             } else {
               return item.id !== idOrIndex;
@@ -1176,14 +1207,23 @@ export const InfraDevelopmentReview = ({
         comment: "", // Clear comment - user should enter fresh comment for new "no" selection
         ...(currentStatus !== undefined ? { status: currentStatus } : {}),
       };
-      console.log(`[InfraDevelopmentReview] Clearing section 2.4 when switching to "no":`, updatedSection);
-      console.log(`[InfraDevelopmentReview] Previous formDataState.section2_4:`, formDataState?.section2_4);
+      console.log(
+        `[InfraDevelopmentReview] Clearing section 2.4 when switching to "no":`,
+        updatedSection
+      );
+      console.log(
+        `[InfraDevelopmentReview] Previous formDataState.section2_4:`,
+        formDataState?.section2_4
+      );
       setFormDataState((prev: any) => {
         const updated = {
           ...prev,
           [sectionKey]: updatedSection,
         };
-        console.log(`[InfraDevelopmentReview] Updated formDataState.section2_4:`, updated[sectionKey]);
+        console.log(
+          `[InfraDevelopmentReview] Updated formDataState.section2_4:`,
+          updated[sectionKey]
+        );
         // Also update submissionData to ensure document tab reflects the change
         setSubmissionData((prevSubmission: any) => {
           if (!prevSubmission) return prevSubmission;
@@ -1207,10 +1247,7 @@ export const InfraDevelopmentReview = ({
     }
 
     // Handle hasOverarchingPolicy changes for section 2.1
-    if (
-      sectionId === "2.1" &&
-      fieldName === "hasOverarchingPolicy"
-    ) {
+    if (sectionId === "2.1" && fieldName === "hasOverarchingPolicy") {
       if (value === "no") {
         // When switching to "no", clear infraActArray
         setShowAddForm2_1(false);
@@ -1223,8 +1260,14 @@ export const InfraDevelopmentReview = ({
           infraActArray: [], // Clear the array
           ...(currentStatus !== undefined ? { status: currentStatus } : {}),
         };
-        console.log(`[InfraDevelopmentReview] Clearing section 2.1 when switching to "no":`, updatedSection);
-        console.log(`[InfraDevelopmentReview] Previous formDataState.section2_1:`, formDataState?.section2_1);
+        console.log(
+          `[InfraDevelopmentReview] Clearing section 2.1 when switching to "no":`,
+          updatedSection
+        );
+        console.log(
+          `[InfraDevelopmentReview] Previous formDataState.section2_1:`,
+          formDataState?.section2_1
+        );
         setFormDataState((prev: any) => {
           const updated = {
             ...prev,
@@ -1233,8 +1276,14 @@ export const InfraDevelopmentReview = ({
               hasOverarchingPolicy: "no", // Explicitly ensure it's set to "no"
             },
           };
-          console.log(`[InfraDevelopmentReview] Updated formDataState.section2_1:`, updated[sectionKey]);
-          console.log(`[InfraDevelopmentReview] hasOverarchingPolicy value:`, updated[sectionKey]?.hasOverarchingPolicy);
+          console.log(
+            `[InfraDevelopmentReview] Updated formDataState.section2_1:`,
+            updated[sectionKey]
+          );
+          console.log(
+            `[InfraDevelopmentReview] hasOverarchingPolicy value:`,
+            updated[sectionKey]?.hasOverarchingPolicy
+          );
           // Also update submissionData to ensure document tab reflects the change
           setSubmissionData((prevSubmission: any) => {
             if (!prevSubmission) return prevSubmission;
@@ -1261,10 +1310,12 @@ export const InfraDevelopmentReview = ({
         // When switching to "yes", clear all existing files and start fresh with one empty entry
         setShowAddForm2_1(false);
         setNewEntry2_1({ sector: "", files: [] });
-        
+
         // Start with a fresh array with one entry that has sector "Overarching" but no files
-        const updatedArray = [{ id: crypto.randomUUID(), sector: "Overarching", files: [] }];
-        
+        const updatedArray = [
+          { id: crypto.randomUUID(), sector: "Overarching", files: [] },
+        ];
+
         const updatedSection = {
           ...(currentSection && !Array.isArray(currentSection)
             ? currentSection
@@ -1273,7 +1324,10 @@ export const InfraDevelopmentReview = ({
           infraActArray: updatedArray, // Fresh array with one empty entry
           ...(currentStatus !== undefined ? { status: currentStatus } : {}),
         };
-        console.log(`[InfraDevelopmentReview] Setting section 2.1 to "yes" - clearing files and starting fresh:`, updatedSection);
+        console.log(
+          `[InfraDevelopmentReview] Setting section 2.1 to "yes" - clearing files and starting fresh:`,
+          updatedSection
+        );
         setFormDataState((prev: any) => {
           const updated = {
             ...prev,
@@ -1282,7 +1336,10 @@ export const InfraDevelopmentReview = ({
               hasOverarchingPolicy: "yes", // Explicitly ensure it's set to "yes"
             },
           };
-          console.log(`[InfraDevelopmentReview] hasOverarchingPolicy value:`, updated[sectionKey]?.hasOverarchingPolicy);
+          console.log(
+            `[InfraDevelopmentReview] hasOverarchingPolicy value:`,
+            updated[sectionKey]?.hasOverarchingPolicy
+          );
           // Also update submissionData
           setSubmissionData((prevSubmission: any) => {
             if (!prevSubmission) return prevSubmission;
@@ -1328,7 +1385,10 @@ export const InfraDevelopmentReview = ({
         comment: "", // Clear comment - user should enter fresh comment for new "no" selection
         ...(currentStatus !== undefined ? { status: currentStatus } : {}),
       };
-      console.log(`[InfraDevelopmentReview] Clearing section 2.3 when switching to "no":`, updatedSection);
+      console.log(
+        `[InfraDevelopmentReview] Clearing section 2.3 when switching to "no":`,
+        updatedSection
+      );
       setFormDataState((prev: any) => {
         const updated = {
           ...prev,
@@ -1365,16 +1425,19 @@ export const InfraDevelopmentReview = ({
       setNewEntry2_2({ sector: "", files: [] });
       // Clear specializedEntityArray and comment when switching to "no"
       // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
-    const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection)
-        ? currentSection
-        : {}),
-      [fieldName]: value,
+      const updatedSection = {
+        ...(currentSection && !Array.isArray(currentSection)
+          ? currentSection
+          : {}),
+        [fieldName]: value,
         specializedEntityArray: [], // Clear the array (which contains files)
         comment: "", // Clear comment - user should enter fresh comment for new "no" selection
         ...(currentStatus !== undefined ? { status: currentStatus } : {}),
       };
-      console.log(`[InfraDevelopmentReview] Clearing section 2.2 when switching to "no":`, updatedSection);
+      console.log(
+        `[InfraDevelopmentReview] Clearing section 2.2 when switching to "no":`,
+        updatedSection
+      );
       setFormDataState((prev: any) => {
         const updated = {
           ...prev,
@@ -1407,10 +1470,10 @@ export const InfraDevelopmentReview = ({
       // When switching to "yes", clear all existing files and start fresh
       setShowAddForm2_2(false);
       setNewEntry2_2({ sector: "", files: [] });
-      
+
       // Start with a fresh array (empty, user will add entries)
       const updatedArray: any[] = [];
-      
+
       const updatedSection = {
         ...(currentSection && !Array.isArray(currentSection)
           ? currentSection
@@ -1420,7 +1483,10 @@ export const InfraDevelopmentReview = ({
         comment: "", // Clear comment when switching to "yes"
         ...(currentStatus !== undefined ? { status: currentStatus } : {}),
       };
-      console.log(`[InfraDevelopmentReview] Setting section 2.2 to "yes" - clearing files and starting fresh:`, updatedSection);
+      console.log(
+        `[InfraDevelopmentReview] Setting section 2.2 to "yes" - clearing files and starting fresh:`,
+        updatedSection
+      );
       setFormDataState((prev: any) => {
         const updated = {
           ...prev,
@@ -1429,7 +1495,10 @@ export const InfraDevelopmentReview = ({
             hasSpecializedEntity: "yes", // Explicitly ensure it's set to "yes"
           },
         };
-        console.log(`[InfraDevelopmentReview] hasSpecializedEntity value:`, updated[sectionKey]?.hasSpecializedEntity);
+        console.log(
+          `[InfraDevelopmentReview] hasSpecializedEntity value:`,
+          updated[sectionKey]?.hasSpecializedEntity
+        );
         // Also update submissionData
         setSubmissionData((prevSubmission: any) => {
           if (!prevSubmission) return prevSubmission;
@@ -1475,11 +1544,14 @@ export const InfraDevelopmentReview = ({
       ? currentSection.investmentReadyArray.filter(
           (item: any, index: number) => {
             // If idOrIndex is a number or starts with "item-", it's an index-based delete
-            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            const isIndexBased =
+              typeof idOrIndex === "number" ||
+              String(idOrIndex).startsWith("item-");
             if (isIndexBased) {
-              const targetIndex = typeof idOrIndex === 'number' 
-                ? idOrIndex 
-                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              const targetIndex =
+                typeof idOrIndex === "number"
+                  ? idOrIndex
+                  : parseInt(String(idOrIndex).replace("item-", ""), 10);
               return index !== targetIndex;
             } else {
               return item.id !== idOrIndex;
@@ -1507,11 +1579,14 @@ export const InfraDevelopmentReview = ({
       ? currentSection.assetMonetizationArray.filter(
           (item: any, index: number) => {
             // If idOrIndex is a number or starts with "item-", it's an index-based delete
-            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            const isIndexBased =
+              typeof idOrIndex === "number" ||
+              String(idOrIndex).startsWith("item-");
             if (isIndexBased) {
-              const targetIndex = typeof idOrIndex === 'number' 
-                ? idOrIndex 
-                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              const targetIndex =
+                typeof idOrIndex === "number"
+                  ? idOrIndex
+                  : parseInt(String(idOrIndex).replace("item-", ""), 10);
               return index !== targetIndex;
             } else {
               return item.id !== idOrIndex;
@@ -1701,7 +1776,7 @@ export const InfraDevelopmentReview = ({
         hasOverarchingPolicy,
       });
     } else {
-    ensureArraySection("section2_1", "infraActArray", mapFilesArray);
+      ensureArraySection("section2_1", "infraActArray", mapFilesArray);
     }
     // Special handling for section2_2 to preserve hasSpecializedEntity and comment
     if (normalized.section2_2) {
@@ -1738,7 +1813,7 @@ export const InfraDevelopmentReview = ({
         comment,
       });
     } else {
-    ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
+      ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
     }
     ensureArraySection("section2_3", "infraDevelopmentArray", mapFilesArray);
 
@@ -1805,12 +1880,17 @@ export const InfraDevelopmentReview = ({
       console.log("🔍 [REVIEW STATE] section2_1 in formDataState:", {
         section2_1: formDataState?.section2_1,
         hasOverarchingPolicy: formDataState?.section2_1?.hasOverarchingPolicy,
-        infraActArrayLength: Array.isArray(formDataState?.section2_1?.infraActArray)
+        infraActArrayLength: Array.isArray(
+          formDataState?.section2_1?.infraActArray
+        )
           ? formDataState.section2_1.infraActArray.length
           : 0,
       });
     }
-  }, [formDataState?.section2_1?.hasOverarchingPolicy, formDataState?.section2_1?.infraActArray]);
+  }, [
+    formDataState?.section2_1?.hasOverarchingPolicy,
+    formDataState?.section2_1?.infraActArray,
+  ]);
 
   // 🔍 DEBUG: Log state for section2_4
   useEffect(() => {
@@ -1904,14 +1984,17 @@ export const InfraDevelopmentReview = ({
     };
 
     const handleSubmissionUpdate = async (event: CustomEvent) => {
-      const { submissionId: eventSubmissionId, indicatorScore } = event.detail || {};
+      const { submissionId: eventSubmissionId, indicatorScore } =
+        event.detail || {};
       if (eventSubmissionId === submissionId) {
         // Add a small delay to ensure backend has processed the update
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Refresh complete submission data to get updated indicator scores
         try {
-          console.log("🔄 Refreshing submission data after indicator update...");
+          console.log(
+            "🔄 Refreshing submission data after indicator update..."
+          );
           const freshSubmission = await apiService.getSubmission(submissionId);
 
           if (freshSubmission) {
@@ -1921,14 +2004,22 @@ export const InfraDevelopmentReview = ({
             // Update form data with fresh data
             if (freshSubmission.formData?.infraDevelopment) {
               setFormDataState(
-                normalizeInfraDevelopment(freshSubmission.formData.infraDevelopment)
+                normalizeInfraDevelopment(
+                  freshSubmission.formData.infraDevelopment
+                )
               );
             }
 
-            console.log("✅ Fresh submission data loaded with updated indicator scores:", freshSubmission);
+            console.log(
+              "✅ Fresh submission data loaded with updated indicator scores:",
+              freshSubmission
+            );
           }
         } catch (error) {
-          console.error("❌ Failed to refresh submission data after update:", error);
+          console.error(
+            "❌ Failed to refresh submission data after update:",
+            error
+          );
         }
       }
     };
@@ -1959,44 +2050,65 @@ export const InfraDevelopmentReview = ({
   // This ensures we remember sections even if they're removed from formData after deletion
   // Once a section is marked as submitted, it stays in the set (never removed)
   const initiallySubmittedSections = useRef<Set<string>>(new Set());
-  
+
   useEffect(() => {
     // Check which sections were submitted and add them to the set
     // This runs on mount and when formData/submission changes
     // We only ADD sections, never remove them (once submitted, always submitted)
-    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const allPossibleSections = [
+      "section2_1",
+      "section2_2",
+      "section2_3",
+      "section2_4",
+      "section2_5",
+    ];
     allPossibleSections.forEach((sectionKey) => {
       // Skip if already marked as submitted
       if (initiallySubmittedSections.current.has(sectionKey)) {
         return;
       }
-      
+
       // Check submission.section_status first (most reliable)
       let wasSubmitted = false;
-      if (submission?.section_status && typeof submission.section_status === "object") {
+      if (
+        submission?.section_status &&
+        typeof submission.section_status === "object"
+      ) {
         const sectionStatus = (submission.section_status as any)[sectionKey];
-        if (sectionStatus && 
-            sectionStatus !== "NOT_STARTED" && 
-            sectionStatus !== null && 
-            sectionStatus !== undefined) {
+        if (
+          sectionStatus &&
+          sectionStatus !== "NOT_STARTED" &&
+          sectionStatus !== null &&
+          sectionStatus !== undefined
+        ) {
           wasSubmitted = true;
         }
       }
-      
+
       // Also check if section exists in formData
       if (!wasSubmitted && formData && typeof formData === "object") {
         const infraDev = (formData as any).infraDevelopment;
-        if (infraDev && typeof infraDev === "object" && infraDev[sectionKey] !== undefined && infraDev[sectionKey] !== null) {
+        if (
+          infraDev &&
+          typeof infraDev === "object" &&
+          infraDev[sectionKey] !== undefined &&
+          infraDev[sectionKey] !== null
+        ) {
           wasSubmitted = true;
         }
       }
-      
+
       if (wasSubmitted) {
         initiallySubmittedSections.current.add(sectionKey);
-        console.log(`[InfraDevelopmentReview] Marking ${sectionKey} as submitted`);
+        console.log(
+          `[InfraDevelopmentReview] Marking ${sectionKey} as submitted`
+        );
       }
     });
-    console.log(`[InfraDevelopmentReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+    console.log(
+      `[InfraDevelopmentReview] Submitted sections set:`,
+      Array.from(initiallySubmittedSections.current)
+    );
   }, [formData, submission]); // Run when formData or submission changes
 
   // Track which sections are currently in edit mode - call isEditable for all sections to track changes
@@ -2012,92 +2124,119 @@ export const InfraDevelopmentReview = ({
   }, [isEditable]);
 
   const editableSections = useMemo(() => {
-    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const allPossibleSections = [
+      "section2_1",
+      "section2_2",
+      "section2_3",
+      "section2_4",
+      "section2_5",
+    ];
     const sectionIdMap: Record<string, string> = {
-      "section2_1": "2.1",
-      "section2_2": "2.2",
-      "section2_3": "2.3",
-      "section2_4": "2.4",
-      "section2_5": "2.5",
+      section2_1: "2.1",
+      section2_2: "2.2",
+      section2_3: "2.3",
+      section2_4: "2.4",
+      section2_5: "2.5",
     };
     return allPossibleSections.filter((sectionKey) => {
       const sectionId = sectionIdMap[sectionKey];
-      return sectionId ? editModeState[sectionId as keyof typeof editModeState] : false;
+      return sectionId
+        ? editModeState[sectionId as keyof typeof editModeState]
+        : false;
     });
   }, [editModeState]);
 
   // Check if this section has any data
   const hasData = hasInfraDevelopmentData({ infraDevelopment: state });
-  
+
   // Helper function to check if a section was previously submitted/saved
   // Uses initiallySubmittedSections ref (set on mount) as the source of truth
   // Also checks current submission.section_status and edit mode as fallbacks
-  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
-    // Map sectionKey to sectionId for edit mode check
-    const sectionIdMap: Record<string, string> = {
-      "section2_1": "2.1",
-      "section2_2": "2.2",
-      "section2_3": "2.3",
-      "section2_4": "2.4",
-      "section2_5": "2.5",
-    };
-    const sectionId = sectionIdMap[sectionKey];
-    
-    // PRIORITY 1: Check if section was marked as initially submitted on mount
-    // This is the most reliable as it captures the state when component first loaded
-    if (initiallySubmittedSections.current.has(sectionKey)) {
-      console.log(`[InfraDevelopmentReview] ${sectionKey} was initially submitted (from ref)`);
-      return true;
-    }
-    
-    // PRIORITY 2: Check if section is currently editable - if it's editable, it was previously submitted
-    // You can only edit sections that were already submitted
-    if (sectionId && isEditable(sectionId)) {
-      console.log(`[InfraDevelopmentReview] ${sectionKey} is currently editable, marking as previously submitted`);
-      // Add to ref for future checks
-      initiallySubmittedSections.current.add(sectionKey);
-      return true;
-    }
-    
-    // PRIORITY 3: Check submission.section_status - this is also reliable
-    // This persists even if section data is removed after deletion
-    if (submission?.section_status && typeof submission.section_status === "object") {
-      const sectionStatus = (submission.section_status as any)[sectionKey];
-      if (sectionStatus && 
-          sectionStatus !== "NOT_STARTED" && 
-          sectionStatus !== null && 
-          sectionStatus !== undefined) {
-        console.log(`[InfraDevelopmentReview] ${sectionKey} has submitted status in submission.section_status:`, sectionStatus);
+  const wasSectionPreviouslySubmitted = useCallback(
+    (sectionKey: string): boolean => {
+      // Map sectionKey to sectionId for edit mode check
+      const sectionIdMap: Record<string, string> = {
+        section2_1: "2.1",
+        section2_2: "2.2",
+        section2_3: "2.3",
+        section2_4: "2.4",
+        section2_5: "2.5",
+      };
+      const sectionId = sectionIdMap[sectionKey];
+
+      // PRIORITY 1: Check if section was marked as initially submitted on mount
+      // This is the most reliable as it captures the state when component first loaded
+      if (initiallySubmittedSections.current.has(sectionKey)) {
+        console.log(
+          `[InfraDevelopmentReview] ${sectionKey} was initially submitted (from ref)`
+        );
+        return true;
+      }
+
+      // PRIORITY 2: Check if section is currently editable - if it's editable, it was previously submitted
+      // You can only edit sections that were already submitted
+      if (sectionId && isEditable(sectionId)) {
+        console.log(
+          `[InfraDevelopmentReview] ${sectionKey} is currently editable, marking as previously submitted`
+        );
         // Add to ref for future checks
         initiallySubmittedSections.current.add(sectionKey);
         return true;
       }
-    }
-    
-    // PRIORITY 4: Check original formData prop (from backend) - fallback check
-    // formData comes from the backend and represents what was actually submitted
-    const infraDevFromFormData = formData && 
-      typeof formData === "object" && 
-      (formData as any).infraDevelopment 
-      ? (formData as any).infraDevelopment 
-      : null;
-    
-    // Check if section exists in formData.infraDevelopment (original from backend)
-    // Even if the section object is empty {}, it still means the section was submitted
-    const inFormData = infraDevFromFormData && 
-      typeof infraDevFromFormData === "object" && 
-      (infraDevFromFormData as any)[sectionKey] !== undefined &&
-      (infraDevFromFormData as any)[sectionKey] !== null;
-    
-    if (inFormData) {
-      console.log(`[InfraDevelopmentReview] ${sectionKey} exists in formData`);
-      // Add to ref for future checks
-      initiallySubmittedSections.current.add(sectionKey);
-      return true;
-    }
-    
-    return false;
-  }, [formData, submission, isEditable]);
+
+      // PRIORITY 3: Check submission.section_status - this is also reliable
+      // This persists even if section data is removed after deletion
+      if (
+        submission?.section_status &&
+        typeof submission.section_status === "object"
+      ) {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (
+          sectionStatus &&
+          sectionStatus !== "NOT_STARTED" &&
+          sectionStatus !== null &&
+          sectionStatus !== undefined
+        ) {
+          console.log(
+            `[InfraDevelopmentReview] ${sectionKey} has submitted status in submission.section_status:`,
+            sectionStatus
+          );
+          // Add to ref for future checks
+          initiallySubmittedSections.current.add(sectionKey);
+          return true;
+        }
+      }
+
+      // PRIORITY 4: Check original formData prop (from backend) - fallback check
+      // formData comes from the backend and represents what was actually submitted
+      const infraDevFromFormData =
+        formData &&
+        typeof formData === "object" &&
+        (formData as any).infraDevelopment
+          ? (formData as any).infraDevelopment
+          : null;
+
+      // Check if section exists in formData.infraDevelopment (original from backend)
+      // Even if the section object is empty {}, it still means the section was submitted
+      const inFormData =
+        infraDevFromFormData &&
+        typeof infraDevFromFormData === "object" &&
+        (infraDevFromFormData as any)[sectionKey] !== undefined &&
+        (infraDevFromFormData as any)[sectionKey] !== null;
+
+      if (inFormData) {
+        console.log(
+          `[InfraDevelopmentReview] ${sectionKey} exists in formData`
+        );
+        // Add to ref for future checks
+        initiallySubmittedSections.current.add(sectionKey);
+        return true;
+      }
+
+      return false;
+    },
+    [formData, submission, isEditable]
+  );
 
   // Wrap sectionsWithData computation in useMemo to ensure it updates when edit mode changes
   const sectionsWithData = useMemo(() => {
@@ -2108,22 +2247,40 @@ export const InfraDevelopmentReview = ({
 
     // ALWAYS include sections that were previously submitted, even if they have no data now
     // This ensures submitted indicators never disappear from the UI
-    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
-    const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
-      const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
-      console.log(`[InfraDevelopmentReview] sectionsWithData - ${sectionKey} wasPreviouslySubmitted:`, wasSubmitted);
-      return wasSubmitted;
-    });
-    
-    console.log(`[InfraDevelopmentReview] sectionsWithData - previouslySubmittedSections:`, previouslySubmittedSections);
-    console.log(`[InfraDevelopmentReview] sectionsWithData - result before merge:`, result);
-    
-    // Merge previously submitted sections with result
-    result = Array.from(
-      new Set([...result, ...previouslySubmittedSections])
+    const allPossibleSections = [
+      "section2_1",
+      "section2_2",
+      "section2_3",
+      "section2_4",
+      "section2_5",
+    ];
+    const previouslySubmittedSections = allPossibleSections.filter(
+      (sectionKey) => {
+        const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
+        console.log(
+          `[InfraDevelopmentReview] sectionsWithData - ${sectionKey} wasPreviouslySubmitted:`,
+          wasSubmitted
+        );
+        return wasSubmitted;
+      }
     );
-    
-    console.log(`[InfraDevelopmentReview] sectionsWithData - result after merge:`, result);
+
+    console.log(
+      `[InfraDevelopmentReview] sectionsWithData - previouslySubmittedSections:`,
+      previouslySubmittedSections
+    );
+    console.log(
+      `[InfraDevelopmentReview] sectionsWithData - result before merge:`,
+      result
+    );
+
+    // Merge previously submitted sections with result
+    result = Array.from(new Set([...result, ...previouslySubmittedSections]));
+
+    console.log(
+      `[InfraDevelopmentReview] sectionsWithData - result after merge:`,
+      result
+    );
 
     // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
     // This ensures assigned indicators are visible in preview, regardless of data presence
@@ -2152,202 +2309,224 @@ export const InfraDevelopmentReview = ({
       result = [...result, ...assignedSectionKeys];
     }
 
-  // Helper function to check if a section has meaningful data
-  const sectionHasMeaningfulData = (
-    sectionKey: string,
-    section: any
-  ): boolean => {
-    if (!section) return false;
+    // Helper function to check if a section has meaningful data
+    const sectionHasMeaningfulData = (
+      sectionKey: string,
+      section: any
+    ): boolean => {
+      if (!section) return false;
 
-    switch (sectionKey) {
-      case "section2_1": {
-        const items = Array.isArray(section?.infraActArray)
-          ? section.infraActArray
-          : [];
-        return (
-          items.length > 0 &&
-          items.some(
-            (item: any) =>
-              item?.sector?.trim() ||
-              (item?.files &&
-                Array.isArray(item.files) &&
-                item.files.length > 0)
-          )
-        );
-      }
-      case "section2_2": {
-        const items = Array.isArray(section?.specializedEntityArray)
-          ? section.specializedEntityArray
-          : [];
-        return (
-          items.length > 0 &&
-          items.some(
-            (item: any) =>
-              item?.sector?.trim() ||
-              (item?.files &&
-                Array.isArray(item.files) &&
-                item.files.length > 0)
-          )
-        );
-      }
-      case "section2_3": {
-        // Check if hasInfraDevelopmentPlan or comment is set
-        if (section?.hasInfraDevelopmentPlan || section?.comment?.trim()) {
-          return true;
+      switch (sectionKey) {
+        case "section2_1": {
+          const items = Array.isArray(section?.infraActArray)
+            ? section.infraActArray
+            : [];
+          return (
+            items.length > 0 &&
+            items.some(
+              (item: any) =>
+                item?.sector?.trim() ||
+                (item?.files &&
+                  Array.isArray(item.files) &&
+                  item.files.length > 0)
+            )
+          );
         }
-        // Check array data
-        const items = Array.isArray(section?.infraDevelopmentArray)
-          ? section.infraDevelopmentArray
-          : [];
-        return (
-          items.length > 0 &&
-          items.some(
-            (item: any) =>
-              item?.sector?.trim() ||
-              (item?.files &&
-                Array.isArray(item.files) &&
-                item.files.length > 0)
-          )
-        );
-      }
-      case "section2_4": {
-        // Check if hasInvestmentReady, comment, or websiteLink is set
-        if (
-          section?.hasInvestmentReady ||
-          section?.comment?.trim() ||
-          section?.websiteLink?.trim()
-        ) {
-          return true;
+        case "section2_2": {
+          const items = Array.isArray(section?.specializedEntityArray)
+            ? section.specializedEntityArray
+            : [];
+          return (
+            items.length > 0 &&
+            items.some(
+              (item: any) =>
+                item?.sector?.trim() ||
+                (item?.files &&
+                  Array.isArray(item.files) &&
+                  item.files.length > 0)
+            )
+          );
         }
-        // Check array data
-        const items = Array.isArray(section?.investmentReadyArray)
-          ? section.investmentReadyArray
-          : [];
-        return (
-          items.length > 0 &&
-          items.some(
-            (item: any) => item?.projectName?.trim() || item?.sector?.trim()
-          )
-        );
+        case "section2_3": {
+          // Check if hasInfraDevelopmentPlan or comment is set
+          if (section?.hasInfraDevelopmentPlan || section?.comment?.trim()) {
+            return true;
+          }
+          // Check array data
+          const items = Array.isArray(section?.infraDevelopmentArray)
+            ? section.infraDevelopmentArray
+            : [];
+          return (
+            items.length > 0 &&
+            items.some(
+              (item: any) =>
+                item?.sector?.trim() ||
+                (item?.files &&
+                  Array.isArray(item.files) &&
+                  item.files.length > 0)
+            )
+          );
+        }
+        case "section2_4": {
+          // Check if hasInvestmentReady, comment, or websiteLink is set
+          if (
+            section?.hasInvestmentReady ||
+            section?.comment?.trim() ||
+            section?.websiteLink?.trim()
+          ) {
+            return true;
+          }
+          // Check array data
+          const items = Array.isArray(section?.investmentReadyArray)
+            ? section.investmentReadyArray
+            : [];
+          return (
+            items.length > 0 &&
+            items.some(
+              (item: any) => item?.projectName?.trim() || item?.sector?.trim()
+            )
+          );
+        }
+        case "section2_5": {
+          const items = Array.isArray(section?.assetMonetizationArray)
+            ? section.assetMonetizationArray
+            : [];
+          return (
+            items.length > 0 &&
+            items.some(
+              (item: any) =>
+                item?.projectName?.trim() ||
+                item?.sector?.trim() ||
+                item?.type?.trim()
+            )
+          );
+        }
+        default:
+          return false;
       }
-      case "section2_5": {
-        const items = Array.isArray(section?.assetMonetizationArray)
-          ? section.assetMonetizationArray
-          : [];
-        return (
-          items.length > 0 &&
-          items.some(
-            (item: any) =>
-              item?.projectName?.trim() ||
-              item?.sector?.trim() ||
-              item?.type?.trim()
-          )
-        );
-      }
-      default:
-        return false;
+    };
+
+    // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+    // Only include sections that have meaningful data (not just empty objects)
+    // BUT: Keep sections visible if they are currently in edit mode (user might be adding/removing entries)
+    if (
+      (!isPreview || (isPreview && !isNodalOfficer)) &&
+      state &&
+      typeof state === "object"
+    ) {
+      const allPossibleSections = [
+        "section2_1",
+        "section2_2",
+        "section2_3",
+        "section2_4",
+        "section2_5",
+      ];
+      // Map sectionKey to sectionId for edit mode check
+      const sectionIdMap: Record<string, string> = {
+        section2_1: "2.1",
+        section2_2: "2.2",
+        section2_3: "2.3",
+        section2_4: "2.4",
+        section2_5: "2.5",
+      };
+
+      // Helper function to check if a section has meaningful data
+      const hasSectionData = (
+        sectionKey: string,
+        sectionData: any
+      ): boolean => {
+        if (!sectionData || typeof sectionData !== "object") return false;
+
+        // Check if section has any non-empty values (excluding metadata fields)
+        return Object.entries(sectionData).some(([key, value]) => {
+          // Skip metadata fields that don't indicate actual data
+          if (["year", "percentage", "marksObtained"].includes(key)) {
+            return false;
+          }
+
+          if (value === null || value === undefined || value === "") {
+            return false;
+          }
+
+          // For arrays, check if they have items
+          if (Array.isArray(value)) {
+            return value.length > 0;
+          }
+
+          // For objects, recursively check if they have any meaningful data
+          // OR sections that are currently in edit mode (to allow adding entries)
+          if (typeof value === "object") {
+            return (
+              Object.keys(value).length > 0 && hasSectionData(sectionKey, value)
+            );
+          }
+
+          return true;
+        });
+      };
+
+      // Filter sections: only include if they have actual submitted data
+      // For both nodal officers and non-nodal officers: only show indicators that have been submitted
+      // BUT: Always keep sections that were previously submitted, even if they have no data now
+      const existingSections = allPossibleSections.filter((sectionKey) => {
+        const section = state[sectionKey];
+        const hasData = sectionHasMeaningfulData(sectionKey, section);
+        //  return hasSectionData(sectionKey, sectionData);
+
+        // Check if section is currently in edit mode
+        const sectionId = sectionIdMap[sectionKey];
+        const isCurrentlyEditable = sectionId
+          ? editModeState[sectionId as keyof typeof editModeState]
+          : false;
+
+        // Check if section was previously submitted
+        const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
+
+        // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
+        return hasData || isCurrentlyEditable || wasSubmitted;
+      });
+
+      // Merge existing sections with result, avoiding duplicates
+      result = Array.from(new Set([...result, ...existingSections]));
     }
-  };
 
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Only include sections that have meaningful data (not just empty objects)
-  // BUT: Keep sections visible if they are currently in edit mode (user might be adding/removing entries)
-  if (
-    (!isPreview || (isPreview && !isNodalOfficer)) &&
-    state &&
-    typeof state === "object"
-  ) {
-    const allPossibleSections = [
+    // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
+    // This prevents sections from disappearing when user deletes all entries in edit mode
+    // Use the editableSections computed above
+    result = Array.from(new Set([...result, ...editableSections]));
+
+    // Final merge: ensure previously submitted sections are always included
+    // Compute again to ensure we have the latest state
+    const allPossibleSectionsFinal = [
       "section2_1",
       "section2_2",
       "section2_3",
       "section2_4",
       "section2_5",
     ];
-    // Map sectionKey to sectionId for edit mode check
-    const sectionIdMap: Record<string, string> = {
-      "section2_1": "2.1",
-      "section2_2": "2.2",
-      "section2_3": "2.3",
-      "section2_4": "2.4",
-      "section2_5": "2.5",
-    };
-    
-    // Helper function to check if a section has meaningful data
-    const hasSectionData = (sectionKey: string, sectionData: any): boolean => {
-      if (!sectionData || typeof sectionData !== "object") return false;
-      
-      // Check if section has any non-empty values (excluding metadata fields)
-      return Object.entries(sectionData).some(([key, value]) => {
-        // Skip metadata fields that don't indicate actual data
-        if (["year", "percentage", "marksObtained"].includes(key)) {
-          return false;
-        }
-        
-        if (value === null || value === undefined || value === "") {
-          return false;
-        }
-        
-        // For arrays, check if they have items
-        if (Array.isArray(value)) {
-          return value.length > 0;
-        }
-        
-        // For objects, recursively check if they have any meaningful data
-    // OR sections that are currently in edit mode (to allow adding entries)
-        if (typeof value === "object") {
-          return Object.keys(value).length > 0 && hasSectionData(sectionKey, value);
-        }
-        
-        return true;
-      });
-    };
-    
-    // Filter sections: only include if they have actual submitted data
-    // For both nodal officers and non-nodal officers: only show indicators that have been submitted
-    // BUT: Always keep sections that were previously submitted, even if they have no data now
-    const existingSections = allPossibleSections.filter((sectionKey) => {
-      const section = state[sectionKey];
-      const hasData = sectionHasMeaningfulData(sectionKey, section);
-      //  return hasSectionData(sectionKey, sectionData);
-      
-      // Check if section is currently in edit mode
-      const sectionId = sectionIdMap[sectionKey];
-      const isCurrentlyEditable = sectionId ? editModeState[sectionId as keyof typeof editModeState] : false;
-      
-      // Check if section was previously submitted
-      const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
-      
-      // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
-      return hasData || isCurrentlyEditable || wasSubmitted;
-    });
-
-    // Merge existing sections with result, avoiding duplicates
-    result = Array.from(
-      new Set([...result, ...existingSections])
+    const previouslySubmittedSectionsFinal = allPossibleSectionsFinal.filter(
+      (sectionKey) => {
+        return wasSectionPreviouslySubmitted(sectionKey);
+      }
     );
-    }
-
-    // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
-    // This prevents sections from disappearing when user deletes all entries in edit mode
-    // Use the editableSections computed above
-    result = Array.from(
-      new Set([...result, ...editableSections])
-    );
-
-    // Final merge: ensure previously submitted sections are always included
-    // Compute again to ensure we have the latest state
-    const allPossibleSectionsFinal = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
-    const previouslySubmittedSectionsFinal = allPossibleSectionsFinal.filter((sectionKey) => {
-      return wasSectionPreviouslySubmitted(sectionKey);
-    });
     result = Array.from(
       new Set([...result, ...previouslySubmittedSectionsFinal])
     );
 
-    console.log(`[InfraDevelopmentReview] sectionsWithData useMemo - Final result:`, result);
+    console.log(
+      `[InfraDevelopmentReview] sectionsWithData useMemo - Final result:`,
+      result
+    );
     return result;
-  }, [state, isPreview, isNodalOfficer, assignedIndicators, editableSections, wasSectionPreviouslySubmitted, editModeState]);
+  }, [
+    state,
+    isPreview,
+    isNodalOfficer,
+    assignedIndicators,
+    editableSections,
+    wasSectionPreviouslySubmitted,
+    editModeState,
+  ]);
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -2452,12 +2631,18 @@ export const InfraDevelopmentReview = ({
             mimeType: file?.mimeType,
           })),
         }));
-        const hasOverarchingPolicy = sourceState?.section2_1?.hasOverarchingPolicy ?? null;
-        console.log("🔨 Built fields for 2.1:", { infraActArray: files, hasOverarchingPolicy });
-        return [{ 
+        const hasOverarchingPolicy =
+          sourceState?.section2_1?.hasOverarchingPolicy ?? null;
+        console.log("🔨 Built fields for 2.1:", {
           infraActArray: files,
-          hasOverarchingPolicy: hasOverarchingPolicy
-        }];
+          hasOverarchingPolicy,
+        });
+        return [
+          {
+            infraActArray: files,
+            hasOverarchingPolicy: hasOverarchingPolicy,
+          },
+        ];
       }
 
       case "2.2": {
@@ -2480,14 +2665,21 @@ export const InfraDevelopmentReview = ({
             mimeType: file?.mimeType,
           })),
         }));
-        const hasSpecializedEntity = sourceState?.section2_2?.hasSpecializedEntity ?? null;
+        const hasSpecializedEntity =
+          sourceState?.section2_2?.hasSpecializedEntity ?? null;
         const comment = sourceState?.section2_2?.comment ?? null;
-        console.log("🔨 Built fields for 2.2:", { specializedEntityArray: files, hasSpecializedEntity, comment });
-        return [{ 
+        console.log("🔨 Built fields for 2.2:", {
           specializedEntityArray: files,
-          hasSpecializedEntity: hasSpecializedEntity,
-          comment: comment
-        }];
+          hasSpecializedEntity,
+          comment,
+        });
+        return [
+          {
+            specializedEntityArray: files,
+            hasSpecializedEntity: hasSpecializedEntity,
+            comment: comment,
+          },
+        ];
       }
 
       case "2.3": {
@@ -2636,8 +2828,15 @@ export const InfraDevelopmentReview = ({
 
       // Run validation first (same logic as in performSave)
       const fullData = {
-        section2_1: formDataState?.section2_1 || { infraActArray: [], hasOverarchingPolicy: "" },
-        section2_2: formDataState?.section2_2 || { specializedEntityArray: [], hasSpecializedEntity: "", comment: "" },
+        section2_1: formDataState?.section2_1 || {
+          infraActArray: [],
+          hasOverarchingPolicy: "",
+        },
+        section2_2: formDataState?.section2_2 || {
+          specializedEntityArray: [],
+          hasSpecializedEntity: "",
+          comment: "",
+        },
         section2_3: formDataState?.section2_3 || {
           infraDevelopmentArray: [],
           hasInfraDevelopmentPlan: "",
@@ -2876,8 +3075,15 @@ export const InfraDevelopmentReview = ({
 
       // Validate form data before saving
       const fullData = {
-        section2_1: formDataState?.section2_1 || { infraActArray: [], hasOverarchingPolicy: "" },
-        section2_2: formDataState?.section2_2 || { specializedEntityArray: [], hasSpecializedEntity: "", comment: "" },
+        section2_1: formDataState?.section2_1 || {
+          infraActArray: [],
+          hasOverarchingPolicy: "",
+        },
+        section2_2: formDataState?.section2_2 || {
+          specializedEntityArray: [],
+          hasSpecializedEntity: "",
+          comment: "",
+        },
         section2_3: formDataState?.section2_3 || {
           infraDevelopmentArray: [],
           hasInfraDevelopmentPlan: "",
@@ -3062,7 +3268,8 @@ export const InfraDevelopmentReview = ({
           }
           // Find and update existing score or add new one
           const existingIndex = updated.indicatorScores.findIndex(
-            (score: any) => score.indicatorCode === saveResult.indicatorScore.indicatorCode
+            (score: any) =>
+              score.indicatorCode === saveResult.indicatorScore.indicatorCode
           );
           if (existingIndex >= 0) {
             updated.indicatorScores[existingIndex] = saveResult.indicatorScore;
@@ -3119,8 +3326,12 @@ export const InfraDevelopmentReview = ({
           updated[sectionKey] = {
             ...updated[sectionKey],
             // Preserve status if it was updated
-            ...(upperStatus === "RESUBMITTED" && isNodalOfficer ? { status: "RESUBMITTED" } : {}),
-            ...(upperStatus === "RESUBMITTED" && isStateApprover ? { status: "RESUBMITTED" } : {}),
+            ...(upperStatus === "RESUBMITTED" && isNodalOfficer
+              ? { status: "RESUBMITTED" }
+              : {}),
+            ...(upperStatus === "RESUBMITTED" && isStateApprover
+              ? { status: "RESUBMITTED" }
+              : {}),
           };
         }
         return updated;
@@ -4574,6 +4785,7 @@ export const InfraDevelopmentReview = ({
             }
             // subtitle="Annex 4: Provide link and funding details"
             className="mb-6"
+            indicatorCode="2.1"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.1")}
@@ -4613,11 +4825,20 @@ export const InfraDevelopmentReview = ({
                 </Label>
                 {shouldBeEditable("2.1") ? (
                   <RadioGroup
-                    key={`hasOverarchingPolicy-${formDataState?.section2_1?.hasOverarchingPolicy || ""}`}
-                    value={formDataState?.section2_1?.hasOverarchingPolicy || ""}
+                    key={`hasOverarchingPolicy-${
+                      formDataState?.section2_1?.hasOverarchingPolicy || ""
+                    }`}
+                    value={
+                      formDataState?.section2_1?.hasOverarchingPolicy || ""
+                    }
                     onValueChange={(value) => {
-                      console.log(`[InfraDevelopmentReview] RadioGroup value changed to: ${value}`);
-                      console.log(`[InfraDevelopmentReview] Current formDataState.section2_1:`, formDataState?.section2_1);
+                      console.log(
+                        `[InfraDevelopmentReview] RadioGroup value changed to: ${value}`
+                      );
+                      console.log(
+                        `[InfraDevelopmentReview] Current formDataState.section2_1:`,
+                        formDataState?.section2_1
+                      );
                       handleSectionFieldUpdate(
                         "2.1",
                         "hasOverarchingPolicy",
@@ -4648,16 +4869,19 @@ export const InfraDevelopmentReview = ({
                   <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
-                        formDataState?.section2_1?.hasOverarchingPolicy === "yes"
+                        formDataState?.section2_1?.hasOverarchingPolicy ===
+                        "yes"
                           ? "bg-green-100 text-green-800"
-                          : formDataState?.section2_1?.hasOverarchingPolicy === "no"
+                          : formDataState?.section2_1?.hasOverarchingPolicy ===
+                            "no"
                           ? "bg-red-100 text-red-800"
                           : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {formDataState?.section2_1?.hasOverarchingPolicy === "yes"
                         ? "Yes"
-                        : formDataState?.section2_1?.hasOverarchingPolicy === "no"
+                        : formDataState?.section2_1?.hasOverarchingPolicy ===
+                          "no"
                         ? "No"
                         : "Not specified"}
                     </span>
@@ -4669,816 +4893,901 @@ export const InfraDevelopmentReview = ({
               {/* Show table and Add More button based on yes/no selection */}
               {formDataState?.section2_1?.hasOverarchingPolicy === "yes" && (
                 <>
-              {/* Validation error for infraActArray */}
-              {renderFieldError("section2_1.infraActArray")}
+                  {/* Validation error for infraActArray */}
+                  {renderFieldError("section2_1.infraActArray")}
 
-              {/* Table Display */}
-              <div className="overflow-x-auto rounded-xl">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      {/* Hide sector column when "yes" is selected */}
-                      {formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Sector
-                      </th>
-                      )}
-                      <th className={`py-3 px-4 text-left ${formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? "rounded-tl-xl" : ""} text-sm font-normal`}>
-                        Uploaded File
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        File Type
-                      </th>
-                      {shouldBeEditable("2.1") && (
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                          Action
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const infraActArray = Array.isArray(
-                        formDataState?.section2_1?.infraActArray
-                      )
-                        ? formDataState.section2_1.infraActArray
-                        : [];
-
-                      if (!infraActArray.length) {
-                        const colSpan = shouldBeEditable("2.1") 
-                          ? (formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? 3 : 4)
-                          : (formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? 2 : 3);
-                        return (
-                          <tr>
-                            <td
-                              colSpan={colSpan}
-                              className="py-8 text-center text-muted-foreground"
-                            >
-                              No data available
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return infraActArray.map((item: any, index: number) => {
-                        // When "yes" is selected, ensure sector is "Overarching"
-                        if (formDataState?.section2_1?.hasOverarchingPolicy === "yes" && item.sector !== "Overarching") {
-                          handleArrayFieldUpdate("2.1", index, "sector", "Overarching");
-                        }
-                        
-                        return (
-                        <tr key={item.id || index} className="border-b">
+                  {/* Table Display */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
                           {/* Hide sector column when "yes" is selected */}
-                          {formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.1") ? (
-                              <div>
-                                <Dropdown
-                                  options={dropdownValues.sector.map((opt) => ({
-                                    label: opt,
-                                    value: opt,
-                                  }))}
-                                  value={item.sector || ""}
-                                  onChange={(value) => {
-                                    handleArrayFieldUpdate(
-                                      "2.1",
-                                      index,
-                                      "sector",
-                                      value
-                                    );
-                                    // Clear validation error when user selects
-                                    if (
-                                      getFieldError(
-                                        `section2_1.infraActArray.${index}.sector`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
-                                          `section2_1.infraActArray.${index}.sector`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  placeholder="Select Sector"
-                                  isEditable={true}
-                                  resetKey={selectResetKey}
-                                />
-                                {renderFieldError(
-                                  `section2_1.infraActArray.${index}.sector`
-                                )}
-                              </div>
-                            ) : (
-                              item.sector || "N/A"
-                            )}
-                          </td>
+                          {formDataState?.section2_1?.hasOverarchingPolicy !==
+                            "yes" && (
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Sector
+                            </th>
                           )}
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.1") ? (
-                              <div className="space-y-1.5">
-                                {item.files && item.files.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {item.files.map(
-                                      (file: any, fileIndex: number) => (
-                                        <Badge
-                                          key={fileIndex}
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                          title={
-                                            extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"
-                                          }
-                                        >
-                                          <Upload className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">
-                                            {extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const updatedFiles =
-                                                item.files.filter(
-                                                  (_: any, idx: number) =>
-                                                    idx !== fileIndex
-                                                );
-                                              handleFilesUpdate(
-                                                "2.1",
-                                                index,
-                                                updatedFiles.length > 0
-                                                  ? updatedFiles
-                                                  : []
-                                              );
-                                            }}
-                                            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          >
-                                            <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                          </button>
-                                        </Badge>
-                                      )
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    No files
-                                  </span>
-                                )}
-                                <div className="flex items-center">
-                                  <input
-                                    type="file"
-                                    accept=".pdf,.doc,.docx"
-                                    onChange={async (e) => {
-                                      const selectedFile = e.target.files?.[0];
-                                      if (selectedFile) {
-                                        const uploadedFile =
-                                          await handleFileUpload(selectedFile);
-                                        if (uploadedFile) {
-                                          const existingFiles =
-                                            item.files || [];
-                                          await handleFilesUpdate(
-                                            "2.1",
-                                            index,
-                                            [...existingFiles, uploadedFile]
-                                          );
-                                        }
-                                        e.target.value = ""; // Reset input
-                                      }
-                                    }}
-                                    className="hidden"
-                                    id={`file-input-2.1-${index}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      document
-                                        .getElementById(
-                                          `file-input-2.1-${index}`
-                                        )
-                                        ?.click()
-                                    }
-                                    className="h-6 px-2 text-xs"
-                                  >
-                                    <Plus className="w-3 h-3 mr-1" />
-                                    Add
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : item.files && item.files.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5 items-center">
-                                {item.files.map(
-                                  (file: any, fileIndex: number) => {
-                                    const fileKey = `2.1-${index}-${fileIndex}`;
-                                    const isLoading = !!fileLoading[fileKey];
-                                    const hasFileAccess = !!(
-                                      file.filePath ||
-                                      file.file ||
-                                      file.fileUrl
-                                    );
-                                    return (
-                                      <div
-                                        key={fileIndex}
-                                        className="flex items-center gap-1"
-                                      >
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                          title={
-                                            extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"
-                                          }
-                                        >
-                                          <Upload className="w-3 h-3" />
-                                          <span className="truncate">
-                                            {extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"}
-                                          </span>
-                                        </Badge>
-                                        {hasFileAccess && (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleViewFile(file, fileKey)
-                                              }
-                                              disabled={isLoading}
-                                              className="h-7 w-7 p-0"
-                                              title="View file"
-                                            >
-                                              <Eye className="w-3 h-3" />
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleDownloadFile(
-                                                  file,
-                                                  fileKey
-                                                )
-                                              }
-                                              disabled={isLoading}
-                                              className="h-7 w-7 p-0"
-                                              title="Download file"
-                                            >
-                                              <Download className="w-3 h-3" />
-                                            </Button>
-                                          </>
-                                        )}
-                                      </div>
-                                    );
-                                  }
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                No files
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {item.files && item.files.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {item.files.map(
-                                  (file: any, fileIndex: number) => (
-                                    <Badge
-                                      key={fileIndex}
-                                      variant="outline"
-                                      className="text-xs px-1.5 py-0.5"
-                                    >
-                                      {file.fileName
-                                        ?.split(".")
-                                        .pop()
-                                        ?.toUpperCase() || "N/A"}
-                                    </Badge>
-                                  )
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                N/A
-                              </span>
-                            )}
-                          </td>
+                          <th
+                            className={`py-3 px-4 text-left ${
+                              formDataState?.section2_1
+                                ?.hasOverarchingPolicy === "yes"
+                                ? "rounded-tl-xl"
+                                : ""
+                            } text-sm font-normal`}
+                          >
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Type
+                          </th>
                           {shouldBeEditable("2.1") && (
-                            <td className="py-3 px-4 text-sm font-normal">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  // Use index for deletion since items may not have IDs
-                                  handleRemoveEntry2_1(index);
-                                }}
-                                className="text-red-500 hover:text-red-700 border-none bg-none"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
-                            </td>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
                           )}
                         </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const infraActArray = Array.isArray(
+                            formDataState?.section2_1?.infraActArray
+                          )
+                            ? formDataState.section2_1.infraActArray
+                            : [];
 
-              {/* Add More Button - Only visible when in edit mode and "no" is selected */}
-              {isEditable("2.1") && !showAddForm2_1 && formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddForm2_1(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More
-                </Button>
-              )}
+                          if (!infraActArray.length) {
+                            const colSpan = shouldBeEditable("2.1")
+                              ? formDataState?.section2_1
+                                  ?.hasOverarchingPolicy === "yes"
+                                ? 3
+                                : 4
+                              : formDataState?.section2_1
+                                  ?.hasOverarchingPolicy === "yes"
+                              ? 2
+                              : 3;
+                            return (
+                              <tr>
+                                <td
+                                  colSpan={colSpan}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
+                                  No data available
+                                </td>
+                              </tr>
+                            );
+                          }
 
-              {/* Add Entry Form - Only visible when showAddForm2_1 is true */}
-              {showAddForm2_1 && isEditable("2.1") && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">
-                    Add New Infrastructure Act/Policy Entry
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Sector</Label>
-                      <Dropdown
-                        options={dropdownValues.sector.map((opt) => ({
-                          label: opt,
-                          value: opt,
-                        }))}
-                        value={newEntry2_1.sector}
-                        onChange={(value) =>
-                          setNewEntry2_1({ ...newEntry2_1, sector: value })
-                        }
-                        placeholder="Select Sector"
-                        isEditable={true}
-                      />
-                      {renderFieldError("section2_1.infraActArray.new.sector")}
-                    </div>
-                    <div>
-                      <Label>Upload Files</Label>
-                      <EditableFileDisplay
-                        files={newEntry2_1.files}
-                        isEditable={true}
-                        submissionId={submissionId}
-                        onFilesChange={(updatedFiles) =>
-                          setNewEntry2_1({
-                            ...newEntry2_1,
-                            files: toFileArray(updatedFiles),
-                          })
-                        }
-                        label=""
-                        multiple={true}
-                      />
-                      {renderFieldError("section2_1.infraActArray.new.files")}
-                    </div>
+                          return infraActArray.map(
+                            (item: any, index: number) => {
+                              // When "yes" is selected, ensure sector is "Overarching"
+                              if (
+                                formDataState?.section2_1
+                                  ?.hasOverarchingPolicy === "yes" &&
+                                item.sector !== "Overarching"
+                              ) {
+                                handleArrayFieldUpdate(
+                                  "2.1",
+                                  index,
+                                  "sector",
+                                  "Overarching"
+                                );
+                              }
+
+                              return (
+                                <tr key={item.id || index} className="border-b">
+                                  {/* Hide sector column when "yes" is selected */}
+                                  {formDataState?.section2_1
+                                    ?.hasOverarchingPolicy !== "yes" && (
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {shouldBeEditable("2.1") ? (
+                                        <div>
+                                          <Dropdown
+                                            options={dropdownValues.sector.map(
+                                              (opt) => ({
+                                                label: opt,
+                                                value: opt,
+                                              })
+                                            )}
+                                            value={item.sector || ""}
+                                            onChange={(value) => {
+                                              handleArrayFieldUpdate(
+                                                "2.1",
+                                                index,
+                                                "sector",
+                                                value
+                                              );
+                                              // Clear validation error when user selects
+                                              if (
+                                                getFieldError(
+                                                  `section2_1.infraActArray.${index}.sector`
+                                                )
+                                              ) {
+                                                setIndicatorValidationErrors(
+                                                  (prev) => {
+                                                    const updated = { ...prev };
+                                                    delete updated[
+                                                      `section2_1.infraActArray.${index}.sector`
+                                                    ];
+                                                    return updated;
+                                                  }
+                                                );
+                                              }
+                                            }}
+                                            placeholder="Select Sector"
+                                            isEditable={true}
+                                            resetKey={selectResetKey}
+                                          />
+                                          {renderFieldError(
+                                            `section2_1.infraActArray.${index}.sector`
+                                          )}
+                                        </div>
+                                      ) : (
+                                        item.sector || "N/A"
+                                      )}
+                                    </td>
+                                  )}
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("2.1") ? (
+                                      <div className="space-y-1.5">
+                                        {item.files && item.files.length > 0 ? (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {item.files.map(
+                                              (
+                                                file: any,
+                                                fileIndex: number
+                                              ) => (
+                                                <Badge
+                                                  key={fileIndex}
+                                                  variant="secondary"
+                                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                                  title={
+                                                    extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"
+                                                  }
+                                                >
+                                                  <Upload className="w-3 h-3 flex-shrink-0" />
+                                                  <span className="truncate">
+                                                    {extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      const updatedFiles =
+                                                        item.files.filter(
+                                                          (
+                                                            _: any,
+                                                            idx: number
+                                                          ) => idx !== fileIndex
+                                                        );
+                                                      handleFilesUpdate(
+                                                        "2.1",
+                                                        index,
+                                                        updatedFiles.length > 0
+                                                          ? updatedFiles
+                                                          : []
+                                                      );
+                                                    }}
+                                                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                  >
+                                                    <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                                  </button>
+                                                </Badge>
+                                              )
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">
+                                            No files
+                                          </span>
+                                        )}
+                                        <div className="flex items-center">
+                                          <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={async (e) => {
+                                              const selectedFile =
+                                                e.target.files?.[0];
+                                              if (selectedFile) {
+                                                const uploadedFile =
+                                                  await handleFileUpload(
+                                                    selectedFile
+                                                  );
+                                                if (uploadedFile) {
+                                                  const existingFiles =
+                                                    item.files || [];
+                                                  await handleFilesUpdate(
+                                                    "2.1",
+                                                    index,
+                                                    [
+                                                      ...existingFiles,
+                                                      uploadedFile,
+                                                    ]
+                                                  );
+                                                }
+                                                e.target.value = ""; // Reset input
+                                              }
+                                            }}
+                                            className="hidden"
+                                            id={`file-input-2.1-${index}`}
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              document
+                                                .getElementById(
+                                                  `file-input-2.1-${index}`
+                                                )
+                                                ?.click()
+                                            }
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Plus className="w-3 h-3 mr-1" />
+                                            Add
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : item.files && item.files.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1.5 items-center">
+                                        {item.files.map(
+                                          (file: any, fileIndex: number) => {
+                                            const fileKey = `2.1-${index}-${fileIndex}`;
+                                            const isLoading =
+                                              !!fileLoading[fileKey];
+                                            const hasFileAccess = !!(
+                                              file.filePath ||
+                                              file.file ||
+                                              file.fileUrl
+                                            );
+                                            return (
+                                              <div
+                                                key={fileIndex}
+                                                className="flex items-center gap-1"
+                                              >
+                                                <Badge
+                                                  variant="secondary"
+                                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                                  title={
+                                                    extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"
+                                                  }
+                                                >
+                                                  <Upload className="w-3 h-3" />
+                                                  <span className="truncate">
+                                                    {extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"}
+                                                  </span>
+                                                </Badge>
+                                                {hasFileAccess && (
+                                                  <>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() =>
+                                                        handleViewFile(
+                                                          file,
+                                                          fileKey
+                                                        )
+                                                      }
+                                                      disabled={isLoading}
+                                                      className="h-7 w-7 p-0"
+                                                      title="View file"
+                                                    >
+                                                      <Eye className="w-3 h-3" />
+                                                    </Button>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() =>
+                                                        handleDownloadFile(
+                                                          file,
+                                                          fileKey
+                                                        )
+                                                      }
+                                                      disabled={isLoading}
+                                                      className="h-7 w-7 p-0"
+                                                      title="Download file"
+                                                    >
+                                                      <Download className="w-3 h-3" />
+                                                    </Button>
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          }
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">
+                                        No files
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {item.files && item.files.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {item.files.map(
+                                          (file: any, fileIndex: number) => (
+                                            <Badge
+                                              key={fileIndex}
+                                              variant="outline"
+                                              className="text-xs px-1.5 py-0.5"
+                                            >
+                                              {file.fileName
+                                                ?.split(".")
+                                                .pop()
+                                                ?.toUpperCase() || "N/A"}
+                                            </Badge>
+                                          )
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">
+                                        N/A
+                                      </span>
+                                    )}
+                                  </td>
+                                  {shouldBeEditable("2.1") && (
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => {
+                                          // Use index for deletion since items may not have IDs
+                                          handleRemoveEntry2_1(index);
+                                        }}
+                                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                                      >
+                                        <Trash2 className="h-5 w-5" />
+                                      </Button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            }
+                          );
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAddNewEntry2_1}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Save Entry
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setShowAddForm2_1(false);
-                        setNewEntry2_1({ sector: "", files: [] });
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
 
-              <p className="text-xs text-muted-foreground">
-                Upload copy of Act/Policy
-              </p>
+                  {/* Add More Button - Only visible when in edit mode and "no" is selected */}
+                  {isEditable("2.1") &&
+                    !showAddForm2_1 &&
+                    formDataState?.section2_1?.hasOverarchingPolicy !==
+                      "yes" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                        onClick={() => setShowAddForm2_1(true)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add More
+                      </Button>
+                    )}
+
+                  {/* Add Entry Form - Only visible when showAddForm2_1 is true */}
+                  {showAddForm2_1 && isEditable("2.1") && (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">
+                        Add New Infrastructure Act/Policy Entry
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Sector</Label>
+                          <Dropdown
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
+                            value={newEntry2_1.sector}
+                            onChange={(value) =>
+                              setNewEntry2_1({ ...newEntry2_1, sector: value })
+                            }
+                            placeholder="Select Sector"
+                            isEditable={true}
+                          />
+                          {renderFieldError(
+                            "section2_1.infraActArray.new.sector"
+                          )}
+                        </div>
+                        <div>
+                          <Label>Upload Files</Label>
+                          <EditableFileDisplay
+                            files={newEntry2_1.files}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFiles) =>
+                              setNewEntry2_1({
+                                ...newEntry2_1,
+                                files: toFileArray(updatedFiles),
+                              })
+                            }
+                            label=""
+                            multiple={true}
+                          />
+                          {renderFieldError(
+                            "section2_1.infraActArray.new.files"
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewEntry2_1}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Entry
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowAddForm2_1(false);
+                            setNewEntry2_1({ sector: "", files: [] });
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Upload copy of Act/Policy
+                  </p>
                 </>
               )}
 
               {/* Show table and form fields when "no" is selected */}
               {formDataState?.section2_1?.hasOverarchingPolicy === "no" && (
                 <>
-              {/* Validation error for infraActArray */}
-              {renderFieldError("section2_1.infraActArray")}
+                  {/* Validation error for infraActArray */}
+                  {renderFieldError("section2_1.infraActArray")}
 
-              {/* Table Display */}
-              <div className="overflow-x-auto rounded-xl">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Sector
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Uploaded File
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        File Type
-                      </th>
-                      {shouldBeEditable("2.1") && (
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                          Action
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const infraActArray = Array.isArray(
-                        formDataState?.section2_1?.infraActArray
-                      )
-                        ? formDataState.section2_1.infraActArray
-                        : [];
-
-                      if (!infraActArray.length) {
-                        const colSpan = shouldBeEditable("2.1") ? 4 : 3;
-                        return (
-                          <tr>
-                            <td
-                              colSpan={colSpan}
-                              className="py-8 text-center text-muted-foreground"
-                            >
-                              No data available
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return infraActArray.map((item: any, index: number) => {
-                        return (
-                        <tr key={item.id || index} className="border-b">
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.1") ? (
-                              <div>
-                                <Dropdown
-                                  options={dropdownValues.sector.map((opt) => ({
-                                    label: opt,
-                                    value: opt,
-                                  }))}
-                                  value={item.sector || ""}
-                                  onChange={(value) => {
-                                    handleArrayFieldUpdate(
-                                      "2.1",
-                                      index,
-                                      "sector",
-                                      value
-                                    );
-                                    // Clear validation error when user selects
-                                    if (
-                                      getFieldError(
-                                        `section2_1.infraActArray.${index}.sector`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
-                                          `section2_1.infraActArray.${index}.sector`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  placeholder="Select Sector"
-                                  isEditable={true}
-                                  resetKey={selectResetKey}
-                                />
-                                {renderFieldError(
-                                  `section2_1.infraActArray.${index}.sector`
-                                )}
-                              </div>
-                            ) : (
-                              item.sector || "N/A"
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.1") ? (
-                              <div className="space-y-1.5">
-                                {item.files && item.files.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {item.files.map(
-                                      (file: any, fileIndex: number) => (
-                                        <Badge
-                                          key={fileIndex}
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                          title={
-                                            extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"
-                                          }
-                                        >
-                                          <Upload className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">
-                                            {extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const updatedFiles =
-                                                item.files.filter(
-                                                  (_: any, idx: number) =>
-                                                    idx !== fileIndex
-                                                );
-                                              handleFilesUpdate(
-                                                "2.1",
-                                                index,
-                                                updatedFiles.length > 0
-                                                  ? updatedFiles
-                                                  : []
-                                              );
-                                            }}
-                                            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          >
-                                            <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                          </button>
-                                        </Badge>
-                                      )
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    No files
-                                  </span>
-                                )}
-                                <div className="flex items-center">
-                                  <input
-                                    type="file"
-                                    accept=".pdf,.doc,.docx"
-                                    onChange={async (e) => {
-                                      const selectedFile = e.target.files?.[0];
-                                      if (selectedFile) {
-                                        const uploadedFile =
-                                          await handleFileUpload(selectedFile);
-                                        if (uploadedFile) {
-                                          const existingFiles =
-                                            item.files || [];
-                                          await handleFilesUpdate(
-                                            "2.1",
-                                            index,
-                                            [...existingFiles, uploadedFile]
-                                          );
-                                        }
-                                        e.target.value = ""; // Reset input
-                                      }
-                                    }}
-                                    className="hidden"
-                                    id={`file-input-2.1-no-${index}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      document
-                                        .getElementById(
-                                          `file-input-2.1-no-${index}`
-                                        )
-                                        ?.click()
-                                    }
-                                    className="h-6 px-2 text-xs"
-                                  >
-                                    <Plus className="w-3 h-3 mr-1" />
-                                    Add
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : item.files && item.files.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5 items-center">
-                                {item.files.map(
-                                  (file: any, fileIndex: number) => {
-                                    const fileKey = `2.1-${index}-${fileIndex}`;
-                                    const isLoading = !!fileLoading[fileKey];
-                                    const hasFileAccess = !!(
-                                      file.filePath ||
-                                      file.file ||
-                                      file.fileUrl
-                                    );
-                                    return (
-                                      <div
-                                        key={fileIndex}
-                                        className="flex items-center gap-1"
-                                      >
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                          title={
-                                            extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"
-                                          }
-                                        >
-                                          <Upload className="w-3 h-3" />
-                                          <span className="truncate">
-                                            {extractOriginalName(
-                                              file.fileName || "",
-                                              (file as any)?.originalName
-                                            ) || "Unknown file"}
-                                          </span>
-                                        </Badge>
-                                        {hasFileAccess && (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleViewFile(file, fileKey)
-                                              }
-                                              disabled={isLoading}
-                                              className="h-7 w-7 p-0"
-                                              title="View file"
-                                            >
-                                              <Eye className="w-3 h-3" />
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleDownloadFile(
-                                                  file,
-                                                  fileKey
-                                                )
-                                              }
-                                              disabled={isLoading}
-                                              className="h-7 w-7 p-0"
-                                              title="Download file"
-                                            >
-                                              <Download className="w-3 h-3" />
-                                            </Button>
-                                          </>
-                                        )}
-                                      </div>
-                                    );
-                                  }
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                No files
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {item.files && item.files.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {item.files.map(
-                                  (file: any, fileIndex: number) => (
-                                    <Badge
-                                      key={fileIndex}
-                                      variant="outline"
-                                      className="text-xs px-1.5 py-0.5"
-                                    >
-                                      {file.fileName
-                                        ?.split(".")
-                                        .pop()
-                                        ?.toUpperCase() || "N/A"}
-                                    </Badge>
-                                  )
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                N/A
-                              </span>
-                            )}
-                          </td>
+                  {/* Table Display */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Type
+                          </th>
                           {shouldBeEditable("2.1") && (
-                            <td className="py-3 px-4 text-sm font-normal">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  handleRemoveEntry2_1(index);
-                                }}
-                                className="text-red-500 hover:text-red-700 border-none bg-none"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
-                            </td>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
                           )}
                         </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const infraActArray = Array.isArray(
+                            formDataState?.section2_1?.infraActArray
+                          )
+                            ? formDataState.section2_1.infraActArray
+                            : [];
 
-              {/* Add More Button - Only visible when in edit mode and "no" is selected */}
-              {isEditable("2.1") && !showAddForm2_1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddForm2_1(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More
-                </Button>
-              )}
+                          if (!infraActArray.length) {
+                            const colSpan = shouldBeEditable("2.1") ? 4 : 3;
+                            return (
+                              <tr>
+                                <td
+                                  colSpan={colSpan}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
+                                  No data available
+                                </td>
+                              </tr>
+                            );
+                          }
 
-              {/* Add Entry Form - Only visible when showAddForm2_1 is true */}
-              {showAddForm2_1 && isEditable("2.1") && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">
-                    Add New Infrastructure Act/Policy Entry
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Sector</Label>
-                      <Dropdown
-                        options={dropdownValues.sector.map((opt) => ({
-                          label: opt,
-                          value: opt,
-                        }))}
-                        value={newEntry2_1.sector}
-                        onChange={(value) =>
-                          setNewEntry2_1({ ...newEntry2_1, sector: value })
-                        }
-                        placeholder="Select Sector"
-                        isEditable={true}
-                      />
-                      {renderFieldError("section2_1.infraActArray.new.sector")}
-                    </div>
-                    <div>
-                      <Label>Upload Files</Label>
-                      <EditableFileDisplay
-                        files={newEntry2_1.files}
-                        isEditable={true}
-                        submissionId={submissionId}
-                        onFilesChange={(updatedFiles) =>
-                          setNewEntry2_1({
-                            ...newEntry2_1,
-                            files: toFileArray(updatedFiles),
-                          })
-                        }
-                        label=""
-                        multiple={true}
-                      />
-                      {renderFieldError("section2_1.infraActArray.new.files")}
-                    </div>
+                          return infraActArray.map(
+                            (item: any, index: number) => {
+                              return (
+                                <tr key={item.id || index} className="border-b">
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("2.1") ? (
+                                      <div>
+                                        <Dropdown
+                                          options={dropdownValues.sector.map(
+                                            (opt) => ({
+                                              label: opt,
+                                              value: opt,
+                                            })
+                                          )}
+                                          value={item.sector || ""}
+                                          onChange={(value) => {
+                                            handleArrayFieldUpdate(
+                                              "2.1",
+                                              index,
+                                              "sector",
+                                              value
+                                            );
+                                            // Clear validation error when user selects
+                                            if (
+                                              getFieldError(
+                                                `section2_1.infraActArray.${index}.sector`
+                                              )
+                                            ) {
+                                              setIndicatorValidationErrors(
+                                                (prev) => {
+                                                  const updated = { ...prev };
+                                                  delete updated[
+                                                    `section2_1.infraActArray.${index}.sector`
+                                                  ];
+                                                  return updated;
+                                                }
+                                              );
+                                            }
+                                          }}
+                                          placeholder="Select Sector"
+                                          isEditable={true}
+                                          resetKey={selectResetKey}
+                                        />
+                                        {renderFieldError(
+                                          `section2_1.infraActArray.${index}.sector`
+                                        )}
+                                      </div>
+                                    ) : (
+                                      item.sector || "N/A"
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("2.1") ? (
+                                      <div className="space-y-1.5">
+                                        {item.files && item.files.length > 0 ? (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {item.files.map(
+                                              (
+                                                file: any,
+                                                fileIndex: number
+                                              ) => (
+                                                <Badge
+                                                  key={fileIndex}
+                                                  variant="secondary"
+                                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                                  title={
+                                                    extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"
+                                                  }
+                                                >
+                                                  <Upload className="w-3 h-3 flex-shrink-0" />
+                                                  <span className="truncate">
+                                                    {extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      const updatedFiles =
+                                                        item.files.filter(
+                                                          (
+                                                            _: any,
+                                                            idx: number
+                                                          ) => idx !== fileIndex
+                                                        );
+                                                      handleFilesUpdate(
+                                                        "2.1",
+                                                        index,
+                                                        updatedFiles.length > 0
+                                                          ? updatedFiles
+                                                          : []
+                                                      );
+                                                    }}
+                                                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                  >
+                                                    <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                                  </button>
+                                                </Badge>
+                                              )
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">
+                                            No files
+                                          </span>
+                                        )}
+                                        <div className="flex items-center">
+                                          <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={async (e) => {
+                                              const selectedFile =
+                                                e.target.files?.[0];
+                                              if (selectedFile) {
+                                                const uploadedFile =
+                                                  await handleFileUpload(
+                                                    selectedFile
+                                                  );
+                                                if (uploadedFile) {
+                                                  const existingFiles =
+                                                    item.files || [];
+                                                  await handleFilesUpdate(
+                                                    "2.1",
+                                                    index,
+                                                    [
+                                                      ...existingFiles,
+                                                      uploadedFile,
+                                                    ]
+                                                  );
+                                                }
+                                                e.target.value = ""; // Reset input
+                                              }
+                                            }}
+                                            className="hidden"
+                                            id={`file-input-2.1-no-${index}`}
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              document
+                                                .getElementById(
+                                                  `file-input-2.1-no-${index}`
+                                                )
+                                                ?.click()
+                                            }
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Plus className="w-3 h-3 mr-1" />
+                                            Add
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : item.files && item.files.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1.5 items-center">
+                                        {item.files.map(
+                                          (file: any, fileIndex: number) => {
+                                            const fileKey = `2.1-${index}-${fileIndex}`;
+                                            const isLoading =
+                                              !!fileLoading[fileKey];
+                                            const hasFileAccess = !!(
+                                              file.filePath ||
+                                              file.file ||
+                                              file.fileUrl
+                                            );
+                                            return (
+                                              <div
+                                                key={fileIndex}
+                                                className="flex items-center gap-1"
+                                              >
+                                                <Badge
+                                                  variant="secondary"
+                                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                                  title={
+                                                    extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"
+                                                  }
+                                                >
+                                                  <Upload className="w-3 h-3" />
+                                                  <span className="truncate">
+                                                    {extractOriginalName(
+                                                      file.fileName || "",
+                                                      (file as any)
+                                                        ?.originalName
+                                                    ) || "Unknown file"}
+                                                  </span>
+                                                </Badge>
+                                                {hasFileAccess && (
+                                                  <>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() =>
+                                                        handleViewFile(
+                                                          file,
+                                                          fileKey
+                                                        )
+                                                      }
+                                                      disabled={isLoading}
+                                                      className="h-7 w-7 p-0"
+                                                      title="View file"
+                                                    >
+                                                      <Eye className="w-3 h-3" />
+                                                    </Button>
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() =>
+                                                        handleDownloadFile(
+                                                          file,
+                                                          fileKey
+                                                        )
+                                                      }
+                                                      disabled={isLoading}
+                                                      className="h-7 w-7 p-0"
+                                                      title="Download file"
+                                                    >
+                                                      <Download className="w-3 h-3" />
+                                                    </Button>
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          }
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">
+                                        No files
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {item.files && item.files.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {item.files.map(
+                                          (file: any, fileIndex: number) => (
+                                            <Badge
+                                              key={fileIndex}
+                                              variant="outline"
+                                              className="text-xs px-1.5 py-0.5"
+                                            >
+                                              {file.fileName
+                                                ?.split(".")
+                                                .pop()
+                                                ?.toUpperCase() || "N/A"}
+                                            </Badge>
+                                          )
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">
+                                        N/A
+                                      </span>
+                                    )}
+                                  </td>
+                                  {shouldBeEditable("2.1") && (
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => {
+                                          handleRemoveEntry2_1(index);
+                                        }}
+                                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                                      >
+                                        <Trash2 className="h-5 w-5" />
+                                      </Button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            }
+                          );
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAddNewEntry2_1}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Save Entry
-                    </Button>
+
+                  {/* Add More Button - Only visible when in edit mode and "no" is selected */}
+                  {isEditable("2.1") && !showAddForm2_1 && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setShowAddForm2_1(false);
-                        setNewEntry2_1({ sector: "", files: [] });
-                      }}
-                      className="flex items-center gap-2"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddForm2_1(true)}
                     >
-                      <X className="w-4 h-4" />
-                      Cancel
+                      <Plus className="w-4 h-4" />
+                      Add More
                     </Button>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              <p className="text-xs text-muted-foreground">
-                Upload copy of Act/Policy
-              </p>
+                  {/* Add Entry Form - Only visible when showAddForm2_1 is true */}
+                  {showAddForm2_1 && isEditable("2.1") && (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">
+                        Add New Infrastructure Act/Policy Entry
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Sector</Label>
+                          <Dropdown
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
+                            value={newEntry2_1.sector}
+                            onChange={(value) =>
+                              setNewEntry2_1({ ...newEntry2_1, sector: value })
+                            }
+                            placeholder="Select Sector"
+                            isEditable={true}
+                          />
+                          {renderFieldError(
+                            "section2_1.infraActArray.new.sector"
+                          )}
+                        </div>
+                        <div>
+                          <Label>Upload Files</Label>
+                          <EditableFileDisplay
+                            files={newEntry2_1.files}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFiles) =>
+                              setNewEntry2_1({
+                                ...newEntry2_1,
+                                files: toFileArray(updatedFiles),
+                              })
+                            }
+                            label=""
+                            multiple={true}
+                          />
+                          {renderFieldError(
+                            "section2_1.infraActArray.new.files"
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewEntry2_1}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Entry
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowAddForm2_1(false);
+                            setNewEntry2_1({ sector: "", files: [] });
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Upload copy of Act/Policy
+                  </p>
                 </>
               )}
             </div>
@@ -5502,6 +5811,7 @@ export const InfraDevelopmentReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="2.2"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.2")}
@@ -5528,16 +5838,23 @@ export const InfraDevelopmentReview = ({
             <div className="space-y-4">
               {/* RadioGroup for hasSpecializedEntity */}
               <div>
-                <Label className="mb-3 block">
-                  Has Specialized Entity?*
-                </Label>
+                <Label className="mb-3 block">Has Specialized Entity?*</Label>
                 {shouldBeEditable("2.2") ? (
                   <RadioGroup
-                    key={`hasSpecializedEntity-${formDataState?.section2_2?.hasSpecializedEntity || ""}`}
-                    value={formDataState?.section2_2?.hasSpecializedEntity || ""}
+                    key={`hasSpecializedEntity-${
+                      formDataState?.section2_2?.hasSpecializedEntity || ""
+                    }`}
+                    value={
+                      formDataState?.section2_2?.hasSpecializedEntity || ""
+                    }
                     onValueChange={(value) => {
-                      console.log(`[InfraDevelopmentReview] RadioGroup value changed to: ${value}`);
-                      console.log(`[InfraDevelopmentReview] Current formDataState.section2_2:`, formDataState?.section2_2);
+                      console.log(
+                        `[InfraDevelopmentReview] RadioGroup value changed to: ${value}`
+                      );
+                      console.log(
+                        `[InfraDevelopmentReview] Current formDataState.section2_2:`,
+                        formDataState?.section2_2
+                      );
                       handleSectionFieldUpdate(
                         "2.2",
                         "hasSpecializedEntity",
@@ -5567,16 +5884,19 @@ export const InfraDevelopmentReview = ({
                   <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
-                        formDataState?.section2_2?.hasSpecializedEntity === "yes"
+                        formDataState?.section2_2?.hasSpecializedEntity ===
+                        "yes"
                           ? "bg-green-100 text-green-800"
-                          : formDataState?.section2_2?.hasSpecializedEntity === "no"
+                          : formDataState?.section2_2?.hasSpecializedEntity ===
+                            "no"
                           ? "bg-red-100 text-red-800"
                           : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {formDataState?.section2_2?.hasSpecializedEntity === "yes"
                         ? "Yes"
-                        : formDataState?.section2_2?.hasSpecializedEntity === "no"
+                        : formDataState?.section2_2?.hasSpecializedEntity ===
+                          "no"
                         ? "No"
                         : "Not specified"}
                     </span>
@@ -5588,132 +5908,261 @@ export const InfraDevelopmentReview = ({
               {/* Show table and Add More button if hasSpecializedEntity is "yes" */}
               {formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
                 <>
-              {/* Validation error for specializedEntityArray */}
-              {renderFieldError("section2_2.specializedEntityArray")}
+                  {/* Validation error for specializedEntityArray */}
+                  {renderFieldError("section2_2.specializedEntityArray")}
 
-              {/* Table Display */}
-              <div className="overflow-x-auto rounded-xl">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Sector
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Uploaded File
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        File Type
-                      </th>
-                      {shouldBeEditable("2.2") && (
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                          Action
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const specializedEntityArray = Array.isArray(
-                        formDataState?.section2_2?.specializedEntityArray
-                      )
-                        ? formDataState.section2_2.specializedEntityArray
-                        : [];
+                  {/* Table Display */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Type
+                          </th>
+                          {shouldBeEditable("2.2") && (
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const specializedEntityArray = Array.isArray(
+                            formDataState?.section2_2?.specializedEntityArray
+                          )
+                            ? formDataState.section2_2.specializedEntityArray
+                            : [];
 
-                      if (!specializedEntityArray.length) {
-                        return (
-                          <tr>
-                            <td
-                              colSpan={shouldBeEditable("2.2") ? 4 : 3}
-                              className="py-8 text-center text-muted-foreground"
-                            >
-                              No data available
-                            </td>
-                          </tr>
-                        );
-                      }
+                          if (!specializedEntityArray.length) {
+                            return (
+                              <tr>
+                                <td
+                                  colSpan={shouldBeEditable("2.2") ? 4 : 3}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
+                                  No data available
+                                </td>
+                              </tr>
+                            );
+                          }
 
-                      return specializedEntityArray.map(
-                        (item: any, index: number) => (
-                          <tr key={item.id || index} className="border-b">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("2.2") ? (
-                                <div>
-                                  <Dropdown
-                                    options={dropdownValues.sector.map(
-                                      (opt) => ({
-                                        label: opt,
-                                        value: opt,
-                                      })
-                                    )}
-                                    value={item.sector || ""}
-                                    onChange={(value) =>
-                                      handleArrayFieldUpdate(
-                                        "2.2",
-                                        index,
-                                        "sector",
-                                        value
-                                      )
-                                    }
-                                    placeholder="Select Sector"
-                                    isEditable={true}
-                                    resetKey={selectResetKey}
-                                  />
-                                  {renderFieldError(
-                                    `section2_2.specializedEntityArray.${index}.sector`
+                          return specializedEntityArray.map(
+                            (item: any, index: number) => (
+                              <tr key={item.id || index} className="border-b">
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("2.2") ? (
+                                    <div>
+                                      <Dropdown
+                                        options={dropdownValues.sector.map(
+                                          (opt) => ({
+                                            label: opt,
+                                            value: opt,
+                                          })
+                                        )}
+                                        value={item.sector || ""}
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.2",
+                                            index,
+                                            "sector",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Sector"
+                                        isEditable={true}
+                                        resetKey={selectResetKey}
+                                      />
+                                      {renderFieldError(
+                                        `section2_2.specializedEntityArray.${index}.sector`
+                                      )}
+                                    </div>
+                                  ) : (
+                                    item.sector || "N/A"
                                   )}
-                                </div>
-                              ) : (
-                                item.sector || "N/A"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("2.2") ? (
-                                <div className="space-y-1.5">
-                                  {item.files && item.files.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {item.files.map(
-                                        (file: any, fileIndex: number) => (
-                                          <Badge
-                                            key={fileIndex}
-                                            variant="secondary"
-                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                            title={
-                                              extractOriginalName(
-                                                file.fileName || "",
-                                                (file as any)?.originalName
-                                              ) || "Unknown file"
-                                            }
-                                          >
-                                            <Upload className="w-3 h-3 flex-shrink-0" />
-                                            <span className="truncate">
-                                              {extractOriginalName(
-                                                file.fileName || "",
-                                                (file as any)?.originalName
-                                              ) || "Unknown file"}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const updatedFiles =
-                                                  item.files.filter(
-                                                    (_: any, idx: number) =>
-                                                      idx !== fileIndex
-                                                  );
-                                                handleFilesUpdate(
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("2.2") ? (
+                                    <div className="space-y-1.5">
+                                      {item.files && item.files.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {item.files.map(
+                                            (file: any, fileIndex: number) => (
+                                              <Badge
+                                                key={fileIndex}
+                                                variant="secondary"
+                                                className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                                title={
+                                                  extractOriginalName(
+                                                    file.fileName || "",
+                                                    (file as any)?.originalName
+                                                  ) || "Unknown file"
+                                                }
+                                              >
+                                                <Upload className="w-3 h-3 flex-shrink-0" />
+                                                <span className="truncate">
+                                                  {extractOriginalName(
+                                                    file.fileName || "",
+                                                    (file as any)?.originalName
+                                                  ) || "Unknown file"}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const updatedFiles =
+                                                      item.files.filter(
+                                                        (_: any, idx: number) =>
+                                                          idx !== fileIndex
+                                                      );
+                                                    handleFilesUpdate(
+                                                      "2.2",
+                                                      index,
+                                                      updatedFiles.length > 0
+                                                        ? updatedFiles
+                                                        : []
+                                                    );
+                                                  }}
+                                                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                  <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                                </button>
+                                              </Badge>
+                                            )
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">
+                                          No files
+                                        </span>
+                                      )}
+                                      <div className="flex items-center">
+                                        <input
+                                          type="file"
+                                          accept=".pdf,.doc,.docx"
+                                          onChange={async (e) => {
+                                            const selectedFile =
+                                              e.target.files?.[0];
+                                            if (selectedFile) {
+                                              const uploadedFile =
+                                                await handleFileUpload(
+                                                  selectedFile
+                                                );
+                                              if (uploadedFile) {
+                                                const existingFiles =
+                                                  item.files || [];
+                                                await handleFilesUpdate(
                                                   "2.2",
                                                   index,
-                                                  updatedFiles.length > 0
-                                                    ? updatedFiles
-                                                    : []
+                                                  [
+                                                    ...existingFiles,
+                                                    uploadedFile,
+                                                  ]
                                                 );
-                                              }}
-                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              }
+                                              e.target.value = ""; // Reset input
+                                            }
+                                          }}
+                                          className="hidden"
+                                          id={`file-input-2.2-${index}`}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            document
+                                              .getElementById(
+                                                `file-input-2.2-${index}`
+                                              )
+                                              ?.click()
+                                          }
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          <Plus className="w-3 h-3 mr-1" />
+                                          Add
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : item.files && item.files.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5 items-center">
+                                      {item.files.map(
+                                        (file: any, fileIndex: number) => {
+                                          const fileKey = `2.2-${index}-${fileIndex}`;
+                                          const isLoading =
+                                            !!fileLoading[fileKey];
+                                          const hasFileAccess = !!(
+                                            file.filePath ||
+                                            file.file ||
+                                            file.fileUrl
+                                          );
+                                          return (
+                                            <div
+                                              key={fileIndex}
+                                              className="flex items-center gap-1"
                                             >
-                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                            </button>
-                                          </Badge>
-                                        )
+                                              <Badge
+                                                variant="secondary"
+                                                className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                                title={
+                                                  extractOriginalName(
+                                                    file.fileName || "",
+                                                    (file as any)?.originalName
+                                                  ) || "Unknown file"
+                                                }
+                                              >
+                                                <Upload className="w-3 h-3" />
+                                                <span className="truncate">
+                                                  {extractOriginalName(
+                                                    file.fileName || "",
+                                                    (file as any)?.originalName
+                                                  ) || "Unknown file"}
+                                                </span>
+                                              </Badge>
+                                              {hasFileAccess && (
+                                                <>
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                      handleViewFile(
+                                                        file,
+                                                        fileKey
+                                                      )
+                                                    }
+                                                    disabled={isLoading}
+                                                    className="h-7 w-7 p-0"
+                                                    title="View file"
+                                                  >
+                                                    <Eye className="w-3 h-3" />
+                                                  </Button>
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                      handleDownloadFile(
+                                                        file,
+                                                        fileKey
+                                                      )
+                                                    }
+                                                    disabled={isLoading}
+                                                    className="h-7 w-7 p-0"
+                                                    title="Download file"
+                                                  >
+                                                    <Download className="w-3 h-3" />
+                                                  </Button>
+                                                </>
+                                              )}
+                                            </div>
+                                          );
+                                        }
                                       )}
                                     </div>
                                   ) : (
@@ -5721,259 +6170,140 @@ export const InfraDevelopmentReview = ({
                                       No files
                                     </span>
                                   )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
-                                        const selectedFile =
-                                          e.target.files?.[0];
-                                        if (selectedFile) {
-                                          const uploadedFile =
-                                            await handleFileUpload(
-                                              selectedFile
-                                            );
-                                          if (uploadedFile) {
-                                            const existingFiles =
-                                              item.files || [];
-                                            await handleFilesUpdate(
-                                              "2.2",
-                                              index,
-                                              [...existingFiles, uploadedFile]
-                                            );
-                                          }
-                                          e.target.value = ""; // Reset input
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id={`file-input-2.2-${index}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        document
-                                          .getElementById(
-                                            `file-input-2.2-${index}`
-                                          )
-                                          ?.click()
-                                      }
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : item.files && item.files.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5 items-center">
-                                  {item.files.map(
-                                    (file: any, fileIndex: number) => {
-                                      const fileKey = `2.2-${index}-${fileIndex}`;
-                                      const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(
-                                        file.filePath ||
-                                        file.file ||
-                                        file.fileUrl
-                                      );
-                                      return (
-                                        <div
-                                          key={fileIndex}
-                                          className="flex items-center gap-1"
-                                        >
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {item.files && item.files.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {item.files.map(
+                                        (file: any, fileIndex: number) => (
                                           <Badge
-                                            variant="secondary"
-                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                            title={
-                                              extractOriginalName(
-                                                file.fileName || "",
-                                                (file as any)?.originalName
-                                              ) || "Unknown file"
-                                            }
+                                            key={fileIndex}
+                                            variant="outline"
+                                            className="text-xs px-1.5 py-0.5"
                                           >
-                                            <Upload className="w-3 h-3" />
-                                            <span className="truncate">
-                                              {extractOriginalName(
-                                                file.fileName || "",
-                                                (file as any)?.originalName
-                                              ) || "Unknown file"}
-                                            </span>
+                                            {file.fileName
+                                              ?.split(".")
+                                              .pop()
+                                              ?.toUpperCase() || "N/A"}
                                           </Badge>
-                                          {hasFileAccess && (
-                                            <>
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                  handleViewFile(file, fileKey)
-                                                }
-                                                disabled={isLoading}
-                                                className="h-7 w-7 p-0"
-                                                title="View file"
-                                              >
-                                                <Eye className="w-3 h-3" />
-                                              </Button>
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                  handleDownloadFile(
-                                                    file,
-                                                    fileKey
-                                                  )
-                                                }
-                                                disabled={isLoading}
-                                                className="h-7 w-7 p-0"
-                                                title="Download file"
-                                              >
-                                                <Download className="w-3 h-3" />
-                                              </Button>
-                                            </>
-                                          )}
-                                        </div>
-                                      );
-                                    }
+                                        )
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">
+                                      N/A
+                                    </span>
                                   )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">
-                                  No files
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {item.files && item.files.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {item.files.map(
-                                    (file: any, fileIndex: number) => (
-                                      <Badge
-                                        key={fileIndex}
-                                        variant="outline"
-                                        className="text-xs px-1.5 py-0.5"
-                                      >
-                                        {file.fileName
-                                          ?.split(".")
-                                          .pop()
-                                          ?.toUpperCase() || "N/A"}
-                                      </Badge>
-                                    )
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">
-                                  N/A
-                                </span>
-                              )}
-                            </td>
-                            {shouldBeEditable("2.2") && (
-                              <td className="py-3 px-4 text-sm font-normal">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    // Use index for deletion since items may not have IDs
-                                    handleRemoveEntry2_2(index);
-                                  }}
-                                  className="text-red-500 hover:text-red-700 border-none bg-none"
-                                >
-                                  <Trash2 className="h-5 w-5" />
-                                </Button>
-                              </td>
-                            )}
-                          </tr>
-                        )
-                      );
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
-              {isEditable("2.2") && !showAddForm2_2 && formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddForm2_2(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More
-                </Button>
-              )}
-
-              {/* Add Entry Form - Only visible when showAddForm2_2 is true */}
-              {showAddForm2_2 && isEditable("2.2") && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">
-                    Add New Specialized Entity Entry
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Sector</Label>
-                      <Dropdown
-                        options={dropdownValues.sector.map((opt) => ({
-                          label: opt,
-                          value: opt,
-                        }))}
-                        value={newEntry2_2.sector}
-                        onChange={(value) =>
-                          setNewEntry2_2({ ...newEntry2_2, sector: value })
-                        }
-                        placeholder="Select Sector"
-                        isEditable={true}
-                      />
-                      {renderFieldError(
-                        "section2_2.specializedEntityArray.new.sector"
-                      )}
-                    </div>
-                    <div>
-                      <Label>Upload Files</Label>
-                      <EditableFileDisplay
-                        files={newEntry2_2.files}
-                        isEditable={true}
-                        submissionId={submissionId}
-                        onFilesChange={(updatedFiles) =>
-                          setNewEntry2_2({
-                            ...newEntry2_2,
-                            files: toFileArray(updatedFiles),
-                          })
-                        }
-                        label=""
-                        multiple={true}
-                      />
-                      {renderFieldError(
-                        "section2_2.specializedEntityArray.new.files"
-                      )}
-                    </div>
+                                </td>
+                                {shouldBeEditable("2.2") && (
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => {
+                                        // Use index for deletion since items may not have IDs
+                                        handleRemoveEntry2_2(index);
+                                      }}
+                                      className="text-red-500 hover:text-red-700 border-none bg-none"
+                                    >
+                                      <Trash2 className="h-5 w-5" />
+                                    </Button>
+                                  </td>
+                                )}
+                              </tr>
+                            )
+                          );
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAddNewEntry2_2}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Save Entry
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setShowAddForm2_2(false);
-                        setNewEntry2_2({ sector: "", files: [] });
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
+
+                  {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
+                  {isEditable("2.2") &&
+                    !showAddForm2_2 &&
+                    formDataState?.section2_2?.hasSpecializedEntity ===
+                      "yes" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                        onClick={() => setShowAddForm2_2(true)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add More
+                      </Button>
+                    )}
+
+                  {/* Add Entry Form - Only visible when showAddForm2_2 is true */}
+                  {showAddForm2_2 && isEditable("2.2") && (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">
+                        Add New Specialized Entity Entry
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Sector</Label>
+                          <Dropdown
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
+                            value={newEntry2_2.sector}
+                            onChange={(value) =>
+                              setNewEntry2_2({ ...newEntry2_2, sector: value })
+                            }
+                            placeholder="Select Sector"
+                            isEditable={true}
+                          />
+                          {renderFieldError(
+                            "section2_2.specializedEntityArray.new.sector"
+                          )}
+                        </div>
+                        <div>
+                          <Label>Upload Files</Label>
+                          <EditableFileDisplay
+                            files={newEntry2_2.files}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFiles) =>
+                              setNewEntry2_2({
+                                ...newEntry2_2,
+                                files: toFileArray(updatedFiles),
+                              })
+                            }
+                            label=""
+                            multiple={true}
+                          />
+                          {renderFieldError(
+                            "section2_2.specializedEntityArray.new.files"
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewEntry2_2}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Entry
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowAddForm2_2(false);
+                            setNewEntry2_2({ sector: "", files: [] });
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -6004,7 +6334,7 @@ export const InfraDevelopmentReview = ({
               )}
 
               {formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
-              <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
+                <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
               )}
             </div>
           </SectionCard>
@@ -6027,6 +6357,7 @@ export const InfraDevelopmentReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="2.3"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.3")}
@@ -6554,6 +6885,7 @@ export const InfraDevelopmentReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="2.4"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.4")}
@@ -6811,10 +7143,12 @@ export const InfraDevelopmentReview = ({
                                   {shouldBeEditable("2.4") ? (
                                     <div>
                                       <Dropdown
-                                        options={INVESTMENT_READY_STATUS_OPTIONS.map((opt) => ({
-                                          label: opt,
-                                          value: opt,
-                                        }))}
+                                        options={INVESTMENT_READY_STATUS_OPTIONS.map(
+                                          (opt) => ({
+                                            label: opt,
+                                            value: opt,
+                                          })
+                                        )}
                                         value={item.status || ""}
                                         onChange={(value) =>
                                           handleArrayFieldUpdate(
@@ -7176,6 +7510,7 @@ export const InfraDevelopmentReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="2.5"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.5")}

@@ -1189,14 +1189,17 @@ export const InfraEnablersReview = ({
     };
 
     const handleSubmissionUpdate = async (event: CustomEvent) => {
-      const { submissionId: eventSubmissionId, indicatorScore } = event.detail || {};
+      const { submissionId: eventSubmissionId, indicatorScore } =
+        event.detail || {};
       if (eventSubmissionId === submissionId) {
         // Add a small delay to ensure backend has processed the update
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Refresh complete submission data to get updated indicator scores
         try {
-          console.log("🔄 Refreshing submission data after indicator update...");
+          console.log(
+            "🔄 Refreshing submission data after indicator update..."
+          );
           const freshSubmission = await apiService.getSubmission(submissionId);
 
           if (freshSubmission) {
@@ -2284,7 +2287,8 @@ export const InfraEnablersReview = ({
           }
           // Find and update existing score or add new one
           const existingIndex = updated.indicatorScores.findIndex(
-            (score: any) => score.indicatorCode === saveResult.indicatorScore.indicatorCode
+            (score: any) =>
+              score.indicatorCode === saveResult.indicatorScore.indicatorCode
           );
           if (existingIndex >= 0) {
             updated.indicatorScores[existingIndex] = saveResult.indicatorScore;
@@ -3997,6 +4001,7 @@ export const InfraEnablersReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="4.1"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.1")}
@@ -4108,6 +4113,7 @@ export const InfraEnablersReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="4.2"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.2")}
@@ -4631,6 +4637,7 @@ export const InfraEnablersReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="4.3"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.3")}
@@ -4733,6 +4740,7 @@ export const InfraEnablersReview = ({
             }
             subtitle="(10 marks per practice)"
             className="mb-6"
+            indicatorCode="4.4"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.4")}
@@ -5224,6 +5232,7 @@ export const InfraEnablersReview = ({
             }
             subtitle=""
             className="mb-6"
+            indicatorCode="4.5"
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.5")}
