@@ -1741,14 +1741,16 @@ const handleStateChange = (values: string | string[]) => {
             </TooltipProvider> */}
           </Label>
           {(() => {
-            const availableRoles = getAvailableRoles();
+            let availableRoles = getAvailableRoles();
+            // Sort roles by label ascending (A-Z)
+            availableRoles = [...availableRoles].sort((a, b) => a.label.localeCompare(b.label));
             return (
               <Select
                 value={
-                    availableRoles.some(r => r.value === formData.role)
-                      ? formData.role
-                      : (availableRoles.length > 0 ? availableRoles[0].value : "")
-                  }
+                  availableRoles.some(r => r.value === formData.role)
+                    ? formData.role
+                    : (availableRoles.length > 0 ? availableRoles[0].value : "")
+                }
                 disabled={user?.role === "STATE_APPROVER"}
                 onValueChange={async (value) => {
                   // Only update if the role is actually changing
@@ -1823,146 +1825,103 @@ const handleStateChange = (values: string | string[]) => {
         </div>
  
 
-  {/* State/UT Dropdown - hide if MINISTRY_APPROVER is logged in */}
-  {/* Hide state dropdown for MINISTRY_APPROVER login, show ministry dropdown below */}
-  {(formData.role && formData.role !== "MINISTRY_APPROVER" && user?.role !== "MINISTRY_APPROVER") && (
+  {/* State/UT and Assign Indicators are hidden by default, only show if a role is selected and not empty/whitespace */}
+  {formData.role && formData.role.trim() !== "" && (
+    <>
+      {/* State/UT Dropdown - show for STATE_APPROVER login, or if MOSPI_REVIEWER or STATE_APPROVER is selected as role */}
+      {(user?.role === "STATE_APPROVER" || formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER") && (
         <div className="space-y-2">
-          {formData?.role !== "MOSPI_APPROVER" && formData?.role !== "ADMIN" && (<>
           <Label htmlFor="stateId" className="flex items-center gap-2">
-              State/UT
+            State/UT
             <span className="text-destructive">*</span>
-            {/* <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    {formData?.role === "ADMIN"
-                      ? "Select the state/union territory for the user"
-                      : "State will be automatically set to your current state"}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider> */}
           </Label>
-          </>
-      )} 
-
- 
-{user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
-   formData.role === "MOSPI_REVIEWER" ? (
-    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-   <MultiSelect
-  options={states.map(state => {
-    const isAssigned = (officers || []).some(o =>
-      o.role === 'MOSPI_REVIEWER' &&
-      o.id !== officer?.id &&
-      (
-        (Array.isArray(o.stateId) && o.stateId.includes(state.id)) ||
-        (!Array.isArray(o.stateId) && o.stateId === state.id)
-      )
-    );
-
-    const stateNameNorm = (state.name || '').trim().toLowerCase();
-    const normalizedDisabledNames = disabledStateNames.map(n => n.toString().trim().toLowerCase());
-    const isDisabledByName = normalizedDisabledNames.includes(stateNameNorm);
-
-      return {
-        value: state.id,
-        label: state.name,
-        disabled: !state.isActive || isAssigned || isDisabledByName
-      };
-  })}
-  value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
-  onChange={(selected) => {
-    // Only keep the current selection, do not merge with previous state
-    handleStateChange(selected);
-  }}
-  placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
-  searchPlaceholder="Search states..."
-  showSearch
-  className={errors.stateId ? "border-destructive" : ""}
-  disabled={loadingStates}
-  showSelectAll
-/> 
-      <Button type="button" variant="outline" size="sm" onClick={() => handleStateChange([])} disabled={loadingStates}>
-        Clear
-      </Button>
-    </div>
-  ) : formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN" ? (
-    <Select
-      value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
-      onValueChange={(value) => handleStateChange(value)}
-      disabled={loadingStates}
-    >
-      <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
-        <SelectValue placeholder="Please select a state/UT" >
-          {formData.stateId
-            ? getSelectedStateName()
-            : loadingStates
-            ? "Loading states..."
-            : "Select state/UT"}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {loadingStates ? (
-          <div className="flex items-center justify-center p-2">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            Loading states...
-          </div>
-        ) : (
-          states.map((state) => {
-            // Disable if not active or in disabledStateNames (case-insensitive, trimmed)
-            const isDisabledByName = disabledStateNames.some(
-              n => n.trim().toLowerCase() === state.name.trim().toLowerCase()
-            );
-            
-            // Check if STATE_APPROVER already exists for this state
-            // Each state can have only one active STATE_APPROVER
-            const hasStateApprover = formData.role === "STATE_APPROVER" && (officers || []).some(o =>
-              o.role === 'STATE_APPROVER' &&
-              o.id !== officer?.id && // Exclude current officer if editing
-              o.isActive !== false && // Only check active STATE_APPROVERs (exclude explicitly deactivated ones)
-              (
-                (typeof o.state === 'string' && o.state.trim().toLowerCase() === state.name.trim().toLowerCase()) ||
-                (typeof o.stateId === 'string' && o.stateId === state.id) ||
-                (Array.isArray(o.stateId) && o.stateId.includes(state.id))
-              )
-            );
-            
-            return (
-              <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName || hasStateApprover}>
-                {state.name}
-              </SelectItem>
-            );
-          })
-        )}
-      </SelectContent>
-    </Select>
-  ):null
-) : (
-  <Input
-    id="stateId"
-    value={user?.state || "Loading..."}
-    disabled={true}
-    className="bg-muted"
-    placeholder="Your current state"
-  />
-)}
-
-          {formData?.role !== "ADMIN" && formData?.role !== "MOSPI_APPROVER" && (
-            <p className="text-sm text-muted-foreground">
-              {/* Users will be created in your current state:{" "} */}
-              {/* <strong>{user?.state}</strong> */}
-            </p>
+          {formData.role === "MOSPI_REVIEWER" ? (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <MultiSelect
+                options={states.map(state => {
+                  const isAssigned = (officers || []).some(o =>
+                    o.role === 'MOSPI_REVIEWER' &&
+                    o.id !== officer?.id &&
+                    (
+                      (Array.isArray(o.stateId) && o.stateId.includes(state.id)) ||
+                      (!Array.isArray(o.stateId) && o.stateId === state.id)
+                    )
+                  );
+                  const stateNameNorm = (state.name || '').trim().toLowerCase();
+                  const normalizedDisabledNames = disabledStateNames.map(n => n.toString().trim().toLowerCase());
+                  const isDisabledByName = normalizedDisabledNames.includes(stateNameNorm);
+                  return {
+                    value: state.id,
+                    label: state.name,
+                    disabled: !state.isActive || isAssigned || isDisabledByName
+                  };
+                })}
+                value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
+                onChange={(selected) => {
+                  handleStateChange(selected);
+                }}
+                placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
+                searchPlaceholder="Search states..."
+                showSearch
+                className={errors.stateId ? "border-destructive" : ""}
+                disabled={loadingStates}
+                showSelectAll
+              />
+              <Button type="button" variant="outline" size="sm" onClick={() => handleStateChange([])} disabled={loadingStates}>
+                Clear
+              </Button>
+            </div>
+          ) : (
+            <Select
+              value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
+              onValueChange={(value) => handleStateChange(value)}
+              disabled={loadingStates}
+            >
+              <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
+                <SelectValue placeholder="Please select a state/UT" >
+                  {formData.stateId
+                    ? getSelectedStateName()
+                    : loadingStates
+                    ? "Loading states..."
+                    : "Select state/UT"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {loadingStates ? (
+                  <div className="flex items-center justify-center p-2">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Loading states...
+                  </div>
+                ) : (
+                  states.map((state) => {
+                    const isDisabledByName = disabledStateNames.some(
+                      n => n.trim().toLowerCase() === state.name.trim().toLowerCase()
+                    );
+                    const hasStateApprover = formData.role === "STATE_APPROVER" && (officers || []).some(o =>
+                      o.role === 'STATE_APPROVER' &&
+                      o.id !== officer?.id &&
+                      o.isActive !== false &&
+                      (
+                        (typeof o.state === 'string' && o.state.trim().toLowerCase() === state.name.trim().toLowerCase()) ||
+                        (typeof o.stateId === 'string' && o.stateId === state.id) ||
+                        (Array.isArray(o.stateId) && o.stateId.includes(state.id))
+                      )
+                    );
+                    return (
+                      <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName || hasStateApprover}>
+                        {state.name}
+                      </SelectItem>
+                    );
+                  })
+                )}
+              </SelectContent>
+            </Select>
           )}
-
           {errors.stateId && (
             <p className="text-sm text-destructive">{errors.stateId}</p>
           )}
         </div>
-  )}
+      )}
   {/* Ministry Dropdown - show for MINISTRY_APPROVER login or if assigning MINISTRY_APPROVER/MOSPI_REVIEWER role */}
   {((formData.role && (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER")) || user?.role === "MINISTRY_APPROVER") && (
           <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
@@ -2031,14 +1990,13 @@ const handleStateChange = (values: string | string[]) => {
           </div>
         )}
 
-        {/* Indicator Assignment Section - Only for NODAL_OFFICER */}
-        {formData.role === "NODAL_OFFICER" && user?.role !== "MINISTRY_APPROVER" && (
+        {/* Indicator Assignment Section - Only for STATE_APPROVER login */}
+        {user?.role === "STATE_APPROVER" && (
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               Assign Indicators               
             </Label>
-
-            {/* Warning if state approver has submitted */}
+            {/* ...existing code for warnings, MultiSelect, and summary... */}
             {stateApproverHasSubmission && officer && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">
@@ -2046,8 +2004,6 @@ const handleStateChange = (values: string | string[]) => {
                 </p>
               </div>
             )}
-
-            {/* Warning if nodal officer has submitted */}
             {nodalHasSubmission && officer && !stateApproverHasSubmission && (
               <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <p className="text-sm text-orange-800">
@@ -2055,16 +2011,12 @@ const handleStateChange = (values: string | string[]) => {
                 </p>
               </div>
             )}
-
             {checkingNodalSubmission && (
               <p className="text-sm text-muted-foreground">
                 Checking submission status...
               </p>
             )}
-
-            {/* Warning about submitted indicators - only show if at least one submitted indicator is present in the options list */}
             {(() => {
-              // Check if any submitted indicators are actually present in the options list
               const submittedInOptions = indicatorOptions.some(opt => 
                 effectiveSubmittedIndicators.includes(opt.value) && opt.disabled
               );
@@ -2076,7 +2028,6 @@ const handleStateChange = (values: string | string[]) => {
                 </p>
               </div>
             )}
-
             <MultiSelect
               options={indicatorOptions}
               value={multiSelectValue}
@@ -2100,14 +2051,11 @@ const handleStateChange = (values: string | string[]) => {
                 Fetching available indicators...
               </p>
             )}
-
             {errors.assignedIndicators && (
               <p className="text-sm text-destructive">
                 {errors.assignedIndicators}
               </p>
             )}
-
-            {/* Selected Indicators Summary */}
             {formData.assignedIndicators.length > 0 && (
               <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
@@ -2154,17 +2102,17 @@ const handleStateChange = (values: string | string[]) => {
             )}
           </div>
         )}
+    </>
+  )}
 
 
-        {/* Ministry Indicators */}
-
-        {user?.role == "MINISTRY_APPROVER" && (
+        {/* Ministry Indicators - Only for MINISTRY_APPROVER login */}
+        {user?.role === "MINISTRY_APPROVER" && (
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               Ministry Assign Indicators
             </Label>
-
-            {/* Warning if state approver has submitted */}
+            {/* ...existing code for warnings, MultiSelect, and summary... */}
             {stateApproverHasSubmission && officer && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">
@@ -2172,8 +2120,6 @@ const handleStateChange = (values: string | string[]) => {
                 </p>
               </div>
             )}
-
-            {/* Warning if nodal officer has submitted */}
             {nodalHasSubmission && officer && !stateApproverHasSubmission && (
               <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <p className="text-sm text-orange-800">
@@ -2181,14 +2127,11 @@ const handleStateChange = (values: string | string[]) => {
                 </p>
               </div>
             )}
-
             {checkingNodalSubmission && (
               <p className="text-sm text-muted-foreground">
                 Checking submission status...
               </p>
             )}
-
-            {/* Warning about submitted indicators - only show if at least one submitted indicator is present in the options list */}
             {(() => {
               const submittedInOptions = (ministryIndicators || []).some(opt =>
                 effectiveSubmittedIndicators.includes(opt.value) && opt.disabled
@@ -2201,7 +2144,6 @@ const handleStateChange = (values: string | string[]) => {
                 </p>
               </div>
             )}
-
             <MultiSelect
               options={ministryIndicators}
               value={multiSelectValue}
@@ -2233,8 +2175,6 @@ const handleStateChange = (values: string | string[]) => {
                 {errors.assignedIndicators}
               </p>
             )}
-
-            {/* Selected Indicators Summary */}
             {formData.assignedIndicators.length > 0 && (
               <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
