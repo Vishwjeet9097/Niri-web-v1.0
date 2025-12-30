@@ -1828,8 +1828,9 @@ const handleStateChange = (values: string | string[]) => {
   {/* State/UT and Assign Indicators are hidden by default, only show if a role is selected and not empty/whitespace */}
   {formData.role && formData.role.trim() !== "" && (
     <>
-      {/* State/UT Dropdown - show for STATE_APPROVER login, or if MOSPI_REVIEWER or STATE_APPROVER is selected as role */}
-      {(user?.role === "STATE_APPROVER" || formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER") && (
+      {/* State/UT Dropdown - show for STATE_APPROVER login, or if MOSPI_REVIEWER or STATE_APPROVER is selected as role, but never for MINISTRY_APPROVER */}
+      {(user?.role === "STATE_APPROVER" ||
+        ((formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER") && user?.role !== "MINISTRY_APPROVER")) && (
         <div className="space-y-2">
           <Label htmlFor="stateId" className="flex items-center gap-2">
             State/UT
