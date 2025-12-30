@@ -369,6 +369,7 @@ export const Section_1_3 = ({
                       <div>
                         <Input
                           type="date"
+                          max={new Date().toISOString().split('T')[0]}
                           value={formatDateForInput(item.ratingDate)}
                           onChange={(e) => {
                             handleUlbChange(
@@ -522,6 +523,7 @@ export const Section_1_3 = ({
               <Label>Rating Date</Label>
               <Input
                 type="date"
+                max={new Date().toISOString().split('T')[0]}
                 value={formatDateForInput(newULBEntry.ratingDate)}
                 onChange={(e) => {
                   setNewULBEntry({

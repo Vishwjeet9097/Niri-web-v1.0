@@ -2630,6 +2630,7 @@ export const InfraFinancingStep = () => {
                       </Label>
                       <Input
                         type="date"
+                        max={new Date().toISOString().split('T')[0]}
                         value={
                           ulb.ratingDate
                             ? (() => {

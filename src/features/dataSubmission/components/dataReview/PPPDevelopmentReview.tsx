@@ -4555,6 +4555,7 @@ export const PPPDevelopmentReview = ({
                                 <div>
                                   <Input
                                     type="date"
+                                    max={new Date().toISOString().split("T")[0]}
                                     value={
                                       item.submissionDate
                                         ? (() => {
@@ -4966,6 +4967,7 @@ export const PPPDevelopmentReview = ({
                       <Label>Submission Date</Label>
                       <Input
                         type="date"
+                        max={new Date().toISOString().split("T")[0]}
                         value={formatDateForInput(newVGFItem.submissionDate)}
                         onChange={(e) => {
                           setNewVGFItem({
@@ -5260,6 +5262,7 @@ export const PPPDevelopmentReview = ({
                             {shouldBeEditable("3.4") ? (
                               <Input
                                 type="date"
+                                max={new Date().toISOString().split("T")[0]}
                                 value={
                                   project.dateOfAward
                                     ? new Date(project.dateOfAward)
@@ -5420,6 +5423,7 @@ export const PPPDevelopmentReview = ({
                       <Label>Date of Award</Label>
                       <Input
                         type="date"
+                        max={new Date().toISOString().split("T")[0]}
                         value={formatDateForInput(newProject.dateOfAward)}
                         onChange={(e) => {
                           setNewProject({

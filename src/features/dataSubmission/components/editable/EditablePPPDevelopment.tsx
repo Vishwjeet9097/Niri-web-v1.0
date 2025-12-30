@@ -506,6 +506,7 @@ export const EditablePPPDevelopment = ({
                                     date ? date.toISOString() : ""
                                   )
                                 }
+                                disabled={{ after: new Date() }}
                                 initialFocus
                               />
                             </PopoverContent>
@@ -687,6 +688,7 @@ export const EditablePPPDevelopment = ({
                                   date ? date.toISOString() : ""
                                 )
                               }
+                              disabled={{ after: new Date() }}
                               initialFocus
                             />
                           </PopoverContent>
