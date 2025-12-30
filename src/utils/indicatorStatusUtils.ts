@@ -261,6 +261,45 @@ export function isSubmissionFromNodalOfficer(
 }
 
 /**
+ * Check if submission is from STATE_APPROVER
+ * @param submission - The submission object
+ * @returns true if submission is from STATE_APPROVER
+ */
+export function isSubmissionFromStateApprover(
+  submission: Record<string, any> | undefined
+): boolean {
+  console.group("🔍 [indicatorStatusUtils] isSubmissionFromStateApprover");
+
+  if (!submission) {
+    console.log("❌ No submission provided");
+    console.groupEnd();
+    return false;
+  }
+
+  // Check user role
+  const userRole = submission.user?.role;
+  console.log("👤 User role:", userRole);
+  if (userRole === "STATE_APPROVER") {
+    console.log("✅ Submission is from STATE_APPROVER (via user.role)");
+    console.groupEnd();
+    return true;
+  }
+
+  // Check currentOwnerRole
+  const currentOwnerRole = submission.currentOwnerRole;
+  console.log("👤 Current owner role:", currentOwnerRole);
+  if (currentOwnerRole === "STATE_APPROVER") {
+    console.log("✅ Submission is from STATE_APPROVER (via currentOwnerRole)");
+    console.groupEnd();
+    return true;
+  }
+
+  console.log("❌ Submission is not from STATE_APPROVER");
+  console.groupEnd();
+  return false;
+}
+
+/**
  * Check if a specific indicator was originally submitted by a NODAL_OFFICER
  * This checks the section's status in formData to determine if it was submitted by NODAL_OFFICER
  * @param submission - The submission object

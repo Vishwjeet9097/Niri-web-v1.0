@@ -31,6 +31,7 @@ import {
 import {
   areAllIndicatorsAccepted,
   isSubmissionFromNodalOfficer,
+  isSubmissionFromStateApprover,
 } from "@/utils/indicatorStatusUtils";
 
 export interface UnifiedSubmissionCardProps {
@@ -259,8 +260,10 @@ export function UnifiedSubmissionCard({
 
   // Determine which buttons to show
   // Logic:
-  // 1. STATE_APPROVER: View Details button will always be shown
-  // 2. STATE_APPROVER viewing NODAL_OFFICER submission:
+  // 1. STATE_APPROVER viewing NODAL_OFFICER submission:
+  //    - If all indicators accepted → Show "View Details" (hide Review Now)
+  //    - If any indicator not accepted → Show "Review Now" (hide View Details for this case)
+  // 2. STATE_APPROVER viewing their own submission:
   //    - If all indicators accepted → Show "View Details" (hide Review Now)
   //    - If any indicator not accepted → Show "Review Now" (hide View Details for this case)
   // 3. Other roles → Use existing logic
@@ -268,21 +271,31 @@ export function UnifiedSubmissionCard({
   const isStateApproverViewingNodalSubmission =
     currentUserRole === "STATE_APPROVER" && isFromNodalOfficer;
 
+  const isStateApproverViewingOwnSubmission =
+    currentUserRole === "STATE_APPROVER" &&
+    isSubmissionFromStateApprover(submission);
+
   console.log(
     "🔍 Is STATE_APPROVER viewing NODAL_OFFICER submission:",
     isStateApproverViewingNodalSubmission
   );
+  console.log(
+    "🔍 Is STATE_APPROVER viewing their own submission:",
+    isStateApproverViewingOwnSubmission
+  );
 
-  // Show Review Now when STATE_APPROVER views NODAL_OFFICER submission with unaccepted indicators
+  // Show Review Now when STATE_APPROVER views NODAL_OFFICER submission OR their own submission with unaccepted indicators
   const canReview = canReviewSubmission(currentUserRole || "", status);
   const shouldShowReviewNow =
-    isStateApproverViewingNodalSubmission &&
+    (isStateApproverViewingNodalSubmission ||
+      isStateApproverViewingOwnSubmission) &&
     !allIndicatorsAccepted &&
     onReview &&
     canReview;
 
   console.log("🔍 Should Show Review Now:", {
     isStateApproverViewingNodalSubmission,
+    isStateApproverViewingOwnSubmission,
     allIndicatorsAccepted,
     hasOnReview: !!onReview,
     canReview,
@@ -290,12 +303,12 @@ export function UnifiedSubmissionCard({
   });
 
   // Show View Details:
-  // - STATE_APPROVER always sees View Details (except when showing Review Now for NODAL_OFFICER submissions)
+  // - STATE_APPROVER sees View Details (except when showing Review Now for NODAL_OFFICER submissions or their own submissions)
   // - Other roles see View Details when appropriate
   const canEdit = canEditSubmission(currentUserRole || "", status);
   const shouldShowViewDetails =
     onViewDetails &&
-    // STATE_APPROVER: Always show View Details (except when showing Review Now for NODAL_OFFICER with unaccepted indicators)
+    // STATE_APPROVER: Show View Details (except when showing Review Now for NODAL_OFFICER or their own submissions with unaccepted indicators)
     ((currentUserRole === "STATE_APPROVER" && !shouldShowReviewNow) ||
       // Other roles: Show View Details when not showing Review Now
       (currentUserRole !== "STATE_APPROVER" &&
@@ -339,7 +352,13 @@ export function UnifiedSubmissionCard({
 
           {/* Submission details */}
           <div className="flex items-center gap-6 text-xs text-gray-500 mb-3">
-            <span className="font-medium">State: {stateUt || (submission as any)?.stateUt || (submission as any)?.state_ut || referenceId}</span>
+            <span className="font-medium">
+              State:{" "}
+              {stateUt ||
+                (submission as any)?.stateUt ||
+                (submission as any)?.state_ut ||
+                referenceId}
+            </span>
             <span>Updated: {updatedDate}</span>
             {/* <span>Due: {dueDate}</span> */}
             {submittedBy && <span>Submitted by: {submittedBy}</span>}
