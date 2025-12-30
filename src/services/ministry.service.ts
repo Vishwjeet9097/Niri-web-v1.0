@@ -63,3 +63,53 @@ export async function getMinistryFormIndicators() {
         return [];
     }
 }
+
+
+/**
+ * Registers a ministry form for a Ministry Approver
+ * @param userId - The user ID of the Ministry Approver
+ * @param userRole - The role of the user (should be 'MINISTRY_APPROVER')
+ * @param ministryId - The ministry ID
+ * @returns Promise<any>
+ */
+export async function minstryRegistrationForm(userId: string, userRole: string, ministryId: string): Promise<any> {
+    const url = getApiUrl("/ministry/form/create/form");
+
+    const payload = {
+        userId,
+        userRole,
+        ministryId,
+    };
+    try {
+        const response = await apiService.post(url, payload, { withCredentials: true });
+        // Try to return the most useful data
+        return response.data?.data || response.data || response;
+    } catch (error) {
+        console.error('❌ Error in minstryRegistrationForm:', error);
+        throw error;
+    }
+}
+
+
+/**
+ * Assign indicators to a nodal officer by a ministry approver
+ * @param nodalUserId - The ID of the nodal officer
+ * @param ministryUserId - The ID of the ministry approver
+ * @param indicatorsId - Array of indicator IDs to assign
+ */
+export async function assignIndicatorsToNodal(
+    nodalUserId: string,
+    ministryUserId: string,
+    indicatorsId: string[]
+) {
+    const url = getApiUrl("/ministry/form/create/assign-indicator-to-nodal");
+    return apiService.post(
+        url,
+        {
+            nodalUserId,
+            ministryUserId,
+            indicatorsId,
+        },
+        { withCredentials: true }
+    );
+}

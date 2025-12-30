@@ -69,6 +69,8 @@ export function UserForm({
   const [rawMinistryIndicators, setRawMinistryIndicators] = useState<any[]>([]);
   const [loadingMinistryIndicators, setLoadingMinistryIndicators] = useState(false);
   const [ministryIndicatorsError, setMinistryIndicatorsError] = useState<string | null>(null);
+  // State for selected ministry indicators (for Ministry Approver)
+  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>([]);
 
   // Local state for submitted indicators (fallback if not provided)
   const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(() => 
@@ -95,7 +97,6 @@ export function UserForm({
       setMinistryIndicatorsError(null);
       getMinistryFormIndicators()
         .then((data) => {
-          console.log('[UserForm] getMinistryFormIndicators API response:', data);
           // If data is an object with section keys, flatten it
           if (data && typeof data === 'object' && !Array.isArray(data)) {
             const flat: any[] = [];
@@ -144,7 +145,6 @@ export function UserForm({
         disabled: isSubmitted,
       };
     });
-    console.log('[UserForm] ministryIndicators options:', options);
     return options;
   }, [rawMinistryIndicators, effectiveSubmittedIndicators]);
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
@@ -925,8 +925,8 @@ export function UserForm({
     }
   }, [officer, states, formData.stateId]);
 
+
   const validate = () => {
-       
     const newErrors: Record<string, string> = {};
 
     if (!formData.firstName.trim()) {
@@ -964,13 +964,9 @@ export function UserForm({
       newErrors.role = "Role is required";
     }
 
-    // Indicator assignment is optional for NODAL_OFFICER
+    // Indicator assignment is optional for NODAL_OFFICER and MINISTRY_APPROVER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
-    // For MINISTRY_APPROVER, validate ministryAssignedIndicators if needed
-    if (formData.role === "MINISTRY_APPROVER" && (!ministryAssignedIndicators || ministryAssignedIndicators.length === 0)) {
-      newErrors.ministryAssignedIndicators = "At least one indicator must be assigned for Ministry Approver.";
-    }
-
+    // No validation required for ministryAssignedIndicators
 
     // Ministry validation for MINISTRY_APPROVER
     if (formData.role === "MINISTRY_APPROVER") {
@@ -1015,56 +1011,29 @@ export function UserForm({
 
  const handleSubmit = async () => { 
   console.log('[UserForm] Save User button clicked');
+  // Always compute normalizedStateId and stateNames at the top
+  const normalizedStateId =
+    formData.role === "MOSPI_REVIEWER"
+      ? Array.isArray(formData.stateId)
+        ? formData.stateId.filter(Boolean)
+        : formData.stateId
+        ? [formData.stateId]
+        : []
+      : Array.isArray(formData.stateId)
+      ? [formData.stateId[0] ?? ""].filter(Boolean)
+      : formData.stateId
+      ? [formData.stateId]
+      : [];
+
+  // Get unique state names only for stateUt
+  const stateNames = Array.from(new Set(normalizedStateId.map(
+    (id) => states.find((s) => s.id === id)?.name ?? id
+  )));
+
   const isValid = validate();
   if (!isValid) {
     console.log('[UserForm] Validation failed:', errors);
     return;
-  }
-
-   // This ensures we verify against the full database, not just local officers array
-  if (formData.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-    try {     
-      
-      setCheckingEmail(true);
-      const isEmailAvailable = await apiService.checkEmailAvailability(
-        formData.email,
-        officer?.id // This excludes current user when editing
-      );
- 
-
-      if (!isEmailAvailable) {
-        setErrors((prev) => ({
-          ...prev,
-          email: "This email is already registered to another user",
-        }));
-        setCheckingEmail(false);
-        toast({
-          title: "Validation Error",
-          description: "This email is already registered to another user",
-          variant: "destructive",
-        });
-        return; // Stop submission
-      }
-      
-      // Clear any existing email errors if API check passes
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        if (newErrors.email === "This email is already registered to another user") {
-          delete newErrors.email;
-        }
-        return newErrors;
-      });
-    } catch (error: any) {
-      console.error("❌ [handleSubmit] Error checking email availability:", error);
-      // On error, show warning but allow submission (fail open)
-      toast({
-        title: "Warning",
-        description: "Could not verify email availability. Please verify manually.",
-        variant: "default",
-      });
-    } finally {
-      setCheckingEmail(false);
-    }
   }
 
   // Always check contact number via API before saving (even if unchanged)
@@ -1120,44 +1089,28 @@ export function UserForm({
     }
   }
 
-  const normalizedStateId =
-    formData.role === "MOSPI_REVIEWER"
-      ? Array.isArray(formData.stateId)
-        ? formData.stateId.filter(Boolean)
-        : formData.stateId
-        ? [formData.stateId]
-        : []
-      : Array.isArray(formData.stateId)
-      ? [formData.stateId[0] ?? ""].filter(Boolean)
-      : formData.stateId
-      ? [formData.stateId]
-      : [];
-
-  // Get unique state names only for stateUt
-  const stateNames = Array.from(new Set(normalizedStateId.map(
-    (id) => states.find((s) => s.id === id)?.name ?? id
-  )));
-
+  // Build payload for submission
   const payload = {
     ...formData,
     stateUt: stateNames.join(", "), // always only the selected unique state(s)
     stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
     ministryId: formData.ministryId ? String(formData.ministryId) : "",
+    ...(formData.role === "MINISTRY_APPROVER" ? { ministryAssignedIndicators } : {}),
   };
- 
-  
-  type SubmitPayload = Omit<
-  NodalOfficer,
-  "id" | "state" | "createdAt" | "assignedIndicator"
-> & {
-  password?: string;
-  ministryId?: string;
-  assignedIndicators?: string[];
-  stateId?: string | string[];
-  stateUt?: string; // string joined for backend
-};
 
-  try { 
+  type SubmitPayload = Omit<
+    NodalOfficer,
+    "id" | "state" | "createdAt" | "assignedIndicator"
+  > & {
+    password?: string;
+    ministryId?: string;
+    assignedIndicators?: string[];
+    stateId?: string | string[];
+    stateUt?: string; // string joined for backend
+    ministryAssignedIndicators?: string[];
+  };
+
+  try {
     await onSave(payload as SubmitPayload);
     // Only clear form and draft if save succeeded
     setFormData(prev => ({
@@ -1173,6 +1126,7 @@ export function UserForm({
       assignedIndicators: [],
       ministryId: '',
     }));
+    setMinistryAssignedIndicators([]);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('userManagementFormDraft');
     }
@@ -2130,19 +2084,56 @@ const handleStateChange = (values: string | string[]) => {
 
         {/* Ministry Indicators - Only for MINISTRY_APPROVER login */}
         {user?.role === "MINISTRY_APPROVER" && (
-          <MinistryIndicatorsSection
-            ministryIndicators={ministryIndicators}
-            effectiveSubmittedIndicators={effectiveSubmittedIndicators}
-            loadingMinistryIndicators={loadingMinistryIndicators}
-            ministryIndicatorsError={ministryIndicatorsError}
-            stateApproverHasSubmission={stateApproverHasSubmission}
-            officer={officer}
-            nodalHasSubmission={nodalHasSubmission}
-            checkingNodalSubmission={checkingNodalSubmission}
-            errors={errors}
-            assignedIndicators={formData.assignedIndicators}
-            setFormData={setFormData}
-          />
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Assign Ministry Indicators <span className="text-destructive">*</span>
+            </Label>
+            <MultiSelect
+              options={ministryIndicators}
+              value={ministryAssignedIndicators}
+              onChange={setMinistryAssignedIndicators}
+              placeholder={loadingMinistryIndicators ? "Loading indicators..." : "Select ministry indicators..."}
+              searchPlaceholder="Type to search indicators..."
+              showSearch={true}
+              showSelectAll={!loadingMinistryIndicators}
+              showSectionHeaders={true}
+              groupBySection={true}
+              className="w-full"
+              maxHeight="250px"
+              disabled={loadingMinistryIndicators}
+            />
+            {loadingMinistryIndicators && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Fetching available ministry indicators...
+              </p>
+            )}
+            {errors.ministryAssignedIndicators && (
+              <p className="text-sm text-destructive">
+                {errors.ministryAssignedIndicators}
+              </p>
+            )}
+            {ministryAssignedIndicators.length > 0 && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
+                    Selected ({ministryAssignedIndicators.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {ministryAssignedIndicators.map((indicator, index) => (
+                    <Badge
+                      key={`ministry-indicator-${index}-${indicator}`}
+                      variant="secondary"
+                      className="text-xs bg-blue-100 text-blue-800"
+                    >
+                      {indicator}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

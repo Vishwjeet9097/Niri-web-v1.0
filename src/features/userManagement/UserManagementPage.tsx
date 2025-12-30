@@ -18,10 +18,12 @@ import {
 } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
+import { minstryRegistrationForm } from "@/services/ministry.service";
 import { EmptyState } from "./components/EmptyState";
 import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api.service";
+import { assignIndicatorsToNodal } from "@/services/ministry.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
@@ -244,9 +246,47 @@ export function UserManagementPage() {
     setShowForm(true);
   };
 
+
+  // Ministry Approver: Edit handler
+  const handleMinistryEditUser = (officer: NodalOfficer) => {
+    // Custom logic for Ministry Approver edit
+    setEditingOfficer(officer);
+    setShowForm(true);
+  };
+
   const handleEditUser = (officer: NodalOfficer) => {
     setEditingOfficer(officer);
     setShowForm(true);
+  };
+
+  // Ministry Approver: Assign indicator handler
+  const handleMinisterAssignIndicator = async (id: string, indicator: string) => {
+    try {
+      // Update user with assigned indicator via backend API
+      await apiService.updateUser(id, {
+        assignedIndicator: indicator,
+      } as any);
+      notificationService.success(
+        "Indicator assigned successfully",
+        "Assignment Successful"
+      );
+      await loadOfficers();
+      try {
+        console.log("🔁 Triggering indicator refresh after assign indicator");
+        await refresh?.({ clearCache: true });
+      } catch (err) {
+        console.warn(
+          "⚠️ Indicator refresh failed after assign indicator:",
+          err
+        );
+      }
+    } catch (error) {
+      console.error("❌ Error assigning indicator:", error);
+      notificationService.error(
+        "Failed to assign indicator. Please try again.",
+        "Assignment Failed"
+      );
+    }
   };
 
   // Helper function to check if nodal officer has any submission
@@ -632,20 +672,33 @@ export function UserManagementPage() {
  
  
          // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
-        const newUser = await apiService.register(
-          {
-            email: officerData.email,
-            password: officerData.password || "password123",
-            firstName: officerData.firstName,
-            lastName: officerData.lastName,
-            contactNumber: officerData.contactNumber,
-            role: officerData.role,
-            stateUt: officerData.stateUt,
-            stateId: selectedStateId,
-            ministryId: officerData.ministryId ? String(officerData.ministryId) : "",
-            indicatorCodes: officerData.assignedIndicators,
+        const newUser = await apiService.register({
+          email: officerData.email,
+          password: officerData.password || "password123",
+          firstName: officerData.firstName,
+          lastName: officerData.lastName,
+          contactNumber: officerData.contactNumber,
+          role: officerData.role,
+          stateUt: officerData.stateUt,
+          stateId: selectedStateId,
+          ministryId: officerData.ministryId ? String(officerData.ministryId) : "",
+          indicatorCodes: officerData.assignedIndicators,
+        });
+
+        const createdUserId = newUser?.user?.id;
+         if (createdUserId) {
+          if (officerData.role === "MINISTRY_APPROVER") {
+            try {
+              await minstryRegistrationForm(
+                createdUserId,
+                "MINISTRY_APPROVER",
+                officerData.ministryId ? String(officerData.ministryId) : ""
+              );
+            } catch (err) {
+              console.error("❌ Error calling minstryRegistrationForm:", err);
+            }
           }
-        );
+        }
 
         // Debug logging removed for performance
 
@@ -1089,13 +1142,100 @@ export function UserManagementPage() {
     );
   }
 
-  // Show form if showForm is true - render conditionally in return
+
+  // Ministry Approver: handle save with ministryAssignedIndicators
+  // Ministry Approver: Only assign indicators to an existing Nodal Officer (no registration here)
+  const handleMinistryIndicatorSaveUser = async (
+      officerData: Omit<
+        NodalOfficer,
+        "id" | "state" | "createdAt" | "assignedIndicator"
+      > & { nodalUserId: string; ministryAssignedIndicators?: string[] }
+    ) => {
+    try {
+      let nodalUserId = officerData.nodalUserId;
+      // If nodalUserId is not present, try to register the user and get the id
+      if (!nodalUserId && officerData.email && officerData.firstName && officerData.lastName) {
+        // Register the user (minimal fields, expand as needed)
+        const newUser = await apiService.register({
+          email: officerData.email,
+          password: officerData.password || "password123",
+          firstName: officerData.firstName,
+          lastName: officerData.lastName,
+          contactNumber: officerData.contactNumber,
+          role: "NODAL_OFFICER",
+          stateUt: officerData.stateUt,
+          stateId: officerData.stateId,
+          ministryId: String(officerData.ministryId),
+          indicatorCodes: [], // No indicators at registration
+        });
+        nodalUserId = newUser?.user?.id;
+      }
+      if (
+        nodalUserId &&
+        officerData.ministryAssignedIndicators &&
+        officerData.ministryAssignedIndicators.length > 0 &&
+        user?.id
+      ) {
+        await assignIndicatorsToNodal(
+          nodalUserId,
+          user.id,
+          officerData.ministryAssignedIndicators
+        );
+        
+        notificationService.success(
+          "Ministry indicators assigned successfully",
+          "Assignment Successful"
+        );  
+        await loadOfficers();
+        setShowForm(false);
+        setEditingOfficer(null);
+        try {
+          await refresh?.({ clearCache: true });
+        } catch (err) {
+          // ignore
+        }
+      } else {
+        notificationService.error(
+          "Missing Nodal Officer or indicators.",
+          "Assignment Failed"
+        );
+      }
+    } catch (error: any) {
+      let errorMessage = "Failed to assign indicators. Please try again.";
+      let errorTitle = "Operation Failed";
+      if (error?.response?.data) {
+        const responseData = error.response.data;
+        if (responseData.message) {
+          errorMessage = responseData.message;
+          errorTitle = responseData.error || "Error";
+        } else if (responseData.error) {
+          errorMessage = responseData.error;
+        }
+        if (responseData.statusCode === 409) {
+          errorTitle = "Assignment Conflict";
+          errorMessage = "Indicators already assigned or conflict exists.";
+        } else if (responseData.statusCode === 400) {
+          errorTitle = "Invalid Data";
+          errorMessage = "Please check your input data and try again.";
+        } else if (responseData.statusCode === 403) {
+          errorTitle = "Access Denied";
+          errorMessage = "You don't have permission to perform this action.";
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      notificationService.error(errorMessage, errorTitle);
+    }
+  };
+
   if (showForm) {
+    // Conditionally use handleMinistryIndicatorSaveUser for Ministry Approver with ministryAssignedIndicators
+    const isMinistryApprover = user?.role === "MINISTRY_APPROVER";
     return (
       <div className="p-6 space-y-6">
         <UserForm
           officer={editingOfficer}
-          onSave={handleSaveUser}
+          onSave={isMinistryApprover ? handleMinistryIndicatorSaveUser : handleSaveUser}
           onCancel={handleCancel}
           allIndicators={allIndicators}
           officers={officers}
@@ -1106,6 +1246,7 @@ export function UserManagementPage() {
       </div>
     );
   }
+  
 
   return (
     <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6 space-y-6">
@@ -1234,9 +1375,9 @@ export function UserManagementPage() {
 
       <UserTable
         officers={paginatedOfficers}
-        onEdit={handleEditUser}
+        onEdit={user?.role === "MINISTRY_APPROVER" ? handleMinistryEditUser : handleEditUser}
         onDelete={handleDeleteUser}
-        onAssignIndicator={handleAssignIndicator}
+        onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? handleMinisterAssignIndicator : handleAssignIndicator}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         sortField={sortField}
