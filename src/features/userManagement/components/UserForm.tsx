@@ -966,18 +966,32 @@ export function UserForm({
     // Indicator assignment is optional for NODAL_OFFICER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
-    // Ministry validation for MINISTRY_APPROVER and MOSPI_REVIEWER
-    if (formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") {
+
+    // Ministry validation for MINISTRY_APPROVER
+    if (formData.role === "MINISTRY_APPROVER") {
       if (!formData.ministryId || formData.ministryId === "") {
         newErrors.ministryId = "Please select a ministry";
       }
     }
 
+    // For MOSPI_REVIEWER: At least one of State/UT or Ministry must be selected (not both required, but at least one)
+    if (formData.role === "MOSPI_REVIEWER") {
+      const hasState = Array.isArray(formData.stateId) ? formData.stateId.length > 0 : !!formData.stateId;
+      const hasMinistry = !!formData.ministryId && formData.ministryId !== "";
+      if (!hasState && !hasMinistry) {
+        newErrors.stateId = "Please select at least one State/UT or a Ministry";
+        newErrors.ministryId = "Please select at least one State/UT or a Ministry";
+      }
+      // If either is selected, do not show error for the other
+      // (no else if: if one is filled, no error for the other)
+    }
+
     // ✅ State validation - skip for MINISTRY_APPROVER (even if user is ADMIN)
     if ((user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") && formData.role?.toUpperCase() !== "MINISTRY_APPROVER") {
       if (formData.role === "MOSPI_REVIEWER") {
-        // Validate multiple states for MOSPI_REVIEWER
-        if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
+        // Only require state validation if ministry is NOT selected
+        const hasMinistry = !!formData.ministryId && formData.ministryId !== "";
+        if (!hasMinistry && (!Array.isArray(formData.stateId) || formData.stateId.length === 0)) {
           newErrors.stateId = "Please select at least one state";
         }
       } else if (formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN") {
@@ -2237,7 +2251,7 @@ const handleStateChange = (values: string | string[]) => {
         >
           Cancel
         </Button>
-        <Button onClick={handleSubmit}>Save User</Button>
+        <Button onClick={() => handleSubmit()}>Save User</Button>
       </div>
     </div>
   );
