@@ -1910,7 +1910,7 @@ const handleStateChange = useCallback((values: string | string[]) => {
           <Input
             id="email"
             type="email"
-            placeholder="e.g. user@gujarat.gov.in or user@nic.in"
+            placeholder="e.g. user@gov.in or user@nic.in"
             value={formData.email}
             disabled={!!officer} // Disable email field when editing existing user
             onChange={(e) => {
