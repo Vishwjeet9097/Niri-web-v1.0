@@ -114,56 +114,20 @@ export async function assignIndicatorsToNodal(
     );
 }
 
-/**
- * Retrieve submission details with indicators, subsections, and input fields
- * @param submissionId - The ID of the ministry submission
- * @returns Promise with submission form structure
- */
-export async function getMinistrySubmissionDetails(submissionId: string): Promise<{
-    status: boolean;
-    data: any[];
-    message: string;
-}> {
+
+// Fetch remaining indicators for ministry form creation for a specific user
+export async function getRemainingMinistryIndicators(userId?: string) {
     try {
-        const url = getApiUrl(`/ministry/form/retrieve/submission/${submissionId}`);
+        let url = getApiUrl("/ministry/form/create/indicators");
+        if (userId) {
+            url += `?userId=${encodeURIComponent(userId)}`;
+        }
         const response = await apiService.get(url, { withCredentials: true });
-        
-        // The API returns { status: true, data: [...], message: "..." }
-        // response.data is the entire object, so we should return it directly
-        // But we need to handle both cases: response.data.data or response.data
-        const apiResponse = response.data;
-        
-        // If the response has the expected structure
-        if (apiResponse && typeof apiResponse === 'object' && 'status' in apiResponse) {
-            return {
-                status: apiResponse.status ?? true,
-                data: apiResponse.data || [],
-                message: apiResponse.message || ''
-            };
-        }
-        
-        // Fallback: if response.data is directly the array
-        if (Array.isArray(apiResponse)) {
-            return {
-                status: true,
-                data: apiResponse,
-                message: 'Retrieved indicators for submission'
-            };
-        }
-        
-        // Fallback: if response.data.data exists
-        if (apiResponse?.data && Array.isArray(apiResponse.data)) {
-            return {
-                status: apiResponse.status ?? true,
-                data: apiResponse.data,
-                message: apiResponse.message || ''
-            };
-        }
-        
-        console.error('[getMinistrySubmissionDetails] Unexpected response structure:', apiResponse);
-        return { status: false, data: [], message: 'Unexpected response structure' };
+        return response.data?.data || response.data || [];
     } catch (error) {
-        console.error('[getMinistrySubmissionDetails] API Error:', error);
-        throw error;
+        console.error('[getRemainingMinistryIndicators] API Error:', error);
+        return [];
     }
 }
+
+

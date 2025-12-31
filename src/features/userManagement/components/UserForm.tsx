@@ -1,5 +1,4 @@
 import React from "react";
-import MinistryIndicatorsSection from "./MinistryIndicatorsSection";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getRoleDisplayName } from "@/utils/roles";
@@ -30,7 +29,9 @@ import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
-import { getAllAssignedMinistryIds, getMinistryFormIndicators } from "@/services/ministry.service";
+
+import { getAllAssignedMinistryIds, getMinistryFormIndicators, getRemainingMinistryIndicators } from "@/services/ministry.service";
+import MinistryIndicatorsSection from "./MinistryIndicatorsSection";
 
 
 
@@ -66,11 +67,46 @@ export function UserForm({
   const { toast } = useToast();
 
   // Ministry Approver indicators state
+  // All ministry indicators
+  const [allMinistryIndicators, setAllMinistryIndicators] = useState<any[]>([]);
+  // Remaining indicators (not assigned)
+  // Final filtered indicators for dropdown
   const [rawMinistryIndicators, setRawMinistryIndicators] = useState<any[]>([]);
   const [loadingMinistryIndicators, setLoadingMinistryIndicators] = useState(false);
   const [ministryIndicatorsError, setMinistryIndicatorsError] = useState<string | null>(null);
   // State for selected ministry indicators (for Ministry Approver)
-  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>([]);
+  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>(() => {
+    if (officer && Array.isArray(officer.assignedIndicators)) {
+      return officer.assignedIndicators;
+    }
+    return [];
+  });
+
+  // Keep ministryAssignedIndicators in sync with formData
+  const handleMinistryIndicatorsChange = (selected: string[]) => {
+    setMinistryAssignedIndicators(selected);
+    setFormData(prev => ({
+      ...prev,
+      ministryAssignedIndicators: selected,
+    }));
+  };
+
+  // Update ministryAssignedIndicators when editing a different officer
+  useEffect(() => {
+    if (officer && Array.isArray(officer.assignedIndicators)) {
+      setMinistryAssignedIndicators(officer.assignedIndicators);
+      setFormData(prev => ({
+        ...prev,
+        ministryAssignedIndicators: officer.assignedIndicators,
+      }));
+    } else {
+      setMinistryAssignedIndicators([]);
+      setFormData(prev => ({
+        ...prev,
+        ministryAssignedIndicators: [],
+      }));
+    }
+  }, [officer]);
 
   // Local state for submitted indicators (fallback if not provided)
   const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(() => 
@@ -81,7 +117,11 @@ export function UserForm({
   // Memoized to prevent unnecessary recalculations
   const effectiveSubmittedIndicators = useMemo(() => {
     const submitted = Array.isArray(submittedIndicatorsInState) ? submittedIndicatorsInState : [];
-    return submitted.length > 0 ? submitted : localSubmittedIndicators;
+    // Always return an array
+    if (submitted.length > 0) {
+      return submitted;
+    }
+    return Array.isArray(localSubmittedIndicators) ? localSubmittedIndicators : [];
   }, [submittedIndicatorsInState, localSubmittedIndicators]);
 
   // Debug: Log when component receives submittedIndicatorsInState
@@ -95,58 +135,70 @@ export function UserForm({
     if (user.role === "MINISTRY_APPROVER") {
       setLoadingMinistryIndicators(true);
       setMinistryIndicatorsError(null);
-      getMinistryFormIndicators()
-        .then((data) => {
-          // If data is an object with section keys, flatten it
-          if (data && typeof data === 'object' && !Array.isArray(data)) {
-            const flat: any[] = [];
-            Object.entries(data).forEach(([section, arr]) => {
+      const fetchIndicators = async () => {
+        try {
+          // Fetch all indicators
+          const ministryUserId = user.id;
+          let allData = await getRemainingMinistryIndicators(ministryUserId);
+
+          // If allData is blank (null, undefined, empty object, or empty array), fallback to getMinistryFormIndicators()
+          const isBlank =
+            allData == null ||
+            (Array.isArray(allData) && allData.length === 0) ||
+            (typeof allData === 'object' && !Array.isArray(allData) && Object.keys(allData).length === 0);
+
+          if (isBlank) {
+            allData = await getMinistryFormIndicators();
+          }
+
+          let allFlat: any[] = [];
+          if (allData && typeof allData === 'object' && !Array.isArray(allData)) {
+            Object.entries(allData).forEach(([section, arr]) => {
               if (Array.isArray(arr)) {
                 arr.forEach((item) => {
-                  flat.push({ ...item, section });
+                  allFlat.push({ ...item, section });
                 });
               }
             });
-            setRawMinistryIndicators(flat);
-          } else if (Array.isArray(data)) {
-            setRawMinistryIndicators(data);
-          } else {
-            setRawMinistryIndicators([]);
+          } else if (Array.isArray(allData)) {
+            allFlat = allData;
           }
-        })
-        .catch((err) => {
+          setAllMinistryIndicators(allFlat);
+          setRawMinistryIndicators(allFlat);
+  
+        } catch (err) {
           console.error('[UserForm] Error fetching ministry indicators:', err);
           setMinistryIndicatorsError("Failed to load ministry indicators");
-          setRawMinistryIndicators([]);
-        })
-        .finally(() => setLoadingMinistryIndicators(false));
+        } finally {
+          setLoadingMinistryIndicators(false);
+        }
+      };
+      fetchIndicators();
     }
-  }, [user]);
+  }, [user, officer]);
 
   // Transform ministry indicators to MultiSelectOption[]
   const ministryIndicators: MultiSelectOption[] = useMemo(() => {
     if (!rawMinistryIndicators || rawMinistryIndicators.length === 0) {
-      console.log('[UserForm] ministryIndicators: rawMinistryIndicators is empty', rawMinistryIndicators);
       return [];
     }
+    // Only show indicators returned by getRemainingMinistryIndicators (hide assigned ones)
     const options = rawMinistryIndicators.map((item: any) => {
-      // Use id as value for uniqueness, sNo for display
       const value = item.id || item.code || item.value || '';
       const sNo = item.sNo || '';
       const name = item.name || item.label || item.code || '';
       const section = item.category || item.section || '';
       const description = item.description || '';
-      const isSubmitted = effectiveSubmittedIndicators.includes(value);
       return {
         value,
-        label: `${sNo ? sNo + ' - ' : ''}${name}${isSubmitted ? ' (Submitted)' : ''}`,
+        label: `${sNo ? sNo + ' - ' : ''}${name}`,
         section,
         description,
-        disabled: isSubmitted,
+        disabled: false,
       };
     });
     return options;
-  }, [rawMinistryIndicators, effectiveSubmittedIndicators]);
+  }, [rawMinistryIndicators]);
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
   useEffect(() => {
     const fetchIfNeeded = async () => { 
@@ -158,7 +210,7 @@ export function UserForm({
         if (stateUt) {
           // Debug logs removed
           try {
-            const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+            const submitted = await getRemainingMinistryIndicators(user.id);
             setLocalSubmittedIndicators(submitted);
           } catch (error) {
             // Error log removed
@@ -1092,10 +1144,11 @@ export function UserForm({
   // Build payload for submission
   const payload = {
     ...formData,
-    stateUt: stateNames.join(", "), // always only the selected unique state(s)
+    stateUt: stateNames.join(", "),
     stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
     ministryId: formData.ministryId ? String(formData.ministryId) : "",
-    ...(formData.role === "MINISTRY_APPROVER" ? { ministryAssignedIndicators } : {}),
+    // Always include the latest ministryAssignedIndicators from state
+    ...((user?.role === "MINISTRY_APPROVER" || formData.role === "MINISTRY_APPROVER") ? { ministryAssignedIndicators } : {}),
   };
 
   type SubmitPayload = Omit<
@@ -1113,6 +1166,7 @@ export function UserForm({
   try {
     await onSave(payload as SubmitPayload);
     // Only clear form and draft if save succeeded
+    // Only clear form fields, but keep ministryAssignedIndicators as the last saved value
     setFormData(prev => ({
       ...prev,
       firstName: '',
@@ -1126,7 +1180,7 @@ export function UserForm({
       assignedIndicators: [],
       ministryId: '',
     }));
-    setMinistryAssignedIndicators([]);
+    // Do not clear ministryAssignedIndicators, keep the last selected value
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('userManagementFormDraft');
     }
@@ -2084,56 +2138,20 @@ const handleStateChange = (values: string | string[]) => {
 
         {/* Ministry Indicators - Only for MINISTRY_APPROVER login */}
         {user?.role === "MINISTRY_APPROVER" && (
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              Assign Ministry Indicators <span className="text-destructive">*</span>
-            </Label>
-            <MultiSelect
-              options={ministryIndicators}
-              value={ministryAssignedIndicators}
-              onChange={setMinistryAssignedIndicators}
-              placeholder={loadingMinistryIndicators ? "Loading indicators..." : "Select ministry indicators..."}
-              searchPlaceholder="Type to search indicators..."
-              showSearch={true}
-              showSelectAll={!loadingMinistryIndicators}
-              showSectionHeaders={true}
-              groupBySection={true}
-              className="w-full"
-              maxHeight="250px"
-              disabled={loadingMinistryIndicators}
-            />
-            {loadingMinistryIndicators && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Fetching available ministry indicators...
-              </p>
-            )}
-            {errors.ministryAssignedIndicators && (
-              <p className="text-sm text-destructive">
-                {errors.ministryAssignedIndicators}
-              </p>
-            )}
-            {ministryAssignedIndicators.length > 0 && (
-              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">
-                    Selected ({ministryAssignedIndicators.length})
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {ministryAssignedIndicators.map((indicator, index) => (
-                    <Badge
-                      key={`ministry-indicator-${index}-${indicator}`}
-                      variant="secondary"
-                      className="text-xs bg-blue-100 text-blue-800"
-                    >
-                      {indicator}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <MinistryIndicatorsSection
+            ministryIndicators={ministryIndicators}
+            effectiveSubmittedIndicators={effectiveSubmittedIndicators}
+            loadingMinistryIndicators={loadingMinistryIndicators}
+            ministryIndicatorsError={ministryIndicatorsError}
+            stateApproverHasSubmission={stateApproverHasSubmission || false}
+            officer={officer}
+            nodalHasSubmission={nodalHasSubmission}
+            checkingNodalSubmission={checkingNodalSubmission}
+            errors={errors}
+            ministryAssignedIndicators={ministryAssignedIndicators}
+            setFormData={setFormData}
+            onMinistryIndicatorsChange={handleMinistryIndicatorsChange}
+          />
         )}
       </div>
 

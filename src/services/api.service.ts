@@ -63,7 +63,7 @@ export class ApiService {
           ...(userData.indicatorCodes && userData.indicatorCodes.length > 0 && { indicatorCodes: userData.indicatorCodes }),
         };
         // If role is MINISTRY_APPROVER or MOSPI_REVIEWER and ministryId is present, include it as a string
-        if ((userData.role === "MINISTRY_APPROVER" || userData.role === "MOSPI_REVIEWER") && userData.ministryId) {
+        if ((userData.role === "MINISTRY_APPROVER" || userData.role === "MOSPI_REVIEWER"  || userData.role === "NODAL_OFFICER") && userData.ministryId) {
           payload.ministryId = Array.isArray(userData.ministryId) ? userData.ministryId[0] || "" : userData.ministryId;
         }
         console.log("🔍 API Service - Register Request Data:", payload);

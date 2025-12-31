@@ -14,8 +14,9 @@ export type MinistryIndicatorsSectionProps = {
   nodalHasSubmission: boolean;
   checkingNodalSubmission: boolean;
   errors: Record<string, string>;
-  assignedIndicators: string[];
+  ministryAssignedIndicators: string[];
   setFormData: (fn: (prev: any) => any) => void;
+  onMinistryIndicatorsChange?: (selected: string[]) => void;
 };
 
 const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
@@ -28,22 +29,23 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
   nodalHasSubmission,
   checkingNodalSubmission,
   errors,
-  assignedIndicators,
+  ministryAssignedIndicators,
   setFormData,
+  onMinistryIndicatorsChange,
 }) => {
-  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = React.useState<string[]>(assignedIndicators || []);
+
+  // Use assignedIndicators prop as the source of truth
   const [ministryShowAllSelectedIndicators, setMinistryShowAllSelectedIndicators] = React.useState(false);
 
-  React.useEffect(() => {
-    setMinistryAssignedIndicators(assignedIndicators || []);
-  }, [assignedIndicators]);
-
+  // No local state for ministryAssignedIndicators; always use ministryAssignedIndicators from props
   const handleMinistryIndicatorChange = (selectedIndicators: string[]) => {
-    setMinistryAssignedIndicators(selectedIndicators);
     setFormData((prev: any) => ({
       ...prev,
-      assignedIndicators: selectedIndicators,
+      ministryAssignedIndicators: selectedIndicators,
     }));
+    if (typeof onMinistryIndicatorsChange === 'function') {
+      onMinistryIndicatorsChange(selectedIndicators);
+    }
   };
 
   return (
@@ -98,7 +100,7 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
         groupBySection={true}
         className="w-full"
         maxHeight="250px"
-        disabled={loadingMinistryIndicators || (stateApproverHasSubmission && !!officer) || (nodalHasSubmission && !!officer)}
+        disabled={loadingMinistryIndicators || (nodalHasSubmission && !!officer)}
       />
       {loadingMinistryIndicators && (
         <p className="text-sm text-muted-foreground mt-1">
