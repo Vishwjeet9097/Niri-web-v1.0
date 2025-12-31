@@ -866,6 +866,10 @@ export function UserManagementPage() {
       return;
     }
 
+    // Note: Frontend cannot check if STATE_APPROVER has NODAL_OFFICER users
+    // because ADMIN/MOSPI_APPROVER don't have access to see NODAL_OFFICER users via API.
+    // This validation should be handled on the backend in the deactivateUser endpoint.
+
     setIsDeleting(true);
     try {
       // Delete user via backend API
@@ -901,12 +905,26 @@ export function UserManagementPage() {
       setDeleteModalOpen(false);
       setUserToDelete(null);
       setHasSubmissions(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error deleting user:", error);
-      notificationService.error(
-        "Failed to delete officer. Please try again.",
-        "Delete Failed"
-      );
+
+      // Extract error message from response
+      let errorMessage = "Failed to delete officer. Please try again.";
+      let errorTitle = "Delete Failed";
+
+      if (error?.response?.data) {
+        const responseData = error.response.data;
+        if (responseData.message) {
+          errorMessage = responseData.message;
+          errorTitle = responseData.error || "Deletion Restricted";
+        } else if (responseData.error) {
+          errorMessage = responseData.error;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      notificationService.error(errorMessage, errorTitle);
     } finally {
       setIsDeleting(false);
     }
