@@ -25,7 +25,10 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
-import { useIndicatorAccess, ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
+import {
+  useIndicatorAccess,
+  ALL_INDICATOR_CODES,
+} from "@/hooks/useIndicatorAccess";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 
 export function UserManagementPage() {
@@ -45,12 +48,15 @@ export function UserManagementPage() {
   const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
   const [hasSubmissions, setHasSubmissions] = useState(false);
   const [checkingSubmissions, setCheckingSubmissions] = useState(false);
-  const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<string[]>([]);
+  const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<
+    string[]
+  >([]);
 
   const { refresh } = useIndicatorAccess();
-  
+
   // Check if state approver has submitted their form
-  const { hasSubmission: stateApproverHasSubmission } = useUserSubmissionStatus();
+  const { hasSubmission: stateApproverHasSubmission } =
+    useUserSubmissionStatus();
 
   // Refs to prevent unnecessary API calls and track loading state
   const officersLoadedRef = useRef(false);
@@ -58,7 +64,7 @@ export function UserManagementPage() {
   const submittedIndicatorsLoadedRef = useRef<string>("");
   const lastRefreshTimeRef = useRef<number>(0);
   const refreshDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Minimum time between refreshes (2 seconds)
   const MIN_REFRESH_INTERVAL = 2000;
 
@@ -67,7 +73,7 @@ export function UserManagementPage() {
     if (statesLoadedRef.current && states.length > 0) {
       return;
     }
-    
+
     try {
       const statesData = await statesService.getStates();
       setStates(statesData);
@@ -77,69 +83,79 @@ export function UserManagementPage() {
     }
   }, [states.length]);
 
-  const loadOfficers = useCallback(async (forceRefresh = false) => {
-    // Prevent rapid successive calls
-    const now = Date.now();
-    if (!forceRefresh && officersLoadedRef.current && (now - lastRefreshTimeRef.current) < MIN_REFRESH_INTERVAL) {
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      lastRefreshTimeRef.current = now;
-
-      // Try to load from backend API first
-      // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
-      let backendUsers;
-      if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
-        backendUsers = await apiService.getAllUsers();
-      } else {
-        backendUsers = await apiService.getUsersByState(user?.state || "");
-      }
-
-      // Safety check: ensure backendUsers is an array
-      if (!backendUsers || !Array.isArray(backendUsers)) {
-        console.warn("⚠️ Backend API returned invalid data, using local storage:", backendUsers);
-        const data = userManagementService.getOfficers(user?.state || "");
-        setOfficers(data);
-        officersLoadedRef.current = true;
+  const loadOfficers = useCallback(
+    async (forceRefresh = false) => {
+      // Prevent rapid successive calls
+      const now = Date.now();
+      if (
+        !forceRefresh &&
+        officersLoadedRef.current &&
+        now - lastRefreshTimeRef.current < MIN_REFRESH_INTERVAL
+      ) {
         return;
       }
 
-      // Transform backend users to NodalOfficer format
-      const transformedOfficers: NodalOfficer[] = backendUsers.map(
-        (user: any) => ({
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          contactNumber: user.contactNumber || "",
-          email: user.email,
-          role: user.role as
-            | "NODAL_OFFICER"
-            | "STATE_APPROVER"
-            | "MOSPI_REVIEWER"
-            | "MOSPI_APPROVER",
-          state: user.stateUt || user.state || "",
-          stateId: user.stateId || "",
-          assignedIndicator: user.assignedIndicator,
-          assignedIndicators: user.assignedIndicators || [],
-          isActive: user.isActive,
-          createdAt: new Date(user.createdAt).getTime(),
-        })
-      );
+      try {
+        setIsLoading(true);
+        lastRefreshTimeRef.current = now;
 
-      setOfficers(transformedOfficers);
-      officersLoadedRef.current = true;
-    } catch (error) {
-      console.warn("⚠️ Backend API failed, using local storage:", error);
-      // Fallback to local storage
-      const data = userManagementService.getOfficers(user?.state || "");
-      setOfficers(data);
-      officersLoadedRef.current = true;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.role, user?.state]);
+        // Try to load from backend API first
+        // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
+        let backendUsers;
+        if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
+          backendUsers = await apiService.getAllUsers();
+        } else {
+          backendUsers = await apiService.getUsersByState(user?.state || "");
+        }
+
+        // Safety check: ensure backendUsers is an array
+        if (!backendUsers || !Array.isArray(backendUsers)) {
+          console.warn(
+            "⚠️ Backend API returned invalid data, using local storage:",
+            backendUsers
+          );
+          const data = userManagementService.getOfficers(user?.state || "");
+          setOfficers(data);
+          officersLoadedRef.current = true;
+          return;
+        }
+
+        // Transform backend users to NodalOfficer format
+        const transformedOfficers: NodalOfficer[] = backendUsers.map(
+          (user: any) => ({
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            contactNumber: user.contactNumber || "",
+            email: user.email,
+            role: user.role as
+              | "NODAL_OFFICER"
+              | "STATE_APPROVER"
+              | "MOSPI_REVIEWER"
+              | "MOSPI_APPROVER",
+            state: user.stateUt || user.state || "",
+            stateId: user.stateId || "",
+            assignedIndicator: user.assignedIndicator,
+            assignedIndicators: user.assignedIndicators || [],
+            isActive: user.isActive,
+            createdAt: new Date(user.createdAt).getTime(),
+          })
+        );
+
+        setOfficers(transformedOfficers);
+        officersLoadedRef.current = true;
+      } catch (error) {
+        console.warn("⚠️ Backend API failed, using local storage:", error);
+        // Fallback to local storage
+        const data = userManagementService.getOfficers(user?.state || "");
+        setOfficers(data);
+        officersLoadedRef.current = true;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user?.role, user?.state]
+  );
 
   // New function to load indicators - memoized to prevent unnecessary calls
   const loadIndicators = useCallback(async () => {
@@ -147,13 +163,13 @@ export function UserManagementPage() {
     if (allIndicators.length > 0) {
       return;
     }
-    
+
     try {
       setIsIndicatorsLoading(true);
       const indicators = await apiService.getAllIndicators();
       // Filter to only include indicators with valid codes (exclude old/removed indicators like old 4.1 and 4.6)
-      const validIndicators = (indicators || []).filter((ind: any) => 
-        ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+      const validIndicators = (indicators || []).filter(
+        (ind: any) => ind.code && ALL_INDICATOR_CODES.includes(ind.code)
       );
       setAllIndicators(validIndicators);
     } catch (err) {
@@ -175,7 +191,7 @@ export function UserManagementPage() {
     officersLoadedRef.current = false;
     statesLoadedRef.current = false;
     submittedIndicatorsLoadedRef.current = "";
-    
+
     loadOfficers(true); // Force refresh on user change
     loadStates();
   }, [user?.role, user?.state]); // Only depend on user role/state, not loadOfficers
@@ -185,18 +201,23 @@ export function UserManagementPage() {
   useEffect(() => {
     const fetchSubmittedIndicators = async () => {
       const stateUt = user?.stateUt || user?.state;
-      
+
       // Skip if no state or already loaded for this state
       if (!stateUt || submittedIndicatorsLoadedRef.current === stateUt) {
         return;
       }
-      
+
       try {
-        const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+        const submitted = await apiService.getSubmittedIndicatorsInState(
+          stateUt
+        );
         setSubmittedIndicatorsInState(submitted);
         submittedIndicatorsLoadedRef.current = stateUt;
       } catch (error) {
-        console.error("❌ [UserManagementPage] Error fetching submitted indicators:", error);
+        console.error(
+          "❌ [UserManagementPage] Error fetching submitted indicators:",
+          error
+        );
         setSubmittedIndicatorsInState([]);
       }
     };
@@ -211,16 +232,16 @@ export function UserManagementPage() {
       if (refreshDebounceTimeoutRef.current) {
         clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      
+
       // Debounce the refresh to prevent rapid successive calls
       refreshDebounceTimeoutRef.current = setTimeout(() => {
         loadOfficers(true); // Force refresh on focus
       }, 500); // 500ms debounce
     };
 
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener("focus", handleFocus);
     return () => {
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener("focus", handleFocus);
       if (refreshDebounceTimeoutRef.current) {
         clearTimeout(refreshDebounceTimeoutRef.current);
       }
@@ -272,7 +293,7 @@ export function UserManagementPage() {
     try {
       const response = await apiService.get(`/submission/user/${userId}`);
       const submission = response?.data?.data || response?.data;
-      
+
       // Check if submission exists and has meaningful data
       if (!submission?.id) {
         return false;
@@ -312,7 +333,7 @@ export function UserManagementPage() {
     try {
       const response = await apiService.get(`/submission/user/${userId}`);
       const submission = response?.data?.data || response?.data;
-      
+
       if (!submission?.id || !submission?.formData) {
         return { hasSubmitted: false, submittedIndicators: [] };
       }
@@ -420,7 +441,7 @@ export function UserManagementPage() {
           const newIndicators = officerData.assignedIndicators || [];
 
           // Check if indicators are being changed (added or removed)
-          const indicatorsChanged = 
+          const indicatorsChanged =
             currentIndicators.length !== newIndicators.length ||
             currentIndicators.some((ind) => !newIndicators.includes(ind)) ||
             newIndicators.some((ind) => !currentIndicators.includes(ind));
@@ -455,10 +476,11 @@ export function UserManagementPage() {
             );
 
             if (indicatorsBeingRemoved.length > 0) {
-              const submissionCheck = await checkNodalOfficerHasSubmittedIndicators(
-                editingOfficer.id,
-                indicatorsBeingRemoved
-              );
+              const submissionCheck =
+                await checkNodalOfficerHasSubmittedIndicators(
+                  editingOfficer.id,
+                  indicatorsBeingRemoved
+                );
 
               if (submissionCheck.hasSubmitted) {
                 notificationService.error(
@@ -528,8 +550,8 @@ export function UserManagementPage() {
           //throw new Error("State is required but not provided");
         }
 
- 
-        await apiService.updateUser(editingOfficer.id, {
+        // Build the update payload conditionally
+        const updatePayload: any = {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
           contactNumber: officerData.contactNumber,
@@ -539,10 +561,21 @@ export function UserManagementPage() {
             | "MOSPI_REVIEWER"
             | "MOSPI_APPROVER",
           indicatorCodes: officerData.assignedIndicators || [],
-          stateUt: officerData.stateUt,
-          // Include assigned indicators in update payload with correct key
-          // Note: email and stateUt are not included in update payload as they should not be changed
-        } as any);
+        };
+
+        // Only include stateUt if the role requires it (set to empty string for MOSPI_APPROVER and ADMIN to clear state)
+        if (
+          officerData.role !== "MOSPI_APPROVER" &&
+          officerData.role !== "ADMIN"
+        ) {
+          updatePayload.stateUt = officerData.stateUt || "";
+        } else {
+          // Explicitly set to empty string for MOSPI_APPROVER and ADMIN to clear state in backend
+          // (Backend has NOT NULL constraint, so we use empty string instead of null)
+          updatePayload.stateUt = "";
+        }
+
+        await apiService.updateUser(editingOfficer.id, updatePayload);
 
         notificationService.success(
           "Officer updated successfully",
@@ -552,19 +585,23 @@ export function UserManagementPage() {
         // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
         // Check if indicators were actually updated
         if (officerData.assignedIndicators !== undefined) {
-          console.log("📢 Dispatching indicatorsUpdated event after user update", {
-            officerRole: editingOfficer.role,
-            officerState: editingOfficer.state,
-            officerStateUt: editingOfficer.stateUt,
-            newIndicators: officerData.assignedIndicators
-          });
+          console.log(
+            "📢 Dispatching indicatorsUpdated event after user update",
+            {
+              officerRole: editingOfficer.role,
+              officerState: editingOfficer.state,
+              officerStateUt: editingOfficer.stateUt,
+              newIndicators: officerData.assignedIndicators,
+            }
+          );
           // For NODAL_OFFICER indicator changes, include role so STATE_APPROVERs refresh
           // The NODAL_OFFICER themselves will refresh via the userId check, but STATE_APPROVERs need to refresh too
-          const eventDetail: any = { action: 'update' };
+          const eventDetail: any = { action: "update" };
           if (editingOfficer.role === "NODAL_OFFICER") {
             // Include stateUt and role so STATE_APPROVERs can refresh
             // STATE_APPROVERs will always refresh when any NODAL_OFFICER indicators change
-            eventDetail.stateUt = editingOfficer.state || editingOfficer.stateUt;
+            eventDetail.stateUt =
+              editingOfficer.state || editingOfficer.stateUt;
             eventDetail.role = "NODAL_OFFICER";
             // Also include userId for the NODAL_OFFICER themselves to refresh
             eventDetail.userId = editingOfficer.id;
@@ -573,7 +610,9 @@ export function UserManagementPage() {
             eventDetail.userId = editingOfficer.id;
           }
           console.log("📢 Event detail:", eventDetail);
-          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
+          window.dispatchEvent(
+            new CustomEvent("indicatorsUpdated", { detail: eventDetail })
+          );
         }
       } else {
         // Create new user via backend API
@@ -648,9 +687,8 @@ export function UserManagementPage() {
         }
 
         // Before calling register, compute final values to send:
-        const stateUtToSend = 
-            selectedStateName || officerData.stateUt || selectedStateId || "";
- 
+        const stateUtToSend =
+          selectedStateName || officerData.stateUt || selectedStateId || "";
 
         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
@@ -684,33 +722,37 @@ export function UserManagementPage() {
         // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
         // Check if indicators were assigned to the new user (or if assignment is empty, to notify STATE_APPROVERs)
         if (officerData.assignedIndicators !== undefined) {
-          console.log("📢 Dispatching indicatorsUpdated event after user creation");
+          console.log(
+            "📢 Dispatching indicatorsUpdated event after user creation"
+          );
           // For NODAL_OFFICER indicator assignment, include stateUt so STATE_APPROVERs refresh
-          const eventDetail: any = { 
-            action: 'create', 
-            assignedIndicators: officerData.assignedIndicators 
+          const eventDetail: any = {
+            action: "create",
+            assignedIndicators: officerData.assignedIndicators,
           };
           if (officerData.role === "NODAL_OFFICER") {
             eventDetail.role = "NODAL_OFFICER";
             eventDetail.stateUt = selectedStateName || officerData.stateUt;
           }
-          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
+          window.dispatchEvent(
+            new CustomEvent("indicatorsUpdated", { detail: eventDetail })
+          );
         }
       }
-      
+
       // Hide form immediately and clear editing state BEFORE loading officers
       // This ensures user doesn't see form clearing - redirect happens simultaneously
       setShowForm(false);
       setEditingOfficer(null);
-      
+
       // Clear sessionStorage immediately
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('userManagementFormDraft');
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("userManagementFormDraft");
       }
-      
+
       // Reset flags to force refresh
       officersLoadedRef.current = false;
-      
+
       // Load officers and refresh indicators
       await loadOfficers(true); // Force refresh after save
 
@@ -718,7 +760,7 @@ export function UserManagementPage() {
       if (refreshDebounceTimeoutRef.current) {
         clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      
+
       refreshDebounceTimeoutRef.current = setTimeout(async () => {
         try {
           await refresh?.({ clearCache: true });
@@ -839,15 +881,15 @@ export function UserManagementPage() {
 
       // Reset flag to force refresh
       officersLoadedRef.current = false;
-      
+
       // Refresh data
       await loadOfficers(true); // Force refresh after delete
-      
+
       // Debounce indicator refresh
       if (refreshDebounceTimeoutRef.current) {
         clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      
+
       refreshDebounceTimeoutRef.current = setTimeout(async () => {
         try {
           await refresh?.({ clearCache: true });
@@ -896,7 +938,8 @@ export function UserManagementPage() {
         officer.lastName.toLowerCase().includes(lowerSearch) ||
         officer.email.toLowerCase().includes(lowerSearch) ||
         (officer.state && officer.state.toLowerCase().includes(lowerSearch)) ||
-        (officer.stateId && officer.stateId.toLowerCase().includes(lowerSearch));
+        (officer.stateId &&
+          officer.stateId.toLowerCase().includes(lowerSearch));
 
       // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
       const isStateApprover = user?.role === "STATE_APPROVER";
@@ -1003,22 +1046,25 @@ export function UserManagementPage() {
 
       // Clear selection and refresh data
       setSelectedIds(new Set());
-      
+
       // Reset flag to force refresh
       officersLoadedRef.current = false;
-      
+
       await loadOfficers(true); // Force refresh after bulk delete
 
       // Debounce indicator refresh
       if (refreshDebounceTimeoutRef.current) {
         clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      
+
       refreshDebounceTimeoutRef.current = setTimeout(async () => {
         try {
           await refresh?.({ clearCache: true });
         } catch (err) {
-          console.warn("⚠️ Indicator refresh failed after bulk delete users:", err);
+          console.warn(
+            "⚠️ Indicator refresh failed after bulk delete users:",
+            err
+          );
         }
       }, 300);
 
@@ -1047,22 +1093,25 @@ export function UserManagementPage() {
         "Indicator assigned successfully",
         "Assignment Successful"
       );
-      
+
       // Reset flag to force refresh
       officersLoadedRef.current = false;
-      
+
       await loadOfficers(true); // Force refresh after assign
-      
+
       // Debounce indicator refresh
       if (refreshDebounceTimeoutRef.current) {
         clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      
+
       refreshDebounceTimeoutRef.current = setTimeout(async () => {
         try {
           await refresh?.({ clearCache: true });
         } catch (err) {
-          console.warn("⚠️ Indicator refresh failed after assign indicator:", err);
+          console.warn(
+            "⚠️ Indicator refresh failed after assign indicator:",
+            err
+          );
         }
       }, 300);
     } catch (error) {
@@ -1092,7 +1141,7 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               User Management
-            </h1>            
+            </h1>
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />
@@ -1170,7 +1219,7 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-lg font-semibold text-foreground">
               User Management
-            </h1> 
+            </h1>
           </div>
         </div>
         <div className="flex gap-3">
@@ -1185,16 +1234,12 @@ export function UserManagementPage() {
             variant="outline"
             onClick={handleDeleteAll}
             disabled={
-              isDeleting ||
-              (selectedIds.size === 0 && officers.length === 0)
+              isDeleting || (selectedIds.size === 0 && officers.length === 0)
             }
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </Button>
-          <Button
-            onClick={handleAddUser}
-            disabled={isDeleting}
-          >
+          <Button onClick={handleAddUser} disabled={isDeleting}>
             <Plus className="w-4 h-4 mr-2" />
             Add User
           </Button>
@@ -1230,11 +1275,11 @@ export function UserManagementPage() {
             <SelectContent>
               <SelectItem value="all">Select Roles</SelectItem>
 
-               {user?.role !== "ADMIN" && user?.role !== "MOSPI_APPROVER" && (
-              <SelectItem value="NODAL_OFFICER">
-                {getRoleDisplayName("NODAL_OFFICER")}
-              </SelectItem>
-               )}
+              {user?.role !== "ADMIN" && user?.role !== "MOSPI_APPROVER" && (
+                <SelectItem value="NODAL_OFFICER">
+                  {getRoleDisplayName("NODAL_OFFICER")}
+                </SelectItem>
+              )}
               {user?.role !== "STATE_APPROVER" && (
                 <>
                   <SelectItem value="STATE_APPROVER">
@@ -1246,13 +1291,13 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                  
                 </>
               )}
-               {user?.role == "ADMIN" && (<SelectItem value="ADMIN">
-                    {getRoleDisplayName("ADMIN")}
-                  </SelectItem>
-                )}
+              {user?.role == "ADMIN" && (
+                <SelectItem value="ADMIN">
+                  {getRoleDisplayName("ADMIN")}
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
