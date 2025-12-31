@@ -92,11 +92,12 @@ export function UserManagementPage() {
       // Try to load from backend API first
       // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
       let backendUsers;
-      if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" || user?.role === "MINISTRY_APPROVER") {
+      if (user?.role === "ADMIN" || user?.role === "NODAL_OFFICER" || user?.role === "MOSPI_APPROVER" || user?.role === "MINISTRY_APPROVER") {
         // Admin and MOSPI Approver can see all users across all states
         // Debug logging removed for performance
 
         backendUsers = await apiService.getAllUsers();
+         console.log("backendUsers:", backendUsers);
       } else {
         // State Approver can only see users from their state
         // Debug logging removed for performance
@@ -112,6 +113,8 @@ export function UserManagementPage() {
         setOfficers(data);
         return;
       }
+
+     
 
       // Transform backend users to NodalOfficer format
       const transformedOfficers: NodalOfficer[] = backendUsers.map(
