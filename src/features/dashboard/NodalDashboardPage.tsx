@@ -430,9 +430,9 @@ export function NodalDashboardPage() {
                       ))
                     )}
                   </div>
-                  <div className="mt-4 text-center">
+                  {/* <div className="mt-4 text-center">
                     <Button variant="outline">View All</Button>
-                  </div>
+                  </div> */}
                 </TabsContent>
               </Tabs>
             </div>
