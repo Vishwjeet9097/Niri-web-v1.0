@@ -1,5 +1,4 @@
 import React from "react";
-import MinistryIndicatorsSection from "./MinistryIndicatorsSection";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getRoleDisplayName } from "@/utils/roles";
