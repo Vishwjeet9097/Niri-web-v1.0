@@ -14,7 +14,7 @@ export type MinistryIndicatorsSectionProps = {
   nodalHasSubmission: boolean;
   checkingNodalSubmission: boolean;
   errors: Record<string, string>;
-  assignedIndicators: string[];
+  ministryAssignedIndicators: string[];
   setFormData: (fn: (prev: any) => any) => void;
 };
 
@@ -28,21 +28,18 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
   nodalHasSubmission,
   checkingNodalSubmission,
   errors,
-  assignedIndicators,
+  ministryAssignedIndicators,
   setFormData,
 }) => {
-  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = React.useState<string[]>(assignedIndicators || []);
+
+  // Use assignedIndicators prop as the source of truth
   const [ministryShowAllSelectedIndicators, setMinistryShowAllSelectedIndicators] = React.useState(false);
 
-  React.useEffect(() => {
-    setMinistryAssignedIndicators(assignedIndicators || []);
-  }, [assignedIndicators]);
-
+  // No local state for ministryAssignedIndicators; always use ministryAssignedIndicators from props
   const handleMinistryIndicatorChange = (selectedIndicators: string[]) => {
-    setMinistryAssignedIndicators(selectedIndicators);
     setFormData((prev: any) => ({
       ...prev,
-      assignedIndicators: selectedIndicators,
+      ministryAssignedIndicators: selectedIndicators,
     }));
   };
 

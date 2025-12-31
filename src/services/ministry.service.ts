@@ -102,6 +102,7 @@ export async function assignIndicatorsToNodal(
     ministryUserId: string,
     indicatorsId: string[]
 ) {
+    console.log("dddddddddd======", nodalUserId, ministryUserId, indicatorsId)
     const url = getApiUrl("/ministry/form/create/assign-indicator-to-nodal");
     return apiService.post(
         url,

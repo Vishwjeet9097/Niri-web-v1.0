@@ -29,7 +29,9 @@ import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
+
 import { getAllAssignedMinistryIds, getMinistryFormIndicators } from "@/services/ministry.service";
+import MinistryIndicatorsSection from "./MinistryIndicatorsSection";
 
 
 
@@ -69,7 +71,22 @@ export function UserForm({
   const [loadingMinistryIndicators, setLoadingMinistryIndicators] = useState(false);
   const [ministryIndicatorsError, setMinistryIndicatorsError] = useState<string | null>(null);
   // State for selected ministry indicators (for Ministry Approver)
-  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>([]);
+  const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>(() => {
+    // If editing, pre-fill from officer.assignedIndicators
+    if (officer && Array.isArray(officer.assignedIndicators)) {
+      return officer.assignedIndicators;
+    }
+    return [];
+  });
+
+  // Update ministryAssignedIndicators when editing a different officer
+  useEffect(() => {
+    if (officer && Array.isArray(officer.assignedIndicators)) {
+      setMinistryAssignedIndicators(officer.assignedIndicators);
+    } else {
+      setMinistryAssignedIndicators([]);
+    }
+  }, [officer]);
 
   // Local state for submitted indicators (fallback if not provided)
   const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(() => 
@@ -1094,7 +1111,8 @@ export function UserForm({
     stateUt: stateNames.join(", "), // always only the selected unique state(s)
     stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
     ministryId: formData.ministryId ? String(formData.ministryId) : "",
-    ...(formData.role === "MINISTRY_APPROVER" ? { ministryAssignedIndicators } : {}),
+    // Always include ministryAssignedIndicators if the logged-in user is a Ministry Approver
+    ...((user?.role === "MINISTRY_APPROVER" || formData.role === "MINISTRY_APPROVER") ? { ministryAssignedIndicators } : {}),
   };
 
   type SubmitPayload = Omit<
@@ -1112,6 +1130,7 @@ export function UserForm({
   try {
     await onSave(payload as SubmitPayload);
     // Only clear form and draft if save succeeded
+    // Only clear form fields, but keep ministryAssignedIndicators as the last saved value
     setFormData(prev => ({
       ...prev,
       firstName: '',
@@ -1125,7 +1144,7 @@ export function UserForm({
       assignedIndicators: [],
       ministryId: '',
     }));
-    setMinistryAssignedIndicators([]);
+    // Do not clear ministryAssignedIndicators, keep the last selected value
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('userManagementFormDraft');
     }
@@ -2083,56 +2102,25 @@ const handleStateChange = (values: string | string[]) => {
 
         {/* Ministry Indicators - Only for MINISTRY_APPROVER login */}
         {user?.role === "MINISTRY_APPROVER" && (
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              Assign Ministry Indicators <span className="text-destructive">*</span>
-            </Label>
-            <MultiSelect
-              options={ministryIndicators}
-              value={ministryAssignedIndicators}
-              onChange={setMinistryAssignedIndicators}
-              placeholder={loadingMinistryIndicators ? "Loading indicators..." : "Select ministry indicators..."}
-              searchPlaceholder="Type to search indicators..."
-              showSearch={true}
-              showSelectAll={!loadingMinistryIndicators}
-              showSectionHeaders={true}
-              groupBySection={true}
-              className="w-full"
-              maxHeight="250px"
-              disabled={loadingMinistryIndicators}
-            />
-            {loadingMinistryIndicators && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Fetching available ministry indicators...
-              </p>
-            )}
-            {errors.ministryAssignedIndicators && (
-              <p className="text-sm text-destructive">
-                {errors.ministryAssignedIndicators}
-              </p>
-            )}
-            {ministryAssignedIndicators.length > 0 && (
-              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">
-                    Selected ({ministryAssignedIndicators.length})
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {ministryAssignedIndicators.map((indicator, index) => (
-                    <Badge
-                      key={`ministry-indicator-${index}-${indicator}`}
-                      variant="secondary"
-                      className="text-xs bg-blue-100 text-blue-800"
-                    >
-                      {indicator}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <MinistryIndicatorsSection
+            ministryIndicators={ministryIndicators}
+            effectiveSubmittedIndicators={effectiveSubmittedIndicators}
+            loadingMinistryIndicators={loadingMinistryIndicators}
+            ministryIndicatorsError={ministryIndicatorsError}
+            stateApproverHasSubmission={stateApproverHasSubmission || false}
+            officer={officer}
+            nodalHasSubmission={nodalHasSubmission}
+            checkingNodalSubmission={checkingNodalSubmission}
+            errors={errors}
+            ministryAssignedIndicators={ministryAssignedIndicators}
+            setFormData={(fn) => {
+              // When MinistryIndicatorsSection calls setFormData, update ministryAssignedIndicators only
+              setMinistryAssignedIndicators((prev) => {
+                const next = fn({ ministryAssignedIndicators: prev }).ministryAssignedIndicators;
+                return next || [];
+              });
+            }}
+          />
         )}
       </div>
 

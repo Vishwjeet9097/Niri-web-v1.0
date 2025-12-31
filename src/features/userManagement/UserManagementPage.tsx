@@ -1153,9 +1153,10 @@ export function UserManagementPage() {
     ) => {
     try {
       let nodalUserId = officerData.nodalUserId;
-      // If nodalUserId is not present, try to register the user and get the id
       if (!nodalUserId && officerData.email && officerData.firstName && officerData.lastName) {
         // Register the user (minimal fields, expand as needed)
+         const ministryIdToUse = String(officerData.ministryId || user?.ministryId || "")
+         // Use ministryId from officerData, or fallback to ministryAssignedIndicators, or current user's ministryId
         const newUser = await apiService.register({
           email: officerData.email,
           password: officerData.password || "password123",
@@ -1165,18 +1166,18 @@ export function UserManagementPage() {
           role: "NODAL_OFFICER",
           stateUt: officerData.stateUt,
           stateId: officerData.stateId,
-          ministryId: String(officerData.ministryId),
-          indicatorCodes: [], // No indicators at registration
+          ministryId: ministryIdToUse
         });
         nodalUserId = newUser?.user?.id;
-      }
+
+       
       if (
         nodalUserId &&
         officerData.ministryAssignedIndicators &&
         officerData.ministryAssignedIndicators.length > 0 &&
         user?.id
       ) {
-        await assignIndicatorsToNodal(
+         await assignIndicatorsToNodal(
           nodalUserId,
           user.id,
           officerData.ministryAssignedIndicators
@@ -1190,16 +1191,17 @@ export function UserManagementPage() {
         setShowForm(false);
         setEditingOfficer(null);
         try {
-          await refresh?.({ clearCache: true });
+          //await refresh?.({ clearCache: true });
         } catch (err) {
           // ignore
         }
       } else {
         notificationService.error(
-          "Missing Nodal Officer or indicators.",
+          "Missing Nodal Officer or indicators.1111111111111",
           "Assignment Failed"
         );
       }
+    }
     } catch (error: any) {
       let errorMessage = "Failed to assign indicators. Please try again.";
       let errorTitle = "Operation Failed";
@@ -1377,7 +1379,8 @@ export function UserManagementPage() {
         officers={paginatedOfficers}
         onEdit={user?.role === "MINISTRY_APPROVER" ? handleMinistryEditUser : handleEditUser}
         onDelete={handleDeleteUser}
-        onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? handleMinisterAssignIndicator : handleAssignIndicator}
+        //onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? handleMinisterAssignIndicator : handleAssignIndicator}
+        onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? "" : handleAssignIndicator}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         sortField={sortField}
