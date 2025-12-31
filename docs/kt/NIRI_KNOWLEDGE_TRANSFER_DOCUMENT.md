@@ -935,7 +935,7 @@ const ROLE_PERMISSIONS = {
 
 - Create new users
 - Edit existing users
-- Deactivate users
+- Delete users
 - Filter by role, state
 - Role-based restrictions
 

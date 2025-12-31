@@ -3050,7 +3050,7 @@ class ApiService implements HttpClient {
         throw new Error(
           error.response.data?.message ||
             error.response.data?.error ||
-            "Failed to deactivate users"
+            "Failed to Delete users"
         );
       }
       throw error;

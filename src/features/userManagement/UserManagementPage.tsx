@@ -875,8 +875,8 @@ export function UserManagementPage() {
       // 3. Deleting all UserIndicatorScope records (unassigning indicators)
       await apiService.deactivateUser(userToDelete.id);
       notificationService.success(
-        `${userToDelete.firstName} ${userToDelete.lastName} deactivated successfully`,
-        "Deactivation Successful"
+        `${userToDelete.firstName} ${userToDelete.lastName} deleted successfully`,
+        "Deletion Successful"
       );
 
       // Reset flag to force refresh
@@ -1040,8 +1040,8 @@ export function UserManagementPage() {
       notificationService.success(
         `${
           result.deactivatedCount || selectedIdsArray.length
-        } users deactivated successfully`,
-        "Bulk Deactivation Successful"
+        } users deleted successfully`,
+        "Bulk Deleted Successful"
       );
 
       // Clear selection and refresh data
