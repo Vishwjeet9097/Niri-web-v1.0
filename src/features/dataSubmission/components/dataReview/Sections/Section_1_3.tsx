@@ -120,6 +120,29 @@ export const Section_1_3 = ({
     }
   }, [resetKey]);
 
+  // Validate totalULBs vs ulbList.length
+  useEffect(() => {
+    if (totalULBs > 0 && ulbList.length > totalULBs) {
+      // Set validation error
+      setDuplicateErrors((prev) => ({
+        ...prev,
+        "section1_3.ulbList": `Number of rows (${ulbList.length}) cannot exceed Total Number of ULBs (${totalULBs}). Please remove excess rows or increase the Total Number of ULBs.`,
+      }));
+    } else {
+      // Clear error if valid (but keep duplicate errors)
+      setDuplicateErrors((prev) => {
+        const newErrors: { [key: string]: string } = {};
+        Object.keys(prev).forEach((key) => {
+          // Keep duplicate errors, clear count-related errors
+          if (!key.includes("cannot exceed") && !key.includes("Cannot add more rows")) {
+            newErrors[key] = prev[key];
+          }
+        });
+        return newErrors;
+      });
+    }
+  }, [totalULBs, ulbList.length]);
+
   // Validate for duplicate ULBs whenever ulbList changes
   useEffect(() => {
     const ulbIds = ulbList.map((item) => item.ulb).filter(Boolean);
@@ -151,6 +174,13 @@ export const Section_1_3 = ({
               "This ULB has already been selected in another row. Please choose a different ULB.";
           }
         });
+      });
+      
+      // Preserve count-related errors
+      Object.keys(prev).forEach((key) => {
+        if (key.includes("cannot exceed") || key.includes("Cannot add more rows") || key === "section1_3.ulbList") {
+          newErrors[key] = prev[key];
+        }
       });
       
       // Clear errors for fields that are no longer duplicates
@@ -226,8 +256,40 @@ export const Section_1_3 = ({
   };
 
   const handleTotalULBsChange = (value: number) => {
+    const newTotalULBs = value || 0;
+    let updatedList = [...ulbList];
+    
+    // If new total is less than current rows, trim the list
+    if (newTotalULBs < ulbList.length) {
+      updatedList = ulbList.slice(0, newTotalULBs);
+    } 
+    // If new total is greater than 0 and list is empty, add at least one entry
+    else if (newTotalULBs > 0 && ulbList.length === 0) {
+      updatedList = [
+        {
+          id: `ulb-${Date.now()}`,
+          cityName: "",
+          ulb: "",
+          ratingDate: "",
+          rating: "",
+        },
+      ];
+    }
+    
+    // Clear validation error if totalULBs is now valid
+    setDuplicateErrors((prev) => {
+      const newErrors: { [key: string]: string } = {};
+      Object.keys(prev).forEach((key) => {
+        // Keep duplicate errors, clear count-related errors
+        if (!key.includes("Total Number") && !key.includes("cannot exceed") && !key.includes("Cannot add more")) {
+          newErrors[key] = prev[key];
+        }
+      });
+      return newErrors;
+    });
+    
     if (setSectionState) {
-      setSectionState({ totalULBs: value, ulbList });
+      setSectionState({ totalULBs: newTotalULBs, ulbList: updatedList });
     }
   };
 
@@ -311,6 +373,27 @@ export const Section_1_3 = ({
 
   // Handle adding new ULB entry
   const handleAddNewULBEntry = () => {
+    // Check if we can add more rows
+    if (ulbList.length >= totalULBs) {
+      // Set validation error
+      setDuplicateErrors((prev) => ({
+        ...prev,
+        "section1_3.ulbList": `Cannot add more rows. Total Number of ULBs is ${totalULBs}, and you already have ${ulbList.length} row(s). Please increase the Total Number of ULBs first.`,
+      }));
+      return;
+    }
+    
+    // Clear validation error
+    setDuplicateErrors((prev) => {
+      const newErrors: { [key: string]: string } = {};
+      Object.keys(prev).forEach((key) => {
+        if (!key.includes("Cannot add more rows")) {
+          newErrors[key] = prev[key];
+        }
+      });
+      return newErrors;
+    });
+    
     const newEntryWithId = {
       ...newULBEntry,
       id: `ulb-${Date.now()}`,
@@ -366,7 +449,9 @@ export const Section_1_3 = ({
       
       {/* Validation error for ulbList */}
       {getError("section1_3.ulbList") && (
-        <p className="text-sm text-red-500">{getError("section1_3.ulbList")}</p>
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-500">{getError("section1_3.ulbList")}</p>
+        </div>
       )}
 
       {/* ULB Table */}
@@ -569,13 +654,14 @@ export const Section_1_3 = ({
         </table>
       </div>
 
-      {/* Add More Button - Only visible when in edit mode */}
-      {isEditable("1.3") && !showAddULBForm && (
+      {/* Add More Button - Only visible when in edit mode and totalULBs > 0 */}
+      {isEditable("1.3") && !showAddULBForm && totalULBs > 0 && (
         <Button
           variant="outline"
           size="sm"
-          className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+          className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setShowAddULBForm(true)}
+          disabled={ulbList.length >= totalULBs}
         >
           <Plus className="w-4 h-4" />
           Add More

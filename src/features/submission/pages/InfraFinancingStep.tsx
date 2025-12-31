@@ -486,6 +486,33 @@ export const InfraFinancingStep = () => {
     formData.section1_5.ffiArray.length,
   ]);
 
+  // Validate totalULBs vs ulbList.length
+  useEffect(() => {
+    const totalULBs = formData.section1_3.totalULBs || 0;
+    const listLength = formData.section1_3.ulbList.length;
+
+    if (totalULBs > 0 && listLength > totalULBs) {
+      // Set validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section1_3.ulbList": `Number of rows (${listLength}) cannot exceed Total Number of ULBs (${totalULBs}). Please remove excess rows or increase the Total Number of ULBs.`,
+      }));
+    } else {
+      // Clear error if valid
+      setIndicatorValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        // Only clear if it's about the count, not about duplicates
+        if (
+          newErrors["section1_3.ulbList"]?.includes("cannot exceed") ||
+          newErrors["section1_3.ulbList"]?.includes("Cannot add more rows")
+        ) {
+          delete newErrors["section1_3.ulbList"];
+        }
+        return newErrors;
+      });
+    }
+  }, [formData.section1_3.totalULBs, formData.section1_3.ulbList.length]);
+
   // Validate for duplicate ULBs in section 1.3
   useEffect(() => {
     const ulbList = formData.section1_3.ulbList || [];
@@ -999,6 +1026,27 @@ export const InfraFinancingStep = () => {
   // Arrays helpers (use interface paths)
   // ------------------------
   const addULB = () => {
+    const totalULBs = formData.section1_3.totalULBs || 0;
+    const currentListLength = formData.section1_3.ulbList.length;
+
+    // Check if we can add more rows
+    if (currentListLength >= totalULBs) {
+      // Set validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section1_3.ulbList": `Cannot add more rows. Total Number of ULBs is ${totalULBs}, and you already have ${currentListLength} row(s). Please increase the Total Number of ULBs first.`,
+      }));
+      showErrorsIfNeeded();
+      return;
+    }
+
+    // Clear any existing error
+    setIndicatorValidationErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors["section1_3.ulbList"];
+      return newErrors;
+    });
+
     const newULB = {
       id: Date.now().toString(),
       cityName: "",
@@ -2571,15 +2619,54 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       showErrorsIfNeeded();
                       const { value } = e.target;
-                      setFormData((prev) => ({
-                        ...prev,
-                        section1_3: {
-                          ...prev.section1_3,
-                          totalULBs: value
-                            ? Math.max(parseInt(value, 10), 0)
-                            : 0,
-                        },
-                      }));
+                      const newTotalULBs = value
+                        ? Math.max(parseInt(value, 10), 0)
+                        : 0;
+
+                      setFormData((prev) => {
+                        const currentListLength =
+                          prev.section1_3.ulbList.length;
+
+                        let updatedList = [...prev.section1_3.ulbList];
+
+                        // If new total is less than current rows, trim the list
+                        if (newTotalULBs < currentListLength) {
+                          updatedList = prev.section1_3.ulbList.slice(
+                            0,
+                            newTotalULBs
+                          );
+                        }
+                        // If new total is greater than 0 and list is empty, add at least one entry
+                        else if (newTotalULBs > 0 && currentListLength === 0) {
+                          updatedList = [
+                            {
+                              id: Date.now().toString(),
+                              cityName: "",
+                              ulb: "",
+                              ratingDate: "",
+                              rating: "",
+                            },
+                          ];
+                        }
+
+                        // Clear validation error if totalULBs is now valid
+                        setIndicatorValidationErrors((prevErrors) => {
+                          const newErrors = { ...prevErrors };
+                          if (newTotalULBs >= updatedList.length) {
+                            delete newErrors["section1_3.ulbList"];
+                          }
+                          return newErrors;
+                        });
+
+                        return {
+                          ...prev,
+                          section1_3: {
+                            ...prev.section1_3,
+                            totalULBs: newTotalULBs,
+                            ulbList: updatedList,
+                          },
+                        };
+                      });
                     }}
                     disabled={isIndicatorSubmitted("1.3")}
                     className={cn(
@@ -2992,16 +3079,28 @@ export const InfraFinancingStep = () => {
 
                 {renderFieldError("section1_3.ulbList")}
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addULB}
-                  disabled={isIndicatorSubmitted("1.3")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add More ULB
-                </Button>
+                {/* Show Add More button only if totalULBs > 0 and not at limit */}
+                {(formData.section1_3.totalULBs || 0) > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addULB}
+                    disabled={
+                      isIndicatorSubmitted("1.3") ||
+                      formData.section1_3.ulbList.length >=
+                        (formData.section1_3.totalULBs || 0)
+                    }
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add More ULB
+                  </Button>
+                )}
+                {renderFieldError("section1_3.ulbList") && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {renderFieldError("section1_3.ulbList")}
+                  </p>
+                )}
                 {formData.section1_3.ulbList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
