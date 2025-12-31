@@ -2130,7 +2130,7 @@ export const StateAggregateReviewPage = () => {
                   {mockSubmission.status.replace(/_/g, " ")}
                 </Badge>
                 {/* Submit Button */}
-                {user?.role === "STATE_APPROVER" && stateProgress && (
+                {/* {user?.role === "STATE_APPROVER" && stateProgress && (
                   <Button
                     className={`text-white px-6 ${
                       stateProgress.percentage === 100 &&
@@ -2158,7 +2158,7 @@ export const StateAggregateReviewPage = () => {
                   >
                     {submittingFinal ? "Submitting…" : "Submit Now"}
                   </Button>
-                )}
+                )} */}
               </div>
             )}
           </div>
