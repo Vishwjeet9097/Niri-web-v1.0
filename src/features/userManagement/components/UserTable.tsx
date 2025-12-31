@@ -130,7 +130,11 @@ function UserTableComponent({
               Contact Number
             </TableHead>
             <SortableHeader field="email">Email</SortableHeader>
-            {/* <TableHead>Assigned Indicator</TableHead> */}
+            {userRole === "STATE_APPROVER" && (
+              <TableHead className="text-[#212121] text-xs font-semibold">
+                Assigned Indicators
+              </TableHead>
+            )}
             <TableHead className="w-24 text-[#212121] text-xs font-semibold">
               Action
             </TableHead>
@@ -169,48 +173,27 @@ function UserTableComponent({
               <TableCell className="text-xs text-[#212121]">
                 {officer.email}
               </TableCell>
-              {/* <TableCell>
-                {officer.assignedIndicator ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-primary text-primary-foreground">
-                      Assigned
-                    </Badge>
-                    <Select
-                      value={officer.assignedIndicator}
-                      onValueChange={(value) =>
-                        onAssignIndicator(officer.id, value)
-                      }
-                    >
-                      <SelectTrigger className="w-[140px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Indicator 1">Indicator 1</SelectItem>
-                        <SelectItem value="Indicator 2">Indicator 2</SelectItem>
-                        <SelectItem value="Indicator 3">Indicator 3</SelectItem>
-                        <SelectItem value="Indicator 4">Indicator 4</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <Select
-                    value=""
-                    onValueChange={(value) =>
-                      onAssignIndicator(officer.id, value)
-                    }
-                  >
-                    <SelectTrigger className="w-[180px] h-8">
-                      <SelectValue placeholder="Select Indicator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Indicator 1">Indicator 1</SelectItem>
-                      <SelectItem value="Indicator 2">Indicator 2</SelectItem>
-                      <SelectItem value="Indicator 3">Indicator 3</SelectItem>
-                      <SelectItem value="Indicator 4">Indicator 4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </TableCell> */}
+              {userRole === "STATE_APPROVER" && (
+                <TableCell className="text-xs text-[#212121]">
+                  {officer.role === "NODAL_OFFICER" &&
+                  officer.assignedIndicators &&
+                  officer.assignedIndicators.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {officer.assignedIndicators.map((indicator, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {indicator}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+              )}
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
