@@ -35,11 +35,14 @@ import {
   hasMospiApproverComment,
   isReturnedFromMospi,
 } from "@/utils/auditUtils";
-import { getSubmissionStatus, } from "@/utils/indicatorStatusUtils";
+import { getSubmissionStatus } from "@/utils/indicatorStatusUtils";
 // import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
+import {
+  computeAllStepsSummary,
+  calculateProgressByAcceptedStatus,
+} from "@/features/submission/utils/progress";
 import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
 
 // Helper function to map backend status to frontend status (kept for compatibility)
@@ -75,8 +78,12 @@ export function StateApproverDashboardPage() {
   const [totalAssignedState, setTotalAssignedState] = useState<number>(0);
   const [totalIndicatorsReceivedState, setTotalIndicatorsReceivedState] =
     useState<number>(0);
-  const { availableIndicators, isStateApprover, loading: indicatorsLoading } = useIndicatorAccess();
-  
+  const {
+    availableIndicators,
+    isStateApprover,
+    loading: indicatorsLoading,
+  } = useIndicatorAccess();
+
   // Group submissions for state approver
   const groupedSubmissions = user?.id
     ? filterSubmissionsForStateApprover(
@@ -134,15 +141,73 @@ export function StateApproverDashboardPage() {
 
         setTotalAssignedState(totalAssigned);
         setTotalIndicatorsReceivedState(totalIndicatorsReceived);
-        const mospiSubmittedCount = mospi.submittedToMoSPI ?? 0;
-        const mospiApprovedCount = mospi.approvedByMoSPI ?? 0;
-        const mospiReturnedCount = mospi.returnedFromMoSPI ?? 0;
 
-        // Optional: if you still want to derive some counts from submissions as fallback:
-        // const mospiSubmittedFromSubmissions = submissionsArray.filter(s => mapBackendStatusToFrontend(s.status) === "SUBMITTED_TO_MOSPI").length;
+        // Calculate MoSPI counts from submissions array (more reliable than backend indicator counts)
+        // Filter submissions for the current state approver's state
+        const currentStateUt = user?.stateUt || user?.stateName || user?.state;
+        const stateSubmissions = currentStateUt
+          ? submissionsArray.filter(
+              (sub: any) => (sub.stateUt || sub.state_ut) === currentStateUt
+            )
+          : submissionsArray;
+
+        // Calculate counts based on actual submission statuses
+        // Submitted to MoSPI: includes both REVIEWER and APPROVER statuses
+        const mospiSubmittedFromSubmissions = stateSubmissions.filter(
+          (sub: any) => {
+            const status = mapBackendStatusToFrontend(sub.status);
+            return (
+              status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
+              status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+              status === "SUBMITTED_TO_MOSPI" // legacy status
+            );
+          }
+        ).length;
+
+        const mospiApprovedFromSubmissions = stateSubmissions.filter(
+          (sub: any) => {
+            const status = mapBackendStatusToFrontend(sub.status);
+            return status === "APPROVED";
+          }
+        ).length;
+
+        const mospiReturnedFromSubmissions = stateSubmissions.filter(
+          (sub: any) => {
+            const status = mapBackendStatusToFrontend(sub.status);
+            return status === "RETURNED_FROM_MOSPI";
+          }
+        ).length;
+
+        // Use calculated counts from submissions (more accurate than backend indicator counts)
+        // Backend is currently returning indicator counts instead of submission counts
+        const mospiSubmittedCount = mospiSubmittedFromSubmissions;
+        const mospiApprovedCount = mospiApprovedFromSubmissions;
+        const mospiReturnedCount = mospiReturnedFromSubmissions;
+
+        // Debug logging (can be removed in production)
+        console.log("🔍 MoSPI Counts Debug:", {
+          apiValues: {
+            submittedToMoSPI: mospi.submittedToMoSPI,
+            approvedByMoSPI: mospi.approvedByMoSPI,
+            returnedFromMoSPI: mospi.returnedFromMoSPI,
+          },
+          calculatedFromSubmissions: {
+            submitted: mospiSubmittedFromSubmissions,
+            approved: mospiApprovedFromSubmissions,
+            returned: mospiReturnedFromSubmissions,
+          },
+          finalCounts: {
+            submitted: mospiSubmittedCount,
+            approved: mospiApprovedCount,
+            returned: mospiReturnedCount,
+          },
+          totalSubmissions: submissionsArray.length,
+          stateSubmissions: stateSubmissions.length,
+          currentStateUt,
+        });
 
         // Build a lightweight KPIs model for display components
-        const assembledKpis = [           
+        const assembledKpis = [
           {
             title: "Total Indicators Assigned to Nodal Officers",
             value: String(totalAssigned),
@@ -161,8 +226,7 @@ export function StateApproverDashboardPage() {
           // Indicators received group
           {
             title: "Accepted By State Approver",
-            value:
-             `${acceptedFromNodal}`,
+            value: `${acceptedFromNodal}`,
             subtitle: "This fiscal year",
             icon: CheckCircle,
             variant: "green",
@@ -218,16 +282,18 @@ export function StateApproverDashboardPage() {
               ...fd,
               submittedBy: sub.user?.id || sub.submittedBy || sub.user,
             };
-            
+
             // Calculate progress based on sections with ACCEPTED status
             // Count all sections in formData and count how many have status "ACCEPTED"
             // Progress = (sections with ACCEPTED status / total sections) × 100%
-            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            const progressData = await calculateProgressByAcceptedStatus(
+              fdWithSubmittedBy
+            );
             console.log("progressData", progressData);
             const progress = progressData.progress;
-            
+
             // Debug logging (can be removed in production)
-            if (process.env.NODE_ENV === 'development') {
+            if (process.env.NODE_ENV === "development") {
               console.log(`[Progress] State Approver - Submission ${sub.id}:`, {
                 totalSections: progressData.total,
                 acceptedSections: progressData.accepted,
@@ -293,7 +359,7 @@ export function StateApproverDashboardPage() {
       // Wait for availableIndicators to load
       return;
     }
-    
+
     loadDashboardData();
   }, [availableIndicators, isStateApprover, indicatorsLoading]);
 
@@ -353,9 +419,7 @@ export function StateApproverDashboardPage() {
       <div className="space-y-6 bg-[#F9FAFB] p-0 rounded-lg">
         {/* --- Overview Section --- */}
         <div className="bg-white rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold text-[#111827]">
-            Overview
-          </h2>
+          <h2 className="text-lg font-semibold text-[#111827]">Overview</h2>
         </div>
 
         {/* --- Total Indicators + Total Indicators Received Section (Side-by-Side) --- */}
@@ -369,7 +433,9 @@ export function StateApproverDashboardPage() {
               </h2>
               <h2 className="text-lg font-semibold text-[#111827]">
                 Total Unassigned / Assigned to State Approver:&nbsp;
-                <span className="text-black">{totalIndicators - totalAssignedState}</span>
+                <span className="text-black">
+                  {totalIndicators - totalAssignedState}
+                </span>
               </h2>
             </div>
             <div className="grid gap-4 grid-cols-1">
@@ -460,10 +526,10 @@ export function StateApproverDashboardPage() {
                   <SelectContent>
                     <SelectItem value="all">All Submissions</SelectItem>
                     <SelectItem value="pending">Pending Review</SelectItem> */}
-                    {/* <SelectItem value="overdue">Overdue</SelectItem> */}
-                    {/* <SelectItem value="approved">Approved</SelectItem> */}
-                    {/* <SelectItem value="rejected">Rejected</SelectItem> */}
-                  {/* </SelectContent>
+                {/* <SelectItem value="overdue">Overdue</SelectItem> */}
+                {/* <SelectItem value="approved">Approved</SelectItem> */}
+                {/* <SelectItem value="rejected">Rejected</SelectItem> */}
+                {/* </SelectContent>
                 </Select> */}
               </div>
             </div>
@@ -489,7 +555,7 @@ export function StateApproverDashboardPage() {
                         ? "Submission approved"
                         : submission.status === "REJECTED"
                         ? "Address reviewer feedback"
-                        : submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
+                        : submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
                           submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
                           submission.status === "RETURNED_FROM_MOSPI"
                         ? "Waiting for MoSPI approval"
@@ -514,7 +580,7 @@ export function StateApproverDashboardPage() {
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="space-y-6" >
+        <div className="space-y-6">
           {/* <RecentActionsCard
             actions={[
               {

@@ -84,6 +84,9 @@ interface MospiApproverOverviewCardsProps {
   onCardTitleChange?: (title: string | null) => void;
 }
 
+// Special identifier for Full Submission card (not a real status)
+const FULL_SUBMISSION_FLAG = "FULL_SUBMISSION";
+
 export const MospiApproverOverviewCards = ({
   onStatusFilterChange,
   onCardTitleChange,
@@ -269,14 +272,25 @@ export const MospiApproverOverviewCards = ({
               borderColor="border-blue-500"
               iconColor="bg-blue-50"
               onClick={() => {
+                // Full Submission card should show all submissions (no status filter)
+                // Use a special identifier for tracking, but pass null to API
                 const newStatus =
-                  selectedStatus === "FULL_SUBMISSION"
+                  selectedStatus === FULL_SUBMISSION_FLAG
                     ? null
-                    : "FULL_SUBMISSION";
+                    : FULL_SUBMISSION_FLAG;
                 setSelectedStatus(newStatus);
-                onStatusFilterChange?.(newStatus);
+                // Pass null to show all submissions (no status filter)
+                onStatusFilterChange?.(
+                  newStatus === FULL_SUBMISSION_FLAG ? null : newStatus
+                );
+                setSelectedCardTitle(
+                  newStatus === FULL_SUBMISSION_FLAG ? "Full Submission" : null
+                );
+                onCardTitleChange?.(
+                  newStatus === FULL_SUBMISSION_FLAG ? "Full Submission" : null
+                );
               }}
-              isSelected={selectedStatus === "FULL_SUBMISSION"}
+              isSelected={selectedStatus === FULL_SUBMISSION_FLAG}
             />
           )}
 
