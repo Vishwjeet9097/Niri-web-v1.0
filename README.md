@@ -1,6 +1,6 @@
-# NIRI Dashboard - Production-Ready React Application
+# NIE-I Dashboard - Production-Ready React Application
 
-A fully responsive, enterprise-grade React dashboard application for the National Infrastructure Readiness Index (NIRI). Built with modern best practices, modular architecture, and seamless mock-to-real API switching.
+A fully responsive, enterprise-grade React dashboard application for the National Infrastructure Enablement Index (NIE-I). Built with modern best practices, modular architecture, and seamless mock-to-real API switching.
 
 ### 🏗️ Architecture Overview
 

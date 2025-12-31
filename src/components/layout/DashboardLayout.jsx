@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { getRoleDisplayName } from "@/utils/roles";
@@ -38,8 +44,12 @@ export function DashboardLayout() {
   const { user, logout } = useAuth();
   const [openDropdown, setOpenDropdown] = useState(null);
   const { hasSubmission } = useUserSubmissionStatus();
-  const { availableIndicators, loading: indicatorLoading, refresh: refreshIndicators } = useIndicatorAccess();
-  
+  const {
+    availableIndicators,
+    loading: indicatorLoading,
+    refresh: refreshIndicators,
+  } = useIndicatorAccess();
+
   // ✅ Use ref to store refresh function to prevent effect re-runs
   const refreshIndicatorsRef = useRef(refreshIndicators);
   useEffect(() => {
@@ -50,20 +60,29 @@ export function DashboardLayout() {
   // Only recalculate when the actual values change, not during loading states
   const isCreateSubmissionDisabled = useMemo(() => {
     if (user?.role !== "STATE_APPROVER") return false;
-    
-    const hasNoIndicators = !availableIndicators || availableIndicators.length === 0;
+
+    const hasNoIndicators =
+      !availableIndicators || availableIndicators.length === 0;
     return hasSubmission || hasNoIndicators;
   }, [user?.role, hasSubmission, availableIndicators?.length]);
-  
+
   // Track indicator count separately to detect changes without causing re-renders
-  const indicatorCount = useMemo(() => availableIndicators?.length || 0, [availableIndicators?.length]);
+  const indicatorCount = useMemo(
+    () => availableIndicators?.length || 0,
+    [availableIndicators?.length]
+  );
 
   // Refresh indicators when location changes (e.g., coming back from User Management)
   useEffect(() => {
-    if (user?.role === "STATE_APPROVER" && location.pathname !== "/user-management") {
+    if (
+      user?.role === "STATE_APPROVER" &&
+      location.pathname !== "/user-management"
+    ) {
       // Small delay to ensure the component is fully mounted
       const timer = setTimeout(() => {
-        console.log('[DashboardLayout] Location changed, refreshing indicators');
+        console.log(
+          "[DashboardLayout] Location changed, refreshing indicators"
+        );
         refreshIndicatorsRef.current({ clearCache: true });
       }, 500);
       return () => clearTimeout(timer);
@@ -74,17 +93,20 @@ export function DashboardLayout() {
   useEffect(() => {
     // Only setup auto-refresh for STATE_APPROVER
     if (user?.role !== "STATE_APPROVER") return;
-    
+
     // ✅ Helper function uses ref to avoid dependency issues
     const refreshAndUpdate = async (clearCache = false) => {
-      console.log('[DashboardLayout] Refreshing indicators, clearCache:', clearCache);
+      console.log(
+        "[DashboardLayout] Refreshing indicators, clearCache:",
+        clearCache
+      );
       await refreshIndicatorsRef.current({ clearCache });
       // State will update automatically through the hook, no need to force re-render
     };
-    
+
     // Debounce ref for focus handler
     let focusTimeout = null;
-    
+
     // Refresh on window focus (when user switches back to tab) - debounced
     const handleFocus = () => {
       // Debounce focus refresh to prevent rapid calls
@@ -92,7 +114,7 @@ export function DashboardLayout() {
         clearTimeout(focusTimeout);
       }
       focusTimeout = setTimeout(() => {
-        console.log('[DashboardLayout] Window focused, refreshing indicators');
+        console.log("[DashboardLayout] Window focused, refreshing indicators");
         refreshAndUpdate(true);
       }, 500);
     };
@@ -100,31 +122,35 @@ export function DashboardLayout() {
     // Listen for storage events (when cache is cleared elsewhere)
     const handleStorageChange = (e) => {
       // Check if it's related to indicator cache
-      if (e.key && (
-        e.key.startsWith('niri_available_indicators_') || 
-        e.key.startsWith('niri_assigned_indicators_')
-      )) {
-        console.log('[DashboardLayout] Storage change detected for indicator cache:', e.key);
+      if (
+        e.key &&
+        (e.key.startsWith("niri_available_indicators_") ||
+          e.key.startsWith("niri_assigned_indicators_"))
+      ) {
+        console.log(
+          "[DashboardLayout] Storage change detected for indicator cache:",
+          e.key
+        );
         refreshAndUpdate(true);
       }
     };
 
     // Listen for custom events (when indicators are updated via User Management)
     const handleIndicatorUpdate = () => {
-      console.log('[DashboardLayout] Indicators updated event received');
+      console.log("[DashboardLayout] Indicators updated event received");
       refreshAndUpdate(true);
     };
 
     // Setup event listeners
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('indicatorsUpdated', handleIndicatorUpdate);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("indicatorsUpdated", handleIndicatorUpdate);
 
     // Cleanup
     return () => {
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('indicatorsUpdated', handleIndicatorUpdate);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("indicatorsUpdated", handleIndicatorUpdate);
       if (focusTimeout) {
         clearTimeout(focusTimeout);
       }
@@ -182,14 +208,14 @@ export function DashboardLayout() {
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src="https://img1.digitallocker.gov.in/ai/images/logo.png"
-                alt="NIRI Logo"
+                src="/images/logo.png"
+                alt="NIE-I Logo"
                 className=" h-12 rounded-lg object-contain bg-white"
               />
               {/* <div>
-                <h1 className="text-lg font-bold">NIRI</h1>
+                <h1 className="text-lg font-bold">NIE-I</h1>
                 <p className="text-xs opacity-90 hidden sm:block">
-                  National Infrastructure Readiness Index
+                  National Infrastructure Enablement Index
                 </p>
               </div>*/}
             </div>
@@ -203,11 +229,11 @@ export function DashboardLayout() {
                   {user?.firstName + " " + user?.lastName || "Nodal Officer"}
                 </p>
                 <p className="text-xs opacity-75">
-                  {getRoleDisplayName(user?.role) || "Nodal Officer"} 
+                  {getRoleDisplayName(user?.role) || "Nodal Officer"}
 
-                
-                  {(user?.role === "NODAL_OFFICER" || user?.role === "STATE_APPROVER") && (" | " + user?.stateName || "")}
-
+                  {(user?.role === "NODAL_OFFICER" ||
+                    user?.role === "STATE_APPROVER") &&
+                    (" | " + user?.stateName || "")}
                 </p>
               </div>
               <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center overflow-hidden">
@@ -280,12 +306,16 @@ export function DashboardLayout() {
                         <div className="ml-4 mt-1 flex flex-col space-y-1">
                           {item.children.map((child) => {
                             const childActive = isActive(child.path);
-                            const isCreateSubmission = child.path === "/submissions";
-                            
+                            const isCreateSubmission =
+                              child.path === "/submissions";
+
                             // Use memoized disabled state - only disable if already disabled, don't add loading state
                             // This prevents flickering during refresh
-                            const isDisabled = isCreateSubmission && isCreateSubmissionDisabled;
-                            const hasNoIndicators = user?.role === "STATE_APPROVER" && indicatorCount === 0;
+                            const isDisabled =
+                              isCreateSubmission && isCreateSubmissionDisabled;
+                            const hasNoIndicators =
+                              user?.role === "STATE_APPROVER" &&
+                              indicatorCount === 0;
 
                             return (
                               <button
@@ -309,7 +339,11 @@ export function DashboardLayout() {
                                   childActive
                                     ? "bg-blue-50 text-blue-600"
                                     : "text-foreground hover:bg-blue-50 hover:text-blue-600"
-                                } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                                } ${
+                                  isDisabled
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                                }`}
                                 title={
                                   isDisabled && hasNoIndicators
                                     ? "At least one indicator must be assigned to the State Approver before creating a submission."
@@ -320,7 +354,6 @@ export function DashboardLayout() {
                               </button>
                             );
                           })}
-
                         </div>
                       )}
                     </div>

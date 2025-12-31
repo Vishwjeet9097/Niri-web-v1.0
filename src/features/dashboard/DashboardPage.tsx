@@ -10,21 +10,21 @@ import type { KPICard as KPICardType, Submission } from "@/types";
 // Helper function to map backend status to frontend status
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   const statusMap: Record<string, string> = {
-    "DRAFT": "DRAFT",
-    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE", 
-    "APPROVED": "APPROVED",
-    "REJECTED": "REJECTED",
-    "SUBMITTED_TO_MOSPI": "SUBMITTED_TO_MOSPI",
-    "MOSPI_APPROVED": "MOSPI_APPROVED",
-    "MOSPI_REJECTED": "MOSPI_REJECTED",
-    "RETURNED_FROM_MOSPI": "RETURNED_FROM_MOSPI",
+    DRAFT: "DRAFT",
+    SUBMITTED_TO_STATE: "SUBMITTED_TO_STATE",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    SUBMITTED_TO_MOSPI: "SUBMITTED_TO_MOSPI",
+    MOSPI_APPROVED: "MOSPI_APPROVED",
+    MOSPI_REJECTED: "MOSPI_REJECTED",
+    RETURNED_FROM_MOSPI: "RETURNED_FROM_MOSPI",
     // Legacy mappings
-    "draft": "DRAFT",
-    "under_review": "SUBMITTED_TO_STATE",
-    "approved": "APPROVED",
-    "need_revision": "REJECTED",
+    draft: "DRAFT",
+    under_review: "SUBMITTED_TO_STATE",
+    approved: "APPROVED",
+    need_revision: "REJECTED",
   };
-  
+
   return statusMap[backendStatus] || backendStatus;
 };
 
@@ -38,13 +38,13 @@ export function DashboardPage() {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch dashboard summary and submissions from backend
         // TODO: Replace 'nodal_officer' with actual user role from auth context/store
         const userRole = "nodal_officer";
         const [dashboardSummary, submissionsData] = await Promise.all([
           apiService.getDashboardSummary(),
-          apiService.getSubmissions(1, 10) // Get all submissions
+          apiService.getSubmissions(1, 10), // Get all submissions
         ]);
 
         // Transform backend data to frontend format with fallback
@@ -87,35 +87,42 @@ export function DashboardPage() {
         setActivities(dashboardSummary?.recentActivity || []);
 
         // Transform submissions data with fallback
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
           submissionsArray = submissionsData;
-        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
           submissionsArray = submissionsData.submissions;
-        } else if (submissionsData?.data && Array.isArray(submissionsData.data)) {
+        } else if (
+          submissionsData?.data &&
+          Array.isArray(submissionsData.data)
+        ) {
           submissionsArray = submissionsData.data;
         }
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
-        setSubmissions(submissionsArray.map((sub: any) => ({
-          id: sub.id,
-          title: sub.submissionId || `Submission ${sub.id}`,
-          status: mapBackendStatusToFrontend(sub.status),
-          submittedAt: sub.createdAt,
-          lastModified: sub.updatedAt,
-          score: sub.score || 0,
-        })));
-
+        setSubmissions(
+          submissionsArray.map((sub: any) => ({
+            id: sub.id,
+            title: sub.submissionId || `Submission ${sub.id}`,
+            status: mapBackendStatusToFrontend(sub.status),
+            submittedAt: sub.createdAt,
+            lastModified: sub.updatedAt,
+            score: sub.score || 0,
+          }))
+        );
       } catch (error: any) {
         console.error("Failed to load dashboard data:", error);
         notificationService.error(
           error.message || "Failed to load dashboard data",
           "Dashboard Error"
         );
-        
+
         // Fallback to empty state
         setKpis([]);
         setActivities([]);
@@ -144,7 +151,7 @@ export function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
         <p className="text-muted-foreground">
-          Manage your NIRI data submissions and track approval status
+          Manage your NIE-I data submissions and track approval status
         </p>
       </div>
 

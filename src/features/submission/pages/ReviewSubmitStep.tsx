@@ -198,7 +198,7 @@ export const ReviewSubmitStep = () => {
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-2">Review & Preview</h2>
               <p className="text-sm text-[#727272] mb-4">
-                Review all the information you've provided and preview your NIRI
+                Review all the information you've provided and preview your NIE-I
                 data submission. Indicators are submitted individually, so you
                 can track each indicator's status separately.
               </p>

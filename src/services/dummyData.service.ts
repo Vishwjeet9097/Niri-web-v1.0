@@ -1,4 +1,4 @@
-// Centralized Dummy Data Service for NIRI Dashboard
+// Centralized Dummy Data Service for NIE-I Dashboard
 // This service provides fallback data when backend APIs are not available
 // Easily removable by setting USE_DUMMY_DATA to false
 

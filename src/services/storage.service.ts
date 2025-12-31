@@ -74,7 +74,7 @@ class StorageService {
   }
 
   clear(): void {
-    // Clear all NIRI-related data from localStorage
+    // Clear all NIE-I-related data from localStorage
     Object.keys(localStorage).forEach((key) => {
       if (
         key.startsWith(`${this.namespace}:`) ||

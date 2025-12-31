@@ -66,7 +66,7 @@ export function transformFormDataToNiriSubmission(
   };
 }
 /**
- * Transform UI form data to NIRI submission format
+ * Transform UI form data to NIE-I submission format
  */
 export function transformFormDataToSectionSubmission(
   formData: Record<string, any>,
@@ -114,14 +114,14 @@ export function transformFormDataToSectionSubmission(
   };
 
   // Debug log for clarity
-  console.log("🧩 Transformed NIRI Submission:", transformedSubmission);
+  console.log("🧩 Transformed NIE-I Submission:", transformedSubmission);
 
   return transformedSubmission;
 }
 
 
 /**
- * Transform NIRI submission format back to UI form data
+ * Transform NIE-I submission format back to UI form data
  */
 export function transformNiriSubmissionToFormData(
   submission: NiriSubmission
@@ -250,7 +250,7 @@ function generateInnovativePractices(count: number): Array<{ name: string }> {
 }
 
 /**
- * Validate NIRI submission data
+ * Validate NIE-I submission data
  */
 export function validateNiriSubmission(submission: NiriSubmission): {
   isValid: boolean;

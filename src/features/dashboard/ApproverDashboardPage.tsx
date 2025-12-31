@@ -12,7 +12,7 @@ export default function ApproverDashboardPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-1 text-foreground">Welcome back</h1>
           <p className="text-muted-foreground">
-            Provide final approval and scoring for NIRI submissions
+            Provide final approval and scoring for NIE-I submissions
           </p>
         </div>
         <div className="mb-6">

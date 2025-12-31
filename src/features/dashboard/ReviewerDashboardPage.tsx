@@ -189,7 +189,7 @@ const ReviewerDashboardPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold mb-2 text-gray-900">Welcome</h1>
               <p className="text-gray-600 text-base">
-                Review and provide feedback on NIRI submissions
+                Review and provide feedback on NIE-I submissions
               </p>
             </div>
             {/* Laptop illustration */}

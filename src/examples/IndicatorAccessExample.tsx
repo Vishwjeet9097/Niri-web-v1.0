@@ -108,7 +108,7 @@ export function IndicatorAccessExample() {
     <div className="max-w-4xl mx-auto space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>NIRI Indicator Access Control Example</CardTitle>
+          <CardTitle>NIE-I Indicator Access Control Example</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* User Role and Access Info */}

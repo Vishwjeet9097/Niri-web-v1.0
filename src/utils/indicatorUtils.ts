@@ -1,6 +1,6 @@
 import type { IndicatorSection, SectionAccess } from "@/types";
 
-// NIRI Indicator Sections Configuration
+// NIE-I Indicator Sections Configuration
 export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
     id: "infra-financing",

@@ -36,7 +36,7 @@ export class DraftService {
         formData,
       });
 
-      // Transform form data to NIRI format
+      // Transform form data to NIE-I format
       let niriSubmission;
       if (userId && stateUt) {
         niriSubmission = transformFormDataToNiriSubmission(
@@ -122,7 +122,7 @@ export class DraftService {
         Date.now()
       ).slice(-6)}`;
 
-      // Transform form data to NIRI format
+      // Transform form data to NIE-I format
       let niriSubmission;
       if (userId && stateUt) {
         niriSubmission = transformFormDataToNiriSubmission(

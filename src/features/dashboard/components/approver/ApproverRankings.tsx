@@ -11,24 +11,29 @@ export default function ApproverRankings() {
       try {
         setLoading(true);
         const rankingsData = await apiService.getRankings();
-        
+
         // Handle different response structures
         let rankingsArray = [];
         if (Array.isArray(rankingsData)) {
           rankingsArray = rankingsData;
-        } else if (rankingsData?.rankings && Array.isArray(rankingsData.rankings)) {
+        } else if (
+          rankingsData?.rankings &&
+          Array.isArray(rankingsData.rankings)
+        ) {
           rankingsArray = rankingsData.rankings;
         } else if (rankingsData?.data && Array.isArray(rankingsData.data)) {
           rankingsArray = rankingsData.data;
         }
-        
+
         // Transform API data to component format
         const transformedRankings = rankingsArray.map((item: any) => ({
           state: item.state || item.stateUt || "Unknown",
           score: item.score || item.niriScore || 0,
-          updated: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "N/A",
+          updated: item.updatedAt
+            ? new Date(item.updatedAt).toLocaleDateString()
+            : "N/A",
         }));
-        
+
         setRankings(transformedRankings);
       } catch (error) {
         console.error("❌ Failed to load rankings:", error);
@@ -48,7 +53,7 @@ export default function ApproverRankings() {
   return (
     <div className="bg-white rounded-xl shadow p-6 flex flex-col min-h-[340px]">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">NIRI Rankings</h3>
+        <h3 className="text-lg font-semibold">NIE-I Rankings</h3>
         <button
           className="text-gray-400 hover:text-blue-600 transition"
           title="Filter"
@@ -66,7 +71,8 @@ export default function ApproverRankings() {
         </button>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        High-level view of current NIRI scores and impact of your approval decisions.
+        High-level view of current NIE-I scores and impact of your approval
+        decisions.
       </p>
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -92,7 +98,9 @@ export default function ApproverRankings() {
                   Last updated: {item.updated}
                 </div>
               </div>
-              <div className="text-xl font-bold text-blue-700">{item.score}</div>
+              <div className="text-xl font-bold text-blue-700">
+                {item.score}
+              </div>
             </div>
           ))}
         </div>

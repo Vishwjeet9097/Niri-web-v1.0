@@ -7,7 +7,7 @@ export const rankingData = {
       icon: "trophy",
     },
     {
-      label: "Overall NIRI Score",
+      label: "Overall NIE-I Score",
       value: "78.2",
       sub: "-1 from last quarter",
       icon: "score",
@@ -182,7 +182,7 @@ export const rankingData = {
   },
   methodology: {
     description:
-      "The National Infrastructure Readiness Index evaluates States/UTs across four key pillars, each worth 250 points for a total of 1000 points. The assessment focuses on enabling frameworks rather than just infrastructure outcomes.",
+      "The National Infrastructure Enablement Index evaluates States/UTs across four key pillars, each worth 250 points for a total of 1000 points. The assessment focuses on enabling frameworks rather than just infrastructure outcomes.",
     pillars: [
       {
         name: "Infra Financing",
@@ -210,7 +210,7 @@ export const rankingData = {
       },
     ],
     note:
-      "NIRI aims to encourage competition among states/UTs by highlighting strengths and weaknesses in infrastructure facilitative ecosystems supporting standardized policy-making strategies.",
+      "NIE-I aims to encourage competition among states/UTs by highlighting strengths and weaknesses in infrastructure facilitative ecosystems supporting standardized policy-making strategies.",
     period:
       "Assessment Period: Financial Year 2023-24 | Infrastructure sectors as per latest DEA HML notification.",
   },

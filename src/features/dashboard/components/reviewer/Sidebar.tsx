@@ -19,11 +19,11 @@ export default function Sidebar({ user }: SidebarProps) {
       {/* Header */}
       <div className="p-6 border-b flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <img src="/logo.svg" alt="NIRI" className="h-10" />
+          <img src="/logo.svg" alt="NIE-I" className="h-10" />
           <div>
-            <div className="font-bold text-lg text-primary">NIRI</div>
+            <div className="font-bold text-lg text-primary">NIE-I</div>
             <div className="text-xs text-muted-foreground">
-              National Infrastructure Readiness Index
+              National Infrastructure Enablement Index
             </div>
           </div>
         </div>

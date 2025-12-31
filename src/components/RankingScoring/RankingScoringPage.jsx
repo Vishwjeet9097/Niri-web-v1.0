@@ -109,7 +109,7 @@ const RankingScoringPage = () => {
   };
 
   const methodology = {
-    description: "The NIRI (National Infrastructure Ranking Index) evaluates states based on four key pillars of infrastructure development.",
+    description: "The NIE-I (National Infrastructure Enablement Index) evaluates states based on four key pillars of infrastructure development.",
     pillars: [
       {
         name: "Infrastructure Financing",
@@ -483,7 +483,7 @@ const RankingScoringPage = () => {
             color: "#1A1A1A",
             margin: 0,
           }}>
-            About NIRI Methodology
+            About NIE-I Methodology
           </h2>
         </div>
         <div style={{ 

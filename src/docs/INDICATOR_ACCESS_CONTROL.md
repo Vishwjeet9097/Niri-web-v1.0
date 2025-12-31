@@ -1,6 +1,6 @@
-# NIRI Indicator Access Control System
+# NIE-I Indicator Access Control System
 
-यह document NIRI Data Submission Dashboard में role-based indicator access control system को explain करता है।
+यह document NIE-I Data Submission Dashboard में role-based indicator access control system को explain करता है।
 
 ## Overview
 

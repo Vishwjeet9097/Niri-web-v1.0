@@ -1,16 +1,16 @@
-# NIRI Submission Form UI Review Report
+# NIE-I Submission Form UI Review Report
 
 ## जमा फॉर्म UI समीक्षा रिपोर्ट
 
 **Date:** 15 जनवरी 2025  
-**Project:** NIRI Web v1.0  
+**Project:** NIE-I Web v1.0  
 **File Reviewed:** `src/features/submission/components/NiriSubmissionForm.tsx`
 
 ---
 
 ## Executive Summary / सारांश
 
-इस रिपोर्ट में NIRI submission form की UI review की गई है और duplicate sections/indicators की पहचान की गई है।
+इस रिपोर्ट में NIE-I submission form की UI review की गई है और duplicate sections/indicators की पहचान की गई है।
 
 ---
 

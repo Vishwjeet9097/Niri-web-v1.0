@@ -380,7 +380,7 @@ export const MospiApproverDashboardPage = () => {
                 Welcome!
               </h1>
               <p className="text-gray-600 text-base">
-                Review and provide feedback on NIRI submissions
+                Review and provide feedback on NIE-I submissions
               </p>
             </div>
             {/* Laptop illustration */}

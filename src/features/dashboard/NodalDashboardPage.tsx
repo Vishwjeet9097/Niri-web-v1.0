@@ -219,11 +219,13 @@ export function NodalDashboardPage() {
               ...fd,
               submittedBy: sub.user?.id || sub.submittedBy || sub.user,
             };
-            
+
             // Calculate progress based on sections with ACCEPTED status
             // Count all sections in formData and count how many have status "ACCEPTED"
             // Progress = (sections with ACCEPTED status / total sections) × 100%
-            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            const progressData = await calculateProgressByAcceptedStatus(
+              fdWithSubmittedBy
+            );
             const progress = progressData.progress;
 
             let nextStep = "Complete submission";
@@ -232,12 +234,12 @@ export function NodalDashboardPage() {
             else if (sub.status === "SUBMITTED_TO_STATE") {
               // Check if all indicators are accepted (progress is 100%)
               if (progress === 100) {
-                nextStep = "Approved by State Approver waiting for Mospi review";
+                nextStep =
+                  "Approved by State Approver waiting for Mospi review";
               } else {
                 nextStep = "Waiting for state approval";
               }
-            }
-            else if (sub.status === "APPROVED")
+            } else if (sub.status === "APPROVED")
               nextStep = "Submission approved";
             else if (sub.status === "REJECTED")
               nextStep = "Address reviewer feedback";
@@ -328,7 +330,7 @@ export function NodalDashboardPage() {
         <div>
           <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome</h1>
           <p className="text-[#212121]">
-            Manage your NIRI data submissions and track approval status
+            Manage your NIE-I data submissions and track approval status
           </p>
         </div>
         <img
@@ -379,7 +381,7 @@ export function NodalDashboardPage() {
                 <div>
                   <h2 className="text-xl font-semibold">Latest Submissions</h2>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Your latest NIRI data submissions and their status
+                    Your latest NIE-I data submissions and their status
                   </p>
                 </div>
                 {/* <Button onClick={() => navigate('/submissions')}>+ New Submission</Button> */}
@@ -440,10 +442,10 @@ export function NodalDashboardPage() {
         </div>
 
         {/* <div className="space-y-6 lg:w-[300px] "> */}
-          {/* <UpcomingDeadlines deadlines={deadlines} /> */}
+        {/* <UpcomingDeadlines deadlines={deadlines} /> */}
 
-          {/* Quick Actions */}
-          {/* <QuickActions
+        {/* Quick Actions */}
+        {/* <QuickActions
             actions={[
               {
                 id: "1",
@@ -476,7 +478,7 @@ export function NodalDashboardPage() {
             ]}
           /> */}
 
-          {/* <QuickTips
+        {/* <QuickTips
             tips={[
               {
                 id: "1",

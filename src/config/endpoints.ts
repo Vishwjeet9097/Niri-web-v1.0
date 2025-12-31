@@ -1,4 +1,4 @@
-// Centralized API endpoints for NIRI web app
+// Centralized API endpoints for NIE-I web app
 // Update this file as new endpoints are added/changed
 import { config } from "./environment";
 

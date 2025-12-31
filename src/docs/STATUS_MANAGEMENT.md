@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the centralized status management system implemented across the NIRI application. The system provides consistent status text, styling, and messaging based on submission status and user roles.
+This document describes the centralized status management system implemented across the NIE-I application. The system provides consistent status text, styling, and messaging based on submission status and user roles.
 
 ## Files
 

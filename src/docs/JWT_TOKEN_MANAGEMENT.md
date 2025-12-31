@@ -356,4 +356,4 @@ console.log("Token Info:", tokenInfo);
 
 ---
 
-**Built with ❤️ for NIRI Dashboard**
+**Built with ❤️ for NIE-I Dashboard**

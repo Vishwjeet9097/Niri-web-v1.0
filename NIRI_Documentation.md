@@ -1,8 +1,8 @@
-# 📚 NIRI Web Application - Complete Documentation
+# 📚 NIE-I Web Application - Complete Documentation
 
 ## 🎯 Project Overview
 
-- **Name:** NIRI (National Infrastructure Readiness Index) Web Application
+- **Name:** NIE-I (National Infrastructure Enablement Index) Web Application
 - **Tech Stack:** React + TypeScript + Vite + Tailwind CSS
 - **Backend:** Node.js API with JWT Authentication
 - **Database:** PostgreSQL with JSONB support
@@ -281,7 +281,7 @@ interface SubmissionCard {
 // src/config/environment.ts
 export const config = {
   API_BASE_URL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000",
-  APP_NAME: "NIRI",
+  APP_NAME: "NIE-I",
   VERSION: "1.0.0",
 };
 ```
@@ -497,4 +497,4 @@ For technical support or questions:
 
 **Documentation Version:** 1.0.0  
 **Last Updated:** January 2025  
-**Project:** NIRI Web Application
+**Project:** NIE-I Web Application

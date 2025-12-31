@@ -244,14 +244,13 @@ export function LoginPage() {
       </header>
 
       {/* Main Content Row: Left banner + Right auth card */}
-      <div className="flex">
+      <div className="flex flex-1">
         {/* Left Banner Section */}
         <div className="w-[45%]">
           <img
-            src="/images/login-banner.jpeg"
+            src="/images/login-banner.png"
             alt="Login Banner"
-            className=""
-           
+            className="w-full h-full object-cover"
             loading="lazy"
           />
         </div>

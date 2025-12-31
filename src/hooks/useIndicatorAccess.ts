@@ -4,7 +4,7 @@ import { authService } from "@/services/auth.service";
 import { apiService } from "@/services/api.service";
 import type { IndicatorAccess, IndicatorSection, SectionAccess } from "@/types";
 
-// All NIRI indicator codes (19 total)
+// All NIE-I indicator codes (19 total)
 export const ALL_INDICATOR_CODES = [
   "1.1",
   "1.2",
@@ -27,7 +27,7 @@ export const ALL_INDICATOR_CODES = [
   "4.5", // Infrastructure Enablers
 ];
 
-// NIRI Indicator Sections Configuration
+// NIE-I Indicator Sections Configuration
 export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
     id: "infra-financing",

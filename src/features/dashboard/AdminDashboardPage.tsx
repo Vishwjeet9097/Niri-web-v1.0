@@ -139,7 +139,7 @@ function AdminDashboardPage() {
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-primary mb-1">NIRI Platform Administration</h1>
+        <h1 className="text-2xl font-bold text-primary mb-1">NIE-I Platform Administration</h1>
         <p className="text-gray-600">Comprehensive system oversight and management dashboard</p>
       </div>
 

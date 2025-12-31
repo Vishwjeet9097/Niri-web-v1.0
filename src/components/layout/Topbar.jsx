@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 
 /**
- * Topbar for NIRI dashboard, matching provided UI.
+ * Topbar for NIE-I dashboard, matching provided UI.
  * Props:
  *   - sidebarOpen: boolean (for mobile sidebar toggle)
  *   - setSidebarOpen: function (toggle sidebar)
@@ -41,9 +41,9 @@ export function Topbar({ sidebarOpen, setSidebarOpen }) {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-bold">NIRI</h1>
+              <h1 className="text-lg font-bold">NIE-I</h1>
               <p className="text-xs opacity-90 hidden sm:block">
-                National Infrastructure Readiness Index
+                National Infrastructure Enablement Index
               </p>
             </div>
           </div>

@@ -1,8 +1,8 @@
-# 📘 NIRI Web Application - Complete Knowledge Transfer Document
+# 📘 NIE-I Web Application - Complete Knowledge Transfer Document
 
 ## संपूर्ण नॉलेज ट्रांसफर दस्तावेज़
 
-**प्रोजेक्ट नाम:** NIRI (National Infrastructure Readiness Index) Web Application  
+**प्रोजेक्ट नाम:** NIE-I (National Infrastructure Enablement Index) Web Application  
 **वर्जन:** 1.0  
 **तिथि:** अक्टूबर 2025  
 **तकनीकी ढेर:** React 18, TypeScript, Vite, Tailwind CSS, React Query
@@ -37,7 +37,7 @@
 
 ### 1.1 संक्षिप्त विवरण
 
-NIRI एक **National Infrastructure Readiness Index** मूल्यांकन प्लेटफ़ॉर्म है जो भारत के सभी राज्यों और केंद्र शासित प्रदेशों की अवसंरचना तत्परता को मापता है। यह उपयोगकर्ता लॉगिन, डेटा प्रस्तुत करना, समीक्षा, अनुमोदन और रिपोर्टिंग का समर्थन करता है।
+NIE-I एक **National Infrastructure Enablement Index** मूल्यांकन प्लेटफ़ॉर्म है जो भारत के सभी राज्यों और केंद्र शासित प्रदेशों की अवसंरचना तत्परता को मापता है। यह उपयोगकर्ता लॉगिन, डेटा प्रस्तुत करना, समीक्षा, अनुमोदन और रिपोर्टिंग का समर्थन करता है।
 
 ### 1.2 मुख्य उद्देश्य
 
@@ -129,7 +129,7 @@ src/
 │   │   ├── input.tsx            # Form inputs
 │   │   └── ... (50+ components)
 │   │
-│   ├── IndicatorSections/       # NIRI Form Sections (20 indicators)
+│   ├── IndicatorSections/       # NIE-I Form Sections (20 indicators)
 │   │   ├── Section1_1_CapexToGSDP.tsx
 │   │   ├── Store2_2_InfrastructureActPolicy.tsx
 │   │   └── ... (18 more sections)
@@ -1032,7 +1032,7 @@ VITE_API_BASE_URL=http://localhost:3000
 VITE_USE_MOCK=false
 
 # App Configuration
-VITE_APP_NAME=NIRI
+VITE_APP_NAME=NIE-I
 VITE_APP_VERSION=1.0.0
 ```
 
@@ -1245,7 +1245,7 @@ data?.submissions?.map(...) ?? []
 
 ## 16. निष्कर्ष
 
-यह KT document NIRI Web Application का संपूर्ण overview प्रदान करता है। नए developer को:
+यह KT document NIE-I Web Application का संपूर्ण overview प्रदान करता है। नए developer को:
 
 1. ✅ प्रोजेक्ट की संपूर्ण समझ
 2. ✅ आर्किटेक्चर की जानकारी

@@ -2,7 +2,7 @@ import React from "react";
 
 /**
  * InfoCards
- * Renders summary cards for National Rank, NIRI Score, Best Category, Score Gap, etc.
+ * Renders summary cards for National Rank, NIE-I Score, Best Category, Score Gap, etc.
  * @param {Array} cards - Array of card objects: { label, value, sub, icon }
  */
 const InfoCards = ({ cards }) => {

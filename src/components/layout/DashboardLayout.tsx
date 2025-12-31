@@ -46,7 +46,11 @@ export function DashboardLayout() {
   };
 
   const isActive = (path: string) => {
-    if (path === "/" || path === "/dashboard" || path === "/reviewer-dashboard") {
+    if (
+      path === "/" ||
+      path === "/dashboard" ||
+      path === "/reviewer-dashboard"
+    ) {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
@@ -71,18 +75,22 @@ export function DashboardLayout() {
               className="lg:hidden text-gray-700 hover:bg-gray-100"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {sidebarOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src="https://img1.digitallocker.gov.in/ai/images/logo.png"
-                alt="NIRI Logo"
+                src="/images/logo.png"
+                alt="NIE-I Logo"
                 className="h-10 bg-white rounded object-contain"
               />
               <div>
-                <h1 className="text-xl font-bold text-primary">NIRI</h1>
+                <h1 className="text-xl font-bold text-primary">NIE-I</h1>
                 <p className="text-xs text-gray-600 hidden sm:block">
-                  National Infrastructure Readiness Index
+                  National Infrastructure Enablement Index
                 </p>
               </div>
             </div>
@@ -112,7 +120,9 @@ export function DashboardLayout() {
         {/* Sidebar */}
         <aside
           className={`lg:static fixed top-16 inset-y-0 left-0 z-40 w-64 bg-card border-r transform transition-transform duration-200 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+          ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
         >
           <nav className="flex flex-col h-full p-4">
             <div className="flex-1 space-y-1 overflow-y-auto">

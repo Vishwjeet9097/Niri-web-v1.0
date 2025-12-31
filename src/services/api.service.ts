@@ -26,7 +26,7 @@ export interface UpdateIndicatorPayload {
   fields: UpdateIndicatorField[];
 }
 
-// NIRI API Types
+// NIE-I API Types
 export interface NiriUser {
   id: string;
   email: string;
@@ -392,7 +392,7 @@ class ApiService implements HttpClient {
     }
   }
 
-  // NIRI API Methods
+  // NIE-I API Methods
   async login(
     email: string,
     password: string
@@ -3930,9 +3930,9 @@ class ApiService implements HttpClient {
           maxPossibleScore: 1000,
           percentage: 74.2,
           calculations: [],
-          methodology: "NIRI Scoring Methodology v2.0",
+          methodology: "NIE-I Scoring Methodology v2.0",
         },
-        calculationMethodology: "NIRI Scoring Methodology v2.0",
+        calculationMethodology: "NIE-I Scoring Methodology v2.0",
         approvedBy: "uuid",
         createdAt: "2024-01-01T00:00:00.000Z",
       };
@@ -3944,8 +3944,12 @@ class ApiService implements HttpClient {
    */
   async getIndicatorScores(submissionId: string): Promise<any> {
     try {
-      const response = await this.axios.get(`/scoring/indicator-scores/${submissionId}`);
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      const response = await this.axios.get(
+        `/scoring/indicator-scores/${submissionId}`
+      );
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       if (error.response?.status === 304) {
         const cached = error.response?.data || {};
@@ -3958,10 +3962,17 @@ class ApiService implements HttpClient {
   /**
    * Get indicator score for a specific indicator
    */
-  async getIndicatorScore(submissionId: string, indicatorCode: string): Promise<any> {
+  async getIndicatorScore(
+    submissionId: string,
+    indicatorCode: string
+  ): Promise<any> {
     try {
-      const response = await this.axios.get(`/scoring/indicator-scores/${submissionId}/${indicatorCode}`);
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      const response = await this.axios.get(
+        `/scoring/indicator-scores/${submissionId}/${indicatorCode}`
+      );
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       if (error.response?.status === 304) {
         const cached = error.response?.data || {};
@@ -3977,7 +3988,9 @@ class ApiService implements HttpClient {
   async getScoreHistory(submissionId: string): Promise<any> {
     try {
       const response = await this.axios.get(`/scoring/history/${submissionId}`);
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       if (error.response?.status === 304) {
         const cached = error.response?.data || {};
@@ -3990,10 +4003,17 @@ class ApiService implements HttpClient {
   /**
    * Get score history for a specific indicator
    */
-  async getIndicatorScoreHistory(submissionId: string, indicatorCode: string): Promise<any> {
+  async getIndicatorScoreHistory(
+    submissionId: string,
+    indicatorCode: string
+  ): Promise<any> {
     try {
-      const response = await this.axios.get(`/scoring/history/${submissionId}/indicator/${indicatorCode}`);
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      const response = await this.axios.get(
+        `/scoring/history/${submissionId}/indicator/${indicatorCode}`
+      );
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       if (error.response?.status === 304) {
         const cached = error.response?.data || {};

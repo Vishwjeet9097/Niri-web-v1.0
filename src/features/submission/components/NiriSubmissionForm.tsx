@@ -240,7 +240,7 @@ export function NiriSubmissionForm({
 
       const validation = validateNiriSubmission(niriSubmission);
       if (!validation.isValid) {
-        console.error("❌ NIRI Validation Errors:", validation.errors);
+        console.error("❌ NIE-I Validation Errors:", validation.errors);
         toast({
           title: "Validation Error",
           description: validation.errors.join(", "),
@@ -941,7 +941,7 @@ export function NiriSubmissionForm({
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
+          <h1 className="text-3xl font-bold">NIE-I Data Submission</h1>
           <p className="text-muted-foreground mt-2">
             Loading your assigned/available indicators...
           </p>
@@ -958,7 +958,7 @@ export function NiriSubmissionForm({
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
+          <h1 className="text-3xl font-bold">NIE-I Data Submission</h1>
           <Alert className="mt-4">
             <Lock className="h-4 w-4" />
             <AlertDescription>
@@ -976,7 +976,7 @@ export function NiriSubmissionForm({
       <div className="text-center">
         <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
         <p className="text-muted-foreground mt-2">
-          Submit your infrastructure readiness data in the standardized NIRI
+          Submit your infrastructure readiness data in the standardized NIE-I
           format
         </p>
 

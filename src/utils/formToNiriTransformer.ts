@@ -6,7 +6,7 @@ import {
 } from "@/types/submission";
 
 /**
- * Transform UI form data to NIRI submission format
+ * Transform UI form data to NIE-I submission format
  */
 export function transformFormDataToNiriSubmission(
   formData: Partial<SubmissionFormData>,
@@ -264,8 +264,7 @@ export function transformFormDataToNiriSubmission(
 
     // 4.2 - PM GatiShakti NMP
     if (formData.infraEnablers.section4_2) {
-      const adopted =
-        formData.infraEnablers.section4_2.adopted === "yes";
+      const adopted = formData.infraEnablers.section4_2.adopted === "yes";
 
       submissionData.Infrastructure_Enablers.push({
         indicator_id: "4.2",
@@ -284,8 +283,7 @@ export function transformFormDataToNiriSubmission(
 
     // 4.3 - ADR Adoption
     if (formData.infraEnablers.section4_3) {
-      const adopted =
-        formData.infraEnablers.section4_3.adopted === "yes";
+      const adopted = formData.infraEnablers.section4_3.adopted === "yes";
 
       submissionData.Infrastructure_Enablers.push({
         indicator_id: "4.3",
@@ -340,7 +338,7 @@ export function transformFormDataToNiriSubmission(
 }
 
 /**
- * Transform NIRI submission format back to UI form data
+ * Transform NIE-I submission format back to UI form data
  */
 export function transformNiriSubmissionToFormData(
   submission: NiriSubmission
