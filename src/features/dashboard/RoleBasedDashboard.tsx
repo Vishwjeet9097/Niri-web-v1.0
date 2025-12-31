@@ -9,6 +9,7 @@ import { StateApproverDashboardPage } from "./StateApproverDashboardPage";
 import { MospiApproverDashboardPage } from "./MospiApproverDashboardPage";
 import { DashboardPage } from "./DashboardPage"; // Fallback dashboard
 import AdminDashboardPage from "./AdminDashboardPage";
+import { MinistryApproverDashboardPage } from "@/features/ministry/Dashboard/MinistryApproverDashboardPage";
 
 export default function RoleBasedDashboard() {
   const { user } = useAuth();
@@ -31,6 +32,9 @@ export default function RoleBasedDashboard() {
     
     case "STATE_APPROVER":
       return <StateApproverDashboardPage />;
+    
+    case "MINISTRY_APPROVER":
+      return <MinistryApproverDashboardPage />;
     
      case "ADMIN": {
       // Always redirect Admin to /dashboard for consistent sidebar/menu

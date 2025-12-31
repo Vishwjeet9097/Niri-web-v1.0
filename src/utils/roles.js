@@ -67,13 +67,28 @@ export const MENU_CONFIG = [
     icon: "submission",
   },
   {
-    label: "Data Submission",       // dropdown label
+    label: "Data Submission",       // dropdown label for State Approver
     roles: [ROLES.STATE_APPROVER],  // only visible to State Approver
     icon: "submission",
     children: [
       {
         label: "Create Submission",
         path: "/submissions", 
+      },
+      {
+        label: "Review Submission",
+        path: "/data-submission/review", 
+      },
+    ],
+  },
+  {
+    label: "Data Submission",       // dropdown label for Ministry Approver
+    roles: [ROLES.MINISTRY_APPROVER],  // only visible to Ministry Approver
+    icon: "submission",
+    children: [
+      {
+        label: "Create Submission",
+        path: "/ministry-submission", 
       },
       {
         label: "Review Submission",

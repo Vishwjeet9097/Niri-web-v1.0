@@ -113,3 +113,57 @@ export async function assignIndicatorsToNodal(
         { withCredentials: true }
     );
 }
+
+/**
+ * Retrieve submission details with indicators, subsections, and input fields
+ * @param submissionId - The ID of the ministry submission
+ * @returns Promise with submission form structure
+ */
+export async function getMinistrySubmissionDetails(submissionId: string): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/submission/${submissionId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        
+        // The API returns { status: true, data: [...], message: "..." }
+        // response.data is the entire object, so we should return it directly
+        // But we need to handle both cases: response.data.data or response.data
+        const apiResponse = response.data;
+        
+        // If the response has the expected structure
+        if (apiResponse && typeof apiResponse === 'object' && 'status' in apiResponse) {
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data || [],
+                message: apiResponse.message || ''
+            };
+        }
+        
+        // Fallback: if response.data is directly the array
+        if (Array.isArray(apiResponse)) {
+            return {
+                status: true,
+                data: apiResponse,
+                message: 'Retrieved indicators for submission'
+            };
+        }
+        
+        // Fallback: if response.data.data exists
+        if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data,
+                message: apiResponse.message || ''
+            };
+        }
+        
+        console.error('[getMinistrySubmissionDetails] Unexpected response structure:', apiResponse);
+        return { status: false, data: [], message: 'Unexpected response structure' };
+    } catch (error) {
+        console.error('[getMinistrySubmissionDetails] API Error:', error);
+        throw error;
+    }
+}
