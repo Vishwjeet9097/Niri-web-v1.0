@@ -347,9 +347,11 @@ export const InfraEnablersStep = () => {
           setIsDataLoaded(true);
         } else {
           // No submission found in database (submission was deleted), clear localStorage
-          console.log("🧹 No submission found in database - clearing localStorage");
+          console.log(
+            "🧹 No submission found in database - clearing localStorage"
+          );
           clearFormData();
-          
+
           setFormData(safeInfraEnablersFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
@@ -495,6 +497,82 @@ export const InfraEnablersStep = () => {
       }
     }
   }, []); // run once
+
+  // Ensure arrays have at least 1 entry when "yes" is selected
+  useEffect(() => {
+    if (
+      formData.section4_2.adopted === "yes" &&
+      (!formData.section4_2.projects ||
+        formData.section4_2.projects.length === 0)
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        section4_2: {
+          ...prev.section4_2,
+          projects: [
+            {
+              id: Date.now().toString(),
+              projectName: "",
+              sector: "",
+              file: null,
+            },
+          ],
+        },
+      }));
+    }
+  }, [formData.section4_2.adopted, formData.section4_2.projects?.length]);
+
+  useEffect(() => {
+    if (
+      formData.section4_4.implemented === "yes" &&
+      (!formData.section4_4.practices ||
+        formData.section4_4.practices.length === 0)
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        section4_4: {
+          ...prev.section4_4,
+          practices: [
+            {
+              id: Date.now().toString(),
+              practiceName: "",
+              impact: "",
+              file: null,
+            },
+          ],
+        },
+      }));
+    }
+  }, [formData.section4_4.implemented, formData.section4_4.practices?.length]);
+
+  useEffect(() => {
+    if (
+      formData.section4_5.participated === "yes" &&
+      (!formData.section4_5.capacityArray ||
+        formData.section4_5.capacityArray.length === 0)
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        section4_5: {
+          ...prev.section4_5,
+          capacityArray: [
+            {
+              id: Date.now().toString(),
+              officerName: "",
+              designation: "",
+              programName: "",
+              organiser: "",
+              trainingType: "",
+              trainingPeriod: "",
+            },
+          ],
+        },
+      }));
+    }
+  }, [
+    formData.section4_5.participated,
+    formData.section4_5.capacityArray?.length,
+  ]);
 
   // Calculation helpers
   const calculateSection4_3 = useCallback(() => {
@@ -992,16 +1070,20 @@ export const InfraEnablersStep = () => {
       // Dispatch event to refresh indicators after indicator submission
       // This ensures the "Create Submission" button disables correctly when last indicator is submitted
       if (isStateApprover && user?.id) {
-        console.log("📢 [InfraEnablersStep] Dispatching indicatorsUpdated event after indicator submission");
-        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
-          detail: { 
-            userId: user.id,
-            role: 'STATE_APPROVER',
-            action: 'indicator_submitted',
-            indicatorCode,
-            submissionId: result?.id || result?.submissionId
-          } 
-        }));
+        console.log(
+          "📢 [InfraEnablersStep] Dispatching indicatorsUpdated event after indicator submission"
+        );
+        window.dispatchEvent(
+          new CustomEvent("indicatorsUpdated", {
+            detail: {
+              userId: user.id,
+              role: "STATE_APPROVER",
+              action: "indicator_submitted",
+              indicatorCode,
+              submissionId: result?.id || result?.submissionId,
+            },
+          })
+        );
       }
 
       // Optimistically update sectionStatus to immediately disable the button
@@ -1815,6 +1897,19 @@ export const InfraEnablersStep = () => {
                           ...prev.section4_2,
                           adopted: "yes",
                           comment: "",
+                          // Initialize with 1 entry if empty
+                          projects:
+                            prev.section4_2?.projects &&
+                            prev.section4_2.projects.length > 0
+                              ? prev.section4_2.projects
+                              : [
+                                  {
+                                    id: Date.now().toString(),
+                                    projectName: "",
+                                    sector: "",
+                                    file: null,
+                                  },
+                                ],
                         },
                       }));
                     }}
@@ -2376,6 +2471,19 @@ export const InfraEnablersStep = () => {
                           ...prev.section4_4,
                           implemented: "yes",
                           comment: "",
+                          // Initialize with 1 entry if empty
+                          practices:
+                            prev.section4_4?.practices &&
+                            prev.section4_4.practices.length > 0
+                              ? prev.section4_4.practices
+                              : [
+                                  {
+                                    id: Date.now().toString(),
+                                    practiceName: "",
+                                    impact: "",
+                                    file: null,
+                                  },
+                                ],
                         },
                       }));
                     }}
@@ -2659,6 +2767,22 @@ export const InfraEnablersStep = () => {
                           ...prev.section4_5,
                           participated: "yes",
                           comment: "",
+                          // Initialize with 1 entry if empty
+                          capacityArray:
+                            prev.section4_5?.capacityArray &&
+                            prev.section4_5.capacityArray.length > 0
+                              ? prev.section4_5.capacityArray
+                              : [
+                                  {
+                                    id: Date.now().toString(),
+                                    officerName: "",
+                                    designation: "",
+                                    programName: "",
+                                    organiser: "",
+                                    trainingType: "",
+                                    trainingPeriod: "",
+                                  },
+                                ],
                         },
                       }));
                     }}

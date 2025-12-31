@@ -64,7 +64,20 @@ const defaultData: PPPDevelopmentData = {
     available: "",
     file: null,
   },
-  section3_3: { VGFArray: [] },
+  section3_3: {
+    VGFArray: [
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        projectName: "",
+        sector: "",
+        scheme: "",
+        submissionDate: "",
+        totalProjectCost: "",
+        statusOfProject: "",
+        file: null,
+      },
+    ],
+  },
   section3_4: {
     projects: [],
     totalProjectsAwarded: "",
@@ -164,12 +177,14 @@ export const PPPDevelopmentStep = () => {
       },
       section3_3: {
         ...(data.section3_3 || {}),
-        VGFArray: Array.isArray((data.section3_3 as any)?.VGFArray)
-          ? (data.section3_3 as any).VGFArray.map((entry: any) => ({
-              ...entry,
-              file: typeof entry.file !== "undefined" ? entry.file : null,
-            }))
-          : [],
+        VGFArray:
+          Array.isArray((data.section3_3 as any)?.VGFArray) &&
+          (data.section3_3 as any).VGFArray.length > 0
+            ? (data.section3_3 as any).VGFArray.map((entry: any) => ({
+                ...entry,
+                file: typeof entry.file !== "undefined" ? entry.file : null,
+              }))
+            : defaultData.section3_3.VGFArray,
         status: (data.section3_3 as any)?.status,
       },
       section3_4: {
@@ -2288,6 +2303,9 @@ export const PPPDevelopmentStep = () => {
                   </div>
                 </div>
               ))}
+
+              {renderFieldError("section3_3.VGFArray")}
+
               <div>
                 <Button
                   type="button"
@@ -2301,7 +2319,6 @@ export const PPPDevelopmentStep = () => {
                   Add More Project
                 </Button>
                 <p className="text-xs text-muted-foreground mt-1"></p>
-                {renderFieldError("section3_3.VGFArray")}
               </div>
               {/* ✅ Table view for VGF/IIPDF proposals (with File Size) */}
               {formData.section3_3.VGFArray.length > 0 && (

@@ -86,7 +86,10 @@ import {
 // This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
 
 const defaultData: InfraDevelopmentData = {
-  section2_1: { infraActArray: [], hasOverarchingPolicy: "" },
+  section2_1: {
+    infraActArray: [], // Don't initialize with entry by default - wait for yes/no selection
+    hasOverarchingPolicy: "",
+  },
   section2_2: { 
     specializedEntityArray: [],
     hasSpecializedEntity: "",
@@ -103,7 +106,20 @@ const defaultData: InfraDevelopmentData = {
     comment: "",
     websiteLink: "",
   },
-  section2_5: { assetMonetizationArray: [] },
+  section2_5: {
+    assetMonetizationArray: [
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        projectName: "",
+        type: "",
+        sector: "",
+        location: "",
+        websiteLink: "",
+        ownership: "",
+        estimatedMonetization: "",
+      },
+    ],
+  },
 };
 
 // Defensive: always ensure array fields are initialized and preserve status field
@@ -113,16 +129,31 @@ function safeInfraDevelopmentFormData(
   return {
     ...defaultData,
     ...data,
-    section2_1: {
-      ...defaultData.section2_1,
-      ...(data.section2_1 || {}),
-      infraActArray: Array.isArray(data.section2_1?.infraActArray)
-        ? data.section2_1.infraActArray
-        : [],
-      hasOverarchingPolicy: data.section2_1?.hasOverarchingPolicy || "",
-      // Preserve status field
-      status: (data.section2_1 as any)?.status,
-    } as any,
+      section2_1: {
+        ...defaultData.section2_1,
+        ...(data.section2_1 || {}),
+        // Only initialize with default entry if hasOverarchingPolicy is set to "no" or empty
+        // If "yes", it will be handled in the onChange handler
+        infraActArray:
+          data.section2_1?.hasOverarchingPolicy === "no" ||
+          (data.section2_1?.hasOverarchingPolicy === "" &&
+            (!Array.isArray(data.section2_1?.infraActArray) ||
+              data.section2_1.infraActArray.length === 0))
+            ? [
+                {
+                  id: Math.random().toString(36).substr(2, 9),
+                  sector: "",
+                  files: [],
+                },
+              ]
+            : Array.isArray(data.section2_1?.infraActArray) &&
+              data.section2_1.infraActArray.length > 0
+            ? data.section2_1.infraActArray
+            : [],
+        hasOverarchingPolicy: data.section2_1?.hasOverarchingPolicy || "",
+        // Preserve status field
+        status: (data.section2_1 as any)?.status,
+      } as any,
     section2_2: {
       ...defaultData.section2_2,
       ...(data.section2_2 || {}),
@@ -159,17 +190,17 @@ function safeInfraDevelopmentFormData(
       websiteLink: data.section2_4?.websiteLink || "",
       status: (data.section2_4 as any)?.status,
     } as any,
-    section2_5: {
-      ...defaultData.section2_5,
-      ...(data.section2_5 || {}),
-      assetMonetizationArray: Array.isArray(
-        data.section2_5?.assetMonetizationArray
-      )
-        ? data.section2_5.assetMonetizationArray
-        : [],
-      // Preserve status field
-      status: (data.section2_5 as any)?.status,
-    } as any,
+      section2_5: {
+        ...defaultData.section2_5,
+        ...(data.section2_5 || {}),
+        assetMonetizationArray:
+          Array.isArray(data.section2_5?.assetMonetizationArray) &&
+          data.section2_5.assetMonetizationArray.length > 0
+            ? data.section2_5.assetMonetizationArray
+            : defaultData.section2_5.assetMonetizationArray,
+        // Preserve status field
+        status: (data.section2_5 as any)?.status,
+      } as any,
   };
 }
 
@@ -684,6 +715,55 @@ export const InfraDevelopmentStep = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Ensure specializedEntityArray has at least 1 entry when "yes" is selected
+  useEffect(() => {
+    if (
+      formData.section2_2.hasSpecializedEntity === "yes" &&
+      (!formData.section2_2.specializedEntityArray ||
+        formData.section2_2.specializedEntityArray.length === 0)
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        section2_2: {
+          ...prev.section2_2,
+          specializedEntityArray: [
+            {
+              id: Date.now().toString(),
+              sector: "",
+              files: [],
+            },
+          ],
+        },
+      }));
+    }
+  }, [formData.section2_2.hasSpecializedEntity, formData.section2_2.specializedEntityArray?.length]);
+
+  // Ensure investmentReadyArray has at least 1 entry when "yes" is selected
+  useEffect(() => {
+    if (
+      formData.section2_4.hasInvestmentReady === "yes" &&
+      (!formData.section2_4.investmentReadyArray ||
+        formData.section2_4.investmentReadyArray.length === 0)
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        section2_4: {
+          ...prev.section2_4,
+          investmentReadyArray: [
+            {
+              id: Date.now().toString(),
+              projectName: "",
+              sector: "",
+              status: "",
+              investmentType: "",
+              projectSize: "",
+            },
+          ],
+        },
+      }));
+    }
+  }, [formData.section2_4.hasInvestmentReady, formData.section2_4.investmentReadyArray?.length]);
+
   // Sync infraDevelopmentArray based on hasInfraDevelopmentPlan
   useEffect(() => {
     setFormData((prev) => {
@@ -714,11 +794,22 @@ export const InfraDevelopmentStep = () => {
       } else if (hasPlan === "yes") {
         // When "yes", filter out comment entries (entries with hasPlan === false)
         const keep = prevInfra.filter((i: any) => i.hasPlan !== false);
+        // Ensure at least 1 entry when "yes" is selected
+        const finalArray =
+          keep.length > 0
+            ? keep
+            : [
+                {
+                  id: Date.now().toString(),
+                  sector: "",
+                  files: [],
+                },
+              ];
         return {
           ...prev,
           section2_3: {
             ...prev.section2_3,
-            infraDevelopmentArray: keep,
+            infraDevelopmentArray: finalArray,
             comment: "", // Clear comment when yes is selected
           },
         };
@@ -2302,7 +2393,14 @@ export const InfraDevelopmentStep = () => {
                           section2_1: {
                             ...prev.section2_1,
                             hasOverarchingPolicy: "no",
-                            infraActArray: [],
+                            // Initialize with 1 entry when "no" is selected (mandatory)
+                            infraActArray: [
+                              {
+                                id: Math.random().toString(36).substr(2, 9),
+                                sector: "",
+                                files: [],
+                              },
+                            ],
                           },
                         }));
                       }}
@@ -2317,7 +2415,8 @@ export const InfraDevelopmentStep = () => {
               {/* If Yes → show only file upload (sector is auto-set to "Overarching") */}
               {formData.section2_1.hasOverarchingPolicy === "yes" && (
                 <>
-              {(Array.isArray(formData.section2_1?.infraActArray)
+              {(Array.isArray(formData.section2_1?.infraActArray) &&
+                formData.section2_1.infraActArray.length > 0
                 ? formData.section2_1.infraActArray
                 : []
               ).map((entry) => {
@@ -2371,27 +2470,18 @@ export const InfraDevelopmentStep = () => {
                         )}.files`
                       )}
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="self-start absolute top-2 right-2"
-                      onClick={() => removeEntry("section2_1", entry.id)}
-                      disabled={isIndicatorSubmitted("2.1")}
-                      aria-label="Remove"
-                    >
-                      <Trash2 className="w-5 h-5 text-destructive" />
-                    </Button>
+                    {/* Don't show delete button for "yes" case since only 1 entry is required */}
                   </div>
                 </div>
                 );
               })}
-              <div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload copy of Act/Policy
-                </p>
-                {renderFieldError("section2_1.infraActArray")}
-              </div>
+              
+              {renderFieldError("section2_1.infraActArray")}
+              
+              <p className="text-xs text-muted-foreground mt-1">
+                Upload copy of Act/Policy
+              </p>
+              {/* Note: "Add More" and delete button are not needed for "yes" case as only 1 entry is required */}
               </>
               )}
 
@@ -2493,6 +2583,9 @@ export const InfraDevelopmentStep = () => {
                   </div>
                 </div>
               ))}
+              
+              {renderFieldError("section2_1.infraActArray")}
+              
               <div>
                 <Button
                   type="button"
@@ -2508,13 +2601,13 @@ export const InfraDevelopmentStep = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload copy of Act/Policy
                 </p>
-                {renderFieldError("section2_1.infraActArray")}
               </div>
                 </>
               )}
 
-              {/* Table display - conditionally show sector column based on yes/no selection */}
-              {Array.isArray(formData.section2_1?.infraActArray) &&
+              {/* Table display - conditionally show sector column based on yes/no selection - only show when yes/no is selected */}
+              {formData.section2_1.hasOverarchingPolicy !== "" &&
+                Array.isArray(formData.section2_1?.infraActArray) &&
                 formData.section2_1.infraActArray.length > 0 && (
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0 ">
@@ -2555,22 +2648,25 @@ export const InfraDevelopmentStep = () => {
                                 <td className="py-3 px-4 text-sm font-normal">
                                   No file uploaded
                                 </td>
-                                <td className="py-3 px-4 text-sm font-normal">
+                                <td className={`py-3 px-4 text-sm font-normal ${formData.section2_1.hasOverarchingPolicy === "yes" ? "rounded-tr-xl" : ""}`}>
                                   N/A
                                 </td>
-                                <td className="py-3 px-4">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      removeEntry("section2_1", entry.id)
-                                    }
-                                    disabled={isIndicatorSubmitted("2.1")}
-                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label="Delete"
-                                  >
-                                    <Trash2 className="w-5 h-5" />
-                                  </button>
-                                </td>
+                                {/* Hide Action column when "yes" is selected since delete is not allowed */}
+                                {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                                  <td className="py-3 px-4">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeEntry("section2_1", entry.id)
+                                      }
+                                      disabled={isIndicatorSubmitted("2.1")}
+                                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      aria-label="Delete"
+                                    >
+                                      <Trash2 className="w-5 h-5" />
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             );
                           }
@@ -2625,19 +2721,22 @@ export const InfraDevelopmentStep = () => {
                                     ).toFixed(1)} MB`
                                   : "N/A"}
                               </td>
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeEntry("section2_1", entry.id)
-                                  }
-                                  disabled={isIndicatorSubmitted("2.1")}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </td>
+                              {/* Hide Action column when "yes" is selected since delete is not allowed */}
+                              {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeEntry("section2_1", entry.id)
+                                    }
+                                    disabled={isIndicatorSubmitted("2.1")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -2722,7 +2821,18 @@ export const InfraDevelopmentStep = () => {
                             ...prev.section2_2,
                             hasSpecializedEntity: "yes",
                             comment: "",
-                            specializedEntityArray: prev.section2_2?.specializedEntityArray || [],
+                            // Initialize with 1 entry if empty
+                            specializedEntityArray:
+                              prev.section2_2?.specializedEntityArray &&
+                              prev.section2_2.specializedEntityArray.length > 0
+                                ? prev.section2_2.specializedEntityArray
+                                : [
+                                    {
+                                      id: Date.now().toString(),
+                                      sector: "",
+                                      files: [],
+                                    },
+                                  ],
                           },
                         }));
                       }}
@@ -2856,23 +2966,25 @@ export const InfraDevelopmentStep = () => {
                   </div>
                 </div>
               ))}
-                  <div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addEntry("section2_2")}
-                      disabled={isIndicatorSubmitted("2.2")}
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add More Entry
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Upload evidence
-                    </p>
-                    {renderFieldError("section2_2.specializedEntityArray")}
-                  </div>
+              
+              {renderFieldError("section2_2.specializedEntityArray")}
+              
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addEntry("section2_2")}
+                  disabled={isIndicatorSubmitted("2.2")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More Entry
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload evidence
+                </p>
+              </div>
                 </div>
               )}
 
@@ -3104,6 +3216,18 @@ export const InfraDevelopmentStep = () => {
                             ...prev.section2_3,
                             hasInfraDevelopmentPlan: "yes",
                             comment: "",
+                            // Initialize with 1 entry if empty
+                            infraDevelopmentArray:
+                              prev.section2_3?.infraDevelopmentArray &&
+                              prev.section2_3.infraDevelopmentArray.length > 0
+                                ? prev.section2_3.infraDevelopmentArray
+                                : [
+                                    {
+                                      id: Date.now().toString(),
+                                      sector: "",
+                                      files: [],
+                                    },
+                                  ],
                           },
                         }));
                       }}
@@ -3238,7 +3362,9 @@ export const InfraDevelopmentStep = () => {
                       </Button>
                     </div>
                   ))}
-
+                  
+                  {renderFieldError("section2_3.infraDevelopmentArray")}
+                  
                   <Button
                     type="button"
                     variant="outline"
@@ -3283,8 +3409,6 @@ export const InfraDevelopmentStep = () => {
                   {renderFieldError("section2_3.comment")}
                 </div>
               )}
-
-              {renderFieldError("section2_3.infraDevelopmentArray")}
 
               {/* Table view */}
               {formData.section2_3.hasInfraDevelopmentPlan === "yes" &&
@@ -3483,6 +3607,21 @@ export const InfraDevelopmentStep = () => {
                               ...prev.section2_4,
                               hasInvestmentReady: "yes",
                               comment: "",
+                              // Initialize with 1 entry if empty
+                              investmentReadyArray:
+                                prev.section2_4?.investmentReadyArray &&
+                                prev.section2_4.investmentReadyArray.length > 0
+                                  ? prev.section2_4.investmentReadyArray
+                                  : [
+                                      {
+                                        id: Date.now().toString(),
+                                        projectName: "",
+                                        sector: "",
+                                        status: "",
+                                        investmentType: "",
+                                        projectSize: "",
+                                      },
+                                    ],
                             },
                           };
                           console.log(
@@ -3789,7 +3928,9 @@ export const InfraDevelopmentStep = () => {
                       </div>
                     </div>
                   ))}
-
+                  
+                  {renderFieldError("section2_4.investmentReadyArray")}
+                  
                   {/* Add button */}
                   <div>
                     <Button
@@ -3803,7 +3944,6 @@ export const InfraDevelopmentStep = () => {
                       <Plus className="w-4 h-4" />
                       Add Project
                     </Button>
-                    {renderFieldError("section2_4.investmentReadyArray")}
                   </div>
 
                   {/* Table view */}
@@ -4213,6 +4353,9 @@ export const InfraDevelopmentStep = () => {
                   </div>
                 </div>
               ))}
+              
+              {renderFieldError("section2_5.assetMonetizationArray")}
+              
               <div>
                 <Button
                   type="button"
@@ -4225,7 +4368,6 @@ export const InfraDevelopmentStep = () => {
                   <Plus className="w-4 h-4 " />
                   Add More Asset
                 </Button>
-                {renderFieldError("section2_5.assetMonetizationArray")}
               </div>
               {/* Table view for Asset Monetization entries */}
               {Array.isArray(formData.section2_5?.assetMonetizationArray) &&

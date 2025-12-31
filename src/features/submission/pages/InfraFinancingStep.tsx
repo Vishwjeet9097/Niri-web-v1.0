@@ -193,8 +193,31 @@ export const InfraFinancingStep = () => {
       stateCapexUtilisation: "",
       capexActualsToGSDP: "",
     },
-    section1_3: { totalULBs: 0, ulbList: [] },
-    section1_4: { totalULBs: 0, bondList: [] },
+    section1_3: {
+      totalULBs: 0,
+      ulbList: [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          cityName: "",
+          ulb: "",
+          ratingDate: "",
+          rating: "",
+        },
+      ],
+    },
+    section1_4: {
+      totalULBs: 0,
+      bondList: [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          bondType: "",
+          cityName: "",
+          issuingAuthority: "",
+          value: "",
+          tenorOfBond: "",
+        },
+      ],
+    },
     section1_5: { ffiArray: [], hasIntermediary: "", comment: "" },
   };
 
@@ -222,9 +245,11 @@ export const InfraFinancingStep = () => {
         ...(data.section1_3 || {}),
         totalULBs:
           data.section1_3?.totalULBs ?? defaultData.section1_3.totalULBs,
-        ulbList: Array.isArray(data.section1_3?.ulbList)
-          ? data.section1_3.ulbList
-          : [],
+        ulbList:
+          Array.isArray(data.section1_3?.ulbList) &&
+          data.section1_3.ulbList.length > 0
+            ? data.section1_3.ulbList
+            : defaultData.section1_3.ulbList,
         // Preserve status field
         status: (data.section1_3 as any)?.status,
       },
@@ -232,9 +257,11 @@ export const InfraFinancingStep = () => {
         ...(data.section1_4 || {}),
         totalULBs:
           data.section1_4?.totalULBs ?? defaultData.section1_4.totalULBs,
-        bondList: Array.isArray(data.section1_4?.bondList)
-          ? data.section1_4.bondList
-          : [],
+        bondList:
+          Array.isArray(data.section1_4?.bondList) &&
+          data.section1_4.bondList.length > 0
+            ? data.section1_4.bondList
+            : defaultData.section1_4.bondList,
         // Preserve status field
         status: (data.section1_4 as any)?.status,
       },
@@ -258,34 +285,59 @@ export const InfraFinancingStep = () => {
   const initialData: InfraFinancingData =
     safeInfraFinancingFormData(loadedData);
 
-  // Ensure at least one row in ulbList for ULB dropdown visibility
-  const ensureUlbList = (data: InfraFinancingData) => {
+  // Ensure at least one row in ulbList and bondList for mandatory entries
+  const ensureMandatoryArrays = (data: InfraFinancingData) => {
+    let updatedData = { ...data };
+
+    // Ensure ulbList has at least 1 entry
     if (
-      !Array.isArray(data.section1_3.ulbList) ||
-      data.section1_3.ulbList.length === 0
+      !Array.isArray(updatedData.section1_3.ulbList) ||
+      updatedData.section1_3.ulbList.length === 0
     ) {
-      return {
-        ...data,
+      updatedData = {
+        ...updatedData,
         section1_3: {
-          ...data.section1_3,
+          ...updatedData.section1_3,
           ulbList: [
             {
               id: Math.random().toString(36).substr(2, 9),
               ulb: "",
               cityName: "",
-              ulbType: "",
               rating: "",
               ratingDate: "",
-              // add other required fields as per your form structure
             },
           ],
         },
       };
     }
-    return data;
+
+    // Ensure bondList has at least 1 entry
+    if (
+      !Array.isArray(updatedData.section1_4.bondList) ||
+      updatedData.section1_4.bondList.length === 0
+    ) {
+      updatedData = {
+        ...updatedData,
+        section1_4: {
+          ...updatedData.section1_4,
+          bondList: [
+            {
+              id: Math.random().toString(36).substr(2, 9),
+              bondType: "",
+              cityName: "",
+              issuingAuthority: "",
+              value: "",
+              tenorOfBond: "",
+            },
+          ],
+        },
+      };
+    }
+
+    return updatedData;
   };
   const [formData, setFormData] = useState<InfraFinancingData>(
-    ensureUlbList(initialData)
+    ensureMandatoryArrays(initialData)
   );
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(
@@ -402,6 +454,34 @@ export const InfraFinancingStep = () => {
     // Validation state tracking
   }, [
     validation,
+    formData.section1_5.hasIntermediary,
+    formData.section1_5.ffiArray.length,
+  ]);
+
+  // Ensure ffiArray has at least 1 entry when hasIntermediary is "yes"
+  useEffect(() => {
+    if (
+      formData.section1_5.hasIntermediary === "yes" &&
+      formData.section1_5.ffiArray.length === 0
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        section1_5: {
+          ...prev.section1_5,
+          ffiArray: [
+            {
+              id: Date.now().toString(),
+              organisationName: "",
+              organisationType: "",
+              yearEstablished: "",
+              totalFunding: "",
+              website: "",
+            },
+          ],
+        },
+      }));
+    }
+  }, [
     formData.section1_5.hasIntermediary,
     formData.section1_5.ffiArray.length,
   ]);
@@ -701,9 +781,11 @@ export const InfraFinancingStep = () => {
           setTimeout(() => forceUpdate({}), 50);
         } else {
           // No submission found in database (submission was deleted), clear localStorage
-          console.log("🧹 No submission found in database - clearing localStorage");
+          console.log(
+            "🧹 No submission found in database - clearing localStorage"
+          );
           clearFormData();
-          
+
           setFormData(safeInfraFinancingFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
@@ -958,7 +1040,9 @@ export const InfraFinancingStep = () => {
           ...prev,
           section1_4: {
             ...prev.section1_4,
-            bondList: currentList.filter((bond, index) => index !== targetIndex),
+            bondList: currentList.filter(
+              (bond, index) => index !== targetIndex
+            ),
           },
         };
       }
@@ -1015,7 +1099,10 @@ export const InfraFinancingStep = () => {
     }));
   };
 
-  const removeIntermediary = (idOrIndex: string | number, targetIndex?: number) => {
+  const removeIntermediary = (
+    idOrIndex: string | number,
+    targetIndex?: number
+  ) => {
     setFormData((prev) => {
       const currentList = prev.section1_5.ffiArray || [];
       // Always use index-based deletion when index is provided (most reliable)
@@ -1024,7 +1111,9 @@ export const InfraFinancingStep = () => {
           ...prev,
           section1_5: {
             ...prev.section1_5,
-            ffiArray: currentList.filter((item, index) => index !== targetIndex),
+            ffiArray: currentList.filter(
+              (item, index) => index !== targetIndex
+            ),
           },
         };
       }
@@ -1333,16 +1422,20 @@ export const InfraFinancingStep = () => {
       // Dispatch event to refresh indicators after indicator submission
       // This ensures the "Create Submission" button disables correctly when last indicator is submitted
       if (user?.role === "STATE_APPROVER" && user?.id) {
-        console.log("📢 [InfraFinancingStep] Dispatching indicatorsUpdated event after indicator submission");
-        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
-          detail: { 
-            userId: user.id,
-            role: 'STATE_APPROVER',
-            action: 'indicator_submitted',
-            indicatorCode,
-            submissionId: result?.id || result?.submissionId
-          } 
-        }));
+        console.log(
+          "📢 [InfraFinancingStep] Dispatching indicatorsUpdated event after indicator submission"
+        );
+        window.dispatchEvent(
+          new CustomEvent("indicatorsUpdated", {
+            detail: {
+              userId: user.id,
+              role: "STATE_APPROVER",
+              action: "indicator_submitted",
+              indicatorCode,
+              submissionId: result?.id || result?.submissionId,
+            },
+          })
+        );
       }
 
       // Optimistically update sectionStatus to immediately disable the button
@@ -2435,7 +2528,10 @@ export const InfraFinancingStep = () => {
                 </div>
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
-                  <div key={ulb.id || `ulb-${index}`} className="grid grid-cols-12 gap-4">
+                  <div
+                    key={ulb.id || `ulb-${index}`}
+                    className="grid grid-cols-12 gap-4"
+                  >
                     <div className="col-span-4">
                       <Label>
                         ULB<span className="text-red-500">*</span>
@@ -2630,7 +2726,7 @@ export const InfraFinancingStep = () => {
                       </Label>
                       <Input
                         type="date"
-                        max={new Date().toISOString().split('T')[0]}
+                        max={new Date().toISOString().split("T")[0]}
                         value={
                           ulb.ratingDate
                             ? (() => {
@@ -2753,6 +2849,8 @@ export const InfraFinancingStep = () => {
                   </div>
                 ))}
 
+                {renderFieldError("section1_3.ulbList")}
+
                 <Button
                   type="button"
                   variant="outline"
@@ -2763,7 +2861,6 @@ export const InfraFinancingStep = () => {
                   <Plus className="h-4 w-4" />
                   Add More ULB
                 </Button>
-                {renderFieldError("section1_3.ulbList")}
                 {formData.section1_3.ulbList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
@@ -2788,7 +2885,10 @@ export const InfraFinancingStep = () => {
                       </thead>
                       <tbody>
                         {formData.section1_3.ulbList.map((ulb, index) => (
-                          <tr key={ulb.id || `ulb-${index}`} className="bg-white">
+                          <tr
+                            key={ulb.id || `ulb-${index}`}
+                            className="bg-white"
+                          >
                             <td className="py-3 px-4 text-sm font-normal">
                               {ulb.cityName}
                             </td>
@@ -3174,6 +3274,8 @@ export const InfraFinancingStep = () => {
                   </div>
                 ))}
 
+                {renderFieldError("section1_4.bondList")}
+
                 <Button
                   type="button"
                   variant="outline"
@@ -3184,8 +3286,6 @@ export const InfraFinancingStep = () => {
                   <Plus className="h-4 w-4" />
                   Add More Bond
                 </Button>
-
-                {renderFieldError("section1_4.bondList")}
                 {formData.section1_4.bondList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
@@ -3213,7 +3313,10 @@ export const InfraFinancingStep = () => {
                       </thead>
                       <tbody>
                         {formData.section1_4.bondList.map((bond, index) => (
-                          <tr key={bond.id || `bond-${index}`} className="bg-white">
+                          <tr
+                            key={bond.id || `bond-${index}`}
+                            className="bg-white"
+                          >
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.bondType}
                             </td>
@@ -3317,6 +3420,20 @@ export const InfraFinancingStep = () => {
                               ...prev.section1_5,
                               hasIntermediary: "yes",
                               comment: "",
+                              // Initialize with 1 entry if empty
+                              ffiArray:
+                                prev.section1_5.ffiArray.length === 0
+                                  ? [
+                                      {
+                                        id: Date.now().toString(),
+                                        organisationName: "",
+                                        organisationType: "",
+                                        yearEstablished: "",
+                                        totalFunding: "",
+                                        website: "",
+                                      },
+                                    ]
+                                  : prev.section1_5.ffiArray,
                             },
                           }));
                         }}
@@ -3586,7 +3703,9 @@ export const InfraFinancingStep = () => {
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => removeIntermediary(intermediary.id, index)}
+                            onClick={() =>
+                              removeIntermediary(intermediary.id, index)
+                            }
                             disabled={isIndicatorSubmitted("1.5")}
                             className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -3595,6 +3714,8 @@ export const InfraFinancingStep = () => {
                         </div>
                       </div>
                     ))}
+
+                    {renderFieldError("section1_5.ffiArray")}
 
                     <div>
                       <Button
@@ -3607,7 +3728,6 @@ export const InfraFinancingStep = () => {
                         <Plus className="h-4 w-4" />
                         Add More Financial Intermediary
                       </Button>
-                      {renderFieldError("section1_5.ffiArray")}
                     </div>
                     {formData.section1_5.hasIntermediary === "yes" &&
                       formData.section1_5.ffiArray.length > 0 && (
@@ -3661,7 +3781,10 @@ export const InfraFinancingStep = () => {
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          removeIntermediary(intermediary.id, index)
+                                          removeIntermediary(
+                                            intermediary.id,
+                                            index
+                                          )
                                         }
                                         disabled={isIndicatorSubmitted("1.5")}
                                         className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
