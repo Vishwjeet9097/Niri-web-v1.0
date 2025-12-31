@@ -929,6 +929,7 @@ export function UserManagementPage() {
   // ✅ getStateNameById function removed - using stateId directly as state name
 
   // Filter and sort officers
+  const isStateApprover = user?.role === "STATE_APPROVER";
   const filteredOfficers = officers
     .filter((officer) => {
       const lowerSearch = searchTerm.toLowerCase();
@@ -937,12 +938,14 @@ export function UserManagementPage() {
         officer.firstName.toLowerCase().includes(lowerSearch) ||
         officer.lastName.toLowerCase().includes(lowerSearch) ||
         officer.email.toLowerCase().includes(lowerSearch) ||
-        (officer.state && officer.state.toLowerCase().includes(lowerSearch)) ||
-        (officer.stateId &&
-          officer.stateId.toLowerCase().includes(lowerSearch));
+        // Only include state in search if user is not STATE_APPROVER
+        (!isStateApprover &&
+          ((officer.state &&
+            officer.state.toLowerCase().includes(lowerSearch)) ||
+            (officer.stateId &&
+              officer.stateId.toLowerCase().includes(lowerSearch))));
 
       // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
-      const isStateApprover = user?.role === "STATE_APPROVER";
       const effectiveRoleFilter =
         isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
       const matchesRole =
@@ -1251,7 +1254,11 @@ export function UserManagementPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search by name, email or state name..."
+            placeholder={
+              user?.role === "STATE_APPROVER"
+                ? "Search by name or email"
+                : "Search by name, email or state name..."
+            }
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -1337,6 +1344,7 @@ export function UserManagementPage() {
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
+        userRole={user?.role}
       />
 
       {/* Pagination */}

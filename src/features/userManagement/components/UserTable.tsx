@@ -22,7 +22,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  MoreVertical,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
 import { getRoleDisplayName } from "@/utils/roles";
@@ -37,6 +43,7 @@ interface UserTableProps {
   sortField?: "firstName" | "role" | "state" | "email";
   sortDirection?: "asc" | "desc";
   onSort?: (field: "firstName" | "role" | "state" | "email") => void;
+  userRole?: string;
 }
 
 function UserTableComponent({
@@ -49,6 +56,7 @@ function UserTableComponent({
   sortField,
   sortDirection,
   onSort,
+  userRole,
 }: UserTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -68,22 +76,32 @@ function UserTableComponent({
     onSelectionChange(newSelected);
   };
 
-  const allSelected = officers.length > 0 && selectedIds.size === officers.length;
+  const allSelected =
+    officers.length > 0 && selectedIds.size === officers.length;
 
   // Sortable header component
-  const SortableHeader = ({ field, children }: { field: "firstName" | "role" | "state" | "email", children: React.ReactNode }) => {
+  const SortableHeader = ({
+    field,
+    children,
+  }: {
+    field: "firstName" | "role" | "state" | "email";
+    children: React.ReactNode;
+  }) => {
     if (!onSort) return <TableHead>{children}</TableHead>;
-    
+
     return (
-      <TableHead 
-        className="cursor-pointer hover:bg-muted/50 select-none text-[#212121] text-xs font-semibold"  
+      <TableHead
+        className="cursor-pointer hover:bg-muted/50 select-none text-[#212121] text-xs font-semibold"
         onClick={() => onSort(field)}
       >
         <div className="flex items-center gap-1">
           {children}
-          {sortField === field && (
-            sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-          )}
+          {sortField === field &&
+            (sortDirection === "asc" ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            ))}
         </div>
       </TableHead>
     );
@@ -100,14 +118,22 @@ function UserTableComponent({
                 onCheckedChange={handleSelectAll}
               />
             </TableHead>
-            <TableHead className="w-20 text-[#212121] text-xs font-semibold">S.no.</TableHead>
+            <TableHead className="w-20 text-[#212121] text-xs font-semibold">
+              S.no.
+            </TableHead>
             <SortableHeader field="firstName">Officer Name</SortableHeader>
             <SortableHeader field="role">Role</SortableHeader>
-            <SortableHeader field="state">State/UT</SortableHeader>
-            <TableHead className="text-[#212121] text-xs font-semibold">Contact Number</TableHead>
+            {userRole !== "STATE_APPROVER" && (
+              <SortableHeader field="state">State/UT</SortableHeader>
+            )}
+            <TableHead className="text-[#212121] text-xs font-semibold">
+              Contact Number
+            </TableHead>
             <SortableHeader field="email">Email</SortableHeader>
             {/* <TableHead>Assigned Indicator</TableHead> */}
-            <TableHead className="w-24 text-[#212121] text-xs font-semibold">Action</TableHead>
+            <TableHead className="w-24 text-[#212121] text-xs font-semibold">
+              Action
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -121,7 +147,9 @@ function UserTableComponent({
                   }
                 />
               </TableCell>
-              <TableCell className="font-medium text-xs text-[#212121]">{index + 1}</TableCell>
+              <TableCell className="font-medium text-xs text-[#212121]">
+                {index + 1}
+              </TableCell>
               <TableCell className="font-medium text-xs text-[#212121]">
                 {officer.firstName} {officer.lastName}
               </TableCell>
@@ -130,9 +158,17 @@ function UserTableComponent({
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.stateId || officer.state}</TableCell>
-              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
+              {userRole !== "STATE_APPROVER" && (
+                <TableCell className="text-xs text-[#212121]">
+                  {officer.stateId || officer.state}
+                </TableCell>
+              )}
+              <TableCell className="text-xs text-[#212121]">
+                +91 {officer.contactNumber}
+              </TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                {officer.email}
+              </TableCell>
               {/* <TableCell>
                 {officer.assignedIndicator ? (
                   <div className="flex items-center gap-2">
