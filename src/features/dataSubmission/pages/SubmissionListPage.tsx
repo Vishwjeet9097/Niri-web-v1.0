@@ -1777,10 +1777,10 @@ export const SubmissionListPage = () => {
                 {filteredSubmissions.length !== 1 ? "s" : ""} Found
               </p>
             </div>
-            <Button variant="outline" className="gap-2" onClick={handleExport}>
+            {/* <Button variant="outline" className="gap-2" onClick={handleExport}>
               <Download className="w-4 h-4" />
               Export
-            </Button>
+            </Button> */}
           </div>
         </div>
 
