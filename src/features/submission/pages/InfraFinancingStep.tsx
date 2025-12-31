@@ -486,6 +486,55 @@ export const InfraFinancingStep = () => {
     formData.section1_5.ffiArray.length,
   ]);
 
+  // Validate for duplicate ULBs in section 1.3
+  useEffect(() => {
+    const ulbList = formData.section1_3.ulbList || [];
+    const ulbIds = ulbList.map((item) => item.ulb).filter(Boolean);
+    const duplicates = new Map<string, number[]>();
+
+    // Find duplicate ULB selections
+    ulbIds.forEach((ulbId, index) => {
+      const indices: number[] = [];
+      ulbIds.forEach((id, idx) => {
+        if (id === ulbId) {
+          indices.push(idx);
+        }
+      });
+      if (indices.length > 1) {
+        duplicates.set(ulbId, indices);
+      }
+    });
+
+    // Update validation errors for duplicates
+    setIndicatorValidationErrors((prev) => {
+      const newErrors = { ...prev };
+
+      // Clear existing duplicate errors first
+      Object.keys(newErrors).forEach((key) => {
+        if (
+          key.startsWith("section1_3.ulbList.") &&
+          key.endsWith(".ulb") &&
+          newErrors[key]?.includes("already been selected")
+        ) {
+          delete newErrors[key];
+        }
+      });
+
+      // Set errors for all duplicates (except the first occurrence)
+      duplicates.forEach((indices, ulbId) => {
+        indices.forEach((idx, i) => {
+          if (i > 0) {
+            // Mark all except the first as duplicates
+            newErrors[`section1_3.ulbList.${idx}.ulb`] =
+              "This ULB has already been selected in another row. Please choose a different ULB.";
+          }
+        });
+      });
+
+      return newErrors;
+    });
+  }, [formData.section1_3.ulbList]);
+
   // On mount, fetch submission from DB and populate form (ignore localStorage)
   // Helper to merge normalized and legacy data for each section
   function getSectionFromNormalizedOrLegacy(
@@ -972,6 +1021,22 @@ export const InfraFinancingStep = () => {
       const currentList = prev.section1_3.ulbList || [];
       // Always use index-based deletion when index is provided (most reliable)
       if (targetIndex !== undefined && targetIndex >= 0) {
+        // Clear any duplicate errors when removing a ULB
+        const removedULB = currentList[targetIndex];
+        setIndicatorValidationErrors((prevErrors) => {
+          const newErrors = { ...prevErrors };
+          // Clear duplicate errors for all rows since a ULB was removed
+          Object.keys(newErrors).forEach((key) => {
+            if (key.startsWith("section1_3.ulbList.") && key.endsWith(".ulb")) {
+              // Check if this error is a duplicate error
+              if (newErrors[key]?.includes("already been selected")) {
+                delete newErrors[key];
+              }
+            }
+          });
+          return newErrors;
+        });
+
         return {
           ...prev,
           section1_3: {
@@ -2542,6 +2607,50 @@ export const InfraFinancingStep = () => {
                           onValueChange={(value) => {
                             showErrorsIfNeeded();
                             clearIndicatorValidationMessage("1.3");
+
+                            // Check if this ULB is already selected in another row
+                            const isDuplicate =
+                              formData.section1_3.ulbList.some(
+                                (item) =>
+                                  item.id !== ulb.id &&
+                                  item.ulb === value &&
+                                  value !== ""
+                              );
+
+                            if (isDuplicate) {
+                              // Set error for duplicate ULB
+                              setIndicatorValidationErrors((prev) => ({
+                                ...prev,
+                                [`section1_3.ulbList.${index}.ulb`]:
+                                  "This ULB has already been selected in another row. Please choose a different ULB.",
+                              }));
+                              return; // Don't update form data
+                            }
+
+                            // Clear any existing error for this field
+                            setIndicatorValidationErrors((prev) => {
+                              const newErrors = { ...prev };
+                              delete newErrors[
+                                `section1_3.ulbList.${index}.ulb`
+                              ];
+                              // Also clear duplicate errors from other rows since this ULB is now free
+                              Object.keys(newErrors).forEach((key) => {
+                                if (
+                                  key.startsWith("section1_3.ulbList.") &&
+                                  key.endsWith(".ulb") &&
+                                  key !== `section1_3.ulbList.${index}.ulb` &&
+                                  newErrors[key]?.includes(
+                                    "already been selected"
+                                  )
+                                ) {
+                                  // Check if the error was related to this ULB
+                                  // We'll clear it and let the useEffect/validation handle it
+                                  delete newErrors[key];
+                                }
+                              });
+                              return newErrors;
+                            });
+
                             // Find selected ULB object
                             const selectedULB = ulbOptions.find(
                               (u) => u.id === value
@@ -2615,15 +2724,30 @@ export const InfraFinancingStep = () => {
                             {(ulbSearchMap[ulb.id] || "").trim() ? (
                               <div>
                                 {(() => {
-                                  const filtered = ulbOptions.filter((u) =>
-                                    `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
-                                      .toLowerCase()
-                                      .includes(
-                                        (
-                                          ulbSearchMap[ulb.id] || ""
-                                        ).toLowerCase()
+                                  // Get ULBs already selected in other rows (excluding current row)
+                                  const selectedULBIds =
+                                    formData.section1_3.ulbList
+                                      .filter(
+                                        (item) => item.id !== ulb.id && item.ulb
                                       )
-                                  );
+                                      .map((item) => item.ulb);
+
+                                  const filtered = ulbOptions.filter((u) => {
+                                    // Filter by search term
+                                    const matchesSearch =
+                                      `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
+                                        .toLowerCase()
+                                        .includes(
+                                          (
+                                            ulbSearchMap[ulb.id] || ""
+                                          ).toLowerCase()
+                                        );
+                                    // Exclude already selected ULBs (unless it's the currently selected one)
+                                    const notDuplicate =
+                                      !selectedULBIds.includes(u.id) ||
+                                      u.id === ulb.ulb;
+                                    return matchesSearch && notDuplicate;
+                                  });
                                   if (filtered.length === 0) {
                                     return (
                                       <div className="px-3 py-2 text-gray-500 text-sm">
@@ -2664,18 +2788,35 @@ export const InfraFinancingStep = () => {
                                   }
                                 }}
                               >
-                                {ulbOptions
-                                  .slice(0, ulbVisibleCountMap[ulb.id] || 10)
-                                  .map((u) => (
-                                    <SelectItem
-                                      key={u.id}
-                                      value={u.id}
-                                      className="cursor-pointer"
-                                    >
-                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                {(() => {
+                                  // Get ULBs already selected in other rows (excluding current row)
+                                  const selectedULBIds =
+                                    formData.section1_3.ulbList
+                                      .filter(
+                                        (item) => item.id !== ulb.id && item.ulb
                                       )
-                                    </SelectItem>
-                                  ))}
+                                      .map((item) => item.ulb);
+
+                                  // Filter out already selected ULBs (unless it's the currently selected one)
+                                  const availableULBs = ulbOptions.filter(
+                                    (u) =>
+                                      !selectedULBIds.includes(u.id) ||
+                                      u.id === ulb.ulb
+                                  );
+
+                                  return availableULBs
+                                    .slice(0, ulbVisibleCountMap[ulb.id] || 10)
+                                    .map((u) => (
+                                      <SelectItem
+                                        key={u.id}
+                                        value={u.id}
+                                        className="cursor-pointer"
+                                      >
+                                        {u.ulb_name} - {u.city_name} (
+                                        {u.ulb_type})
+                                      </SelectItem>
+                                    ));
+                                })()}
                               </div>
                             )}
                           </SelectContent>

@@ -28,7 +28,8 @@ export const Section_1_3 = ({
   getFieldError,
 }: Section1_3Props) => {
   const getError = (fieldPath: string) => {
-    return getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath];
+    // Check local duplicate errors first, then validation errors
+    return duplicateErrors[fieldPath] || (getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath]);
   };
   
   // Helper function to format date for HTML5 date input (YYYY-MM-DD)
@@ -102,6 +103,9 @@ export const Section_1_3 = ({
     rating: "",
   });
 
+  // Local state for duplicate validation errors
+  const [duplicateErrors, setDuplicateErrors] = useState<{ [key: string]: string }>({});
+
   // Reset form when resetKey changes (on cancel)
   useEffect(() => {
     if (resetKey !== undefined && resetKey > 0) {
@@ -112,15 +116,93 @@ export const Section_1_3 = ({
         ratingDate: "",
         rating: "",
       });
+      setDuplicateErrors({});
     }
   }, [resetKey]);
+
+  // Validate for duplicate ULBs whenever ulbList changes
+  useEffect(() => {
+    const ulbIds = ulbList.map((item) => item.ulb).filter(Boolean);
+    const duplicates = new Map<string, number[]>();
+    
+    // Find duplicate ULB selections
+    ulbIds.forEach((ulbId, index) => {
+      const indices: number[] = [];
+      ulbIds.forEach((id, idx) => {
+        if (id === ulbId) {
+          indices.push(idx);
+        }
+      });
+      if (indices.length > 1) {
+        duplicates.set(ulbId, indices);
+      }
+    });
+    
+    // Update duplicate errors
+    setDuplicateErrors((prev) => {
+      const newErrors: { [key: string]: string } = {};
+      
+      // Set errors for all duplicates (except the first occurrence)
+      duplicates.forEach((indices) => {
+        indices.forEach((idx, i) => {
+          if (i > 0) {
+            // Mark all except the first as duplicates
+            newErrors[`section1_3.ulbList.${idx}.ulb`] = 
+              "This ULB has already been selected in another row. Please choose a different ULB.";
+          }
+        });
+      });
+      
+      // Clear errors for fields that are no longer duplicates
+      Object.keys(prev).forEach((key) => {
+        if (!newErrors[key] && key.includes("section1_3.ulbList") && key.includes(".ulb")) {
+          // Keep non-duplicate errors
+          const index = parseInt(key.match(/section1_3\.ulbList\.(\d+)\.ulb/)?.[1] || "-1");
+          if (index >= 0 && index < ulbList.length) {
+            const ulbId = ulbList[index].ulb;
+            const isStillDuplicate = duplicates.has(ulbId) && 
+              duplicates.get(ulbId)?.some(idx => idx !== duplicates.get(ulbId)?.[0] && idx === index);
+            if (!isStillDuplicate) {
+              // Error was cleared, don't include it
+            } else {
+              newErrors[key] = prev[key];
+            }
+          }
+        }
+      });
+      
+      return newErrors;
+    });
+  }, [ulbList]);
 
   // Update parent state on change
   const handleUlbChange = (index: number, field: string, value: any) => {
     const updatedUlbList = [...ulbList];
-    // If ULB is changed, auto-fill cityName from dropdown
+    // If ULB is changed, check for duplicates
     if (field === "ulb") {
       const stringValue = value ? String(value) : "";
+      
+      // Check if this ULB is already selected in another row
+      const isDuplicate = ulbList.some(
+        (item, idx) => idx !== index && item.ulb === stringValue && stringValue !== ""
+      );
+      
+      if (isDuplicate) {
+        // Set error for duplicate ULB
+        setDuplicateErrors((prev) => ({
+          ...prev,
+          [`section1_3.ulbList.${index}.ulb`]: "This ULB has already been selected in another row. Please choose a different ULB.",
+        }));
+        return; // Don't update form data
+      }
+      
+      // Clear duplicate error for this field
+      setDuplicateErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[`section1_3.ulbList.${index}.ulb`];
+        return newErrors;
+      });
+      
       const selectedULB = ulbDropdownOptions.find((u) => u.value === stringValue);
       // Try to get city name from label (format: ulb_name - city_name (ulb_type))
       let cityName = "";
@@ -152,6 +234,33 @@ export const Section_1_3 = ({
   const handleRemoveULB = (idOrIndex: string | number, targetIndex?: number) => {
     console.log(`[Section_1_3] handleRemoveULB called with idOrIndex:`, idOrIndex, `targetIndex:`, targetIndex);
     console.log(`[Section_1_3] Current ulbList:`, ulbList);
+    
+    // Clear duplicate errors when removing a ULB
+    setDuplicateErrors((prev) => {
+      const newErrors: { [key: string]: string } = {};
+      // Keep only errors for fields that still exist after deletion
+      Object.keys(prev).forEach((key) => {
+        if (key.includes("section1_3.ulbList")) {
+          const match = key.match(/section1_3\.ulbList\.(\d+)\.ulb/);
+          if (match) {
+            const errorIndex = parseInt(match[1]);
+            // Adjust index if removing an item before this error's index
+            if (targetIndex !== undefined && errorIndex > targetIndex) {
+              const newIndex = errorIndex - 1;
+              newErrors[`section1_3.ulbList.${newIndex}.ulb`] = prev[key];
+            } else if (targetIndex === undefined || errorIndex !== targetIndex) {
+              newErrors[key] = prev[key];
+            }
+            // If errorIndex === targetIndex, don't include it (item is being deleted)
+          } else {
+            newErrors[key] = prev[key];
+          }
+        } else {
+          newErrors[key] = prev[key];
+        }
+      });
+      return newErrors;
+    });
     
     // If targetIndex is provided, use index-based deletion (most reliable)
     if (targetIndex !== undefined && targetIndex >= 0) {
@@ -290,7 +399,13 @@ export const Section_1_3 = ({
                     {isEditable("1.3") ? (
                       <div>
                         <Dropdown
-                          options={ulbDropdownOptions}
+                          options={ulbDropdownOptions.filter((option) => {
+                            // Filter out ULBs already selected in other rows (unless it's the current row's selection)
+                            const isAlreadySelected = ulbList.some(
+                              (ulb, idx) => idx !== index && ulb.ulb === option.value && ulb.ulb !== ""
+                            );
+                            return !isAlreadySelected || option.value === item.ulb;
+                          })}
                           value={item.ulb ? String(item.ulb) : ""}
                           onChange={(value) =>
                             handleUlbChange(index, "ulb", value)
@@ -475,9 +590,36 @@ export const Section_1_3 = ({
             <div>
               <Label>ULB</Label>
               <Dropdown
-                options={ulbDropdownOptions}
+                options={ulbDropdownOptions.filter((option) => {
+                  // Filter out ULBs already selected in existing rows
+                  const isAlreadySelected = ulbList.some(
+                    (ulb) => ulb.ulb === option.value && ulb.ulb !== ""
+                  );
+                  return !isAlreadySelected;
+                })}
                 value={newULBEntry.ulb ? String(newULBEntry.ulb) : ""}
                 onChange={(value) => {
+                  // Check for duplicates before allowing selection
+                  const isDuplicate = ulbList.some(
+                    (ulb) => ulb.ulb === String(value) && String(value) !== ""
+                  );
+                  
+                  if (isDuplicate) {
+                    // Set error
+                    setDuplicateErrors((prev) => ({
+                      ...prev,
+                      "section1_3.ulbList.new.ulb": "This ULB has already been selected in another row. Please choose a different ULB.",
+                    }));
+                    return;
+                  }
+                  
+                  // Clear error
+                  setDuplicateErrors((prev) => {
+                    const newErrors = { ...prev };
+                    delete newErrors["section1_3.ulbList.new.ulb"];
+                    return newErrors;
+                  });
+                  
                   // Auto-fill city name from selected ULB
                   const selectedULB = ulbDropdownOptions.find((u) => u.value === String(value));
                   let cityName = "";
@@ -494,6 +636,9 @@ export const Section_1_3 = ({
                 isEditable={!ulbLoading && !ulbError}
                 isSearchable={true}
               />
+              {getError("section1_3.ulbList.new.ulb") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ulb")}</p>
+              )}
               {ulbError && (
                 <div className="text-xs text-red-500 mt-1">{ulbError}</div>
               )}
