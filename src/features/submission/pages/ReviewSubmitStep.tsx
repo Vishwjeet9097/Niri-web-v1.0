@@ -240,7 +240,7 @@ export const ReviewSubmitStep = () => {
                         navigate(`/submissions/${SUBMISSION_STEPS[index].key}`)
                       }
                     >
-                      Edit
+                      View
                     </Button>
                   </CardContent>
                 </div>
