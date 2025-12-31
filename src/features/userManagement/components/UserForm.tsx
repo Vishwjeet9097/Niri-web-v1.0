@@ -70,7 +70,6 @@ export function UserForm({
   // All ministry indicators
   const [allMinistryIndicators, setAllMinistryIndicators] = useState<any[]>([]);
   // Remaining indicators (not assigned)
-  const [remainingMinistryIndicators, setRemainingMinistryIndicators] = useState<any[]>([]);
   // Final filtered indicators for dropdown
   const [rawMinistryIndicators, setRawMinistryIndicators] = useState<any[]>([]);
   const [loadingMinistryIndicators, setLoadingMinistryIndicators] = useState(false);
@@ -139,7 +138,19 @@ export function UserForm({
       const fetchIndicators = async () => {
         try {
           // Fetch all indicators
-          const allData = await getMinistryFormIndicators();
+          const ministryUserId = user.id;
+          let allData = await getRemainingMinistryIndicators(ministryUserId);
+
+          // If allData is blank (null, undefined, empty object, or empty array), fallback to getMinistryFormIndicators()
+          const isBlank =
+            allData == null ||
+            (Array.isArray(allData) && allData.length === 0) ||
+            (typeof allData === 'object' && !Array.isArray(allData) && Object.keys(allData).length === 0);
+
+          if (isBlank) {
+            allData = await getMinistryFormIndicators();
+          }
+
           let allFlat: any[] = [];
           if (allData && typeof allData === 'object' && !Array.isArray(allData)) {
             Object.entries(allData).forEach(([section, arr]) => {
@@ -153,32 +164,11 @@ export function UserForm({
             allFlat = allData;
           }
           setAllMinistryIndicators(allFlat);
-
-          // Fetch remaining indicators for this ministry approver
-          const ministryUserId = user.id;
-          const remainingData = await getRemainingMinistryIndicators(ministryUserId);
-          let remainingFlat: any[] = [];
-          if (remainingData && typeof remainingData === 'object' && !Array.isArray(remainingData)) {
-            Object.entries(remainingData).forEach(([section, arr]) => {
-              if (Array.isArray(arr)) {
-                arr.forEach((item) => {
-                  remainingFlat.push({ ...item, section });
-                });
-              }
-            });
-          } else if (Array.isArray(remainingData)) {
-            remainingFlat = remainingData;
-          }
-          setRemainingMinistryIndicators(remainingFlat);
-
-          // Exclude indicators present in remainingFlat from allFlat
-          const remainingCodes = new Set(remainingFlat.map((item: any) => item.code || item.id || item.value));
-          const filtered = allFlat.filter((item: any) => !remainingCodes.has(item.code || item.id || item.value));
-          setRawMinistryIndicators(filtered);
+          setRawMinistryIndicators(allFlat);
+  
         } catch (err) {
           console.error('[UserForm] Error fetching ministry indicators:', err);
           setMinistryIndicatorsError("Failed to load ministry indicators");
-          setRawMinistryIndicators([]);
         } finally {
           setLoadingMinistryIndicators(false);
         }
