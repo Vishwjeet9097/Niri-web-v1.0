@@ -102,7 +102,6 @@ export async function assignIndicatorsToNodal(
     ministryUserId: string,
     indicatorsId: string[]
 ) {
-    console.log("dddddddddd======", nodalUserId, ministryUserId, indicatorsId)
     const url = getApiUrl("/ministry/form/create/assign-indicator-to-nodal");
     return apiService.post(
         url,
@@ -114,3 +113,21 @@ export async function assignIndicatorsToNodal(
         { withCredentials: true }
     );
 }
+
+
+// Fetch remaining indicators for ministry form creation for a specific user
+export async function getRemainingMinistryIndicators(userId?: string) {
+    try {
+        let url = getApiUrl("/ministry/form/create/indicators");
+        if (userId) {
+            url += `?userId=${encodeURIComponent(userId)}`;
+        }
+        const response = await apiService.get(url, { withCredentials: true });
+        return response.data?.data || response.data || [];
+    } catch (error) {
+        console.error('[getRemainingMinistryIndicators] API Error:', error);
+        return [];
+    }
+}
+
+

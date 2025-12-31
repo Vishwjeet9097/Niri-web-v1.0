@@ -30,7 +30,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
 
-import { getAllAssignedMinistryIds, getMinistryFormIndicators } from "@/services/ministry.service";
+import { getAllAssignedMinistryIds, getMinistryFormIndicators, getRemainingMinistryIndicators } from "@/services/ministry.service";
 import MinistryIndicatorsSection from "./MinistryIndicatorsSection";
 
 
@@ -67,24 +67,45 @@ export function UserForm({
   const { toast } = useToast();
 
   // Ministry Approver indicators state
+  // All ministry indicators
+  const [allMinistryIndicators, setAllMinistryIndicators] = useState<any[]>([]);
+  // Remaining indicators (not assigned)
+  const [remainingMinistryIndicators, setRemainingMinistryIndicators] = useState<any[]>([]);
+  // Final filtered indicators for dropdown
   const [rawMinistryIndicators, setRawMinistryIndicators] = useState<any[]>([]);
   const [loadingMinistryIndicators, setLoadingMinistryIndicators] = useState(false);
   const [ministryIndicatorsError, setMinistryIndicatorsError] = useState<string | null>(null);
   // State for selected ministry indicators (for Ministry Approver)
   const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>(() => {
-    // If editing, pre-fill from officer.assignedIndicators
     if (officer && Array.isArray(officer.assignedIndicators)) {
       return officer.assignedIndicators;
     }
     return [];
   });
 
+  // Keep ministryAssignedIndicators in sync with formData
+  const handleMinistryIndicatorsChange = (selected: string[]) => {
+    setMinistryAssignedIndicators(selected);
+    setFormData(prev => ({
+      ...prev,
+      ministryAssignedIndicators: selected,
+    }));
+  };
+
   // Update ministryAssignedIndicators when editing a different officer
   useEffect(() => {
     if (officer && Array.isArray(officer.assignedIndicators)) {
       setMinistryAssignedIndicators(officer.assignedIndicators);
+      setFormData(prev => ({
+        ...prev,
+        ministryAssignedIndicators: officer.assignedIndicators,
+      }));
     } else {
       setMinistryAssignedIndicators([]);
+      setFormData(prev => ({
+        ...prev,
+        ministryAssignedIndicators: [],
+      }));
     }
   }, [officer]);
 
@@ -97,7 +118,11 @@ export function UserForm({
   // Memoized to prevent unnecessary recalculations
   const effectiveSubmittedIndicators = useMemo(() => {
     const submitted = Array.isArray(submittedIndicatorsInState) ? submittedIndicatorsInState : [];
-    return submitted.length > 0 ? submitted : localSubmittedIndicators;
+    // Always return an array
+    if (submitted.length > 0) {
+      return submitted;
+    }
+    return Array.isArray(localSubmittedIndicators) ? localSubmittedIndicators : [];
   }, [submittedIndicatorsInState, localSubmittedIndicators]);
 
   // Debug: Log when component receives submittedIndicatorsInState
@@ -111,58 +136,79 @@ export function UserForm({
     if (user.role === "MINISTRY_APPROVER") {
       setLoadingMinistryIndicators(true);
       setMinistryIndicatorsError(null);
-      getMinistryFormIndicators()
-        .then((data) => {
-          // If data is an object with section keys, flatten it
-          if (data && typeof data === 'object' && !Array.isArray(data)) {
-            const flat: any[] = [];
-            Object.entries(data).forEach(([section, arr]) => {
+      const fetchIndicators = async () => {
+        try {
+          // Fetch all indicators
+          const allData = await getMinistryFormIndicators();
+          let allFlat: any[] = [];
+          if (allData && typeof allData === 'object' && !Array.isArray(allData)) {
+            Object.entries(allData).forEach(([section, arr]) => {
               if (Array.isArray(arr)) {
                 arr.forEach((item) => {
-                  flat.push({ ...item, section });
+                  allFlat.push({ ...item, section });
                 });
               }
             });
-            setRawMinistryIndicators(flat);
-          } else if (Array.isArray(data)) {
-            setRawMinistryIndicators(data);
-          } else {
-            setRawMinistryIndicators([]);
+          } else if (Array.isArray(allData)) {
+            allFlat = allData;
           }
-        })
-        .catch((err) => {
+          setAllMinistryIndicators(allFlat);
+
+          // Fetch remaining indicators for this ministry approver
+          const ministryUserId = user.id;
+          const remainingData = await getRemainingMinistryIndicators(ministryUserId);
+          let remainingFlat: any[] = [];
+          if (remainingData && typeof remainingData === 'object' && !Array.isArray(remainingData)) {
+            Object.entries(remainingData).forEach(([section, arr]) => {
+              if (Array.isArray(arr)) {
+                arr.forEach((item) => {
+                  remainingFlat.push({ ...item, section });
+                });
+              }
+            });
+          } else if (Array.isArray(remainingData)) {
+            remainingFlat = remainingData;
+          }
+          setRemainingMinistryIndicators(remainingFlat);
+
+          // Exclude indicators present in remainingFlat from allFlat
+          const remainingCodes = new Set(remainingFlat.map((item: any) => item.code || item.id || item.value));
+          const filtered = allFlat.filter((item: any) => !remainingCodes.has(item.code || item.id || item.value));
+          setRawMinistryIndicators(filtered);
+        } catch (err) {
           console.error('[UserForm] Error fetching ministry indicators:', err);
           setMinistryIndicatorsError("Failed to load ministry indicators");
           setRawMinistryIndicators([]);
-        })
-        .finally(() => setLoadingMinistryIndicators(false));
+        } finally {
+          setLoadingMinistryIndicators(false);
+        }
+      };
+      fetchIndicators();
     }
-  }, [user]);
+  }, [user, officer]);
 
   // Transform ministry indicators to MultiSelectOption[]
   const ministryIndicators: MultiSelectOption[] = useMemo(() => {
     if (!rawMinistryIndicators || rawMinistryIndicators.length === 0) {
-      console.log('[UserForm] ministryIndicators: rawMinistryIndicators is empty', rawMinistryIndicators);
       return [];
     }
+    // Only show indicators returned by getRemainingMinistryIndicators (hide assigned ones)
     const options = rawMinistryIndicators.map((item: any) => {
-      // Use id as value for uniqueness, sNo for display
       const value = item.id || item.code || item.value || '';
       const sNo = item.sNo || '';
       const name = item.name || item.label || item.code || '';
       const section = item.category || item.section || '';
       const description = item.description || '';
-      const isSubmitted = effectiveSubmittedIndicators.includes(value);
       return {
         value,
-        label: `${sNo ? sNo + ' - ' : ''}${name}${isSubmitted ? ' (Submitted)' : ''}`,
+        label: `${sNo ? sNo + ' - ' : ''}${name}`,
         section,
         description,
-        disabled: isSubmitted,
+        disabled: false,
       };
     });
     return options;
-  }, [rawMinistryIndicators, effectiveSubmittedIndicators]);
+  }, [rawMinistryIndicators]);
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
   useEffect(() => {
     const fetchIfNeeded = async () => { 
@@ -174,7 +220,7 @@ export function UserForm({
         if (stateUt) {
           // Debug logs removed
           try {
-            const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+            const submitted = await getRemainingMinistryIndicators(user.id);
             setLocalSubmittedIndicators(submitted);
           } catch (error) {
             // Error log removed
@@ -1108,10 +1154,10 @@ export function UserForm({
   // Build payload for submission
   const payload = {
     ...formData,
-    stateUt: stateNames.join(", "), // always only the selected unique state(s)
+    stateUt: stateNames.join(", "),
     stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
     ministryId: formData.ministryId ? String(formData.ministryId) : "",
-    // Always include ministryAssignedIndicators if the logged-in user is a Ministry Approver
+    // Always include the latest ministryAssignedIndicators from state
     ...((user?.role === "MINISTRY_APPROVER" || formData.role === "MINISTRY_APPROVER") ? { ministryAssignedIndicators } : {}),
   };
 
@@ -2113,13 +2159,8 @@ const handleStateChange = (values: string | string[]) => {
             checkingNodalSubmission={checkingNodalSubmission}
             errors={errors}
             ministryAssignedIndicators={ministryAssignedIndicators}
-            setFormData={(fn) => {
-              // When MinistryIndicatorsSection calls setFormData, update ministryAssignedIndicators only
-              setMinistryAssignedIndicators((prev) => {
-                const next = fn({ ministryAssignedIndicators: prev }).ministryAssignedIndicators;
-                return next || [];
-              });
-            }}
+            setFormData={setFormData}
+            onMinistryIndicatorsChange={handleMinistryIndicatorsChange}
           />
         )}
       </div>

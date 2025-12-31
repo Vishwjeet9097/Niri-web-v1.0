@@ -261,6 +261,7 @@ export function UserManagementPage() {
 
   // Ministry Approver: Assign indicator handler
   const handleMinisterAssignIndicator = async (id: string, indicator: string) => {
+    console.log("mini---------");
     try {
       // Update user with assigned indicator via backend API
       await apiService.updateUser(id, {
@@ -1151,84 +1152,82 @@ export function UserManagementPage() {
         "id" | "state" | "createdAt" | "assignedIndicator"
       > & { nodalUserId: string; ministryAssignedIndicators?: string[] }
     ) => {
-    try {
-      let nodalUserId = officerData.nodalUserId;
-      if (!nodalUserId && officerData.email && officerData.firstName && officerData.lastName) {
-        // Register the user (minimal fields, expand as needed)
-         const ministryIdToUse = String(officerData.ministryId || user?.ministryId || "")
-         // Use ministryId from officerData, or fallback to ministryAssignedIndicators, or current user's ministryId
-        const newUser = await apiService.register({
-          email: officerData.email,
-          password: officerData.password || "password123",
-          firstName: officerData.firstName,
-          lastName: officerData.lastName,
-          contactNumber: officerData.contactNumber,
-          role: "NODAL_OFFICER",
-          stateUt: officerData.stateUt,
-          stateId: officerData.stateId,
-          ministryId: ministryIdToUse
-        });
-        nodalUserId = newUser?.user?.id;
+      try {
+        let nodalUserId = officerData.nodalUserId;
+        if (!nodalUserId && officerData.email && officerData.firstName && officerData.lastName) {
+          // Register the user (minimal fields, expand as needed)
+          const ministryIdToUse = String(officerData.ministryId || user?.ministryId || "");
+          // Use ministryId from officerData, or fallback to ministryAssignedIndicators, or current user's ministryId
+          const newUser = await apiService.register({
+            email: officerData.email,
+            password: officerData.password || "password123",
+            firstName: officerData.firstName,
+            lastName: officerData.lastName,
+            contactNumber: officerData.contactNumber,
+            role: "NODAL_OFFICER",
+            stateUt: officerData.stateUt,
+            stateId: officerData.stateId,
+            ministryId: ministryIdToUse
+          });
+          nodalUserId = newUser?.user?.id;
+        }
+         if (
+          nodalUserId &&
+          officerData.ministryAssignedIndicators &&
+          officerData.ministryAssignedIndicators.length > 0 &&
+          user?.id
+        ) {
+          await assignIndicatorsToNodal(
+            nodalUserId,
+            user.id,
+            officerData.ministryAssignedIndicators
+          );
 
-       
-      if (
-        nodalUserId &&
-        officerData.ministryAssignedIndicators &&
-        officerData.ministryAssignedIndicators.length > 0 &&
-        user?.id
-      ) {
-         await assignIndicatorsToNodal(
-          nodalUserId,
-          user.id,
-          officerData.ministryAssignedIndicators
-        );
-        
-        notificationService.success(
-          "Ministry indicators assigned successfully",
-          "Assignment Successful"
-        );  
-        await loadOfficers();
-        setShowForm(false);
-        setEditingOfficer(null);
-        try {
-          //await refresh?.({ clearCache: true });
-        } catch (err) {
-          // ignore
+          notificationService.success(
+            "Ministry indicators assigned successfully",
+            "Assignment Successful"
+          );
+          await loadOfficers();
+          setShowForm(false);
+          setEditingOfficer(null);
+          try {
+            //await refresh?.({ clearCache: true });
+          } catch (err) {
+            // ignore
+          }
+        } else {
+          notificationService.error(
+            "Missing Nodal Officer or indicators.",
+            "Assignment Failed"
+          );
         }
-      } else {
-        notificationService.error(
-          "Missing Nodal Officer or indicators.1111111111111",
-          "Assignment Failed"
-        );
+      } catch (error: any) {
+        let errorMessage = "Failed to assign indicators. Please try again.";
+        let errorTitle = "Operation Failed";
+        if (error?.response?.data) {
+          const responseData = error.response.data;
+          if (responseData.message) {
+            errorMessage = responseData.message;
+            errorTitle = responseData.error || "Error";
+          } else if (responseData.error) {
+            errorMessage = responseData.error;
+          }
+          if (responseData.statusCode === 409) {
+            errorTitle = "Assignment Conflict";
+            errorMessage = "Indicators already assigned or conflict exists.";
+          } else if (responseData.statusCode === 400) {
+            errorTitle = "Invalid Data";
+            errorMessage = "Please check your input data and try again.";
+          } else if (responseData.statusCode === 403) {
+            errorTitle = "Access Denied";
+            errorMessage = "You don't have permission to perform this action.";
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+        notificationService.error(errorMessage, errorTitle);
       }
-    }
-    } catch (error: any) {
-      let errorMessage = "Failed to assign indicators. Please try again.";
-      let errorTitle = "Operation Failed";
-      if (error?.response?.data) {
-        const responseData = error.response.data;
-        if (responseData.message) {
-          errorMessage = responseData.message;
-          errorTitle = responseData.error || "Error";
-        } else if (responseData.error) {
-          errorMessage = responseData.error;
-        }
-        if (responseData.statusCode === 409) {
-          errorTitle = "Assignment Conflict";
-          errorMessage = "Indicators already assigned or conflict exists.";
-        } else if (responseData.statusCode === 400) {
-          errorTitle = "Invalid Data";
-          errorMessage = "Please check your input data and try again.";
-        } else if (responseData.statusCode === 403) {
-          errorTitle = "Access Denied";
-          errorMessage = "You don't have permission to perform this action.";
-        }
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      notificationService.error(errorMessage, errorTitle);
-    }
-  };
+    };
 
   if (showForm) {
     // Conditionally use handleMinistryIndicatorSaveUser for Ministry Approver with ministryAssignedIndicators
@@ -1379,8 +1378,7 @@ export function UserManagementPage() {
         officers={paginatedOfficers}
         onEdit={user?.role === "MINISTRY_APPROVER" ? handleMinistryEditUser : handleEditUser}
         onDelete={handleDeleteUser}
-        //onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? handleMinisterAssignIndicator : handleAssignIndicator}
-        onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? "" : handleAssignIndicator}
+        onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? handleMinisterAssignIndicator : handleAssignIndicator}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         sortField={sortField}

@@ -16,6 +16,7 @@ export type MinistryIndicatorsSectionProps = {
   errors: Record<string, string>;
   ministryAssignedIndicators: string[];
   setFormData: (fn: (prev: any) => any) => void;
+  onMinistryIndicatorsChange?: (selected: string[]) => void;
 };
 
 const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
@@ -30,6 +31,7 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
   errors,
   ministryAssignedIndicators,
   setFormData,
+  onMinistryIndicatorsChange,
 }) => {
 
   // Use assignedIndicators prop as the source of truth
@@ -41,6 +43,9 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
       ...prev,
       ministryAssignedIndicators: selectedIndicators,
     }));
+    if (typeof onMinistryIndicatorsChange === 'function') {
+      onMinistryIndicatorsChange(selectedIndicators);
+    }
   };
 
   return (
@@ -95,7 +100,7 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
         groupBySection={true}
         className="w-full"
         maxHeight="250px"
-        disabled={loadingMinistryIndicators || (stateApproverHasSubmission && !!officer) || (nodalHasSubmission && !!officer)}
+        disabled={loadingMinistryIndicators || (nodalHasSubmission && !!officer)}
       />
       {loadingMinistryIndicators && (
         <p className="text-sm text-muted-foreground mt-1">
