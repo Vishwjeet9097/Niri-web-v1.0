@@ -439,7 +439,9 @@ export function UnifiedSubmissionCard({
               <FileText className="w-4 h-4 mr-1" />
               Review Now
             </Button>
-          ) : onEdit && canEditSubmission(currentUserRole || "", status) ? (
+          ) : onEdit &&
+            canEditSubmission(currentUserRole || "", status) &&
+            !allIndicatorsAccepted ? (
             <Button size="sm" variant="ghost" onClick={onEdit}>
               <Edit2 className="w-4 h-4" />
             </Button>
