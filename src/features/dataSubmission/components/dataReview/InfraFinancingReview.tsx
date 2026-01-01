@@ -60,6 +60,12 @@ import { useFieldValidation } from "@/features/submission/hooks/useFieldValidati
 import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
 import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
@@ -219,6 +225,264 @@ export const InfraFinancingReview = ({
   const [sectionValidationMessages, setSectionValidationMessages] = useState<
     Record<string, string>
   >({});
+
+  // State to track if indicator 1.3 is accepted and its totalULBs value (for STATE_APPROVER validation)
+  const [isIndicator1_3AcceptedState, setIsIndicator1_3AcceptedState] =
+    useState<boolean | null>(null);
+  const [indicator1_3TotalULBs, setIndicator1_3TotalULBs] = useState<
+    number | null
+  >(null);
+
+  // Validate that totalULBs in 1.4 matches totalULBs in 1.3 (STATE_APPROVER only)
+  useEffect(() => {
+    const userRole = getUserRole();
+    if (userRole !== "STATE_APPROVER") {
+      // Clear validation error for non-STATE_APPROVER users
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_4.totalULBs"];
+        return updated;
+      });
+      return;
+    }
+
+    // Only validate if indicator 1.3 is accepted and totalULBs is available
+    if (!isIndicator1_3AcceptedState || !indicator1_3TotalULBs) {
+      // Clear validation error if indicator 1.3 is not accepted
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_4.totalULBs"];
+        return updated;
+      });
+      return;
+    }
+
+    const currentValue = section14State?.totalULBs || 0;
+    if (!currentValue) {
+      // Field is empty, don't show validation error yet (let normal validation handle it)
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_4.totalULBs"];
+        return updated;
+      });
+      return;
+    }
+
+    // Compare values
+    const indicator1_3Value = Number(indicator1_3TotalULBs);
+    const currentValueNum = Number(currentValue);
+
+    if (isNaN(indicator1_3Value) || isNaN(currentValueNum)) {
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_4.totalULBs"];
+        return updated;
+      });
+      return;
+    }
+
+    if (indicator1_3Value !== currentValueNum) {
+      // Values don't match, show validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section1_4.totalULBs": `This value must equal the Total Number of ULBs (${indicator1_3TotalULBs}) from indicator 1.3`,
+      }));
+    } else {
+      // Values match, clear validation error
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_4.totalULBs"];
+        return updated;
+      });
+    }
+  }, [
+    section14State?.totalULBs,
+    indicator1_3TotalULBs,
+    isIndicator1_3AcceptedState,
+  ]);
+
+  // Fetch all submissions for the same state and check if indicator 1.3 is accepted in any of them
+  useEffect(() => {
+    const checkIndicator1_3AcrossSubmissions = async () => {
+      if (!submission) {
+        setIsIndicator1_3AcceptedState(false);
+        return;
+      }
+
+      const currentStateUt =
+        (submission as any)?.stateUt || (submission as any)?.user?.stateUt;
+      if (!currentStateUt) {
+        console.log(
+          "❌ [isIndicator1_3Accepted] No stateUt found in submission"
+        );
+        setIsIndicator1_3AcceptedState(false);
+        return;
+      }
+
+      console.log(
+        "🔍 [isIndicator1_3Accepted] Checking across all submissions for state:",
+        currentStateUt
+      );
+
+      try {
+        // Fetch all submissions
+        const submissionsData = await apiService.getSubmissions(1, 100);
+
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
+          submissionsArray = submissionsData.submissions;
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
+          submissionsArray = (submissionsData as any).data;
+        }
+
+        // Filter submissions for the same state/UT
+        const sameStateSubmissions = submissionsArray.filter((sub: any) => {
+          const subStateUt = sub.stateUt || sub.user?.stateUt;
+          return (
+            subStateUt &&
+            String(subStateUt).toUpperCase() ===
+              String(currentStateUt).toUpperCase()
+          );
+        });
+
+        console.log(
+          "🔍 [isIndicator1_3Accepted] Found submissions for same state:",
+          sameStateSubmissions.length
+        );
+
+        // Check each submission for indicator 1.3 acceptance
+        for (const sub of sameStateSubmissions) {
+          let isAccepted = false;
+          let totalULBsValue: number | null = null;
+
+          // Check section_status first
+          if (sub?.section_status && typeof sub.section_status === "object") {
+            const sectionStatus = (sub.section_status as any)["section1_3"];
+            if (sectionStatus === "ACCEPTED" || sectionStatus === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_3Accepted] Found indicator 1.3 ACCEPTED in submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+          }
+
+          // Check completedIndicators
+          if (
+            sub?.section_status?.completedIndicators &&
+            Array.isArray(sub.section_status.completedIndicators)
+          ) {
+            if (sub.section_status.completedIndicators.includes("1.3")) {
+              console.log(
+                "✅ [isIndicator1_3Accepted] Found indicator 1.3 in completedIndicators for submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+          }
+
+          // Check formData
+          if (sub?.formData?.infraFinancing?.section1_3) {
+            const section1_3Data = sub.formData.infraFinancing.section1_3;
+            const statusValue = section1_3Data.status
+              ? String(section1_3Data.status).trim().toUpperCase()
+              : null;
+
+            if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_3Accepted] Found indicator 1.3 ACCEPTED in formData for submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+
+            // Extract totalULBs value from accepted indicator 1.3
+            if (isAccepted && section1_3Data.totalULBs !== undefined) {
+              totalULBsValue = Number(section1_3Data.totalULBs);
+              console.log(
+                "📊 [isIndicator1_3Accepted] Found totalULBs value:",
+                totalULBsValue
+              );
+            }
+          }
+
+          // If indicator 1.3 is accepted, set state and return
+          if (isAccepted) {
+            setIsIndicator1_3AcceptedState(true);
+            setIndicator1_3TotalULBs(totalULBsValue);
+            return;
+          }
+        }
+
+        console.log(
+          "❌ [isIndicator1_3Accepted] Indicator 1.3 not found as ACCEPTED in any submission for state:",
+          currentStateUt
+        );
+        setIsIndicator1_3AcceptedState(false);
+      } catch (error) {
+        console.error(
+          "❌ [isIndicator1_3Accepted] Error checking across submissions:",
+          error
+        );
+        setIsIndicator1_3AcceptedState(false);
+      }
+    };
+
+    checkIndicator1_3AcrossSubmissions();
+  }, [submission]);
+
+  // Helper function to check if indicator 1.3 is accepted (uses cached state)
+  const isIndicator1_3Accepted = (): boolean => {
+    // Use the cached state from useEffect
+    if (isIndicator1_3AcceptedState === null) {
+      // Still loading, return false for now
+      return false;
+    }
+    return isIndicator1_3AcceptedState;
+  };
+
+  // Helper function to check if totalULBs in 1.4 matches totalULBs in 1.3
+  const doesTotalULBsMatch = (): boolean => {
+    // Only check at STATE_APPROVER level
+    const userRole = getUserRole();
+    if (userRole !== "STATE_APPROVER") {
+      return true; // No validation for other roles
+    }
+
+    // If indicator 1.3 is not accepted, don't validate
+    if (!isIndicator1_3Accepted()) {
+      return true;
+    }
+
+    // If totalULBs is not available, don't validate
+    if (!indicator1_3TotalULBs) {
+      return true;
+    }
+
+    const currentValue = section14State?.totalULBs || 0;
+    if (!currentValue) {
+      return false; // Field is empty, doesn't match
+    }
+
+    // Compare values
+    const indicator1_3Value = Number(indicator1_3TotalULBs);
+    const currentValueNum = Number(currentValue);
+
+    if (isNaN(indicator1_3Value) || isNaN(currentValueNum)) {
+      return false;
+    }
+
+    return indicator1_3Value === currentValueNum;
+  };
 
   useEffect(() => {
     if (!isRestoringRef.current) {
@@ -4310,18 +4574,62 @@ export const InfraFinancingReview = ({
           Timeline ({commentCount})
         </Button>
 
-        {!isNodalOfficer && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-            disabled={shouldBeEditable(sectionId)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
-          </Button>
-        )}
+        {!isNodalOfficer &&
+          (() => {
+            // For STATE_APPROVER, check if indicator 1.3 is accepted before allowing acceptance of 1.4
+            const isEditing = shouldBeEditable(sectionId);
+            const userRole = getUserRole();
+            const isStateApprover = userRole === "STATE_APPROVER";
+            const isIndicator1_3AcceptedValue = isIndicator1_3Accepted();
+            const totalULBsMatches = doesTotalULBsMatch();
+            const shouldDisableFor1_4_NotAccepted =
+              isStateApprover &&
+              sectionId === "1.4" &&
+              !isIndicator1_3AcceptedValue;
+            const shouldDisableFor1_4_NotMatching =
+              isStateApprover &&
+              sectionId === "1.4" &&
+              isIndicator1_3AcceptedValue &&
+              !totalULBsMatches;
+            const isDisabled =
+              isEditing ||
+              shouldDisableFor1_4_NotAccepted ||
+              shouldDisableFor1_4_NotMatching;
+
+            return (
+              <TooltipProvider>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => onIndicatorStatus(sectionId, true)}
+                        disabled={isDisabled}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Accept
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {isDisabled && (
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-sm">
+                        {shouldDisableFor1_4_NotAccepted
+                          ? "Indicator 1.3 must be accepted before accepting indicator 1.4"
+                          : shouldDisableFor1_4_NotMatching
+                          ? `Total Number of ULBs must equal the Total Number of ULBs (${indicator1_3TotalULBs}) from indicator 1.3`
+                          : isEditing
+                          ? "Please save your changes before accepting"
+                          : ""}
+                      </p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })()}
       </div>
     );
   };
