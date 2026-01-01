@@ -2272,9 +2272,9 @@ export const InfraEnablersStep = () => {
             <div className="flex flex-col">
               <span className="text-base font-semibold ">
                 <span className="text-primary">4.3 – </span> Adoption of ADR
-                <span className="font-normal text-xs text-muted-foreground ml-1">
+                {/* <span className="font-normal text-xs text-muted-foreground ml-1">
                   (10 marks per practice)
-                </span>
+                </span> */}
               </span>
             </div>
           }

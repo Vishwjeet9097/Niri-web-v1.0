@@ -4738,7 +4738,7 @@ export const InfraEnablersReview = ({
                 </div>
               </div>
             }
-            subtitle="(10 marks per practice)"
+            // subtitle="(10 marks per practice)"
             className="mb-6"
             indicatorCode="4.4"
           >

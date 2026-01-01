@@ -360,7 +360,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.4 */}
         <SectionCard
-          title="4.4 - Innovative Practices (10 marks per practice)"
+          title="4.4 - Innovative Practices "
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
