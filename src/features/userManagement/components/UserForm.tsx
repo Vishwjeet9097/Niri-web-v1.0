@@ -77,7 +77,12 @@ export function UserForm({
   const [loadingMinistryIndicators, setLoadingMinistryIndicators] = useState(false);
   const [ministryIndicatorsError, setMinistryIndicatorsError] = useState<string | null>(null);
   // State for selected ministry indicators (for Ministry Approver)
+  // For Ministry Approver edit: select all ministryAssignableIndicators and disable them
   const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>(() => {
+    if (user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0) {
+      // Select all assignable indicators
+      return ministryAssignableIndicators.map(ind => ind.id || ind.code || ind.value || "");
+    }
     if (officer && Array.isArray(officer.assignedIndicators)) {
       return officer.assignedIndicators;
     }
@@ -93,9 +98,16 @@ export function UserForm({
     }));
   };
 
-  // Update ministryAssignedIndicators when editing a different officer
+  // Update ministryAssignedIndicators when editing a different officer (Ministry Approver: select all and disable)
   useEffect(() => {
-    if (officer && Array.isArray(officer.assignedIndicators)) {
+    if (user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0) {
+      const allSelected = ministryAssignableIndicators.map(ind => ind.id || ind.code || ind.value || "");
+      setMinistryAssignedIndicators(allSelected);
+      setFormData(prev => ({
+        ...prev,
+        ministryAssignedIndicators: allSelected,
+      }));
+    } else if (officer && Array.isArray(officer.assignedIndicators)) {
       setMinistryAssignedIndicators(officer.assignedIndicators);
       setFormData(prev => ({
         ...prev,
@@ -108,7 +120,7 @@ export function UserForm({
         ministryAssignedIndicators: [],
       }));
     }
-  }, [officer]);
+  }, [officer, ministryAssignableIndicators, user?.role]);
 
   // Local state for submitted indicators (fallback if not provided)
   const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(() => 
@@ -132,9 +144,10 @@ export function UserForm({
   }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, officer?.state, user?.stateUt, user?.state, user]);
 
   // Fetch ministry indicators if user is MINISTRY_APPROVER
+  // Only fetch all ministry indicators when adding a user (not editing)
   useEffect(() => {
     if (!user) return;
-    if (user.role === "MINISTRY_APPROVER") {
+    if (user.role === "MINISTRY_APPROVER" && !officer) {
       setLoadingMinistryIndicators(true);
       setMinistryIndicatorsError(null);
       const fetchIndicators = async () => {
@@ -167,7 +180,6 @@ export function UserForm({
           }
           setAllMinistryIndicators(allFlat);
           setRawMinistryIndicators(allFlat);
-  
         } catch (err) {
           console.error('[UserForm] Error fetching ministry indicators:', err);
           setMinistryIndicatorsError("Failed to load ministry indicators");
@@ -179,28 +191,36 @@ export function UserForm({
     }
   }, [user, officer]);
 
-  // Transform ministry indicators to MultiSelectOption[]
+  // Use ministryAssignableIndicators for edit, otherwise use allMinistryIndicators for add
   const ministryIndicators: MultiSelectOption[] = useMemo(() => {
-    if (!rawMinistryIndicators || rawMinistryIndicators.length === 0) {
+    let source = [];
+    if (user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators)) {
+      source = ministryAssignableIndicators;
+    } else {
+      source = rawMinistryIndicators;
+    }
+    if (!source || source.length === 0) {
       return [];
     }
     // Only show indicators returned by getRemainingMinistryIndicators (hide assigned ones)
-    const options = rawMinistryIndicators.map((item: any) => {
+    const options = source.map((item: any) => {
       const value = item.id || item.code || item.value || '';
       const sNo = item.sNo || '';
       const name = item.name || item.label || item.code || '';
       const section = item.category || item.section || '';
       const description = item.description || '';
+      // If editing as Ministry Approver, all should be disabled
+      const disabled = user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0;
       return {
         value,
         label: `${sNo ? sNo + ' - ' : ''}${name}`,
         section,
         description,
-        disabled: false,
+        disabled,
       };
     });
     return options;
-  }, [rawMinistryIndicators]);
+  }, [user?.role, officer, ministryAssignableIndicators, rawMinistryIndicators]);
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
   useEffect(() => {
     const fetchIfNeeded = async () => { 

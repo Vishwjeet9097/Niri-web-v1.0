@@ -252,14 +252,31 @@ export function UserManagementPage() {
     setShowForm(true);
     if (officer?.id) {
       try {
-        const nodalAssignData = await getRemainingMinistryIndicators(officer.id);
-        setMinistryAssignableIndicators(nodalAssignData || []);
+        const response = await getRemainingMinistryIndicators(officer.id);
+        // Support both flat array and grouped object API responses
+        let allFlat = []; 
+        if (response) {
+          if (Array.isArray(response)) {
+            // Already flat array
+            allFlat = response;
+          } else if (typeof response === 'object') {
+            // Grouped by section/category
+            Object.entries(response).forEach(([section, arr]) => {
+              if (Array.isArray(arr)) {
+                arr.forEach((item) => {
+                  allFlat.push({ ...item, section });
+                });
+              }
+            });
+          }
+        }
+        setMinistryAssignableIndicators(allFlat);
       } catch (err) {
         setMinistryAssignableIndicators([]);
       }
     } else {
       setMinistryAssignableIndicators([]);
-    }
+     }
   };
 
   const handleEditUser = (officer: NodalOfficer) => {
@@ -1164,7 +1181,6 @@ export function UserManagementPage() {
       > & { nodalUserId: string; ministryAssignedIndicators?: string[] }
     ) => {
        if (editingOfficer) {
-       const nodalAssignData = await getRemainingMinistryIndicators(editingOfficer.id)
           
           await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
