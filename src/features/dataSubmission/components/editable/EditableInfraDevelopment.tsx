@@ -529,7 +529,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
             })}
             <Button onClick={addProject} variant="outline" className="w-full gap-2">
               <Plus className="w-4 h-4" />
-              Add Project
+              Add More Project
             </Button>
           </div>
         </SectionCard>

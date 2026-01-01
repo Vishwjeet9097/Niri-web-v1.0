@@ -3945,7 +3945,7 @@ export const InfraDevelopmentStep = () => {
                       className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Plus className="w-4 h-4" />
-                      Add Project
+                      Add More Project
                     </Button>
                   </div>
 
