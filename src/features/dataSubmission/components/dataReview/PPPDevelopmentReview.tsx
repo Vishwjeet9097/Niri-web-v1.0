@@ -4441,7 +4441,12 @@ export const PPPDevelopmentReview = ({
                                       <SelectItem value="IIPDF">
                                         IIPDF
                                       </SelectItem>
-                                      <SelectItem value="VGF">VGF</SelectItem>
+                                      <SelectItem value="Central VGF">
+                                        Central VGF
+                                      </SelectItem>
+                                      <SelectItem value="State VGF">
+                                        State VGF
+                                      </SelectItem>
                                     </SelectContent>
                                   </Select>
                                   {getFieldError(
@@ -4910,7 +4915,10 @@ export const PPPDevelopmentReview = ({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="IIPDF">IIPDF</SelectItem>
-                          <SelectItem value="VGF">VGF</SelectItem>
+                          <SelectItem value="Central VGF">
+                            Central VGF
+                          </SelectItem>
+                          <SelectItem value="State VGF">State VGF</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

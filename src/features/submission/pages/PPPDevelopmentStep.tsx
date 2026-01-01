@@ -2145,7 +2145,10 @@ export const PPPDevelopmentStep = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="IIPDF">IIPDF</SelectItem>
-                          <SelectItem value="VGF">VGF</SelectItem>
+                          <SelectItem value="Central VGF">
+                            Central VGF
+                          </SelectItem>
+                          <SelectItem value="State VGF">State VGF</SelectItem>
                         </SelectContent>
                       </Select>
                       {renderFieldError(`section3_3.VGFArray.${idx}.scheme`)}

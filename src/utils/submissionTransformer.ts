@@ -43,11 +43,11 @@ export function transformFormDataToNiriSubmission(
       indicatorData.details = {
         projects_submitted: generateProjectsSubmitted(value),
       };
-    } else if (mapping.indicator_id === "4.2"" && value > 0) {
+    } else if (mapping.indicator_id === "4.2" && value > 0) {
       indicatorData.details = {
         projects_planned_via_pmgs: generatePmgsProjects(value),
       };
-    } else if (mapping.indicator_id === "4.4"" && value > 0) {
+    } else if (mapping.indicator_id === "4.4" && value > 0) {
       indicatorData.details = {
         practices_list: generateInnovativePractices(value),
       };
@@ -118,7 +118,6 @@ export function transformFormDataToSectionSubmission(
 
   return transformedSubmission;
 }
-
 
 /**
  * Transform NIE-I submission format back to UI form data
@@ -212,7 +211,7 @@ function generatePlannedSectors(
 function generateProjectsSubmitted(
   count: number
 ): Array<{ project_name: string; fund_type: string }> {
-  const fundTypes = ["VGF", "IIPDF"];
+  const fundTypes = ["IIPDF", "Central VGF", "State VGF"];
 
   return Array.from({ length: count }, (_, i) => ({
     project_name: `Proj P${i + 1}`,
