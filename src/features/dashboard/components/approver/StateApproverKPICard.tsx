@@ -44,11 +44,11 @@ const tooltipDescriptions: Record<string, string> = {
     "Number of assigned indicators for which the Nodal Officer has submitted data.",
   "Returned to Nodal Officer":
     "Indicators returned by the State Approver for correction or clarification.",
-  "Submitted to MoSPI":
+  "Submitted to MoSPI Reviewer":
     "Number of complete forms submitted by the State Approver to MoSPI after all indicator approvals.",
   "Returned from MoSPI":
     "Forms reviewed at the MoSPI level and sent back to the State Approver for revision.",
-  "Approved by MoSPI":
+  "Approved by MoSPI Approver":
     "Forms reviewed and approved at the MoSPI level after validation.",
 };
 

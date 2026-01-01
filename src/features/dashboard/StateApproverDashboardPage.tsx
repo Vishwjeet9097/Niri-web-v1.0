@@ -244,7 +244,7 @@ export function StateApproverDashboardPage() {
 
           // MoSPI group
           {
-            title: "Submitted to MoSPI",
+            title: "Submitted to MoSPI Reviewer",
             value: String(mospiSubmittedCount),
             subtitle:
               "Average review time: " +
@@ -256,14 +256,14 @@ export function StateApproverDashboardPage() {
             variant: "orange",
           },
           {
-            title: "Approved by MoSPI",
+            title: "Approved by MoSPI Approver",
             value: String(mospiApprovedCount),
             subtitle: "This fiscal year",
             icon: CheckCircle,
             variant: "green",
           },
           {
-            title: "Returned from MoSPI",
+            title: "Returned from MoSPI Approver",
             value: String(mospiReturnedCount),
             subtitle: "Need Revision",
             icon: RotateCcw,

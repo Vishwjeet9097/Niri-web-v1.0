@@ -80,7 +80,7 @@ export function ApproverSubmissionCard({
       badgeClass: "bg-gray-100 text-gray-800",
     },
     returned_from_mospi: {
-      label: "Returned from MoSPI",
+      label: "Returned from MoSPI Approver",
       borderClass: "border-l-orange-500",
       bgClass: "bg-orange-50",
       badgeClass: "bg-orange-100 text-orange-800",
