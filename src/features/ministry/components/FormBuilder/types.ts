@@ -3,6 +3,7 @@ export interface InputField {
   sectionId: string;
   label: string;
   dataType: 'string' | 'number' | 'dropdown' | 'file';
+  uiComponent?: string; // e.g., "Text Area", "File", "Input (Text)", etc.
   validationRules?: {
     required?: boolean;
     options?: string[];

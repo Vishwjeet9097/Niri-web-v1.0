@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
@@ -12,6 +12,11 @@ import { useFieldValidation } from "@/features/submission/hooks/useFieldValidati
 import { getDropdownOptions } from "../constants/dropdownMappings";
 import { transformApiResponseToFormData, getCategoryFromSectionId } from "../utils/formDataTransformer";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
+import { MinistryStepper } from "../components/Stepper";
+import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
+import type { MinistryStep } from "../types";
+import { FormActions } from "@/features/submission/components/FormActions";
+import { MinistryReviewSubmitStep } from "./MinistryReviewSubmitStep";
 
 export function MinistrySubmissionWrapper() {
   const { user } = useAuth();
@@ -32,6 +37,7 @@ export function MinistrySubmissionWrapper() {
 
   const { getFieldError } = useFieldValidation();
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [currentStep, setCurrentStep] = useState(1); // For stepper visual indication
 
   // Check for existing submission (only if no submission ID from params)
   useEffect(() => {
@@ -130,9 +136,29 @@ export function MinistrySubmissionWrapper() {
           console.log("✅ Loaded submission form structure:", response.data);
           
           // Transform API response to form data structure
+          // Use persistedFormData only for initial merge (preserves user's previous work)
+          // After initial load, formData state is the source of truth
+          console.log("📦 Loading persistedFormData:", persistedFormData);
           const initialFormData = transformApiResponseToFormData(response.data, persistedFormData);
           console.log("✅ Transformed Form Data:", initialFormData);
+          
+          // Log empty arrays to verify deletions are preserved
+          Object.keys(initialFormData).forEach((key) => {
+            if (key.startsWith('section')) {
+              const section = initialFormData[key];
+              Object.keys(section).forEach((subsectionName) => {
+                if (Array.isArray(section[subsectionName]) && section[subsectionName].length === 0) {
+                  console.log(`✅ Preserved empty array: ${key}.${subsectionName} (deletion persisted)`);
+                }
+              });
+            }
+          });
+          
           setFormData(initialFormData);
+          
+          // Mark as initial load and update ref to prevent sync effect from triggering
+          isInitialLoadRef.current = true;
+          prevFormDataRef.current = { ...initialFormData };
         } else {
           console.error("❌ Invalid response structure:", {
             status: response?.status,
@@ -164,62 +190,466 @@ export function MinistrySubmissionWrapper() {
       fetchFormStructure();
     }
     // TODO: Uncomment when ready: }
-  }, [checking, user?.role, toast, persistedFormData, submissionId]);
+    // NOTE: Removed persistedFormData from dependencies to prevent re-loading when we sync deletions
+    // persistedFormData is only used for initial merge, not as a trigger for re-fetching
+  }, [checking, user?.role, toast, submissionId]); // Removed persistedFormData
 
-  // Handle field changes
+  // Handle field changes - optimized to prevent full re-renders
+  // Supports both direct values and function updates (for getting latest state)
   const handleFieldChange = useCallback((path: string, value: any) => {
+    console.log("🔄 handleFieldChange called - path:", path, "value type:", typeof value === 'function' ? 'function' : typeof value);
     setFormData((prev) => {
-      const newData = { ...prev };
       const keys = path.split('.');
-      let current: any = newData;
+      const sectionKey = keys[0]; // First key is always the section (e.g., "section1_2")
       
-      for (let i = 0; i < keys.length - 1; i++) {
+      // Create a new object for the section to ensure reference change
+      const newSectionData = prev[sectionKey] ? { ...prev[sectionKey] } : {};
+      
+      // Navigate to the parent object within the section to get current value
+      let currentForValue: any = newSectionData;
+      for (let i = 1; i < keys.length - 1; i++) {
+        const key = keys[i];
+        currentForValue = currentForValue[key] || {};
+      }
+      
+      // Get current value for function updates
+      const finalKey = keys[keys.length - 1];
+      const currentValue = currentForValue[finalKey];
+      
+      // If value is a function, call it with the current value to get the new value
+      const actualValue = typeof value === 'function' 
+        ? value(currentValue)
+        : value;
+      
+      if (typeof value === 'function') {
+        console.log("🔄 Function update detected, current value:", currentValue, "new value:", actualValue);
+      }
+      
+      // Navigate to the parent object within the section (for setting)
+      let current: any = newSectionData;
+      for (let i = 1; i < keys.length - 1; i++) {
         const key = keys[i];
         if (key.includes('[') && key.includes(']')) {
           const arrayKey = key.substring(0, key.indexOf('['));
           const index = parseInt(key.substring(key.indexOf('[') + 1, key.indexOf(']')));
           if (!current[arrayKey]) current[arrayKey] = [];
+          // Create new array to ensure immutability
+          current[arrayKey] = [...current[arrayKey]];
           if (!current[arrayKey][index]) current[arrayKey][index] = {};
           current = current[arrayKey][index];
         } else {
-          if (!current[key]) current[key] = {};
+          // Create a new object to ensure immutability
+          current[key] = current[key] ? { ...current[key] } : {};
           current = current[key];
         }
       }
       
-      const finalKey = keys[keys.length - 1];
+      // Set the final value
+      console.log("🔧 Setting final key:", finalKey, "value type:", Array.isArray(actualValue) ? `Array(${actualValue.length})` : typeof actualValue);
+      
       if (finalKey.includes('[') && finalKey.includes(']')) {
         const arrayKey = finalKey.substring(0, finalKey.indexOf('['));
         const index = parseInt(finalKey.substring(finalKey.indexOf('[') + 1, finalKey.indexOf(']')));
         if (!current[arrayKey]) current[arrayKey] = [];
-        current[arrayKey][index] = value;
+        // Create a new array to ensure reference change
+        const newArray = [...current[arrayKey]];
+        newArray[index] = actualValue;
+        current[arrayKey] = newArray;
+        console.log("🔧 Set array item:", arrayKey, "[", index, "] =", actualValue);
       } else {
-        current[finalKey] = value;
+        // For direct array assignment (like subsection arrays), assign directly
+        const oldValue = current[finalKey];
+        current[finalKey] = actualValue;
+        console.log("🔧 Set direct value:", finalKey, "old length:", Array.isArray(oldValue) ? oldValue.length : 'N/A', "new length:", Array.isArray(actualValue) ? actualValue.length : 'N/A');
+        console.log("🔧 Values are equal?", oldValue === actualValue);
       }
       
+      // Create new formData with updated section
+      const newData = {
+        ...prev,
+        [sectionKey]: newSectionData
+      };
+      
+      console.log("🔧 Returning newData:", newData);
+      console.log("🔧 Section data reference changed?", newData[sectionKey] !== prev[sectionKey]);
       return newData;
     });
     
-    // updateFormData expects category and data
-    // For now, we'll update all categories - this might need adjustment based on your structure
-    Object.keys(formData).forEach((key) => {
-      if (key.startsWith('section')) {
-        const category = getCategoryFromSectionId(key.replace('section', '').replace('_', '.'));
-        updateFormData(category, { [key]: formData[key] });
-      }
-    });
     // Clear validation error for this field
     setValidationErrors((prev) => {
       const updated = { ...prev };
       delete updated[path];
       return updated;
     });
-  }, [updateFormData, formData]);
+  }, []);
+
+  // Sync formData to persistence with debouncing to prevent infinite loops
+  // This ensures add/remove operations are persisted
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevFormDataRef = useRef<Record<string, any>>(formData);
+  const isInitialLoadRef = useRef(true);
+  
+  useEffect(() => {
+    // Skip sync during initial load (first render after data is loaded)
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      prevFormDataRef.current = { ...formData };
+      return;
+    }
+    
+    // Only sync if formData actually changed
+    // Use a more reliable comparison that handles empty arrays correctly
+    const prevStr = JSON.stringify(prevFormDataRef.current);
+    const currentStr = JSON.stringify(formData);
+    const hasChanged = prevStr !== currentStr;
+    
+    if (!hasChanged) {
+      console.log("⏭️ FormData unchanged, skipping sync");
+      return;
+    }
+    
+    // Log what changed
+    try {
+      const prev = JSON.parse(prevStr);
+      const current = JSON.parse(currentStr);
+      
+      // Find sections with array length changes
+      const arrayChanges: string[] = [];
+      Object.keys(current).forEach((key) => {
+        if (key.startsWith('section') && current[key] && typeof current[key] === 'object') {
+          Object.keys(current[key]).forEach((subsectionName) => {
+            if (Array.isArray(current[key][subsectionName])) {
+              const prevLength = prev[key]?.[subsectionName]?.length ?? 0;
+              const currentLength = current[key][subsectionName].length;
+              if (prevLength !== currentLength) {
+                arrayChanges.push(`${key}.${subsectionName}: ${prevLength} → ${currentLength}`);
+              }
+            }
+          });
+        }
+      });
+      
+      if (arrayChanges.length > 0) {
+        console.log("🔄 Array changes detected:", arrayChanges);
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+    
+    console.log("🔄 FormData changed, will sync to persistence after debounce");
+    
+    // Clear existing timeout
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    
+    // Debounce the sync to batch multiple changes
+    syncTimeoutRef.current = setTimeout(() => {
+      console.log("💾 Syncing formData to persistence...");
+      
+      // Group sections by category
+      const categoryData: Record<string, Record<string, any>> = {
+        infraFinancing: {},
+        infraDevelopment: {},
+        pppDevelopment: {},
+        infraEnablers: {},
+      };
+      
+      // Collect all sections by category
+      Object.keys(formData).forEach((key) => {
+        if (key.startsWith('section')) {
+          const sectionId = key.replace('section', '').replace('_', '.');
+          const category = getCategoryFromSectionId(sectionId);
+          if (category && categoryData[category]) {
+            // Deep clone to ensure we capture the exact state including empty arrays
+            const sectionData = JSON.parse(JSON.stringify(formData[key]));
+            
+            // Log empty arrays in this section
+            const emptyArraysInSection = Object.entries(sectionData)
+              .filter(([_, value]) => Array.isArray(value) && value.length === 0)
+              .map(([name]) => name);
+            
+            if (emptyArraysInSection.length > 0) {
+              console.log(`📝 Section ${key} has empty arrays:`, emptyArraysInSection);
+            }
+            
+            categoryData[category][key] = sectionData;
+          }
+        } else if (['infraFinancing', 'infraDevelopment', 'pppDevelopment', 'infraEnablers'].includes(key)) {
+          // Preserve category-level data
+          categoryData[key] = { ...categoryData[key], ...formData[key] };
+        }
+      });
+      
+      // Sync each category to persistence
+      // IMPORTANT: Merge with existing persisted data to preserve other sections
+      Object.entries(categoryData).forEach(([category, data]) => {
+        if (Object.keys(data).length > 0) {
+          // Get existing persisted data for this category
+          const existingCategoryData = persistedFormData[category as keyof typeof persistedFormData] || {};
+          
+          // Merge: new data overwrites existing, but preserve other sections
+          // CRITICAL: Deep merge to ensure empty arrays overwrite old arrays
+          const mergedData = JSON.parse(JSON.stringify({
+            ...existingCategoryData,
+            ...data, // New data (including empty arrays) overwrites old
+          }));
+          
+          // For each section in new data, ensure it completely overwrites the old section
+          Object.keys(data).forEach((sectionKey) => {
+            if (sectionKey.startsWith('section')) {
+              // Completely replace the section, not merge it
+              mergedData[sectionKey] = JSON.parse(JSON.stringify(data[sectionKey]));
+            }
+          });
+          
+          // Log empty arrays to verify they're being synced
+          const emptyArrays: string[] = [];
+          Object.entries(mergedData).forEach(([sectionKey, sectionData]: [string, any]) => {
+            if (sectionKey.startsWith('section') && typeof sectionData === 'object') {
+              Object.entries(sectionData).forEach(([subsectionName, subsectionValue]) => {
+                if (Array.isArray(subsectionValue) && subsectionValue.length === 0) {
+                  emptyArrays.push(`${sectionKey}.${subsectionName}`);
+                }
+              });
+            }
+          });
+          
+          if (emptyArrays.length > 0) {
+            console.log(`💾 Category ${category} - Empty arrays being synced:`, emptyArrays);
+          } else {
+            console.log(`💾 Category ${category} - No empty arrays found in merged data`);
+          }
+          
+          console.log(`💾 Syncing category ${category} with ${Object.keys(mergedData).length} sections`);
+          console.log(`💾 Sample section data:`, Object.keys(mergedData).slice(0, 2).map(key => ({
+            key,
+            subsections: Object.keys(mergedData[key] || {}).filter(k => Array.isArray(mergedData[key][k]))
+          })));
+          
+          updateFormData(category, mergedData);
+        }
+      });
+      
+      // Update ref
+      prevFormDataRef.current = { ...formData };
+      console.log("✅ FormData synced to persistence");
+    }, 500); // 500ms debounce
+    
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [formData, updateFormData]);
 
   // Check if indicator is submitted
   const isIndicatorSubmitted = useCallback((indicatorId: string): boolean => {
     return submittedIndicators.has(indicatorId);
   }, [submittedIndicators]);
+
+  // Map API category names to step keys
+  const categoryToStepMap: Record<string, string> = {
+    "Infra Financing": "infra-financing",
+    "Infra Development": "infra-development",
+    "PPP Development": "ppp-development",
+    "Infra Enablers": "infra-enablers",
+  };
+
+  // Use ref to track formData for progress calculation without causing re-renders
+  const formDataForProgressRef = useRef(formData);
+  useEffect(() => {
+    formDataForProgressRef.current = formData;
+  }, [formData]);
+
+  // Create steps dynamically based on assigned indicators
+  // Remove formData from dependencies to prevent infinite loops
+  const createStepsFromIndicators = useCallback((): MinistryStep[] => {
+    // Get unique category names from assigned indicators
+    const categoriesInResponse = new Set<string>();
+    assignedIndicators.forEach((indicatorObj) => {
+      const categoryName = Object.keys(indicatorObj)[0];
+      if (categoryName) {
+        categoriesInResponse.add(categoryName);
+      }
+    });
+
+    // Filter steps to only include categories that exist in the API response
+    // Always include Review & Preview as the last step
+    const categorySteps = MINISTRY_SUBMISSION_STEPS.filter((step) => {
+      // Skip review step in filtering
+      if (step.key === "review-submit") return false;
+      
+      // Find matching category name from API response
+      const matchingCategory = Array.from(categoriesInResponse).find(
+        (cat) => step.title === cat || categoryToStepMap[cat] === step.key
+      );
+      return matchingCategory !== undefined;
+    });
+
+    // Add Review & Preview as the last step
+    const reviewStep = MINISTRY_SUBMISSION_STEPS.find((step) => step.key === "review-submit");
+    const allSteps = reviewStep ? [...categorySteps, reviewStep] : categorySteps;
+
+    // Calculate progress for each step
+    return allSteps.map((step) => {
+      // Skip progress calculation for review step
+      if (step.key === "review-submit") {
+        return {
+          ...step,
+          completed: false,
+        };
+      }
+
+      // Find the indicator object for this category
+      const categoryIndicator = assignedIndicators.find((indicatorObj) => {
+        const categoryName = Object.keys(indicatorObj)[0];
+        return step.title === categoryName || categoryToStepMap[categoryName] === step.key;
+      });
+
+      let sectionsCompleted = 0;
+      let totalSections = 0;
+
+      if (categoryIndicator) {
+        const categoryName = Object.keys(categoryIndicator)[0];
+        const sections = categoryIndicator[categoryName];
+        
+        if (Array.isArray(sections)) {
+          totalSections = sections.length;
+          
+          sections.forEach((sectionObj) => {
+            const sectionName = Object.keys(sectionObj)[0];
+            const section = sectionObj[sectionName];
+            const sectionKey = `section${section.sNo.replace('.', '_')}`;
+            
+            // Check if section has any data (use ref to avoid dependency issues)
+            const sectionData = formDataForProgressRef.current[sectionKey];
+            if (sectionData && Object.keys(sectionData).length > 0) {
+              // Recursively check for actual data (not just empty objects/arrays)
+              const hasActualData = (data: any): boolean => {
+                if (data === null || data === undefined || data === '') {
+                  return false;
+                }
+                if (Array.isArray(data)) {
+                  // Array has data if it has items with actual values
+                  return data.length > 0 && data.some(item => hasActualData(item));
+                }
+                if (typeof data === 'object') {
+                  // Object has data if it has keys with actual values
+                  const keys = Object.keys(data);
+                  if (keys.length === 0) return false;
+                  return keys.some(key => hasActualData(data[key]));
+                }
+                // Primitive value that's not empty
+                return true;
+              };
+              
+              if (hasActualData(sectionData)) {
+                sectionsCompleted++;
+              }
+            }
+          });
+        }
+      }
+
+      const isCompleted = sectionsCompleted >= totalSections && totalSections > 0;
+      
+      // Debug logging for completion calculation
+      if (isCompleted || sectionsCompleted > 0) {
+        console.log(`📊 Step "${step.title}": ${sectionsCompleted}/${totalSections} sections completed, marked as: ${isCompleted ? 'COMPLETED' : 'IN PROGRESS'}`);
+      }
+      
+      return {
+        ...step,
+        sectionsCompleted,
+        totalSections,
+        completed: isCompleted,
+      };
+    });
+  }, [assignedIndicators]); // Removed formData dependency to prevent infinite loops
+
+  // Memoize steps - only recalculate when assignedIndicators changes
+  // Progress is calculated using ref, so formData changes don't trigger recalculation
+  const stepsWithProgress = useMemo(() => {
+    return createStepsFromIndicators();
+  }, [createStepsFromIndicators]);
+
+  // Function to calculate progress for a specific category
+  const calculateCategoryProgress = useCallback((categoryIndicator: AssignedIndicator) => {
+    const categoryName = Object.keys(categoryIndicator)[0];
+    const sections = categoryIndicator[categoryName];
+    
+    if (!Array.isArray(sections)) {
+      return { completed: 0, total: 0, progress: 0 };
+    }
+    
+    let completed = 0;
+    const total = sections.length;
+    
+    sections.forEach((sectionObj) => {
+      const sectionName = Object.keys(sectionObj)[0];
+      const section = sectionObj[sectionName];
+      const sectionKey = `section${section.sNo.replace('.', '_')}`;
+      
+      // Check if section has any data
+      if (formData[sectionKey] && Object.keys(formData[sectionKey]).length > 0) {
+        // Check if at least one field has a non-empty value
+        const hasData = Object.values(formData[sectionKey]).some(
+          (value) => value !== '' && value !== null && value !== undefined
+        );
+        if (hasData) {
+          completed++;
+        }
+      }
+    });
+    
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { completed, total, progress };
+  }, [formData]);
+
+  // Function to handle step click - switch tabs (no scrolling)
+  const handleStepClick = useCallback((stepNumber: number) => {
+    setCurrentStep(stepNumber);
+  }, []);
+
+  // Navigation handlers
+  const handleNext = useCallback(() => {
+    const totalSteps = stepsWithProgress.length;
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1);
+    }
+  }, [currentStep, stepsWithProgress.length]);
+
+  const handlePrevious = useCallback(() => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  }, [currentStep]);
+
+  const isFirstStep = currentStep === 1;
+  const isLastStep = currentStep === stepsWithProgress.length;
+  const isReviewStep = useMemo(() => currentStep === stepsWithProgress.length, [currentStep, stepsWithProgress.length]); // Review is the last step
+
+  // Get the current category indicator based on current step - use useMemo to ensure it updates when step changes
+  const currentCategoryIndicator = useMemo((): AssignedIndicator | null => {
+    if (stepsWithProgress.length === 0 || currentStep < 1 || currentStep > stepsWithProgress.length) {
+      return null;
+    }
+
+    // If it's the review step, return null (review step handles its own display)
+    if (isReviewStep) {
+      return null;
+    }
+
+    const currentStepData = stepsWithProgress[currentStep - 1];
+    if (!currentStepData) return null;
+
+    // Find the indicator object for the current step's category
+    return assignedIndicators.find((indicatorObj) => {
+      const categoryName = Object.keys(indicatorObj)[0];
+      return currentStepData.title === categoryName || categoryToStepMap[categoryName] === currentStepData.key;
+    }) || null;
+  }, [stepsWithProgress, currentStep, assignedIndicators, isReviewStep]);
 
   // Handle section submission
   const handleSectionSubmit = useCallback(async (sectionId: string) => {
@@ -310,12 +740,11 @@ export function MinistrySubmissionWrapper() {
     );
   }
 
-  // Add debug logging before rendering
-  console.log("🎨 Render - assignedIndicators:", assignedIndicators);
-  console.log("🎨 Render - assignedIndicators.length:", assignedIndicators.length);
-  console.log("🎨 Render - formData:", formData);
-  console.log("🎨 Render - loading:", loading);
-  console.log("🎨 Render - checking:", checking);
+  // Debug logging (commented out to reduce console noise - uncomment for debugging)
+  // console.log("🎨 Render - currentStep:", currentStep);
+  // console.log("🎨 Render - currentCategoryIndicator:", currentCategoryIndicator);
+  // console.log("🎨 Render - isReviewStep:", isReviewStep);
+  // console.log("🎨 Render - stepsWithProgress.length:", stepsWithProgress.length);
 
   if (assignedIndicators.length === 0) {
     console.log("⚠️ No indicators - assignedIndicators is empty");
@@ -329,49 +758,83 @@ export function MinistrySubmissionWrapper() {
     );
   }
 
-  // Calculate progress for ProgressHeader
-  const totalIndicators = assignedIndicators.reduce((count, indicatorObj) => {
-    return count + Object.values(indicatorObj).flat().length;
-  }, 0);
-  const completedCount = submittedIndicators.size;
-  const progress = totalIndicators > 0 ? Math.round((completedCount / totalIndicators) * 100) : 0;
-
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <ProgressHeader
-        title="Ministry Submission"
-        description="Complete all assigned indicators to submit your data"
-        points={0}
-        completed={completedCount}
-        total={totalIndicators}
-        progress={progress}
-      />
-      
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Ministry Submission</h1>
-            <p className="text-muted-foreground mt-1">
-              Complete all assigned indicators to submit your data
-            </p>
-          </div>
-        </div>
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        {/* Stepper - acts as tabs */}
+        {stepsWithProgress.length > 0 && (
+          <MinistryStepper
+            steps={stepsWithProgress}
+            currentStep={currentStep}
+            onStepClick={handleStepClick}
+          />
+        )}
 
-        <DynamicFormBuilder
-          indicators={assignedIndicators}
-          formData={formData}
-          onChange={handleFieldChange}
-          mode="edit"
-          disabled={false}
-          submissionId={submissionId || undefined}
-          getFieldError={(path: string) => {
-            // getFieldError requires 4 parameters, but we'll provide defaults
-            return getFieldError(path, validationErrors, {}, false);
-          }}
-          getDropdownOptions={getDropdownOptions}
-          onSectionSubmit={handleSectionSubmit}
-          isIndicatorSubmitted={isIndicatorSubmitted}
-        />
+        {/* Tab Content - Show Review step or current category */}
+        {isReviewStep ? (
+          <MinistryReviewSubmitStep
+            assignedIndicators={assignedIndicators}
+            formData={formData}
+            submissionId={submissionId}
+            currentStep={currentStep}
+            onStepClick={handleStepClick}
+            onPrevious={handlePrevious}
+          />
+        ) : currentCategoryIndicator ? (() => {
+          const categoryName = Object.keys(currentCategoryIndicator)[0];
+          const step = stepsWithProgress.find(
+            (s) => s.title === categoryName || categoryToStepMap[categoryName] === s.key
+          );
+          const categoryProgress = calculateCategoryProgress(currentCategoryIndicator);
+          
+          return (
+            <div>
+              {/* ProgressHeader for current category - same as State Approver */}
+              <ProgressHeader
+                title={categoryName}
+                description={step?.description || ""}
+                points={step?.points || 250}
+                completed={categoryProgress.completed}
+                total={categoryProgress.total}
+                progress={categoryProgress.progress}
+              />
+
+              {/* DynamicFormBuilder for current category */}
+              <div className="mt-4 sm:mt-6">
+                <DynamicFormBuilder
+                  indicators={[currentCategoryIndicator]}
+                  formData={formData}
+                  onChange={handleFieldChange}
+                  mode="edit"
+                  disabled={false}
+                  submissionId={submissionId || undefined}
+                  getFieldError={(path: string) => {
+                    return getFieldError(path, validationErrors, {}, false);
+                  }}
+                  getDropdownOptions={getDropdownOptions}
+                  onSectionSubmit={handleSectionSubmit}
+                  isIndicatorSubmitted={isIndicatorSubmitted}
+                />
+              </div>
+
+              {/* Navigation Buttons - same as State Approver */}
+              <div className="mt-6 sm:mt-8">
+                <FormActions
+                  onPrevious={isFirstStep ? undefined : handlePrevious}
+                  onNext={handleNext}
+                  isFirstStep={isFirstStep}
+                  isLastStep={isLastStep}
+                  nextLabel={isLastStep ? "Review & Submit" : "Next"}
+                  showSaveDraft={false}
+                />
+              </div>
+            </div>
+          );
+        })() : (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No category data available for the selected step.</p>
+          </div>
+        )}
       </div>
     </div>
   );
