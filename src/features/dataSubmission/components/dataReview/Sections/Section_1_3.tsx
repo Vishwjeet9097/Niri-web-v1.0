@@ -29,9 +29,12 @@ export const Section_1_3 = ({
 }: Section1_3Props) => {
   const getError = (fieldPath: string) => {
     // Check local duplicate errors first, then validation errors
-    return duplicateErrors[fieldPath] || (getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath]);
+    return (
+      duplicateErrors[fieldPath] ||
+      (getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath])
+    );
   };
-  
+
   // Helper function to format date for HTML5 date input (YYYY-MM-DD)
   const formatDateForInput = (dateValue: string | undefined): string => {
     if (!dateValue) return "";
@@ -44,16 +47,15 @@ export const Section_1_3 = ({
       return "";
     }
   };
-  
+
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
   console.log("[Section_1_3] formData:", formData);
   console.log("[Section_1_3] ulbList:", ulbList);
   // Get state name from formData or fallback to logged-in user
   const { user } = useAuth();
-  const stateName =  user?.state || user?.stateName || "";
+  const stateName = user?.state || user?.stateName || "";
 
- 
   // State for fetched ULBs
   const [ulbDropdownOptions, setUlbDropdownOptions] = useState([]);
   const [ulbLoading, setUlbLoading] = useState(false);
@@ -104,7 +106,9 @@ export const Section_1_3 = ({
   });
 
   // Local state for duplicate validation errors
-  const [duplicateErrors, setDuplicateErrors] = useState<{ [key: string]: string }>({});
+  const [duplicateErrors, setDuplicateErrors] = useState<{
+    [key: string]: string;
+  }>({});
 
   // Reset form when resetKey changes (on cancel)
   useEffect(() => {
@@ -134,7 +138,10 @@ export const Section_1_3 = ({
         const newErrors: { [key: string]: string } = {};
         Object.keys(prev).forEach((key) => {
           // Keep duplicate errors, clear count-related errors
-          if (!key.includes("cannot exceed") && !key.includes("Cannot add more rows")) {
+          if (
+            !key.includes("cannot exceed") &&
+            !key.includes("Cannot add more rows")
+          ) {
             newErrors[key] = prev[key];
           }
         });
@@ -147,7 +154,7 @@ export const Section_1_3 = ({
   useEffect(() => {
     const ulbIds = ulbList.map((item) => item.ulb).filter(Boolean);
     const duplicates = new Map<string, number[]>();
-    
+
     // Find duplicate ULB selections
     ulbIds.forEach((ulbId, index) => {
       const indices: number[] = [];
@@ -160,38 +167,53 @@ export const Section_1_3 = ({
         duplicates.set(ulbId, indices);
       }
     });
-    
+
     // Update duplicate errors
     setDuplicateErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
-      
+
       // Set errors for all duplicates (except the first occurrence)
       duplicates.forEach((indices) => {
         indices.forEach((idx, i) => {
           if (i > 0) {
             // Mark all except the first as duplicates
-            newErrors[`section1_3.ulbList.${idx}.ulb`] = 
+            newErrors[`section1_3.ulbList.${idx}.ulb`] =
               "This ULB has already been selected in another row. Please choose a different ULB.";
           }
         });
       });
-      
+
       // Preserve count-related errors
       Object.keys(prev).forEach((key) => {
-        if (key.includes("cannot exceed") || key.includes("Cannot add more rows") || key === "section1_3.ulbList") {
+        if (
+          key.includes("cannot exceed") ||
+          key.includes("Cannot add more rows") ||
+          key === "section1_3.ulbList"
+        ) {
           newErrors[key] = prev[key];
         }
       });
-      
+
       // Clear errors for fields that are no longer duplicates
       Object.keys(prev).forEach((key) => {
-        if (!newErrors[key] && key.includes("section1_3.ulbList") && key.includes(".ulb")) {
+        if (
+          !newErrors[key] &&
+          key.includes("section1_3.ulbList") &&
+          key.includes(".ulb")
+        ) {
           // Keep non-duplicate errors
-          const index = parseInt(key.match(/section1_3\.ulbList\.(\d+)\.ulb/)?.[1] || "-1");
+          const index = parseInt(
+            key.match(/section1_3\.ulbList\.(\d+)\.ulb/)?.[1] || "-1"
+          );
           if (index >= 0 && index < ulbList.length) {
             const ulbId = ulbList[index].ulb;
-            const isStillDuplicate = duplicates.has(ulbId) && 
-              duplicates.get(ulbId)?.some(idx => idx !== duplicates.get(ulbId)?.[0] && idx === index);
+            const isStillDuplicate =
+              duplicates.has(ulbId) &&
+              duplicates
+                .get(ulbId)
+                ?.some(
+                  (idx) => idx !== duplicates.get(ulbId)?.[0] && idx === index
+                );
             if (!isStillDuplicate) {
               // Error was cleared, don't include it
             } else {
@@ -200,7 +222,7 @@ export const Section_1_3 = ({
           }
         }
       });
-      
+
       return newErrors;
     });
   }, [ulbList]);
@@ -211,29 +233,33 @@ export const Section_1_3 = ({
     // If ULB is changed, check for duplicates
     if (field === "ulb") {
       const stringValue = value ? String(value) : "";
-      
+
       // Check if this ULB is already selected in another row
       const isDuplicate = ulbList.some(
-        (item, idx) => idx !== index && item.ulb === stringValue && stringValue !== ""
+        (item, idx) =>
+          idx !== index && item.ulb === stringValue && stringValue !== ""
       );
-      
+
       if (isDuplicate) {
         // Set error for duplicate ULB
         setDuplicateErrors((prev) => ({
           ...prev,
-          [`section1_3.ulbList.${index}.ulb`]: "This ULB has already been selected in another row. Please choose a different ULB.",
+          [`section1_3.ulbList.${index}.ulb`]:
+            "This ULB has already been selected in another row. Please choose a different ULB.",
         }));
         return; // Don't update form data
       }
-      
+
       // Clear duplicate error for this field
       setDuplicateErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[`section1_3.ulbList.${index}.ulb`];
         return newErrors;
       });
-      
-      const selectedULB = ulbDropdownOptions.find((u) => u.value === stringValue);
+
+      const selectedULB = ulbDropdownOptions.find(
+        (u) => u.value === stringValue
+      );
       // Try to get city name from label (format: ulb_name - city_name (ulb_type))
       let cityName = "";
       if (selectedULB && selectedULB.label) {
@@ -258,11 +284,11 @@ export const Section_1_3 = ({
   const handleTotalULBsChange = (value: number) => {
     const newTotalULBs = value || 0;
     let updatedList = [...ulbList];
-    
+
     // If new total is less than current rows, trim the list
     if (newTotalULBs < ulbList.length) {
       updatedList = ulbList.slice(0, newTotalULBs);
-    } 
+    }
     // If new total is greater than 0 and list is empty, add at least one entry
     else if (newTotalULBs > 0 && ulbList.length === 0) {
       updatedList = [
@@ -275,28 +301,40 @@ export const Section_1_3 = ({
         },
       ];
     }
-    
+
     // Clear validation error if totalULBs is now valid
     setDuplicateErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
       Object.keys(prev).forEach((key) => {
         // Keep duplicate errors, clear count-related errors
-        if (!key.includes("Total Number") && !key.includes("cannot exceed") && !key.includes("Cannot add more")) {
+        if (
+          !key.includes("Total Number") &&
+          !key.includes("cannot exceed") &&
+          !key.includes("Cannot add more")
+        ) {
           newErrors[key] = prev[key];
         }
       });
       return newErrors;
     });
-    
+
     if (setSectionState) {
       setSectionState({ totalULBs: newTotalULBs, ulbList: updatedList });
     }
   };
 
-  const handleRemoveULB = (idOrIndex: string | number, targetIndex?: number) => {
-    console.log(`[Section_1_3] handleRemoveULB called with idOrIndex:`, idOrIndex, `targetIndex:`, targetIndex);
+  const handleRemoveULB = (
+    idOrIndex: string | number,
+    targetIndex?: number
+  ) => {
+    console.log(
+      `[Section_1_3] handleRemoveULB called with idOrIndex:`,
+      idOrIndex,
+      `targetIndex:`,
+      targetIndex
+    );
     console.log(`[Section_1_3] Current ulbList:`, ulbList);
-    
+
     // Clear duplicate errors when removing a ULB
     setDuplicateErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
@@ -310,7 +348,10 @@ export const Section_1_3 = ({
             if (targetIndex !== undefined && errorIndex > targetIndex) {
               const newIndex = errorIndex - 1;
               newErrors[`section1_3.ulbList.${newIndex}.ulb`] = prev[key];
-            } else if (targetIndex === undefined || errorIndex !== targetIndex) {
+            } else if (
+              targetIndex === undefined ||
+              errorIndex !== targetIndex
+            ) {
               newErrors[key] = prev[key];
             }
             // If errorIndex === targetIndex, don't include it (item is being deleted)
@@ -323,22 +364,27 @@ export const Section_1_3 = ({
       });
       return newErrors;
     });
-    
+
     // If targetIndex is provided, use index-based deletion (most reliable)
     if (targetIndex !== undefined && targetIndex >= 0) {
-      const updatedUlbList = ulbList.filter((ulb, index) => index !== targetIndex);
-      console.log(`[Section_1_3] Updated ulbList (index-based):`, updatedUlbList);
+      const updatedUlbList = ulbList.filter(
+        (ulb, index) => index !== targetIndex
+      );
+      console.log(
+        `[Section_1_3] Updated ulbList (index-based):`,
+        updatedUlbList
+      );
       if (setSectionState) {
         setSectionState({ totalULBs, ulbList: updatedUlbList });
       }
       return;
     }
-    
+
     // Otherwise, try ID-based deletion
     const targetId = String(idOrIndex);
     const parsedIndex = parseInt(targetId, 10);
     const isIndex = !isNaN(parsedIndex) && parsedIndex >= 0;
-    
+
     const updatedUlbList = ulbList.filter((ulb, index) => {
       // If ulb has an id, compare by id AND index to ensure uniqueness
       if (ulb.id !== undefined && ulb.id !== null) {
@@ -355,16 +401,16 @@ export const Section_1_3 = ({
         }
         return true; // Keep items with different IDs
       }
-      
+
       // If no id and target is a valid index, compare by index
       if (isIndex) {
         return index !== parsedIndex;
       }
-      
+
       // Fallback: keep the ulb if we can't match
       return true;
     });
-    
+
     console.log(`[Section_1_3] Updated ulbList:`, updatedUlbList);
     if (setSectionState) {
       setSectionState({ totalULBs, ulbList: updatedUlbList });
@@ -382,7 +428,7 @@ export const Section_1_3 = ({
       }));
       return;
     }
-    
+
     // Clear validation error
     setDuplicateErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
@@ -393,7 +439,7 @@ export const Section_1_3 = ({
       });
       return newErrors;
     });
-    
+
     const newEntryWithId = {
       ...newULBEntry,
       id: `ulb-${Date.now()}`,
@@ -413,7 +459,7 @@ export const Section_1_3 = ({
     });
     setShowAddULBForm(false);
   };
-  
+
   // Handle cancel adding new ULB entry
   const handleCancelAddULBEntry = () => {
     setNewULBEntry({
@@ -428,29 +474,42 @@ export const Section_1_3 = ({
   return (
     <div className="space-y-4">
       {/* Total ULBs Display */}
-      <div className="max-w-xs">
-        <Label>Total Number of ULBs</Label>
-        <Input
-          type="number"
-          inputMode="numeric"
-          min="0"
-          value={totalULBs}
-          onChange={(e) => {
-            const value = e.target.value;
-            // Only allow non-negative integers
-            if (value === "" || /^\d+$/.test(value)) {
-              handleTotalULBsChange(value === "" ? 0 : Number(value));
-            }
-          }}
-          readOnly={!isEditable("1.3")}
-          className={isEditable("1.3") ? "bg-white" : "bg-gray-50"}
-        />
+      <div className="flex gap-4">
+        <div className="max-w-xs">
+          <Label>Total Number of ULBs</Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={totalULBs}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Only allow non-negative integers
+              if (value === "" || /^\d+$/.test(value)) {
+                handleTotalULBsChange(value === "" ? 0 : Number(value));
+              }
+            }}
+            readOnly={!isEditable("1.3")}
+            className={isEditable("1.3") ? "bg-white" : "bg-gray-50"}
+          />
+        </div>
+        <div className="max-w-xs">
+          <Label>Credit rated ULBs</Label>
+          <Input
+            type="number"
+            value={ulbList.length || 0}
+            readOnly
+            className="bg-gray-50 cursor-not-allowed"
+          />
+        </div>
       </div>
-      
+
       {/* Validation error for ulbList */}
       {getError("section1_3.ulbList") && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-500">{getError("section1_3.ulbList")}</p>
+          <p className="text-sm text-red-500">
+            {getError("section1_3.ulbList")}
+          </p>
         </div>
       )}
 
@@ -487,9 +546,14 @@ export const Section_1_3 = ({
                           options={ulbDropdownOptions.filter((option) => {
                             // Filter out ULBs already selected in other rows (unless it's the current row's selection)
                             const isAlreadySelected = ulbList.some(
-                              (ulb, idx) => idx !== index && ulb.ulb === option.value && ulb.ulb !== ""
+                              (ulb, idx) =>
+                                idx !== index &&
+                                ulb.ulb === option.value &&
+                                ulb.ulb !== ""
                             );
-                            return !isAlreadySelected || option.value === item.ulb;
+                            return (
+                              !isAlreadySelected || option.value === item.ulb
+                            );
                           })}
                           value={item.ulb ? String(item.ulb) : ""}
                           onChange={(value) =>
@@ -506,7 +570,9 @@ export const Section_1_3 = ({
                           isSearchable={true}
                         />
                         {getError(`section1_3.ulbList.${index}.ulb`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.ulb`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_3.ulbList.${index}.ulb`)}
+                          </p>
                         )}
                         {ulbError && (
                           <div className="text-xs text-red-500 mt-1">
@@ -532,7 +598,8 @@ export const Section_1_3 = ({
                         // If not found, fallback to item fields
                         if (!label) {
                           const ulbName = item.ulb_name || item.name || "";
-                          const cityName = item.cityName || item.city_name || item.city || "";
+                          const cityName =
+                            item.cityName || item.city_name || item.city || "";
                           const ulbType = item.ulb_type || item.type || "";
                           label = ulbName;
                           if (cityName) label += ` - ${cityName}`;
@@ -556,7 +623,9 @@ export const Section_1_3 = ({
                           placeholder="City name auto-filled"
                         />
                         {getError(`section1_3.ulbList.${index}.cityName`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.cityName`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_3.ulbList.${index}.cityName`)}
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -569,23 +638,29 @@ export const Section_1_3 = ({
                       <div>
                         <Input
                           type="date"
-                          max={new Date().toISOString().split('T')[0]}
+                          max={new Date().toISOString().split("T")[0]}
                           value={formatDateForInput(item.ratingDate)}
                           onChange={(e) => {
                             handleUlbChange(
                               index,
                               "ratingDate",
-                              e.target.value ? new Date(e.target.value).toISOString() : ""
+                              e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : ""
                             );
                           }}
                           className={cn(
                             "w-full min-w-[160px] bg-[#fff] border border-[#C6C6C6]",
                             !item.ratingDate && "text-muted-foreground",
-                            getError(`section1_3.ulbList.${index}.ratingDate`) && "border-red-500"
+                            getError(
+                              `section1_3.ulbList.${index}.ratingDate`
+                            ) && "border-red-500"
                           )}
                         />
                         {getError(`section1_3.ulbList.${index}.ratingDate`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.ratingDate`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_3.ulbList.${index}.ratingDate`)}
+                          </p>
                         )}
                       </div>
                     ) : item.ratingDate ? (
@@ -610,7 +685,9 @@ export const Section_1_3 = ({
                           isEditable={true}
                         />
                         {getError(`section1_3.ulbList.${index}.rating`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.rating`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_3.ulbList.${index}.rating`)}
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -625,11 +702,20 @@ export const Section_1_3 = ({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log(`[Section_1_3] Delete button clicked for item:`, item);
-                          console.log(`[Section_1_3] isEditable("1.3"):`, isEditable("1.3"));
+                          console.log(
+                            `[Section_1_3] Delete button clicked for item:`,
+                            item
+                          );
+                          console.log(
+                            `[Section_1_3] isEditable("1.3"):`,
+                            isEditable("1.3")
+                          );
                           // Always pass the index for reliable deletion
                           // Pass both id and index to ensure correct deletion even if IDs are duplicated
-                          const idOrIndex = item.id !== undefined && item.id !== null ? item.id : index;
+                          const idOrIndex =
+                            item.id !== undefined && item.id !== null
+                              ? item.id
+                              : index;
                           handleRemoveULB(idOrIndex, index);
                         }}
                         className="text-red-500 hover:text-red-700 border-none bg-none"
@@ -689,41 +775,53 @@ export const Section_1_3 = ({
                   const isDuplicate = ulbList.some(
                     (ulb) => ulb.ulb === String(value) && String(value) !== ""
                   );
-                  
+
                   if (isDuplicate) {
                     // Set error
                     setDuplicateErrors((prev) => ({
                       ...prev,
-                      "section1_3.ulbList.new.ulb": "This ULB has already been selected in another row. Please choose a different ULB.",
+                      "section1_3.ulbList.new.ulb":
+                        "This ULB has already been selected in another row. Please choose a different ULB.",
                     }));
                     return;
                   }
-                  
+
                   // Clear error
                   setDuplicateErrors((prev) => {
                     const newErrors = { ...prev };
                     delete newErrors["section1_3.ulbList.new.ulb"];
                     return newErrors;
                   });
-                  
+
                   // Auto-fill city name from selected ULB
-                  const selectedULB = ulbDropdownOptions.find((u) => u.value === String(value));
+                  const selectedULB = ulbDropdownOptions.find(
+                    (u) => u.value === String(value)
+                  );
                   let cityName = "";
                   if (selectedULB && selectedULB.label) {
                     // Try to extract city name from label (format: ulb_name - city_name (ulb_type))
-                    const match = selectedULB.label.match(/-\s([^()]+)(?:\(|$)/);
+                    const match =
+                      selectedULB.label.match(/-\s([^()]+)(?:\(|$)/);
                     if (match && match[1]) {
                       cityName = match[1].trim();
                     }
                   }
                   setNewULBEntry({ ...newULBEntry, ulb: value, cityName });
                 }}
-                placeholder={ulbLoading ? "Loading..." : ulbError ? "Failed to load ULBs" : "Select ULB"}
+                placeholder={
+                  ulbLoading
+                    ? "Loading..."
+                    : ulbError
+                    ? "Failed to load ULBs"
+                    : "Select ULB"
+                }
                 isEditable={!ulbLoading && !ulbError}
                 isSearchable={true}
               />
               {getError("section1_3.ulbList.new.ulb") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ulb")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_3.ulbList.new.ulb")}
+                </p>
               )}
               {ulbError && (
                 <div className="text-xs text-red-500 mt-1">{ulbError}</div>
@@ -746,30 +844,37 @@ export const Section_1_3 = ({
                 placeholder="Enter city name"
               />
               {getError("section1_3.ulbList.new.cityName") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.cityName")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_3.ulbList.new.cityName")}
+                </p>
               )}
             </div>
-           
+
             <div>
               <Label>Rating Date</Label>
               <Input
                 type="date"
-                max={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split("T")[0]}
                 value={formatDateForInput(newULBEntry.ratingDate)}
                 onChange={(e) => {
                   setNewULBEntry({
                     ...newULBEntry,
-                    ratingDate: e.target.value ? new Date(e.target.value).toISOString() : "",
+                    ratingDate: e.target.value
+                      ? new Date(e.target.value).toISOString()
+                      : "",
                   });
                 }}
                 className={cn(
                   "w-full bg-[#fff] border border-[#C6C6C6]",
                   !newULBEntry.ratingDate && "text-muted-foreground",
-                  getError("section1_3.ulbList.new.ratingDate") && "border-red-500"
+                  getError("section1_3.ulbList.new.ratingDate") &&
+                    "border-red-500"
                 )}
               />
               {getError("section1_3.ulbList.new.ratingDate") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ratingDate")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_3.ulbList.new.ratingDate")}
+                </p>
               )}
             </div>
             <div>
@@ -787,7 +892,9 @@ export const Section_1_3 = ({
                 isEditable={true}
               />
               {getError("section1_3.ulbList.new.rating") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.rating")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_3.ulbList.new.rating")}
+                </p>
               )}
             </div>
           </div>

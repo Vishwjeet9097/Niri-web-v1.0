@@ -513,6 +513,33 @@ export const InfraFinancingStep = () => {
     }
   }, [formData.section1_3.totalULBs, formData.section1_3.ulbList.length]);
 
+  // Validate totalULBs vs bondList.length for section 1.4
+  useEffect(() => {
+    const totalULBs = formData.section1_4.totalULBs || 0;
+    const listLength = formData.section1_4.bondList.length;
+
+    if (totalULBs > 0 && listLength > totalULBs) {
+      // Set validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section1_4.bondList": `Number of rows (${listLength}) cannot exceed Total Number of ULBs (${totalULBs}). Please remove excess rows or increase the Total Number of ULBs.`,
+      }));
+    } else {
+      // Clear error if valid
+      setIndicatorValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        // Only clear if it's about the count, not about other validation errors
+        if (
+          newErrors["section1_4.bondList"]?.includes("cannot exceed") ||
+          newErrors["section1_4.bondList"]?.includes("Cannot add more rows")
+        ) {
+          delete newErrors["section1_4.bondList"];
+        }
+        return newErrors;
+      });
+    }
+  }, [formData.section1_4.totalULBs, formData.section1_4.bondList.length]);
+
   // Validate for duplicate ULBs in section 1.3
   useEffect(() => {
     const ulbList = formData.section1_3.ulbList || [];
@@ -1127,6 +1154,27 @@ export const InfraFinancingStep = () => {
   };
 
   const addBond = () => {
+    const totalULBs = formData.section1_4.totalULBs || 0;
+    const currentListLength = formData.section1_4.bondList.length;
+
+    // Check if we can add more rows
+    if (currentListLength >= totalULBs) {
+      // Set validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section1_4.bondList": `Cannot add more rows. Total Number of ULBs is ${totalULBs}, and you already have ${currentListLength} row(s). Please increase the Total Number of ULBs first.`,
+      }));
+      showErrorsIfNeeded();
+      return;
+    }
+
+    // Clear any existing error
+    setIndicatorValidationErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors["section1_4.bondList"];
+      return newErrors;
+    });
+
     const newBond = {
       id: Date.now().toString(),
       bondType: "",
@@ -2607,76 +2655,91 @@ export const InfraFinancingStep = () => {
             >
               {renderSectionValidationMessage("1.3")}
               <div className="space-y-4">
-                <div className="w-1/3">
-                  <Label>
-                    Total Number of ULBs <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    placeholder="Enter total number of ULBs"
-                    min="0"
-                    value={formData.section1_3.totalULBs || ""}
-                    onChange={(e) => {
-                      showErrorsIfNeeded();
-                      const { value } = e.target;
-                      const newTotalULBs = value
-                        ? Math.max(parseInt(value, 10), 0)
-                        : 0;
+                <div className="flex gap-4">
+                  <div className="w-1/3">
+                    <Label>
+                      Total Number of ULBs{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="Enter total number of ULBs"
+                      min="0"
+                      value={formData.section1_3.totalULBs || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        const { value } = e.target;
+                        const newTotalULBs = value
+                          ? Math.max(parseInt(value, 10), 0)
+                          : 0;
 
-                      setFormData((prev) => {
-                        const currentListLength =
-                          prev.section1_3.ulbList.length;
+                        setFormData((prev) => {
+                          const currentListLength =
+                            prev.section1_3.ulbList.length;
 
-                        let updatedList = [...prev.section1_3.ulbList];
+                          let updatedList = [...prev.section1_3.ulbList];
 
-                        // If new total is less than current rows, trim the list
-                        if (newTotalULBs < currentListLength) {
-                          updatedList = prev.section1_3.ulbList.slice(
-                            0,
-                            newTotalULBs
-                          );
-                        }
-                        // If new total is greater than 0 and list is empty, add at least one entry
-                        else if (newTotalULBs > 0 && currentListLength === 0) {
-                          updatedList = [
-                            {
-                              id: Date.now().toString(),
-                              cityName: "",
-                              ulb: "",
-                              ratingDate: "",
-                              rating: "",
-                            },
-                          ];
-                        }
-
-                        // Clear validation error if totalULBs is now valid
-                        setIndicatorValidationErrors((prevErrors) => {
-                          const newErrors = { ...prevErrors };
-                          if (newTotalULBs >= updatedList.length) {
-                            delete newErrors["section1_3.ulbList"];
+                          // If new total is less than current rows, trim the list
+                          if (newTotalULBs < currentListLength) {
+                            updatedList = prev.section1_3.ulbList.slice(
+                              0,
+                              newTotalULBs
+                            );
                           }
-                          return newErrors;
-                        });
+                          // If new total is greater than 0 and list is empty, add at least one entry
+                          else if (
+                            newTotalULBs > 0 &&
+                            currentListLength === 0
+                          ) {
+                            updatedList = [
+                              {
+                                id: Date.now().toString(),
+                                cityName: "",
+                                ulb: "",
+                                ratingDate: "",
+                                rating: "",
+                              },
+                            ];
+                          }
 
-                        return {
-                          ...prev,
-                          section1_3: {
-                            ...prev.section1_3,
-                            totalULBs: newTotalULBs,
-                            ulbList: updatedList,
-                          },
-                        };
-                      });
-                    }}
-                    disabled={isIndicatorSubmitted("1.3")}
-                    className={cn(
-                      getInputValidationClass("section1_3.totalULBs"),
-                      isIndicatorSubmitted("1.3") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                    required
-                  />
-                  {renderFieldError("section1_3.totalULBs")}
+                          // Clear validation error if totalULBs is now valid
+                          setIndicatorValidationErrors((prevErrors) => {
+                            const newErrors = { ...prevErrors };
+                            if (newTotalULBs >= updatedList.length) {
+                              delete newErrors["section1_3.ulbList"];
+                            }
+                            return newErrors;
+                          });
+
+                          return {
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              totalULBs: newTotalULBs,
+                              ulbList: updatedList,
+                            },
+                          };
+                        });
+                      }}
+                      disabled={isIndicatorSubmitted("1.3")}
+                      className={cn(
+                        getInputValidationClass("section1_3.totalULBs"),
+                        isIndicatorSubmitted("1.3") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                      required
+                    />
+                    {renderFieldError("section1_3.totalULBs")}
+                  </div>
+                  <div className="w-1/3">
+                    <Label>Credit rated ULBs</Label>
+                    <Input
+                      type="number"
+                      value={formData.section1_3.ulbList.length || 0}
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
@@ -3206,38 +3269,93 @@ export const InfraFinancingStep = () => {
             >
               {renderSectionValidationMessage("1.4")}
               <div className="space-y-4">
-                <div className="w-1/3">
-                  <Label>
-                    Total Number of ULBs <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    placeholder="Enter total number of ULBs"
-                    min="0"
-                    value={formData.section1_4.totalULBs || ""}
-                    onChange={(e) => {
-                      showErrorsIfNeeded();
-                      clearIndicatorValidationMessage("1.4");
-                      const { value } = e.target;
-                      setFormData((prev) => ({
-                        ...prev,
-                        section1_4: {
-                          ...prev.section1_4,
-                          totalULBs: value
-                            ? Math.max(parseInt(value, 10), 0)
-                            : 0,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("1.4")}
-                    className={cn(
-                      getInputValidationClass("section1_4.totalULBs"),
-                      isIndicatorSubmitted("1.4") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                    required
-                  />
-                  {renderFieldError("section1_4.totalULBs")}
+                <div className="flex gap-4">
+                  <div className="w-1/3">
+                    <Label>
+                      Total Number of ULBs{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="Enter total number of ULBs"
+                      min="0"
+                      value={formData.section1_4.totalULBs || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        clearIndicatorValidationMessage("1.4");
+                        const { value } = e.target;
+                        const newTotalULBs = value
+                          ? Math.max(parseInt(value, 10), 0)
+                          : 0;
+
+                        setFormData((prev) => {
+                          const currentListLength =
+                            prev.section1_4.bondList.length;
+
+                          let updatedList = [...prev.section1_4.bondList];
+
+                          // If new total is less than current rows, trim the list
+                          if (newTotalULBs < currentListLength) {
+                            updatedList = prev.section1_4.bondList.slice(
+                              0,
+                              newTotalULBs
+                            );
+                          }
+                          // If new total is greater than 0 and list is empty, add at least one entry
+                          else if (
+                            newTotalULBs > 0 &&
+                            currentListLength === 0
+                          ) {
+                            updatedList = [
+                              {
+                                id: Date.now().toString(),
+                                bondType: "",
+                                cityName: "",
+                                issuingAuthority: "",
+                                value: "",
+                                tenorOfBond: "",
+                              },
+                            ];
+                          }
+
+                          // Clear validation error if totalULBs is now valid
+                          setIndicatorValidationErrors((prevErrors) => {
+                            const newErrors = { ...prevErrors };
+                            if (newTotalULBs >= updatedList.length) {
+                              delete newErrors["section1_4.bondList"];
+                            }
+                            return newErrors;
+                          });
+
+                          return {
+                            ...prev,
+                            section1_4: {
+                              ...prev.section1_4,
+                              totalULBs: newTotalULBs,
+                              bondList: updatedList,
+                            },
+                          };
+                        });
+                      }}
+                      disabled={isIndicatorSubmitted("1.4")}
+                      className={cn(
+                        getInputValidationClass("section1_4.totalULBs"),
+                        isIndicatorSubmitted("1.4") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                      required
+                    />
+                    {renderFieldError("section1_4.totalULBs")}
+                  </div>
+                  <div className="w-1/3">
+                    <Label>ULB issuing bond</Label>
+                    <Input
+                      type="number"
+                      value={formData.section1_4.bondList.length || 0}
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 {formData.section1_4.bondList.map((bond, index) => (
@@ -3514,18 +3632,28 @@ export const InfraFinancingStep = () => {
                   </div>
                 ))}
 
-                {renderFieldError("section1_4.bondList")}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addBond}
-                  disabled={isIndicatorSubmitted("1.4")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add More Bond
-                </Button>
+                {/* Show Add More button only if totalULBs > 0 and not at limit */}
+                {(formData.section1_4.totalULBs || 0) > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addBond}
+                    disabled={
+                      isIndicatorSubmitted("1.4") ||
+                      formData.section1_4.bondList.length >=
+                        (formData.section1_4.totalULBs || 0)
+                    }
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add More Bond
+                  </Button>
+                )}
+                {renderFieldError("section1_4.bondList") && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {renderFieldError("section1_4.bondList")}
+                  </p>
+                )}
                 {formData.section1_4.bondList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
