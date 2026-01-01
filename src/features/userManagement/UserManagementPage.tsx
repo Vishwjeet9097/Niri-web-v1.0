@@ -18,7 +18,7 @@ import {
 } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
-import { minstryRegistrationForm } from "@/services/ministry.service";
+import { getRemainingMinistryIndicators, minstryRegistrationForm } from "@/services/ministry.service";
 import { EmptyState } from "./components/EmptyState";
 import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +49,9 @@ export function UserManagementPage() {
   const [hasSubmissions, setHasSubmissions] = useState(false);
   const [checkingSubmissions, setCheckingSubmissions] = useState(false);
   const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<string[]>([]);
+
+  // State for ministry assignable indicators (for Ministry Approver edit)
+  const [ministryAssignableIndicators, setMinistryAssignableIndicators] = useState<string[]>([]);
 
   const { refresh } = useIndicatorAccess();
 
@@ -92,15 +95,10 @@ export function UserManagementPage() {
       // Try to load from backend API first
       // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
       let backendUsers;
-      if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" || user?.role === "MINISTRY_APPROVER") {
-        // Admin and MOSPI Approver can see all users across all states
-        // Debug logging removed for performance
-
-        backendUsers = await apiService.getAllUsers();
-      } else {
-        // State Approver can only see users from their state
-        // Debug logging removed for performance
-
+       
+      if (user?.role === "ADMIN" || user?.role === "NODAL_OFFICER" || user?.role === "MOSPI_APPROVER" || user?.role === "MINISTRY_APPROVER") {
+        backendUsers = await apiService.getAllUsers(); 
+      } else { 
         backendUsers = await apiService.getUsersByState(user?.state || "");
       }
       // Debug logging removed for performance
@@ -112,7 +110,7 @@ export function UserManagementPage() {
         setOfficers(data);
         return;
       }
-
+ 
       // Transform backend users to NodalOfficer format
       const transformedOfficers: NodalOfficer[] = backendUsers.map(
         (user: any) => ({
@@ -177,15 +175,15 @@ export function UserManagementPage() {
   // NOTE: This is STATE-SCOPED, not global. Only finds submissions within the user's state.
   useEffect(() => {
     const fetchSubmittedIndicators = async () => {
+      // Skip fetching for Ministry Approver
+      if (user?.role === "MINISTRY_APPROVER") {
+        setSubmittedIndicatorsInState([]);
+        return;
+      }
       if (user?.stateUt || user?.state) {
         try {
           const stateUt = user.stateUt || user.state;
-          console.log("🔍 [UserManagementPage] Fetching submitted indicators for state:", stateUt);
-          console.log("🔍 [UserManagementPage] NOTE: Query is STATE-SCOPED - only finds submissions within this state, not globally");
           const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
-          console.log("📊 [UserManagementPage] Submitted indicators in state:", submitted);
-          console.log("📊 [UserManagementPage] Submitted indicators array:", JSON.stringify(submitted));
-          console.log("📊 [UserManagementPage] Is 1.1 in submitted?", submitted.includes("1.1"));
           setSubmittedIndicatorsInState(submitted);
         } catch (error) {
           console.error("❌ [UserManagementPage] Error fetching submitted indicators:", error);
@@ -197,7 +195,7 @@ export function UserManagementPage() {
     };
 
     fetchSubmittedIndicators();
-  }, [user?.stateUt, user?.state]);
+  }, [user?.role, user?.stateUt, user?.state]);
 
   // Refresh officers list when window regains focus (handles multi-tab scenarios)
   useEffect(() => {
@@ -247,11 +245,38 @@ export function UserManagementPage() {
   };
 
 
-  // Ministry Approver: Edit handler
-  const handleMinistryEditUser = (officer: NodalOfficer) => {
-    // Custom logic for Ministry Approver edit
+
+  // Ministry Approver: Edit handler (fetch assignable indicators)
+  const handleMinistryEditUser = async (officer: NodalOfficer) => {
     setEditingOfficer(officer);
     setShowForm(true);
+    if (officer?.id) {
+      try {
+        const response = await getRemainingMinistryIndicators(officer.id);
+        // Support both flat array and grouped object API responses
+        let allFlat = []; 
+        if (response) {
+          if (Array.isArray(response)) {
+            // Already flat array
+            allFlat = response;
+          } else if (typeof response === 'object') {
+            // Grouped by section/category
+            Object.entries(response).forEach(([section, arr]) => {
+              if (Array.isArray(arr)) {
+                arr.forEach((item) => {
+                  allFlat.push({ ...item, section });
+                });
+              }
+            });
+          }
+        }
+        setMinistryAssignableIndicators(allFlat);
+      } catch (err) {
+        setMinistryAssignableIndicators([]);
+      }
+    } else {
+      setMinistryAssignableIndicators([]);
+     }
   };
 
   const handleEditUser = (officer: NodalOfficer) => {
@@ -911,8 +936,8 @@ export function UserManagementPage() {
         (officer.state && officer.state.toLowerCase().includes(lowerSearch)) ||
         (officer.stateId && officer.stateId.toLowerCase().includes(lowerSearch));
 
-      // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
-      const isStateApprover = user?.role === "STATE_APPROVER";
+      // Treat MINISTRY_APPROVER as a state approver for filtering purposes
+      const isStateApprover = user?.role === "STATE_APPROVER" || user?.role === "MINISTRY_APPROVER";
       const effectiveRoleFilter =
         isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
       const matchesRole =
@@ -953,11 +978,14 @@ export function UserManagementPage() {
       }
     });
 
+     
   // Pagination calculations
   const totalPages = Math.ceil(filteredOfficers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedOfficers = filteredOfficers.slice(startIndex, endIndex);
+    
+
 
   // Handle sorting
   const handleSort = (field: "firstName" | "role" | "state" | "email") => {
@@ -1152,80 +1180,107 @@ export function UserManagementPage() {
         "id" | "state" | "createdAt" | "assignedIndicator"
       > & { nodalUserId: string; ministryAssignedIndicators?: string[] }
     ) => {
-      try {
-        let nodalUserId = officerData.nodalUserId;
-        if (!nodalUserId && officerData.email && officerData.firstName && officerData.lastName) {
-          // Register the user (minimal fields, expand as needed)
-          const ministryIdToUse = String(officerData.ministryId || user?.ministryId || "");
-          // Use ministryId from officerData, or fallback to ministryAssignedIndicators, or current user's ministryId
-          const newUser = await apiService.register({
-            email: officerData.email,
-            password: officerData.password || "password123",
-            firstName: officerData.firstName,
-            lastName: officerData.lastName,
-            contactNumber: officerData.contactNumber,
-            role: "NODAL_OFFICER",
-            stateUt: officerData.stateUt,
-            stateId: officerData.stateId,
-            ministryId: ministryIdToUse
-          });
-          nodalUserId = newUser?.user?.id;
-        }
-         if (
-          nodalUserId &&
-          officerData.ministryAssignedIndicators &&
-          officerData.ministryAssignedIndicators.length > 0 &&
-          user?.id
-        ) {
-          await assignIndicatorsToNodal(
-            nodalUserId,
-            user.id,
-            officerData.ministryAssignedIndicators
-          );
+       if (editingOfficer) {
+          
+          await apiService.updateUser(editingOfficer.id, {
+          firstName: officerData.firstName,
+          lastName: officerData.lastName,
+          contactNumber: officerData.contactNumber,
+          role: officerData.role as
+            | "NODAL_OFFICER"
+            | "STATE_APPROVER"
+            | "MOSPI_REVIEWER"
+            | "MOSPI_APPROVER"
+            | "MINISTRY_APPROVER",
+         } as any);
 
           notificationService.success(
-            "Ministry indicators assigned successfully",
-            "Assignment Successful"
-          );
-          await loadOfficers();
-          setShowForm(false);
-          setEditingOfficer(null);
-          try {
-            //await refresh?.({ clearCache: true });
-          } catch (err) {
-            // ignore
+          "Officer updated successfully",
+          "Update Successful"
+        );
+
+        // Refresh the user list after update
+ 
+        await loadOfficers()
+        setShowForm(false);
+        setEditingOfficer(null);
+       
+       }else{
+        try {
+          let nodalUserId = officerData.nodalUserId;
+          if (!nodalUserId && officerData.email && officerData.firstName && officerData.lastName) {
+            // Register the user (minimal fields, expand as needed)
+            const ministryIdToUse = String(officerData.ministryId || user?.ministryId || "");
+            // Use ministryId from officerData, or fallback to ministryAssignedIndicators, or current user's ministryId
+            const newUser = await apiService.register({
+              email: officerData.email,
+              password: officerData.password || "password123",
+              firstName: officerData.firstName,
+              lastName: officerData.lastName,
+              contactNumber: officerData.contactNumber,
+              role: "NODAL_OFFICER",
+              stateUt: officerData.stateUt,
+              stateId: officerData.stateId,
+              ministryId: ministryIdToUse
+            });
+            nodalUserId = newUser?.user?.id;
           }
-        } else {
-          notificationService.error(
-            "Missing Nodal Officer or indicators.",
-            "Assignment Failed"
-          );
+          if (
+            nodalUserId &&
+            officerData.ministryAssignedIndicators &&
+            officerData.ministryAssignedIndicators.length > 0 &&
+            user?.id
+          ) {
+            await assignIndicatorsToNodal(
+              nodalUserId,
+              user.id,
+              officerData.ministryAssignedIndicators
+            );
+
+            notificationService.success(
+              "Ministry indicators assigned successfully",
+              "Assignment Successful"
+            );
+            await loadOfficers();
+            setShowForm(false);
+            setEditingOfficer(null);
+            try {
+              //await refresh?.({ clearCache: true });
+            } catch (err) {
+              // ignore
+            }
+          } else {
+            notificationService.error(
+              "Missing Nodal Officer or indicators.",
+              "Assignment Failed"
+            );
+          }
+        } catch (error: any) {
+          let errorMessage = "Failed to assign indicators. Please try again.";
+          let errorTitle = "Operation Failed";
+          if (error?.response?.data) {
+            const responseData = error.response.data;
+            if (responseData.message) {
+              errorMessage = responseData.message;
+              errorTitle = responseData.error || "Error";
+            } else if (responseData.error) {
+              errorMessage = responseData.error;
+            }
+            if (responseData.statusCode === 409) {
+              errorTitle = "Assignment Conflict";
+              errorMessage = "Indicators already assigned or conflict exists.";
+            } else if (responseData.statusCode === 400) {
+              errorTitle = "Invalid Data";
+              errorMessage = "Please check your input data and try again.";
+            } else if (responseData.statusCode === 403) {
+              errorTitle = "Access Denied";
+              errorMessage = "You don't have permission to perform this action.";
+            }
+          } else if (error?.message) {
+            errorMessage = error.message;
+          }
+          notificationService.error(errorMessage, errorTitle);
         }
-      } catch (error: any) {
-        let errorMessage = "Failed to assign indicators. Please try again.";
-        let errorTitle = "Operation Failed";
-        if (error?.response?.data) {
-          const responseData = error.response.data;
-          if (responseData.message) {
-            errorMessage = responseData.message;
-            errorTitle = responseData.error || "Error";
-          } else if (responseData.error) {
-            errorMessage = responseData.error;
-          }
-          if (responseData.statusCode === 409) {
-            errorTitle = "Assignment Conflict";
-            errorMessage = "Indicators already assigned or conflict exists.";
-          } else if (responseData.statusCode === 400) {
-            errorTitle = "Invalid Data";
-            errorMessage = "Please check your input data and try again.";
-          } else if (responseData.statusCode === 403) {
-            errorTitle = "Access Denied";
-            errorMessage = "You don't have permission to perform this action.";
-          }
-        } else if (error?.message) {
-          errorMessage = error.message;
-        }
-        notificationService.error(errorMessage, errorTitle);
       }
     };
 
@@ -1243,6 +1298,7 @@ export function UserManagementPage() {
           loadingIndicators={isIndicatorsLoading}
           stateApproverHasSubmission={stateApproverHasSubmission}
           submittedIndicatorsInState={submittedIndicatorsInState}
+          ministryAssignableIndicators={isMinistryApprover ? ministryAssignableIndicators : undefined}
         />
       </div>
     );
@@ -1374,7 +1430,9 @@ export function UserManagementPage() {
         )}
       </div>
 
-      <UserTable
+      {/* Debug log moved outside JSX for reliability */}
+      
+        <UserTable
         officers={paginatedOfficers}
         onEdit={user?.role === "MINISTRY_APPROVER" ? handleMinistryEditUser : handleEditUser}
         onDelete={handleDeleteUser}

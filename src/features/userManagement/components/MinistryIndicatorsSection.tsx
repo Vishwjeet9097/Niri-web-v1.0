@@ -85,22 +85,22 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
         </div>
       )}
       <MultiSelect
-        options={ministryIndicators}
-        value={ministryAssignedIndicators}
-        onChange={handleMinistryIndicatorChange}
-        placeholder={
-          loadingMinistryIndicators
-            ? "Loading indicators..."
-            : "Search and select indicators..."
-        }
-        searchPlaceholder="Type to search indicators..."
-        showSearch={true}
-        showSelectAll={!loadingMinistryIndicators}
-        showSectionHeaders={true}
-        groupBySection={true}
-        className="w-full"
-        maxHeight="250px"
-        disabled={loadingMinistryIndicators || (nodalHasSubmission && !!officer)}
+          options={ministryIndicators}
+          value={ministryAssignedIndicators}
+          onChange={handleMinistryIndicatorChange}
+          placeholder={
+            loadingMinistryIndicators
+              ? "Loading indicators..."
+              : "Search and select indicators..."
+          }
+          searchPlaceholder="Type to search indicators..."
+          showSearch={true}
+          showSelectAll={!loadingMinistryIndicators}
+          showSectionHeaders={true}
+          groupBySection={true}
+          className="w-full"
+          maxHeight="250px"
+          disabled={loadingMinistryIndicators || (nodalHasSubmission && !!officer) || (officer && ministryIndicators && ministryIndicators.length > 0)}
       />
       {loadingMinistryIndicators && (
         <p className="text-sm text-muted-foreground mt-1">
