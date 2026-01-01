@@ -134,6 +134,8 @@ export interface InfraDevelopmentData {
       websiteLink?: string;
       estimatedMonetization?: string;
     }>;
+    hasAssetMonetization?: string;
+    comment?: string;
   };
 }
 

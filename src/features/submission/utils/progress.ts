@@ -170,16 +170,32 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     return false;
   },
 
-  section2_5: (data: any) =>
-    anyValid(
-      data?.assetMonetizationArray,
-      (r) =>
-        hasMeaningfulValue(r.projectName) &&
-        hasMeaningfulValue(r.sector) &&
-        hasMeaningfulValue(r.type) &&
-        hasMeaningfulValue(r.ownership) &&
-        hasMeaningfulValue(r.estimatedMonetization)
-    ),
+  section2_5: (data: any) => {
+    // Check if hasAssetMonetization is set (yes or no)
+    const hasAssetMonetization = data?.hasAssetMonetization;
+    if (!hasMeaningfulValue(hasAssetMonetization)) return false;
+
+    // If "yes", check for assetMonetizationArray with valid entries
+    if (hasAssetMonetization === "yes") {
+      return anyValid(
+        data?.assetMonetizationArray,
+        (r) =>
+          hasMeaningfulValue(r.projectName) &&
+          hasMeaningfulValue(r.sector) &&
+          hasMeaningfulValue(r.type) &&
+          hasMeaningfulValue(r.ownership) &&
+          hasMeaningfulValue(r.location) &&
+          hasMeaningfulValue(r.websiteLink)
+      );
+    }
+
+    // If "no", check for comment
+    if (hasAssetMonetization === "no") {
+      return hasMeaningfulValue(data?.comment);
+    }
+
+    return false;
+  },
 
   // 3.x PPP
   section3_1: (data) => {

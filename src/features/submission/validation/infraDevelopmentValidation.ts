@@ -351,13 +351,22 @@ export const validateInfraDevelopment = (
     if (!section25) {
       // Skip validation if section doesn't exist
     } else {
-      if (
-        !section25.assetMonetizationArray ||
-        section25.assetMonetizationArray.length === 0
+      if (!section25) {
+        errors["section2_5.hasAssetMonetization"] = "Please select Yes or No.";
+      } else if (
+        !section25.hasAssetMonetization ||
+        (section25.hasAssetMonetization !== "yes" &&
+          section25.hasAssetMonetization !== "no")
       ) {
-        errors["section2_5.assetMonetizationArray"] =
-          "At least one asset entry is required.";
-      } else {
+        errors["section2_5.hasAssetMonetization"] = "Please select Yes or No.";
+      } else if (section25.hasAssetMonetization === "yes") {
+        if (
+          !section25.assetMonetizationArray ||
+          section25.assetMonetizationArray.length === 0
+        ) {
+          errors["section2_5.assetMonetizationArray"] =
+            "At least one asset entry is required.";
+        } else {
       section25.assetMonetizationArray.forEach((entry, index) => {
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
@@ -408,6 +417,11 @@ export const validateInfraDevelopment = (
           }
         }
       });
+        }
+      } else if (section25.hasAssetMonetization === "no") {
+        if (!section25.comment || section25.comment.trim() === "") {
+          errors["section2_5.comment"] = "Comment (reason) is required.";
+        }
       }
     }
   }

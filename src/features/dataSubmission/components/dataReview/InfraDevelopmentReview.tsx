@@ -1246,6 +1246,72 @@ export const InfraDevelopmentReview = ({
       return; // Early return to prevent double update
     }
 
+    // If switching hasAssetMonetization to "no", clear all related data
+    if (
+      sectionId === "2.5" &&
+      fieldName === "hasAssetMonetization" &&
+      value === "no"
+    ) {
+      setShowAddForm2_5(false);
+      setNewEntry2_5({
+        projectName: "",
+        sector: "",
+        type: "",
+        ownership: "",
+        location: "",
+        websiteLink: "",
+        estimatedMonetization: "",
+      });
+      // Clear assetMonetizationArray when switching to "no"
+      // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
+      const updatedSection = {
+        ...(currentSection && !Array.isArray(currentSection)
+          ? currentSection
+          : {}),
+        [fieldName]: value,
+        assetMonetizationArray: [], // Clear the array
+        comment: "", // Clear comment - user should enter fresh comment for new "no" selection
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+      console.log(
+        `[InfraDevelopmentReview] Clearing section 2.5 when switching to "no":`,
+        updatedSection
+      );
+      console.log(
+        `[InfraDevelopmentReview] Previous formDataState.section2_5:`,
+        formDataState?.section2_5
+      );
+      setFormDataState((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: updatedSection,
+        };
+        console.log(
+          `[InfraDevelopmentReview] Updated formDataState.section2_5:`,
+          updated[sectionKey]
+        );
+        // Also update submissionData to ensure document tab reflects the change
+        setSubmissionData((prevSubmission: any) => {
+          if (!prevSubmission) return prevSubmission;
+          const infraDev = prevSubmission?.infraDevelopment || {};
+          return {
+            ...prevSubmission,
+            infraDevelopment: {
+              ...infraDev,
+              [sectionKey]: updatedSection,
+            },
+          };
+        });
+        return updated;
+      });
+      // Mark fields as touched to trigger validation updates
+      markFieldAsTouched(`${sectionKey}.assetMonetizationArray`);
+      markFieldAsTouched(`${sectionKey}.comment`);
+      // Force a re-render by updating a dummy state if needed
+      setShowValidationErrors(true);
+      return; // Early return to prevent double update
+    }
+
     // Handle hasOverarchingPolicy changes for section 2.1
     if (sectionId === "2.1" && fieldName === "hasOverarchingPolicy") {
       if (value === "no") {
@@ -2388,6 +2454,22 @@ export const InfraDevelopmentReview = ({
           );
         }
         case "section2_5": {
+          // Check if hasAssetMonetization is set (yes or no)
+          const hasBoolean =
+            section?.hasAssetMonetization !== null &&
+            section?.hasAssetMonetization !== undefined &&
+            section?.hasAssetMonetization !== "";
+          const hasComment =
+            section?.comment !== null &&
+            section?.comment !== undefined &&
+            section?.comment !== "";
+          
+          // If boolean or comment is set, return true
+          if (hasBoolean || hasComment) {
+            return true;
+          }
+          
+          // Otherwise check array data
           const items = Array.isArray(section?.assetMonetizationArray)
             ? section.assetMonetizationArray
             : [];
@@ -2746,6 +2828,9 @@ export const InfraDevelopmentReview = ({
           : [];
         return [
           {
+            hasAssetMonetization:
+              sourceState?.section2_5?.hasAssetMonetization ?? null,
+            comment: sourceState?.section2_5?.comment ?? null,
             assetMonetizationArray: assetMonetizationArray.map((item: any) => ({
               id: item?.id ?? null,
               projectName: item?.projectName ?? null,
@@ -2847,7 +2932,11 @@ export const InfraDevelopmentReview = ({
           hasInvestmentReady: "",
           comment: "",
         },
-        section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
+        section2_5: formDataState?.section2_5 || {
+          assetMonetizationArray: [],
+          hasAssetMonetization: "",
+          comment: "",
+        },
       };
 
       const effectiveAssignedIndicators =
@@ -2941,7 +3030,11 @@ export const InfraDevelopmentReview = ({
             `${sectionPrefix}.comment`
           );
         } else if (sectionId === "2.5") {
-          allSectionFields.push(`${sectionPrefix}.assetMonetizationArray`);
+          allSectionFields.push(
+            `${sectionPrefix}.hasAssetMonetization`,
+            `${sectionPrefix}.comment`,
+            `${sectionPrefix}.assetMonetizationArray`
+          );
           if (
             sectionData &&
             typeof sectionData === "object" &&
@@ -3094,7 +3187,11 @@ export const InfraDevelopmentReview = ({
           hasInvestmentReady: "",
           comment: "",
         },
-        section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
+        section2_5: formDataState?.section2_5 || {
+          assetMonetizationArray: [],
+          hasAssetMonetization: "",
+          comment: "",
+        },
       };
 
       const effectiveAssignedIndicators =
@@ -7516,6 +7613,99 @@ export const InfraDevelopmentReview = ({
             {renderMOSPIReviewerComments("2.5")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("2.5")}
+            
+            {/* Yes/No selection */}
+            <div className="mb-4">
+              <Label className="mb-3 block">
+                Asset Monetization Pipeline Available?*
+              </Label>
+              {isEditable("2.5") ? (
+                <RadioGroup
+                  value={state?.section2_5?.hasAssetMonetization || ""}
+                  onValueChange={(value) => {
+                    // Clear validation error when user selects
+                    if (getFieldError("section2_5.hasAssetMonetization")) {
+                      setIndicatorValidationErrors((prev) => {
+                        const updated = { ...prev };
+                        delete updated["section2_5.hasAssetMonetization"];
+                        return updated;
+                      });
+                    }
+                    // handleSectionFieldUpdate will handle clearing array and comment when "no" is selected
+                    handleSectionFieldUpdate(
+                      "2.5",
+                      "hasAssetMonetization",
+                      value
+                    );
+                    // If "yes" is selected, initialize array if empty
+                    if (value === "yes") {
+                      // Use setTimeout to ensure state is updated after handleSectionFieldUpdate
+                      setTimeout(() => {
+                        const currentArray = Array.isArray(
+                          formDataState?.section2_5?.assetMonetizationArray
+                        )
+                          ? formDataState.section2_5.assetMonetizationArray
+                          : [];
+                        if (currentArray.length === 0) {
+                          const newEntry = {
+                            id: Date.now().toString(),
+                            projectName: "",
+                            sector: "",
+                            type: "",
+                            ownership: "",
+                            location: "",
+                            websiteLink: "",
+                            estimatedMonetization: "",
+                          };
+                          handleSectionFieldUpdate(
+                            "2.5",
+                            "assetMonetizationArray",
+                            [newEntry]
+                          );
+                        }
+                      }, 0);
+                    }
+                  }}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="2.5-yes" />
+                    <Label htmlFor="2.5-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="2.5-no" />
+                    <Label htmlFor="2.5-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      state?.section2_5?.hasAssetMonetization === "yes"
+                        ? "bg-green-100 text-green-800"
+                        : state?.section2_5?.hasAssetMonetization === "no"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {state?.section2_5?.hasAssetMonetization === "yes"
+                      ? "Yes"
+                      : state?.section2_5?.hasAssetMonetization === "no"
+                      ? "No"
+                      : "Not specified"}
+                  </span>
+                </div>
+              )}
+              {getFieldError("section2_5.hasAssetMonetization") && (
+                <p className="text-sm text-red-500 mt-1">
+                  {getFieldError("section2_5.hasAssetMonetization")}
+                </p>
+              )}
+            </div>
+
+            {/* Show table and fields if hasAssetMonetization is "yes" */}
+            {state?.section2_5?.hasAssetMonetization === "yes" && (
+              <>
             <div className="overflow-x-auto rounded-xl">
               <table className="w-full text-sm">
                 <thead>
@@ -8292,6 +8482,44 @@ export const InfraDevelopmentReview = ({
                     Cancel
                   </Button>
                 </div>
+                </div>
+              )}
+              </>
+            )}
+
+            {/* Show comment field - only when "no" is selected and it's mandatory */}
+            {state?.section2_5?.hasAssetMonetization === "no" && (
+              <div>
+                <Label className="mb-2 block">
+                  Comment <span className="text-destructive">*</span>
+                </Label>
+                {shouldBeEditable("2.5") ? (
+                  <Textarea
+                    value={state?.section2_5?.comment || ""}
+                    onChange={(e) =>
+                      handleSectionFieldUpdate(
+                        "2.5",
+                        "comment",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Please provide a comment..."
+                    className={
+                      getFieldError("section2_5.comment")
+                        ? "bg-white border-red-500"
+                        : "bg-white"
+                    }
+                  />
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-md text-sm">
+                    {state?.section2_5?.comment || "No comment provided"}
+                  </div>
+                )}
+                {getFieldError("section2_5.comment") && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section2_5.comment")}
+                  </p>
+                )}
               </div>
             )}
           </SectionCard>

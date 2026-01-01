@@ -37,7 +37,11 @@ const defaultData: InfraDevelopmentData = {
   section2_2: { specializedEntityArray: [] },
   section2_3: { infraDevelopmentArray: [] },
   section2_4: { investmentReadyArray: [] },
-  section2_5: { assetMonetizationArray: [] },
+  section2_5: { 
+    assetMonetizationArray: [],
+    hasAssetMonetization: "",
+    comment: "",
+  },
 };
 
 export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
@@ -64,8 +68,16 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
       ? { investmentReadyArray: data.section2_4.investmentReadyArray }
       : { investmentReadyArray: [] },
     section2_5: data.section2_5 && Array.isArray(data.section2_5.assetMonetizationArray)
-      ? { assetMonetizationArray: data.section2_5.assetMonetizationArray }
-      : { assetMonetizationArray: [] },
+      ? { 
+          assetMonetizationArray: data.section2_5.assetMonetizationArray,
+          hasAssetMonetization: data.section2_5.hasAssetMonetization || "",
+          comment: data.section2_5.comment || "",
+        }
+      : { 
+          assetMonetizationArray: [],
+          hasAssetMonetization: "",
+          comment: "",
+        },
   });
 
   const [formData, setFormData] = useState<InfraDevelopmentData>(() => 
@@ -528,6 +540,73 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per asset)"
         >
           <div className="space-y-4">
+            {/* Yes/No selection */}
+            <div>
+              <Label className="mb-3 block">
+                Asset Monetization Pipeline Available?*
+              </Label>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2">
+                  <Input
+                    type="radio"
+                    name="asset-monetization"
+                    value="yes"
+                    checked={formData.section2_5.hasAssetMonetization === "yes"}
+                    onChange={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_5: {
+                          ...prev.section2_5,
+                          hasAssetMonetization: "yes",
+                          comment: "",
+                          // Initialize with 1 entry if empty
+                          assetMonetizationArray:
+                            prev.section2_5?.assetMonetizationArray &&
+                            prev.section2_5.assetMonetizationArray.length > 0
+                              ? prev.section2_5.assetMonetizationArray
+                              : [
+                                  {
+                                    id: Date.now().toString(),
+                                    projectName: "",
+                                    sector: "",
+                                    type: "",
+                                    ownership: "",
+                                    location: "",
+                                    websiteLink: "",
+                                    estimatedMonetization: "",
+                                  },
+                                ],
+                        },
+                      }));
+                    }}
+                  />
+                  Yes
+                </label>
+                <label className="flex items-center gap-2">
+                  <Input
+                    type="radio"
+                    name="asset-monetization"
+                    value="no"
+                    checked={formData.section2_5.hasAssetMonetization === "no"}
+                    onChange={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_5: {
+                          ...prev.section2_5,
+                          hasAssetMonetization: "no",
+                          assetMonetizationArray: [],
+                        },
+                      }));
+                    }}
+                  />
+                  No
+                </label>
+              </div>
+            </div>
+
+            {/* If Yes → show fields */}
+            {formData.section2_5.hasAssetMonetization === "yes" && (
+              <>
             {formData.section2_5.assetMonetizationArray.map((asset, index) => (
               <div key={asset.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
@@ -631,6 +710,31 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
               <Plus className="w-4 h-4" />
               Add Asset
             </Button>
+              </>
+            )}
+
+            {/* If No → Comment (mandatory) */}
+            {formData.section2_5.hasAssetMonetization === "no" && (
+              <div>
+                <Label>
+                  Comments (Reason) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="text"
+                  placeholder="Enter reason or comment"
+                  value={formData.section2_5.comment || ""}
+                  onChange={(e) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      section2_5: {
+                        ...prev.section2_5,
+                        comment: e.target.value,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+            )}
           </div>
         </SectionCard>
       </div>

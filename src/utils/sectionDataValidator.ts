@@ -241,12 +241,12 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
           section?.hasOverarchingPolicy !== null &&
           section?.hasOverarchingPolicy !== undefined &&
           section?.hasOverarchingPolicy !== "";
-        
+
         // If boolean is set, return true
         if (hasBoolean) {
           return true;
         }
-        
+
         // Otherwise check array data (for backward compatibility)
         const items = Array.isArray(section?.infraActArray)
           ? section.infraActArray
@@ -381,7 +381,31 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
       }
 
       case "section2_5": {
-        // Check array data
+        // Section 2.5 has boolean field (hasAssetMonetization) and comment field
+        const hasBoolean =
+          section?.hasAssetMonetization !== null &&
+          section?.hasAssetMonetization !== undefined &&
+          section?.hasAssetMonetization !== "";
+        const hasComment =
+          section?.comment !== null &&
+          section?.comment !== undefined &&
+          section?.comment !== "";
+
+        console.log("🔍 [hasInfraDevelopmentData section2_5]:", {
+          hasBoolean,
+          hasComment,
+          section,
+        });
+
+        // If boolean or comment is set, return true
+        if (hasBoolean || hasComment) {
+          console.log(
+            "✅ [hasInfraDevelopmentData section2_5] Returning true - has boolean or comment"
+          );
+          return true;
+        }
+
+        // Otherwise check array data
         const array = Array.isArray(section?.assetMonetizationArray)
           ? section.assetMonetizationArray
           : Array.isArray(section)
@@ -712,12 +736,12 @@ const hasSectionData = (
             section?.hasOverarchingPolicy !== null &&
             section?.hasOverarchingPolicy !== undefined &&
             section?.hasOverarchingPolicy !== "";
-          
+
           // If boolean is set, return true
           if (hasBoolean) {
             return true;
           }
-          
+
           // Otherwise check array data (for backward compatibility)
           const items = Array.isArray(section?.infraActArray)
             ? section.infraActArray
@@ -852,6 +876,31 @@ const hasSectionData = (
           );
         }
         case "section2_5": {
+          // Section 2.5 has boolean field (hasAssetMonetization) and comment field
+          const hasBoolean =
+            section?.hasAssetMonetization !== null &&
+            section?.hasAssetMonetization !== undefined &&
+            section?.hasAssetMonetization !== "";
+          const hasComment =
+            section?.comment !== null &&
+            section?.comment !== undefined &&
+            section?.comment !== "";
+
+          console.log("🔍 [hasSectionData section2_5]:", {
+            hasBoolean,
+            hasComment,
+            section,
+          });
+
+          // If boolean or comment is set, return true
+          if (hasBoolean || hasComment) {
+            console.log(
+              "✅ [hasSectionData section2_5] Returning true - has boolean or comment"
+            );
+            return true;
+          }
+
+          // Otherwise check array data
           const items = Array.isArray(section?.assetMonetizationArray)
             ? section.assetMonetizationArray
             : Array.isArray(section)

@@ -119,6 +119,8 @@ const defaultData: InfraDevelopmentData = {
         estimatedMonetization: "",
       },
     ],
+    hasAssetMonetization: "",
+    comment: "",
   },
 };
 
@@ -198,7 +200,8 @@ function safeInfraDevelopmentFormData(
           data.section2_5.assetMonetizationArray.length > 0
             ? data.section2_5.assetMonetizationArray
             : defaultData.section2_5.assetMonetizationArray,
-        // Preserve status field
+        hasAssetMonetization: data.section2_5?.hasAssetMonetization || "",
+        comment: data.section2_5?.comment || "",
         status: (data.section2_5 as any)?.status,
       } as any,
   };
@@ -4087,6 +4090,81 @@ export const InfraDevelopmentStep = () => {
           >
             {renderSectionValidationMessage("2.5")}
             <div className="flex flex-col gap-4">
+              {/* Yes/No selection */}
+              <div>
+                <Label>
+                  Asset Monetization Pipeline Available?{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="asset-monetization"
+                      value="yes"
+                      checked={formData.section2_5.hasAssetMonetization === "yes"}
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.5")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_5: {
+                            ...prev.section2_5,
+                            hasAssetMonetization: "yes",
+                            comment: "",
+                            // Initialize with 1 entry if empty
+                            assetMonetizationArray:
+                              prev.section2_5?.assetMonetizationArray &&
+                              prev.section2_5.assetMonetizationArray.length > 0
+                                ? prev.section2_5.assetMonetizationArray
+                                : [
+                                    {
+                                      id: Date.now().toString(),
+                                      projectName: "",
+                                      sector: "",
+                                      type: "",
+                                      ownership: "",
+                                      location: "",
+                                      websiteLink: "",
+                                      estimatedMonetization: "",
+                                    },
+                                  ],
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.5")}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="asset-monetization"
+                      value="no"
+                      checked={formData.section2_5.hasAssetMonetization === "no"}
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.5")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_5: {
+                            ...prev.section2_5,
+                            hasAssetMonetization: "no",
+                            assetMonetizationArray: [],
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.5")}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_5.hasAssetMonetization")}
+              </div>
+
+              {/* If Yes → show fields */}
+              {formData.section2_5.hasAssetMonetization === "yes" && (
+                <>
               {(Array.isArray(formData.section2_5?.assetMonetizationArray)
                 ? formData.section2_5.assetMonetizationArray
                 : []
@@ -4448,6 +4526,39 @@ export const InfraDevelopmentStep = () => {
                     </table>
                   </div>
                 )}
+                </>
+              )}
+
+              {/* If No → Comment (mandatory) */}
+              {formData.section2_5.hasAssetMonetization === "no" && (
+                <div>
+                  <Label>
+                    Comments (Reason) <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section2_5.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_5: {
+                          ...prev.section2_5,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    disabled={isIndicatorSubmitted("2.5")}
+                    className={cn(
+                      getInputValidationClass("section2_5.comment"),
+                      isIndicatorSubmitted("2.5") &&
+                        "bg-gray-50 cursor-not-allowed"
+                    )}
+                  />
+                  {renderFieldError("section2_5.comment")}
+                </div>
+              )}
               <div className="mt-4">
                 <Button
                   onClick={() =>
