@@ -50,6 +50,7 @@ interface UserFormProps {
   loadingIndicators?: boolean;
   stateApproverHasSubmission?: boolean;
   submittedIndicatorsInState?: string[];
+  ministryAssignableIndicators?: string[]; // Only for Ministry Approver edit
 }
 
 
@@ -62,6 +63,7 @@ export function UserForm({
   loadingIndicators = false,
   stateApproverHasSubmission = false,
   submittedIndicatorsInState = [],
+  ministryAssignableIndicators = [],
 }: UserFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -2139,7 +2141,12 @@ const handleStateChange = (values: string | string[]) => {
         {/* Ministry Indicators - Only for MINISTRY_APPROVER login */}
         {user?.role === "MINISTRY_APPROVER" && (
           <MinistryIndicatorsSection
-            ministryIndicators={ministryIndicators}
+            ministryIndicators={ministryIndicators.map(option =>
+              // Only apply disabling if editing (officer != null) and ministryAssignableIndicators is provided
+              officer && ministryAssignableIndicators && ministryAssignableIndicators.length > 0
+                ? { ...option, disabled: ministryAssignableIndicators.includes(option.value) }
+                : option
+            )}
             effectiveSubmittedIndicators={effectiveSubmittedIndicators}
             loadingMinistryIndicators={loadingMinistryIndicators}
             ministryIndicatorsError={ministryIndicatorsError}

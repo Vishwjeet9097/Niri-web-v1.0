@@ -154,6 +154,7 @@ export function UserTable({
               <TableCell className="text-xs text-[#212121]">
                 {/* MINISTRY_APPROVER: only ministry */}
                 {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                {officer.role === "NODAL_OFFICER" && officer.ministryId && getMinistryName(officer.ministryId)}
                 {/* STATE_APPROVER: only state */}
                 {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
                 {/* MOSPI_REVIEWER: state and ministry if both, else only state */}

@@ -2644,11 +2644,11 @@ export class ApiService {
   async getAllUsers(): Promise<NiriUser[]> {
     try {
       const response = await this.axios.get("/users");
-
+       
       // Handle response.data.data pattern
       const usersData =
         response.data?.data !== undefined ? response.data.data : response.data;
- 
+
       return usersData;
     } catch (error: any) {
       // Handle 304 as success
