@@ -1337,11 +1337,6 @@ export const PPPDevelopmentStep = () => {
   ): string => {
     if (submittingIndicator === indicatorCode) return "Submitting...";
 
-    // If indicator is saved as draft, show "Submit" (not "Submitted")
-    if (isIndicatorSavedAsDraft(indicatorCode)) {
-      return "Submit";
-    }
-
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return "Submit";
 
