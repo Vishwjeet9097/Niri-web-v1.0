@@ -125,7 +125,7 @@ export const ReviewSubmitStep = () => {
     const allIndicators = isNodalOfficer
       ? assignedIndicators
       : availableIndicators;
-    
+
     // Parse formData if it's a string
     let parsedFormData = submission.formData;
     if (typeof submission.formData === "string") {
@@ -140,7 +140,7 @@ export const ReviewSubmitStep = () => {
         };
       }
     }
-    
+
     const formData = parsedFormData;
 
     const underReview: string[] = [];
@@ -161,17 +161,34 @@ export const ReviewSubmitStep = () => {
       for (const category of categories) {
         const categoryData = formData[category];
         if (categoryData?.[sectionKey]) {
-          status = categoryData[sectionKey]?.status;
+          const section = categoryData[sectionKey];
+          status = section?.status;
+          // Check saveAsDraft flag - exclude if true and not previously submitted
+          const saveAsDraft = section?.saveAsDraft === true;
+          if (saveAsDraft) {
+            // Check if it was previously submitted (in completedIndicators or has comments)
+            const wasSubmitted =
+              submission?.section_status?.completedIndicators?.includes(
+                indicatorCode
+              ) ||
+              (submission?.reviewComments &&
+                Array.isArray(submission.reviewComments) &&
+                submission.reviewComments.some((comment: any) => {
+                  const commentIndicatorCode =
+                    comment.indicatorCode ||
+                    comment.sectionId ||
+                    comment.section?.replace("section", "").replace("_", ".");
+                  return commentIndicatorCode === indicatorCode;
+                }));
+            if (!wasSubmitted) {
+              return; // Skip this indicator - it's a draft that was never submitted
+            }
+          }
           break;
         }
       }
 
       const upperStatus = status?.toUpperCase() || "";
-
-      // Exclude SAVE_AS_DRAFT indicators from review - they should not be shown
-      if (upperStatus === "SAVE_AS_DRAFT") {
-        return; // Skip this indicator - don't include it in any category
-      }
 
       if (upperStatus === "ACCEPTED" || upperStatus === "APPROVED") {
         accepted.push(indicatorCode);
@@ -219,9 +236,9 @@ export const ReviewSubmitStep = () => {
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-2">Review & Preview</h2>
               <p className="text-sm text-[#727272] mb-4">
-                Review all the information you've provided and preview your NIE-I
-                data submission. Indicators are submitted individually, so you
-                can track each indicator's status separately.
+                Review all the information you've provided and preview your
+                NIE-I data submission. Indicators are submitted individually, so
+                you can track each indicator's status separately.
               </p>
             </div>
           </div>
@@ -405,8 +422,8 @@ export const ReviewSubmitStep = () => {
           </Button>
 
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowReview(true)}
               disabled={loading || !submission?.id}
             >

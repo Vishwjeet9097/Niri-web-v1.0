@@ -90,7 +90,7 @@ const defaultData: InfraDevelopmentData = {
     infraActArray: [], // Don't initialize with entry by default - wait for yes/no selection
     hasOverarchingPolicy: "",
   },
-  section2_2: { 
+  section2_2: {
     specializedEntityArray: [],
     hasSpecializedEntity: "",
     comment: "",
@@ -131,31 +131,31 @@ function safeInfraDevelopmentFormData(
   return {
     ...defaultData,
     ...data,
-      section2_1: {
-        ...defaultData.section2_1,
-        ...(data.section2_1 || {}),
-        // Only initialize with default entry if hasOverarchingPolicy is set to "no" or empty
-        // If "yes", it will be handled in the onChange handler
-        infraActArray:
-          data.section2_1?.hasOverarchingPolicy === "no" ||
-          (data.section2_1?.hasOverarchingPolicy === "" &&
-            (!Array.isArray(data.section2_1?.infraActArray) ||
-              data.section2_1.infraActArray.length === 0))
-            ? [
-                {
-                  id: Math.random().toString(36).substr(2, 9),
-                  sector: "",
-                  files: [],
-                },
-              ]
-            : Array.isArray(data.section2_1?.infraActArray) &&
-              data.section2_1.infraActArray.length > 0
-            ? data.section2_1.infraActArray
-            : [],
-        hasOverarchingPolicy: data.section2_1?.hasOverarchingPolicy || "",
-        // Preserve status field
-        status: (data.section2_1 as any)?.status,
-      } as any,
+    section2_1: {
+      ...defaultData.section2_1,
+      ...(data.section2_1 || {}),
+      // Only initialize with default entry if hasOverarchingPolicy is set to "no" or empty
+      // If "yes", it will be handled in the onChange handler
+      infraActArray:
+        data.section2_1?.hasOverarchingPolicy === "no" ||
+        (data.section2_1?.hasOverarchingPolicy === "" &&
+          (!Array.isArray(data.section2_1?.infraActArray) ||
+            data.section2_1.infraActArray.length === 0))
+          ? [
+              {
+                id: Math.random().toString(36).substr(2, 9),
+                sector: "",
+                files: [],
+              },
+            ]
+          : Array.isArray(data.section2_1?.infraActArray) &&
+            data.section2_1.infraActArray.length > 0
+          ? data.section2_1.infraActArray
+          : [],
+      hasOverarchingPolicy: data.section2_1?.hasOverarchingPolicy || "",
+      // Preserve status field
+      status: (data.section2_1 as any)?.status,
+    } as any,
     section2_2: {
       ...defaultData.section2_2,
       ...(data.section2_2 || {}),
@@ -192,18 +192,18 @@ function safeInfraDevelopmentFormData(
       websiteLink: data.section2_4?.websiteLink || "",
       status: (data.section2_4 as any)?.status,
     } as any,
-      section2_5: {
-        ...defaultData.section2_5,
-        ...(data.section2_5 || {}),
-        assetMonetizationArray:
-          Array.isArray(data.section2_5?.assetMonetizationArray) &&
-          data.section2_5.assetMonetizationArray.length > 0
-            ? data.section2_5.assetMonetizationArray
-            : defaultData.section2_5.assetMonetizationArray,
-        hasAssetMonetization: data.section2_5?.hasAssetMonetization || "",
-        comment: data.section2_5?.comment || "",
-        status: (data.section2_5 as any)?.status,
-      } as any,
+    section2_5: {
+      ...defaultData.section2_5,
+      ...(data.section2_5 || {}),
+      assetMonetizationArray:
+        Array.isArray(data.section2_5?.assetMonetizationArray) &&
+        data.section2_5.assetMonetizationArray.length > 0
+          ? data.section2_5.assetMonetizationArray
+          : defaultData.section2_5.assetMonetizationArray,
+      hasAssetMonetization: data.section2_5?.hasAssetMonetization || "",
+      comment: data.section2_5?.comment || "",
+      status: (data.section2_5 as any)?.status,
+    } as any,
   };
 }
 
@@ -293,9 +293,9 @@ export const InfraDevelopmentStep = () => {
     new Set()
   );
   // Track which indicators are being saved as draft
-  const [savingDraftIndicators, setSavingDraftIndicators] = useState<Set<string>>(
-    new Set()
-  );
+  const [savingDraftIndicators, setSavingDraftIndicators] = useState<
+    Set<string>
+  >(new Set());
   // Store snapshots of original form data when editing starts (for cancel functionality)
   const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
     Record<string, any>
@@ -306,10 +306,14 @@ export const InfraDevelopmentStep = () => {
     string | null
   >(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
   // Section-level validation error messages (shown when save fails)
-  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
-  
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
+
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -426,6 +430,12 @@ export const InfraDevelopmentStep = () => {
                     "2.1"
                   )
                 ),
+                // Preserve saveAsDraft flag from database
+                saveAsDraft: getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section2_1,
+                  "2.1"
+                )?.saveAsDraft,
               },
               section2_2: {
                 ...getSectionFromNormalizedOrLegacy(
@@ -441,6 +451,12 @@ export const InfraDevelopmentStep = () => {
                     "2.2"
                   )
                 ),
+                // Preserve saveAsDraft flag from database
+                saveAsDraft: getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section2_2,
+                  "2.2"
+                )?.saveAsDraft,
               },
               section2_3: {
                 ...getSectionFromNormalizedOrLegacy(
@@ -456,6 +472,12 @@ export const InfraDevelopmentStep = () => {
                     "2.3"
                   )
                 ),
+                // Preserve saveAsDraft flag from database
+                saveAsDraft: getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section2_3,
+                  "2.3"
+                )?.saveAsDraft,
               },
               section2_4: {
                 ...getSectionFromNormalizedOrLegacy(
@@ -471,6 +493,12 @@ export const InfraDevelopmentStep = () => {
                     "2.4"
                   )
                 ),
+                // Preserve saveAsDraft flag from database
+                saveAsDraft: getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section2_4,
+                  "2.4"
+                )?.saveAsDraft,
               },
               section2_5: {
                 ...getSectionFromNormalizedOrLegacy(
@@ -486,15 +514,23 @@ export const InfraDevelopmentStep = () => {
                     "2.5"
                   )
                 ),
+                // Preserve saveAsDraft flag from database
+                saveAsDraft: getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section2_5,
+                  "2.5"
+                )?.saveAsDraft,
               },
             });
           setFormData(newFormData);
           setIsDataLoaded(true);
         } else {
           // No submission found in database (submission was deleted), clear localStorage
-          console.log("🧹 No submission found in database - clearing localStorage");
+          console.log(
+            "🧹 No submission found in database - clearing localStorage"
+          );
           clearFormData();
-          
+
           setFormData(safeInfraDevelopmentFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
@@ -655,6 +691,8 @@ export const InfraDevelopmentStep = () => {
             (currentStepData.section2_1 as any)?.infraActArray || [],
           // Preserve status field
           status: (currentStepData.section2_1 as any)?.status,
+          // Preserve saveAsDraft flag
+          saveAsDraft: (currentStepData.section2_1 as any)?.saveAsDraft,
         },
         section2_2: {
           specializedEntityArray:
@@ -664,6 +702,8 @@ export const InfraDevelopmentStep = () => {
           comment: (currentStepData.section2_2 as any)?.comment || "",
           // Preserve status field
           status: (currentStepData.section2_2 as any)?.status,
+          // Preserve saveAsDraft flag
+          saveAsDraft: (currentStepData.section2_2 as any)?.saveAsDraft,
         },
         section2_3: {
           infraDevelopmentArray:
@@ -673,6 +713,8 @@ export const InfraDevelopmentStep = () => {
           comment: (currentStepData.section2_3 as any)?.comment || "",
           // Preserve status field
           status: (currentStepData.section2_3 as any)?.status,
+          // Preserve saveAsDraft flag
+          saveAsDraft: (currentStepData.section2_3 as any)?.saveAsDraft,
         },
         section2_4: {
           investmentReadyArray:
@@ -683,12 +725,16 @@ export const InfraDevelopmentStep = () => {
           websiteLink: (currentStepData.section2_4 as any)?.websiteLink || "",
           // Preserve status field
           status: (currentStepData.section2_4 as any)?.status,
+          // Preserve saveAsDraft flag
+          saveAsDraft: (currentStepData.section2_4 as any)?.saveAsDraft,
         },
         section2_5: {
           assetMonetizationArray:
             (currentStepData.section2_5 as any)?.assetMonetizationArray || [],
           // Preserve status field
           status: (currentStepData.section2_5 as any)?.status,
+          // Preserve saveAsDraft flag
+          saveAsDraft: (currentStepData.section2_5 as any)?.saveAsDraft,
         },
       };
 
@@ -743,7 +789,10 @@ export const InfraDevelopmentStep = () => {
         },
       }));
     }
-  }, [formData.section2_2.hasSpecializedEntity, formData.section2_2.specializedEntityArray?.length]);
+  }, [
+    formData.section2_2.hasSpecializedEntity,
+    formData.section2_2.specializedEntityArray?.length,
+  ]);
 
   // Ensure investmentReadyArray has at least 1 entry when "yes" is selected
   useEffect(() => {
@@ -769,7 +818,10 @@ export const InfraDevelopmentStep = () => {
         },
       }));
     }
-  }, [formData.section2_4.hasInvestmentReady, formData.section2_4.investmentReadyArray?.length]);
+  }, [
+    formData.section2_4.hasInvestmentReady,
+    formData.section2_4.investmentReadyArray?.length,
+  ]);
 
   // Sync infraDevelopmentArray based on hasInfraDevelopmentPlan
   useEffect(() => {
@@ -847,26 +899,25 @@ export const InfraDevelopmentStep = () => {
   // --- Section 2.1, 2.2, 2.3: Add/Remove Entries ---
   const addEntry = (section: "section2_1" | "section2_2" | "section2_3") => {
     const arrKey = sectionArrayKeyMap[section];
-    setFormData(
-      (prev) => {
-        // For section2_1, if hasOverarchingPolicy is "yes", set sector to "Overarching"
-        const sectorValue = 
-          section === "section2_1" && (prev as any).section2_1?.hasOverarchingPolicy === "yes"
-            ? "Overarching"
-            : "";
-        
-        return {
-          ...prev,
-          [section]: {
-            ...(prev as any)[section],
-            [arrKey]: [
-              ...((prev as any)[section]?.[arrKey] || []),
-              { id: crypto.randomUUID(), sector: sectorValue, files: [] },
-            ],
-          },
-        } as any;
-      }
-    );
+    setFormData((prev) => {
+      // For section2_1, if hasOverarchingPolicy is "yes", set sector to "Overarching"
+      const sectorValue =
+        section === "section2_1" &&
+        (prev as any).section2_1?.hasOverarchingPolicy === "yes"
+          ? "Overarching"
+          : "";
+
+      return {
+        ...prev,
+        [section]: {
+          ...(prev as any)[section],
+          [arrKey]: [
+            ...((prev as any)[section]?.[arrKey] || []),
+            { id: crypto.randomUUID(), sector: sectorValue, files: [] },
+          ],
+        },
+      } as any;
+    });
     if (section === "section2_3") {
       setFormData((prev) => ({
         ...prev,
@@ -1513,6 +1564,7 @@ export const InfraDevelopmentStep = () => {
         [finalSectionKey]: {
           ...sanitizedFormData[finalSectionKey],
           status: newStatus,
+          saveAsDraft: false, // Remove saveAsDraft flag when submitting/resubmitting
         },
       };
 
@@ -1595,6 +1647,7 @@ export const InfraDevelopmentStep = () => {
             ...prev[sectionKey],
             ...sanitizedFormData[sectionKey],
             status: newStatus,
+            saveAsDraft: false, // Remove saveAsDraft flag when submitting/resubmitting
           },
         };
         // Update form persistence with the merged data
@@ -1614,16 +1667,20 @@ export const InfraDevelopmentStep = () => {
       // Dispatch event to refresh indicators after indicator submission
       // This ensures the "Create Submission" button disables correctly when last indicator is submitted
       if (user?.role === "STATE_APPROVER" && user?.id) {
-        console.log("📢 [InfraDevelopmentStep] Dispatching indicatorsUpdated event after indicator submission");
-        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
-          detail: { 
-            userId: user.id,
-            role: 'STATE_APPROVER',
-            action: 'indicator_submitted',
-            indicatorCode,
-            submissionId: result?.id || result?.submissionId
-          } 
-        }));
+        console.log(
+          "📢 [InfraDevelopmentStep] Dispatching indicatorsUpdated event after indicator submission"
+        );
+        window.dispatchEvent(
+          new CustomEvent("indicatorsUpdated", {
+            detail: {
+              userId: user.id,
+              role: "STATE_APPROVER",
+              action: "indicator_submitted",
+              indicatorCode,
+              submissionId: result?.id || result?.submissionId,
+            },
+          })
+        );
       }
 
       // 🔍 DEBUG: Log before updating form data
@@ -1839,21 +1896,28 @@ export const InfraDevelopmentStep = () => {
     return (sectionData as any)?.status;
   };
 
+  // Helper function to check if indicator is saved as draft
+  const isIndicatorSavedAsDraft = (indicatorCode: string): boolean => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    const sectionData = formData[sectionKey];
+    return (sectionData as any)?.saveAsDraft === true;
+  };
+
   // Check if indicator is submitted or accepted (non-editable)
   // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
-  // SAVE_AS_DRAFT indicators remain editable
+  // Indicators with saveAsDraft flag remain editable
   const isIndicatorSubmitted = (indicatorCode: string): boolean => {
-    const status = getIndicatorStatus(indicatorCode);
-    if (!status) return false;
-    const upperStatus = status.toUpperCase();
     // If indicator is in edit mode, it's editable
     if (editingIndicators.has(indicatorCode)) {
       return false;
     }
-    // SAVE_AS_DRAFT indicators remain editable
-    if (upperStatus === "SAVE_AS_DRAFT") {
+    // Indicators with saveAsDraft flag remain editable
+    if (isIndicatorSavedAsDraft(indicatorCode)) {
       return false;
     }
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
     // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
     // Other statuses are non-editable
     return (
@@ -1871,6 +1935,11 @@ export const InfraDevelopmentStep = () => {
     submittingIndicator: string | null
   ): string => {
     if (submittingIndicator === indicatorCode) return "Submitting...";
+
+    // If indicator is saved as draft, show "Submit" (not "Submitted")
+    if (isIndicatorSavedAsDraft(indicatorCode)) {
+      return "Submit";
+    }
 
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return "Submit";
@@ -1902,7 +1971,10 @@ export const InfraDevelopmentStep = () => {
 
   // Helper to render validation error message for an indicator
   const renderSectionValidationMessage = (indicatorCode: string) => {
-    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+    if (
+      !sectionValidationMessages[indicatorCode] ||
+      !editingIndicators.has(indicatorCode)
+    ) {
       return null;
     }
     return (
@@ -1935,7 +2007,8 @@ export const InfraDevelopmentStep = () => {
     if (isNodalOfficer) {
       // Run validation first
       const validationResult = validateInfraDevelopment(formData, {
-        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+        allowedIndicators:
+          assignedIndicators.length > 0 ? assignedIndicators : undefined,
       });
 
       // Filter validation errors to only include the indicator being saved
@@ -1951,37 +2024,55 @@ export const InfraDevelopmentStep = () => {
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this indicator as touched so ALL errors show
         const allIndicatorFields: string[] = [];
-        
+
         // Add base fields based on indicator
         if (indicatorCode === "2.1") {
           allIndicatorFields.push(`${sectionPrefix}.infraActArray`);
-          if (formData.section2_1?.infraActArray && Array.isArray(formData.section2_1.infraActArray)) {
-            formData.section2_1.infraActArray.forEach((_: any, index: number) => {
-              allIndicatorFields.push(
-                `${sectionPrefix}.infraActArray.${index}.sector`,
-                `${sectionPrefix}.infraActArray.${index}.file`
-              );
-            });
+          if (
+            formData.section2_1?.infraActArray &&
+            Array.isArray(formData.section2_1.infraActArray)
+          ) {
+            formData.section2_1.infraActArray.forEach(
+              (_: any, index: number) => {
+                allIndicatorFields.push(
+                  `${sectionPrefix}.infraActArray.${index}.sector`,
+                  `${sectionPrefix}.infraActArray.${index}.file`
+                );
+              }
+            );
           }
         } else if (indicatorCode === "2.2") {
           allIndicatorFields.push(`${sectionPrefix}.specializedEntityArray`);
-          if (formData.section2_2?.specializedEntityArray && Array.isArray(formData.section2_2.specializedEntityArray)) {
-            formData.section2_2.specializedEntityArray.forEach((_: any, index: number) => {
-              allIndicatorFields.push(
-                `${sectionPrefix}.specializedEntityArray.${index}.entityName`,
-                `${sectionPrefix}.specializedEntityArray.${index}.file`
-              );
-            });
+          if (
+            formData.section2_2?.specializedEntityArray &&
+            Array.isArray(formData.section2_2.specializedEntityArray)
+          ) {
+            formData.section2_2.specializedEntityArray.forEach(
+              (_: any, index: number) => {
+                allIndicatorFields.push(
+                  `${sectionPrefix}.specializedEntityArray.${index}.entityName`,
+                  `${sectionPrefix}.specializedEntityArray.${index}.file`
+                );
+              }
+            );
           }
         } else if (indicatorCode === "2.3") {
-          allIndicatorFields.push(`${sectionPrefix}.hasInfraDevelopmentPlan`, `${sectionPrefix}.infraDevelopmentArray`);
-          if (formData.section2_3?.infraDevelopmentArray && Array.isArray(formData.section2_3.infraDevelopmentArray)) {
-            formData.section2_3.infraDevelopmentArray.forEach((_: any, index: number) => {
-              allIndicatorFields.push(
-                `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
-                `${sectionPrefix}.infraDevelopmentArray.${index}.file`
-              );
-            });
+          allIndicatorFields.push(
+            `${sectionPrefix}.hasInfraDevelopmentPlan`,
+            `${sectionPrefix}.infraDevelopmentArray`
+          );
+          if (
+            formData.section2_3?.infraDevelopmentArray &&
+            Array.isArray(formData.section2_3.infraDevelopmentArray)
+          ) {
+            formData.section2_3.infraDevelopmentArray.forEach(
+              (_: any, index: number) => {
+                allIndicatorFields.push(
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.file`
+                );
+              }
+            );
           }
         } else if (indicatorCode === "2.4") {
           allIndicatorFields.push(`${sectionPrefix}.hasInvestmentReady`);
@@ -1989,28 +2080,38 @@ export const InfraDevelopmentStep = () => {
             allIndicatorFields.push(`${sectionPrefix}.comment`);
           }
           allIndicatorFields.push(`${sectionPrefix}.investmentReadyArray`);
-          if (formData.section2_4?.investmentReadyArray && Array.isArray(formData.section2_4.investmentReadyArray)) {
-            formData.section2_4.investmentReadyArray.forEach((_: any, index: number) => {
-              allIndicatorFields.push(
-                `${sectionPrefix}.investmentReadyArray.${index}.sector`,
-                `${sectionPrefix}.investmentReadyArray.${index}.file`
-              );
-            });
+          if (
+            formData.section2_4?.investmentReadyArray &&
+            Array.isArray(formData.section2_4.investmentReadyArray)
+          ) {
+            formData.section2_4.investmentReadyArray.forEach(
+              (_: any, index: number) => {
+                allIndicatorFields.push(
+                  `${sectionPrefix}.investmentReadyArray.${index}.sector`,
+                  `${sectionPrefix}.investmentReadyArray.${index}.file`
+                );
+              }
+            );
           }
         } else if (indicatorCode === "2.5") {
           allIndicatorFields.push(`${sectionPrefix}.assetMonetizationArray`);
-          if (formData.section2_5?.assetMonetizationArray && Array.isArray(formData.section2_5.assetMonetizationArray)) {
-            formData.section2_5.assetMonetizationArray.forEach((_: any, index: number) => {
-              allIndicatorFields.push(
-                `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.sector`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.type`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.location`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.websiteLink`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.estimatedMonetization`
-              );
-            });
+          if (
+            formData.section2_5?.assetMonetizationArray &&
+            Array.isArray(formData.section2_5.assetMonetizationArray)
+          ) {
+            formData.section2_5.assetMonetizationArray.forEach(
+              (_: any, index: number) => {
+                allIndicatorFields.push(
+                  `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.sector`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.type`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.location`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.websiteLink`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.estimatedMonetization`
+                );
+              }
+            );
           }
         }
 
@@ -2024,7 +2125,7 @@ export const InfraDevelopmentStep = () => {
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message
@@ -2033,7 +2134,10 @@ export const InfraDevelopmentStep = () => {
           ...prev,
           [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
         }));
-        console.log(`[InfraDevelopmentStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        console.log(
+          `[InfraDevelopmentStep] Validation failed for indicator ${indicatorCode}:`,
+          sectionErrors
+        );
         // Errors are displayed inline in the UI, don't show dialog
         return;
       }
@@ -2112,6 +2216,7 @@ export const InfraDevelopmentStep = () => {
       const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
         status: newStatus,
+        saveAsDraft: false, // Remove saveAsDraft flag when saving after resubmission
       };
 
       // Create sanitized data with status for the saved indicator (same format as Submit)
@@ -2151,7 +2256,10 @@ export const InfraDevelopmentStep = () => {
       setFormData((prev: any) => {
         const updated = {
           ...prev,
-          [sectionKey]: sectionDataWithStatus,
+          [sectionKey]: {
+            ...sectionDataWithStatus,
+            saveAsDraft: false, // Ensure saveAsDraft is removed
+          },
         };
         // Also update form persistence with the merged data
         updateFormData("infraDevelopment", {
@@ -2238,35 +2346,40 @@ export const InfraDevelopmentStep = () => {
         sanitizeFilesInFormData(formData)
       );
 
-      // Prepare data with SAVE_AS_DRAFT status
-      const sectionDataWithStatus = {
+      // Get current status to preserve it (REVERTED, SUBMITTED_TO_STATE, etc.)
+      const currentStatus = sanitizedFormData[sectionKey]?.status;
+
+      // Prepare data with saveAsDraft flag (preserve existing status)
+      const sectionDataWithDraftFlag = {
         ...sanitizedFormData[sectionKey],
-        status: "SAVE_AS_DRAFT",
+        saveAsDraft: true,
+        // Preserve existing status if it exists, otherwise don't set status
+        ...(currentStatus && { status: currentStatus }),
       };
 
-      // Create sanitized data with status for the draft indicator
-      const sanitizedFormDataWithStatus = {
+      // Create sanitized data with saveAsDraft flag for the draft indicator
+      const sanitizedFormDataWithDraftFlag = {
         ...sanitizedFormData,
-        [sectionKey]: sectionDataWithStatus,
+        [sectionKey]: sectionDataWithDraftFlag,
       };
 
-      // Use submitSectionToStateApprover API to save with SAVE_AS_DRAFT status
+      // Use submitSectionToStateApprover API to save with saveAsDraft flag
       await apiService.submitSectionToStateApprover(
-        sanitizedFormDataWithStatus,
+        sanitizedFormDataWithDraftFlag,
         "infraDevelopment",
         [indicatorCode]
       );
 
-      // Update local formData state immediately to reflect SAVE_AS_DRAFT status
+      // Update local formData state immediately to reflect saveAsDraft flag
       setFormData((prev: any) => {
         const updated = {
           ...prev,
-          [sectionKey]: sectionDataWithStatus,
+          [sectionKey]: sectionDataWithDraftFlag,
         };
         // Also update form persistence with the merged data
         updateFormData("infraDevelopment", {
           ...prev,
-          ...sanitizedFormDataWithStatus,
+          ...sanitizedFormDataWithDraftFlag,
         });
         return updated;
       });
@@ -2277,7 +2390,10 @@ export const InfraDevelopmentStep = () => {
         variant: "default",
       });
     } catch (error) {
-      console.error(`Failed to save indicator ${indicatorCode} as draft:`, error);
+      console.error(
+        `Failed to save indicator ${indicatorCode} as draft:`,
+        error
+      );
       toast({
         title: "Save Failed",
         description: `Failed to save indicator ${indicatorCode} as draft. Please try again.`,
@@ -2396,6 +2512,7 @@ export const InfraDevelopmentStep = () => {
             subtitle=""
             className="mb-6"
             indicatorStatus={getIndicatorStatus("2.1")}
+            saveAsDraft={isIndicatorSavedAsDraft("2.1")}
             indicatorCode="2.1"
             isEditable={editingIndicators.has("2.1")}
             onEdit={() => handleEditIndicator("2.1")}
@@ -2433,15 +2550,22 @@ export const InfraDevelopmentStep = () => {
                         showErrorsIfNeeded();
                         setFormData((prev) => {
                           // When switching to "yes", ensure at least one entry with "Overarching" sector
-                          const currentArray = prev.section2_1?.infraActArray || [];
+                          const currentArray =
+                            prev.section2_1?.infraActArray || [];
                           const hasEntry = currentArray.length > 0;
                           const newArray = hasEntry
                             ? currentArray.map((entry) => ({
                                 ...entry,
                                 sector: "Overarching", // Auto-set sector to "Overarching"
                               }))
-                            : [{ id: crypto.randomUUID(), sector: "Overarching", files: [] }];
-                          
+                            : [
+                                {
+                                  id: crypto.randomUUID(),
+                                  sector: "Overarching",
+                                  files: [],
+                                },
+                              ];
+
                           return {
                             ...prev,
                             section2_1: {
@@ -2461,7 +2585,9 @@ export const InfraDevelopmentStep = () => {
                       type="radio"
                       name="overarching-policy"
                       value="no"
-                      checked={formData.section2_1.hasOverarchingPolicy === "no"}
+                      checked={
+                        formData.section2_1.hasOverarchingPolicy === "no"
+                      }
                       onChange={() => {
                         if (isIndicatorSubmitted("2.1")) return;
                         showErrorsIfNeeded();
@@ -2492,193 +2618,210 @@ export const InfraDevelopmentStep = () => {
               {/* If Yes → show only file upload (sector is auto-set to "Overarching") */}
               {formData.section2_1.hasOverarchingPolicy === "yes" && (
                 <>
-              {(Array.isArray(formData.section2_1?.infraActArray) &&
-                formData.section2_1.infraActArray.length > 0
-                ? formData.section2_1.infraActArray
-                : []
-              ).map((entry) => {
-                // Ensure sector is always "Overarching" when yes is selected
-                if (entry.sector !== "Overarching") {
-                  // Use setTimeout to avoid state update during render
-                  setTimeout(() => {
-                    updateEntry("section2_1", entry.id, "sector", "Overarching");
-                  }, 0);
-                }
-                return (
-                <div key={entry.id} className=" mb-2 relative">
-                  <div className="flex flex-col gap-4 max-w-[70%]">
-                    <div className="flex-1 w-full">
-                      <FileUploadSection
-                        label="Upload File"
-                        value={entry.files?.[0] || null}
-                        onChange={(file) => {
-                          showErrorsIfNeeded();
-                          // Always set file to null if not a real FileUpload
-                          const safeFile =
-                            file &&
-                            typeof file === "object" &&
-                            (file.file instanceof File || file.file === null)
-                              ? file
-                              : null;
-                          updateEntry(
-                            "section2_1",
-                            entry.id,
-                            "files",
-                            safeFile ? [safeFile] : []
-                          );
-                          // Ensure sector is always "Overarching"
-                          if (entry.sector !== "Overarching") {
-                            updateEntry("section2_1", entry.id, "sector", "Overarching");
-                          }
-                        }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("2.1")}
-                        deferFileDeletion={editingIndicators.has("2.1")}
-                        className={getInputValidationClass(
-                          `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.files`
-                        )}
-                      />
-                      {renderFieldError(
-                        `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.files`
-                      )}
-                    </div>
-                    {/* Don't show delete button for "yes" case since only 1 entry is required */}
-                  </div>
-                </div>
-                );
-              })}
-              
-              {renderFieldError("section2_1.infraActArray")}
-              
-              <p className="text-xs text-muted-foreground mt-1">
-                Upload copy of Act/Policy
-              </p>
-              {/* Note: "Add More" and delete button are not needed for "yes" case as only 1 entry is required */}
-              </>
+                  {(Array.isArray(formData.section2_1?.infraActArray) &&
+                  formData.section2_1.infraActArray.length > 0
+                    ? formData.section2_1.infraActArray
+                    : []
+                  ).map((entry) => {
+                    // Ensure sector is always "Overarching" when yes is selected
+                    if (entry.sector !== "Overarching") {
+                      // Use setTimeout to avoid state update during render
+                      setTimeout(() => {
+                        updateEntry(
+                          "section2_1",
+                          entry.id,
+                          "sector",
+                          "Overarching"
+                        );
+                      }, 0);
+                    }
+                    return (
+                      <div key={entry.id} className=" mb-2 relative">
+                        <div className="flex flex-col gap-4 max-w-[70%]">
+                          <div className="flex-1 w-full">
+                            <FileUploadSection
+                              label="Upload File"
+                              value={entry.files?.[0] || null}
+                              onChange={(file) => {
+                                showErrorsIfNeeded();
+                                // Always set file to null if not a real FileUpload
+                                const safeFile =
+                                  file &&
+                                  typeof file === "object" &&
+                                  (file.file instanceof File ||
+                                    file.file === null)
+                                    ? file
+                                    : null;
+                                updateEntry(
+                                  "section2_1",
+                                  entry.id,
+                                  "files",
+                                  safeFile ? [safeFile] : []
+                                );
+                                // Ensure sector is always "Overarching"
+                                if (entry.sector !== "Overarching") {
+                                  updateEntry(
+                                    "section2_1",
+                                    entry.id,
+                                    "sector",
+                                    "Overarching"
+                                  );
+                                }
+                              }}
+                              submissionId={submissionId}
+                              required
+                              disabled={isIndicatorSubmitted("2.1")}
+                              deferFileDeletion={editingIndicators.has("2.1")}
+                              className={getInputValidationClass(
+                                `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.files`
+                              )}
+                            />
+                            {renderFieldError(
+                              `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.files`
+                            )}
+                          </div>
+                          {/* Don't show delete button for "yes" case since only 1 entry is required */}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {renderFieldError("section2_1.infraActArray")}
+
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload copy of Act/Policy
+                  </p>
+                  {/* Note: "Add More" and delete button are not needed for "yes" case as only 1 entry is required */}
+                </>
               )}
 
               {/* If No → show current implementation with sector dropdown */}
               {formData.section2_1.hasOverarchingPolicy === "no" && (
                 <>
-              {(Array.isArray(formData.section2_1?.infraActArray)
-                ? formData.section2_1.infraActArray
-                : []
-              ).map((entry) => (
-                <div key={entry.id} className=" mb-2 relative">
-                  <div className="flex flex-col gap-4 max-w-[70%]">
-                    <div className="flex-1 w-full">
-                      <Label>
-                        Select Sector{" "}
-                        <span className="text-destructive">*</span>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Select the sector</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Select
-                        value={entry.sector}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateEntry("section2_1", entry.id, "sector", value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.1")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
+                  {(Array.isArray(formData.section2_1?.infraActArray)
+                    ? formData.section2_1.infraActArray
+                    : []
+                  ).map((entry) => (
+                    <div key={entry.id} className=" mb-2 relative">
+                      <div className="flex flex-col gap-4 max-w-[70%]">
+                        <div className="flex-1 w-full">
+                          <Label>
+                            Select Sector{" "}
+                            <span className="text-destructive">*</span>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="inline w-3 h-3 ml-1" />
+                              </TooltipTrigger>
+                              <TooltipContent>Select the sector</TooltipContent>
+                            </Tooltip>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateEntry(
+                                "section2_1",
+                                entry.id,
+                                "sector",
+                                value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("2.1")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select an option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1 w-full">
+                          <FileUploadSection
+                            label="Upload File"
+                            value={entry.files?.[0] || null}
+                            onChange={(file) => {
+                              showErrorsIfNeeded();
+                              // Always set file to null if not a real FileUpload
+                              const safeFile =
+                                file &&
+                                typeof file === "object" &&
+                                (file.file instanceof File ||
+                                  file.file === null)
+                                  ? file
+                                  : null;
+                              updateEntry(
+                                "section2_1",
+                                entry.id,
+                                "files",
+                                safeFile ? [safeFile] : []
+                              );
+                            }}
+                            submissionId={submissionId}
+                            required
+                            disabled={isIndicatorSubmitted("2.1")}
+                            deferFileDeletion={editingIndicators.has("2.1")}
+                            className={getInputValidationClass(
                               `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
                                 (e) => e.id === entry.id
-                              )}.sector`
-                            )
+                              )}.files`
+                            )}
+                          />
+                          {renderFieldError(
+                            `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.files`
                           )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="self-start absolute top-2 right-2"
+                          onClick={() => removeEntry("section2_1", entry.id)}
+                          disabled={isIndicatorSubmitted("2.1")}
+                          aria-label="Remove"
                         >
-                          <SelectValue placeholder="Select an option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <Trash2 className="w-5 h-5 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex-1 w-full">
-                      <FileUploadSection
-                        label="Upload File"
-                        value={entry.files?.[0] || null}
-                        onChange={(file) => {
-                          showErrorsIfNeeded();
-                          // Always set file to null if not a real FileUpload
-                          const safeFile =
-                            file &&
-                            typeof file === "object" &&
-                            (file.file instanceof File || file.file === null)
-                              ? file
-                              : null;
-                          updateEntry(
-                            "section2_1",
-                            entry.id,
-                            "files",
-                            safeFile ? [safeFile] : []
-                          );
-                        }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("2.1")}
-                        deferFileDeletion={editingIndicators.has("2.1")}
-                        className={getInputValidationClass(
-                          `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.files`
-                        )}
-                      />
-                      {renderFieldError(
-                        `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.files`
-                      )}
-                    </div>
+                  ))}
+
+                  {renderFieldError("section2_1.infraActArray")}
+
+                  <div>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="self-start absolute top-2 right-2"
-                      onClick={() => removeEntry("section2_1", entry.id)}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addEntry("section2_1")}
                       disabled={isIndicatorSubmitted("2.1")}
-                      aria-label="Remove"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Trash2 className="w-5 h-5 text-destructive" />
+                      <Plus className="w-4 h-4" />
+                      Add More Entry
                     </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload copy of Act/Policy
+                    </p>
                   </div>
-                </div>
-              ))}
-              
-              {renderFieldError("section2_1.infraActArray")}
-              
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addEntry("section2_1")}
-                  disabled={isIndicatorSubmitted("2.1")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Entry
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload copy of Act/Policy
-                </p>
-              </div>
                 </>
               )}
 
@@ -2691,12 +2834,19 @@ export const InfraDevelopmentStep = () => {
                       <thead>
                         <tr className="bg-[#DDE3F9]">
                           {/* Hide sector column when "yes" is selected */}
-                          {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                          {formData.section2_1.hasOverarchingPolicy !==
+                            "yes" && (
                             <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                               Sector
                             </th>
                           )}
-                          <th className={`py-3 px-4 text-left ${formData.section2_1.hasOverarchingPolicy === "yes" ? "rounded-tl-xl" : ""} text-sm font-normal`}>
+                          <th
+                            className={`py-3 px-4 text-left ${
+                              formData.section2_1.hasOverarchingPolicy === "yes"
+                                ? "rounded-tl-xl"
+                                : ""
+                            } text-sm font-normal`}
+                          >
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2717,7 +2867,8 @@ export const InfraDevelopmentStep = () => {
                             return (
                               <tr key={entry.id} className="bg-white">
                                 {/* Hide sector column when "yes" is selected */}
-                                {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                                {formData.section2_1.hasOverarchingPolicy !==
+                                  "yes" && (
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {entry.sector}
                                   </td>
@@ -2725,11 +2876,19 @@ export const InfraDevelopmentStep = () => {
                                 <td className="py-3 px-4 text-sm font-normal">
                                   No file uploaded
                                 </td>
-                                <td className={`py-3 px-4 text-sm font-normal ${formData.section2_1.hasOverarchingPolicy === "yes" ? "rounded-tr-xl" : ""}`}>
+                                <td
+                                  className={`py-3 px-4 text-sm font-normal ${
+                                    formData.section2_1.hasOverarchingPolicy ===
+                                    "yes"
+                                      ? "rounded-tr-xl"
+                                      : ""
+                                  }`}
+                                >
                                   N/A
                                 </td>
                                 {/* Hide Action column when "yes" is selected since delete is not allowed */}
-                                {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                                {formData.section2_1.hasOverarchingPolicy !==
+                                  "yes" && (
                                   <td className="py-3 px-4">
                                     <button
                                       type="button"
@@ -2781,7 +2940,8 @@ export const InfraDevelopmentStep = () => {
                           return (
                             <tr key={entry.id} className="bg-white">
                               {/* Hide sector column when "yes" is selected */}
-                              {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                              {formData.section2_1.hasOverarchingPolicy !==
+                                "yes" && (
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {entry.sector}
                                 </td>
@@ -2799,7 +2959,8 @@ export const InfraDevelopmentStep = () => {
                                   : "N/A"}
                               </td>
                               {/* Hide Action column when "yes" is selected since delete is not allowed */}
-                              {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                              {formData.section2_1.hasOverarchingPolicy !==
+                                "yes" && (
                                 <td className="py-3 px-4">
                                   <button
                                     type="button"
@@ -2849,7 +3010,9 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                   className="disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingDraftIndicators.has("2.1") ? "Saving..." : "Save as Draft"}
+                  {savingDraftIndicators.has("2.1")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -2872,6 +3035,7 @@ export const InfraDevelopmentStep = () => {
             subtitle=""
             className="mb-6"
             indicatorStatus={getIndicatorStatus("2.2")}
+            saveAsDraft={isIndicatorSavedAsDraft("2.2")}
             indicatorCode="2.2"
             isEditable={editingIndicators.has("2.2")}
             onEdit={() => handleEditIndicator("2.2")}
@@ -2961,127 +3125,135 @@ export const InfraDevelopmentStep = () => {
               {/* If Yes → show specialized entity fields */}
               {formData.section2_2.hasSpecializedEntity === "yes" && (
                 <div className="flex flex-col gap-4">
-              {(Array.isArray(formData.section2_2?.specializedEntityArray)
-                ? formData.section2_2.specializedEntityArray
-                : []
-              ).map((entry) => (
-                <div key={entry.id} className="mb-2 relative">
-                  <div className="flex flex-col gap-4 max-w-[70%]">
-                    <div className="flex-1 w-full">
-                      <Label>
-                        Select Sector{" "}
-                        <span className="text-destructive">*</span>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Select the sector</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Select
-                        value={entry.sector}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateEntry("section2_2", entry.id, "sector", value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.2")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
+                  {(Array.isArray(formData.section2_2?.specializedEntityArray)
+                    ? formData.section2_2.specializedEntityArray
+                    : []
+                  ).map((entry) => (
+                    <div key={entry.id} className="mb-2 relative">
+                      <div className="flex flex-col gap-4 max-w-[70%]">
+                        <div className="flex-1 w-full">
+                          <Label>
+                            Select Sector{" "}
+                            <span className="text-destructive">*</span>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="inline w-3 h-3 ml-1" />
+                              </TooltipTrigger>
+                              <TooltipContent>Select the sector</TooltipContent>
+                            </Tooltip>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateEntry(
+                                "section2_2",
+                                entry.id,
+                                "sector",
+                                value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("2.2")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select an option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1 w-full">
+                          <FileUploadSection
+                            label="Upload File"
+                            value={entry.files?.[0] || null}
+                            onChange={(file) => {
+                              showErrorsIfNeeded();
+                              // Always set file to null if not a real FileUpload
+                              const safeFile =
+                                file &&
+                                typeof file === "object" &&
+                                (file.file instanceof File ||
+                                  file.file === null)
+                                  ? file
+                                  : null;
+                              updateEntry(
+                                "section2_2",
+                                entry.id,
+                                "files",
+                                safeFile ? [safeFile] : []
+                              );
+                            }}
+                            submissionId={submissionId}
+                            required
+                            disabled={isIndicatorSubmitted("2.2")}
+                            deferFileDeletion={editingIndicators.has("2.2")}
+                            className={getInputValidationClass(
                               `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
                                 (e) => e.id === entry.id
-                              )}.sector`
-                            )
+                              )}.files`
+                            )}
+                          />
+                          {renderFieldError(
+                            `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.files`
                           )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeEntry("section2_2", entry.id)}
+                          disabled={isIndicatorSubmitted("2.2")}
+                          aria-label="Remove"
                         >
-                          <SelectValue placeholder="Select an option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <Trash2 className="w-5 h-5 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex-1 w-full">
-                      <FileUploadSection
-                        label="Upload File"
-                        value={entry.files?.[0] || null}
-                        onChange={(file) => {
-                          showErrorsIfNeeded();
-                          // Always set file to null if not a real FileUpload
-                          const safeFile =
-                            file &&
-                            typeof file === "object" &&
-                            (file.file instanceof File || file.file === null)
-                              ? file
-                              : null;
-                          updateEntry(
-                            "section2_2",
-                            entry.id,
-                            "files",
-                            safeFile ? [safeFile] : []
-                          );
-                        }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("2.2")}
-                        deferFileDeletion={editingIndicators.has("2.2")}
-                        className={getInputValidationClass(
-                          `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.files`
-                        )}
-                      />
-                      {renderFieldError(
-                        `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.files`
-                      )}
-                    </div>
+                  ))}
+
+                  {renderFieldError("section2_2.specializedEntityArray")}
+
+                  <div>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeEntry("section2_2", entry.id)}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addEntry("section2_2")}
                       disabled={isIndicatorSubmitted("2.2")}
-                      aria-label="Remove"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Trash2 className="w-5 h-5 text-destructive" />
+                      <Plus className="w-4 h-4" />
+                      Add More Entry
                     </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload evidence
+                    </p>
                   </div>
-                </div>
-              ))}
-              
-              {renderFieldError("section2_2.specializedEntityArray")}
-              
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addEntry("section2_2")}
-                  disabled={isIndicatorSubmitted("2.2")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Entry
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload evidence
-                </p>
-              </div>
                 </div>
               )}
 
               {/* If No → show comment box */}
               {formData.section2_2.hasSpecializedEntity === "no" && (
                 <div>
-                  <Label>Comments (Reason) <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Comments (Reason) <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     placeholder="Enter reason or comment"
                     value={formData.section2_2.comment || ""}
@@ -3107,7 +3279,7 @@ export const InfraDevelopmentStep = () => {
               )}
 
               {/* Table display - only show when "yes" is selected */}
-              {formData.section2_2.hasSpecializedEntity === "yes" && (
+              {formData.section2_2.hasSpecializedEntity === "yes" &&
                 Array.isArray(formData.section2_2?.specializedEntityArray) &&
                 formData.section2_2.specializedEntityArray.length > 0 && (
                   <div className="overflow-x-auto rounded-xl">
@@ -3231,8 +3403,7 @@ export const InfraDevelopmentStep = () => {
                       </tbody>
                     </table>
                   </div>
-                )
-              )}
+                )}
               <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
@@ -3257,7 +3428,9 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                   className="disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingDraftIndicators.has("2.2") ? "Saving..." : "Save as Draft"}
+                  {savingDraftIndicators.has("2.2")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -3279,6 +3452,7 @@ export const InfraDevelopmentStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("2.3")}
+            saveAsDraft={isIndicatorSavedAsDraft("2.3")}
             indicatorCode="2.3"
             isEditable={editingIndicators.has("2.3")}
             onEdit={() => handleEditIndicator("2.3")}
@@ -3465,9 +3639,9 @@ export const InfraDevelopmentStep = () => {
                       </Button>
                     </div>
                   ))}
-                  
+
                   {renderFieldError("section2_3.infraDevelopmentArray")}
-                  
+
                   <Button
                     type="button"
                     variant="outline"
@@ -3488,7 +3662,9 @@ export const InfraDevelopmentStep = () => {
               {/* If No → show comment box */}
               {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
                 <div>
-                  <Label>Comments (Reason) <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Comments (Reason) <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     placeholder="Enter reason or comment"
                     value={formData.section2_3.comment || ""}
@@ -3666,7 +3842,9 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                   className="disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingDraftIndicators.has("2.3") ? "Saving..." : "Save as Draft"}
+                  {savingDraftIndicators.has("2.3")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -3688,6 +3866,7 @@ export const InfraDevelopmentStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("2.4")}
+            saveAsDraft={isIndicatorSavedAsDraft("2.4")}
             indicatorCode="2.4"
             isEditable={editingIndicators.has("2.4")}
             onEdit={() => handleEditIndicator("2.4")}
@@ -4044,9 +4223,9 @@ export const InfraDevelopmentStep = () => {
                       </div>
                     </div>
                   ))}
-                  
+
                   {renderFieldError("section2_4.investmentReadyArray")}
-                  
+
                   {/* Add button */}
                   <div>
                     <Button
@@ -4135,7 +4314,8 @@ export const InfraDevelopmentStep = () => {
               {formData.section2_4.hasInvestmentReady === "no" && (
                 <div>
                   <Label>
-                    Comments (Reason) <span className="text-destructive">*</span>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="text"
@@ -4185,7 +4365,9 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                   className="disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingDraftIndicators.has("2.4") ? "Saving..." : "Save as Draft"}
+                  {savingDraftIndicators.has("2.4")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -4207,6 +4389,7 @@ export const InfraDevelopmentStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("2.5")}
+            saveAsDraft={isIndicatorSavedAsDraft("2.5")}
             indicatorCode="2.5"
             isEditable={editingIndicators.has("2.5")}
             onEdit={() => handleEditIndicator("2.5")}
@@ -4228,7 +4411,9 @@ export const InfraDevelopmentStep = () => {
                       type="radio"
                       name="asset-monetization"
                       value="yes"
-                      checked={formData.section2_5.hasAssetMonetization === "yes"}
+                      checked={
+                        formData.section2_5.hasAssetMonetization === "yes"
+                      }
                       onChange={() => {
                         if (isIndicatorSubmitted("2.5")) return;
                         showErrorsIfNeeded();
@@ -4267,7 +4452,9 @@ export const InfraDevelopmentStep = () => {
                       type="radio"
                       name="asset-monetization"
                       value="no"
-                      checked={formData.section2_5.hasAssetMonetization === "no"}
+                      checked={
+                        formData.section2_5.hasAssetMonetization === "no"
+                      }
                       onChange={() => {
                         if (isIndicatorSubmitted("2.5")) return;
                         showErrorsIfNeeded();
@@ -4291,367 +4478,377 @@ export const InfraDevelopmentStep = () => {
               {/* If Yes → show fields */}
               {formData.section2_5.hasAssetMonetization === "yes" && (
                 <>
-              {(Array.isArray(formData.section2_5?.assetMonetizationArray)
-                ? formData.section2_5.assetMonetizationArray
-                : []
-              ).map((entry) => (
-                <div key={entry.id} className="mb-2">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                    <div>
-                      <Label>
-                        Project/Asset Name{" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter project/asset name"
-                        value={entry.projectName}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          updateAsset(entry.id, "projectName", e.target.value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.5")}
-                        className={cn(
-                          getInputValidationClass(
+                  {(Array.isArray(formData.section2_5?.assetMonetizationArray)
+                    ? formData.section2_5.assetMonetizationArray
+                    : []
+                  ).map((entry) => (
+                    <div key={entry.id} className="mb-2">
+                      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                        <div>
+                          <Label>
+                            Project/Asset Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter project/asset name"
+                            value={entry.projectName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateAsset(
+                                entry.id,
+                                "projectName",
+                                e.target.value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("2.5")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.projectName`
+                              ),
+                              isIndicatorSubmitted("2.5") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
                             `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                               (e) => e.id === entry.id
                             )}.projectName`
-                          ),
-                          isIndicatorSubmitted("2.5") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.projectName`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Select Sector{" "}
-                        <span className="text-destructive">*</span>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Select the sector</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Select
-                        value={entry.sector}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateAsset(entry.id, "sector", value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.5")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.sector`
-                            )
                           )}
-                        >
-                          <SelectValue placeholder="Select an Option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(
-                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.sector`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Asset Type <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={entry.type}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateAsset(entry.id, "type", value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.5")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
+                        </div>
+                        <div>
+                          <Label>
+                            Select Sector{" "}
+                            <span className="text-destructive">*</span>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="inline w-3 h-3 ml-1" />
+                              </TooltipTrigger>
+                              <TooltipContent>Select the sector</TooltipContent>
+                            </Tooltip>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateAsset(entry.id, "sector", value);
+                            }}
+                            disabled={isIndicatorSubmitted("2.5")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select an Option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.sector`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Asset Type{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.type}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateAsset(entry.id, "type", value);
+                            }}
+                            disabled={isIndicatorSubmitted("2.5")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.type`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select Asset Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ASSET_TYPE_OPTIONS.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
                             `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                               (e) => e.id === entry.id
                             )}.type`
-                            )
                           )}
-                        >
-                          <SelectValue placeholder="Select Asset Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ASSET_TYPE_OPTIONS.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(
-                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.type`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Asset Ownership{" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={entry.ownership}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateAsset(entry.id, "ownership", value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.5")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.ownership`
-                            )
+                        </div>
+                        <div>
+                          <Label>
+                            Asset Ownership{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.ownership}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateAsset(entry.id, "ownership", value);
+                            }}
+                            disabled={isIndicatorSubmitted("2.5")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.ownership`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Asset ownership" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OWNERSHIP_OPTIONS.map((own) => (
+                                <SelectItem key={own} value={own}>
+                                  {own}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.ownership`
                           )}
-                        >
-                          <SelectValue placeholder="Asset ownership" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {OWNERSHIP_OPTIONS.map((own) => (
-                            <SelectItem key={own} value={own}>
-                              {own}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(
-                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.ownership`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Location (City/Cities){" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter location"
-                        value={entry.location || ""}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          updateAsset(entry.id, "location", e.target.value);
-                        }}
-                        disabled={isIndicatorSubmitted("2.5")}
-                        className={cn(
-                          getInputValidationClass(
+                        </div>
+                        <div>
+                          <Label>
+                            Location (City/Cities){" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter location"
+                            value={entry.location || ""}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateAsset(entry.id, "location", e.target.value);
+                            }}
+                            disabled={isIndicatorSubmitted("2.5")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.location`
+                              ),
+                              isIndicatorSubmitted("2.5") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
                             `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                               (e) => e.id === entry.id
                             )}.location`
-                          ),
-                          isIndicatorSubmitted("2.5") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.location`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Website Link <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        type="url"
-                        placeholder="Enter website URL (e.g., https://example.com)"
-                        value={entry.websiteLink || ""}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          updateAsset(entry.id, "websiteLink", e.target.value);
-                        }}
-                        onBlur={createOnBlurHandler(
-                          `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.websiteLink`
-                        )}
-                        disabled={isIndicatorSubmitted("2.5")}
-                        className={cn(
-                          getInputValidationClass(
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Website Link{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="url"
+                            placeholder="Enter website URL (e.g., https://example.com)"
+                            value={entry.websiteLink || ""}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateAsset(
+                                entry.id,
+                                "websiteLink",
+                                e.target.value
+                              );
+                            }}
+                            onBlur={createOnBlurHandler(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.websiteLink`
+                            )}
+                            disabled={isIndicatorSubmitted("2.5")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.websiteLink`
+                              ),
+                              isIndicatorSubmitted("2.5") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
                             `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                               (e) => e.id === entry.id
                             )}.websiteLink`
-                          ),
-                          isIndicatorSubmitted("2.5") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                          (e) => e.id === entry.id
-                        )}.websiteLink`
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <Label>Estimated Monetization</Label>
-                        <Input
-                          type="number"
-                          placeholder="Estimated Monetization"
-                          value={entry.estimatedMonetization}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            updateAsset(
-                              entry.id,
-                              "estimatedMonetization",
-                              e.target.value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("2.5")}
-                          className={cn(
-                            getInputValidationClass(
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <Label>Estimated Monetization</Label>
+                            <Input
+                              type="number"
+                              placeholder="Estimated Monetization"
+                              value={entry.estimatedMonetization}
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                updateAsset(
+                                  entry.id,
+                                  "estimatedMonetization",
+                                  e.target.value
+                                );
+                              }}
+                              disabled={isIndicatorSubmitted("2.5")}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.estimatedMonetization`
+                                ),
+                                isIndicatorSubmitted("2.5") &&
+                                  "bg-gray-50 cursor-not-allowed"
+                              )}
+                            />
+                            {renderFieldError(
                               `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                                 (e) => e.id === entry.id
                               )}.estimatedMonetization`
-                            ),
-                            isIndicatorSubmitted("2.5") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.estimatedMonetization`
-                        )}
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="self-start mt-6"
+                            onClick={() => removeAsset(entry.id)}
+                            disabled={isIndicatorSubmitted("2.5")}
+                            aria-label="Remove"
+                          >
+                            <Trash2 className="w-5 h-5 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="self-start mt-6"
-                        onClick={() => removeAsset(entry.id)}
-                        disabled={isIndicatorSubmitted("2.5")}
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="w-5 h-5 text-destructive" />
-                      </Button>
                     </div>
+                  ))}
+
+                  {renderFieldError("section2_5.assetMonetizationArray")}
+
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addAsset}
+                      disabled={isIndicatorSubmitted("2.5")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4 " />
+                      Add More Asset
+                    </Button>
                   </div>
-                </div>
-              ))}
-              
-              {renderFieldError("section2_5.assetMonetizationArray")}
-              
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addAsset}
-                  disabled={isIndicatorSubmitted("2.5")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4 " />
-                  Add More Asset
-                </Button>
-              </div>
-              {/* Table view for Asset Monetization entries */}
-              {Array.isArray(formData.section2_5?.assetMonetizationArray) &&
-                formData.section2_5.assetMonetizationArray.length > 0 && (
-                  <div className="overflow-x-auto rounded-xl mt-4">
-                    <table className="min-w-full border-separate border-spacing-0">
-                      <thead>
-                        <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Project / Asset Name
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Sector
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Asset Type
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Ownership
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Location
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Website Link
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Estimated Monetization (INR Cr)
-                          </th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(Array.isArray(
-                          formData.section2_5?.assetMonetizationArray
-                        )
-                          ? formData.section2_5.assetMonetizationArray
-                          : []
-                        ).map((entry) => (
-                          <tr key={entry.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.projectName}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.type}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.ownership}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.location || "N/A"}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.websiteLink || "N/A"}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.estimatedMonetization}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() => removeAsset(entry.id)}
-                                disabled={isIndicatorSubmitted("2.5")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                  {/* Table view for Asset Monetization entries */}
+                  {Array.isArray(formData.section2_5?.assetMonetizationArray) &&
+                    formData.section2_5.assetMonetizationArray.length > 0 && (
+                      <div className="overflow-x-auto rounded-xl mt-4">
+                        <table className="min-w-full border-separate border-spacing-0">
+                          <thead>
+                            <tr className="bg-[#DDE3F9]">
+                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                Project / Asset Name
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Sector
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Asset Type
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Ownership
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Location
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Website Link
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Estimated Monetization (INR Cr)
+                              </th>
+                              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(Array.isArray(
+                              formData.section2_5?.assetMonetizationArray
+                            )
+                              ? formData.section2_5.assetMonetizationArray
+                              : []
+                            ).map((entry) => (
+                              <tr key={entry.id} className="bg-white">
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.projectName}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.type}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.ownership}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.location || "N/A"}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.websiteLink || "N/A"}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.estimatedMonetization}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAsset(entry.id)}
+                                    disabled={isIndicatorSubmitted("2.5")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                 </>
               )}
 
@@ -4659,7 +4856,8 @@ export const InfraDevelopmentStep = () => {
               {formData.section2_5.hasAssetMonetization === "no" && (
                 <div>
                   <Label>
-                    Comments (Reason) <span className="text-destructive">*</span>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="text"
@@ -4709,7 +4907,9 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                   className="disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingDraftIndicators.has("2.5") ? "Saving..." : "Save as Draft"}
+                  {savingDraftIndicators.has("2.5")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </div>
