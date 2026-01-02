@@ -301,11 +301,6 @@ export const InfraEnablersStep = () => {
                 normalized,
                 legacy.section4_1
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section4_1
-              )?.saveAsDraft,
             },
             section4_2: {
               ...getSectionFromNormalizedOrLegacy(
@@ -317,11 +312,6 @@ export const InfraEnablersStep = () => {
                 normalized,
                 legacy.section4_2
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section4_2
-              )?.saveAsDraft,
             },
             section4_3: {
               ...getSectionFromNormalizedOrLegacy(
@@ -333,11 +323,6 @@ export const InfraEnablersStep = () => {
                 normalized,
                 legacy.section4_3
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section4_3
-              )?.saveAsDraft,
             },
             section4_4: {
               ...getSectionFromNormalizedOrLegacy(
@@ -349,11 +334,6 @@ export const InfraEnablersStep = () => {
                 normalized,
                 legacy.section4_4
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section4_4
-              )?.saveAsDraft,
             },
             section4_5: {
               ...getSectionFromNormalizedOrLegacy(
@@ -365,11 +345,6 @@ export const InfraEnablersStep = () => {
                 normalized,
                 legacy.section4_5
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section4_5
-              )?.saveAsDraft,
             },
           });
           setFormData(newFormData);
@@ -1044,7 +1019,6 @@ export const InfraEnablersStep = () => {
         [sectionKey]: {
           ...sanitizedFormData[sectionKey],
           status: newStatus,
-          saveAsDraft: false, // Remove saveAsDraft flag when submitting/resubmitting
         },
       };
 
@@ -1081,7 +1055,6 @@ export const InfraEnablersStep = () => {
             ...prev[sectionKey],
             ...sanitizedFormData[sectionKey],
             status: newStatus,
-            saveAsDraft: false, // Remove saveAsDraft flag when submitting/resubmitting
           },
         };
         // Update form persistence with the merged data
@@ -1300,28 +1273,21 @@ export const InfraEnablersStep = () => {
     return (sectionData as any)?.status;
   };
 
-  // Helper function to check if indicator is saved as draft
-  const isIndicatorSavedAsDraft = (indicatorCode: string): boolean => {
-    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
-    const sectionData = formData[sectionKey];
-    return (sectionData as any)?.saveAsDraft === true;
-  };
-
   // Check if indicator is submitted or accepted (non-editable)
   // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
-  // Indicators with saveAsDraft flag remain editable
+  // SAVE_AS_DRAFT indicators remain editable
   const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
     // If indicator is in edit mode, it's editable
     if (editingIndicators.has(indicatorCode)) {
       return false;
     }
-    // Indicators with saveAsDraft flag remain editable
-    if (isIndicatorSavedAsDraft(indicatorCode)) {
+    // SAVE_AS_DRAFT indicators remain editable
+    if (upperStatus === "SAVE_AS_DRAFT") {
       return false;
     }
-    const status = getIndicatorStatus(indicatorCode);
-    if (!status) return false;
-    const upperStatus = status.toUpperCase();
     // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
     // Other statuses are non-editable
     return (
@@ -1582,7 +1548,6 @@ export const InfraEnablersStep = () => {
       const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
         status: newStatus,
-        saveAsDraft: false, // Remove saveAsDraft flag when saving after resubmission
       };
 
       // Create sanitized data with status for the saved indicator (same format as Submit)
@@ -1622,10 +1587,7 @@ export const InfraEnablersStep = () => {
       setFormData((prev: any) => {
         const updated = {
           ...prev,
-          [sectionKey]: {
-            ...sectionDataWithStatus,
-            saveAsDraft: false, // Ensure saveAsDraft is removed
-          },
+          [sectionKey]: sectionDataWithStatus,
         };
         // Also update form persistence with the merged data
         updateFormData("infraEnablers", {
@@ -1712,40 +1674,35 @@ export const InfraEnablersStep = () => {
         sanitizeFilesInFormData(formData)
       );
 
-      // Get current status to preserve it (REVERTED, SUBMITTED_TO_STATE, etc.)
-      const currentStatus = sanitizedFormData[sectionKey]?.status;
-
-      // Prepare data with saveAsDraft flag (preserve existing status)
-      const sectionDataWithDraftFlag = {
+      // Prepare data with SAVE_AS_DRAFT status
+      const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
-        saveAsDraft: true,
-        // Preserve existing status if it exists, otherwise don't set status
-        ...(currentStatus && { status: currentStatus }),
+        status: "SAVE_AS_DRAFT",
       };
 
-      // Create sanitized data with saveAsDraft flag for the draft indicator
-      const sanitizedFormDataWithDraftFlag = {
+      // Create sanitized data with status for the draft indicator
+      const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
-        [sectionKey]: sectionDataWithDraftFlag,
+        [sectionKey]: sectionDataWithStatus,
       };
 
-      // Use submitSectionToStateApprover API to save with saveAsDraft flag
+      // Use submitSectionToStateApprover API to save with SAVE_AS_DRAFT status
       await apiService.submitSectionToStateApprover(
-        sanitizedFormDataWithDraftFlag,
+        sanitizedFormDataWithStatus,
         "infraEnablers",
         [indicatorCode]
       );
 
-      // Update local formData state immediately to reflect saveAsDraft flag
+      // Update local formData state immediately to reflect SAVE_AS_DRAFT status
       setFormData((prev: any) => {
         const updated = {
           ...prev,
-          [sectionKey]: sectionDataWithDraftFlag,
+          [sectionKey]: sectionDataWithStatus,
         };
         // Also update form persistence with the merged data
         updateFormData("infraEnablers", {
           ...prev,
-          ...sanitizedFormDataWithDraftFlag,
+          ...sanitizedFormDataWithStatus,
         });
         return updated;
       });
@@ -1829,7 +1786,6 @@ export const InfraEnablersStep = () => {
           subtitle=""
           className="mb-6"
           indicatorStatus={getIndicatorStatus("4.1")}
-          saveAsDraft={isIndicatorSavedAsDraft("4.1")}
           indicatorCode="4.1"
           isEditable={editingIndicators.has("4.1")}
           onEdit={() => handleEditIndicator("4.1")}
@@ -1994,7 +1950,6 @@ export const InfraEnablersStep = () => {
           }
           className="mb-6"
           indicatorStatus={getIndicatorStatus("4.2")}
-          saveAsDraft={isIndicatorSavedAsDraft("4.2")}
           indicatorCode="4.2"
           isEditable={editingIndicators.has("4.2")}
           onEdit={() => handleEditIndicator("4.2")}
@@ -2432,7 +2387,6 @@ export const InfraEnablersStep = () => {
           }
           className="mb-6"
           indicatorStatus={getIndicatorStatus("4.3")}
-          saveAsDraft={isIndicatorSavedAsDraft("4.3")}
           indicatorCode="4.3"
           isEditable={editingIndicators.has("4.3")}
           onEdit={() => handleEditIndicator("4.3")}
@@ -2600,7 +2554,6 @@ export const InfraEnablersStep = () => {
           }
           className="mb-6"
           indicatorStatus={getIndicatorStatus("4.4")}
-          saveAsDraft={isIndicatorSavedAsDraft("4.4")}
           indicatorCode="4.4"
           isEditable={editingIndicators.has("4.4")}
           onEdit={() => handleEditIndicator("4.4")}
@@ -2911,7 +2864,6 @@ export const InfraEnablersStep = () => {
           }
           className="mb-6"
           indicatorStatus={getIndicatorStatus("4.5")}
-          saveAsDraft={isIndicatorSavedAsDraft("4.5")}
           indicatorCode="4.5"
           isEditable={editingIndicators.has("4.5")}
           onEdit={() => handleEditIndicator("4.5")}

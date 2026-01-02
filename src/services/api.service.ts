@@ -657,7 +657,8 @@ class ApiService implements HttpClient {
     page = 1,
     limit = 10,
     statusOrRole?: string,
-    status?: string
+    status?: string,
+    includeDraftOnly = false
   ): Promise<{
     submissions: NiriSubmission[];
     total: number;
@@ -670,6 +671,9 @@ class ApiService implements HttpClient {
     // If statusOrRole is provided and it's a specific status, filter by that status
     // Otherwise, get all submissions
     let url = `/submission?page=${page}&limit=${limit}`;
+    if (includeDraftOnly) {
+      url += `&includeDraftOnly=true`;
+    }
     const statusToUse = status || statusOrRole;
 
     if (statusToUse && statusToUse !== "all") {
@@ -1653,7 +1657,7 @@ class ApiService implements HttpClient {
 
       try {
         // Try to get user's existing draft/in-progress submissions
-        const submissions = await this.getSubmissions(1, 100);
+        const submissions = await this.getSubmissions(1, 100, undefined, undefined, true);
 
         // For STATE_APPROVER: only find submissions that belong to STATE_APPROVER
         // For NODAL_OFFICER: find submissions that belong to NODAL_OFFICER

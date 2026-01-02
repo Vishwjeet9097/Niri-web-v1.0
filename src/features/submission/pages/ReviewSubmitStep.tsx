@@ -161,34 +161,17 @@ export const ReviewSubmitStep = () => {
       for (const category of categories) {
         const categoryData = formData[category];
         if (categoryData?.[sectionKey]) {
-          const section = categoryData[sectionKey];
-          status = section?.status;
-          // Check saveAsDraft flag - exclude if true and not previously submitted
-          const saveAsDraft = section?.saveAsDraft === true;
-          if (saveAsDraft) {
-            // Check if it was previously submitted (in completedIndicators or has comments)
-            const wasSubmitted =
-              submission?.section_status?.completedIndicators?.includes(
-                indicatorCode
-              ) ||
-              (submission?.reviewComments &&
-                Array.isArray(submission.reviewComments) &&
-                submission.reviewComments.some((comment: any) => {
-                  const commentIndicatorCode =
-                    comment.indicatorCode ||
-                    comment.sectionId ||
-                    comment.section?.replace("section", "").replace("_", ".");
-                  return commentIndicatorCode === indicatorCode;
-                }));
-            if (!wasSubmitted) {
-              return; // Skip this indicator - it's a draft that was never submitted
-            }
-          }
+          status = categoryData[sectionKey]?.status;
           break;
         }
       }
 
       const upperStatus = status?.toUpperCase() || "";
+
+      // Exclude SAVE_AS_DRAFT indicators from review - they should not be shown
+      if (upperStatus === "SAVE_AS_DRAFT") {
+        return; // Skip this indicator - don't include it in any category
+      }
 
       if (upperStatus === "ACCEPTED" || upperStatus === "APPROVED") {
         accepted.push(indicatorCode);

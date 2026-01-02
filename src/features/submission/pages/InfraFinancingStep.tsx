@@ -143,6 +143,8 @@ export const InfraFinancingStep = () => {
     completedCount: 0,
     totalAssigned: 0,
   });
+  // Store submission ID to ensure we always use the same submission form
+  const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(null);
   const { getStepData, updateFormData, clearFormData } = useFormPersistence();
 
   const {
@@ -633,6 +635,8 @@ export const InfraFinancingStep = () => {
 
         let sectionStatusFromDB = undefined;
         if (userSubmission && userSubmission.id) {
+          // Store submission ID to ensure we always use the same submission
+          setCurrentSubmissionId(userSubmission.id);
           const fullSubmission = await apiService.getSubmission(
             userSubmission.id
           );
@@ -719,12 +723,6 @@ export const InfraFinancingStep = () => {
                 legacy.section1_1,
                 "1.1"
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section1_1,
-                "1.1"
-              )?.saveAsDraft,
             },
             section1_2: {
               ...getSectionFromNormalizedOrLegacy(
@@ -784,12 +782,6 @@ export const InfraFinancingStep = () => {
                 legacy.section1_2,
                 "1.2"
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section1_2,
-                "1.2"
-              )?.saveAsDraft,
             },
             section1_3: {
               ...getSectionFromNormalizedOrLegacy(
@@ -822,12 +814,6 @@ export const InfraFinancingStep = () => {
                 legacy.section1_3,
                 "1.3"
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section1_3,
-                "1.3"
-              )?.saveAsDraft,
             },
             section1_4: {
               ...getSectionFromNormalizedOrLegacy(
@@ -860,12 +846,6 @@ export const InfraFinancingStep = () => {
                 legacy.section1_4,
                 "1.4"
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section1_4,
-                "1.4"
-              )?.saveAsDraft,
             },
             section1_5: {
               ...getSectionFromNormalizedOrLegacy(
@@ -904,12 +884,6 @@ export const InfraFinancingStep = () => {
                 legacy.section1_5,
                 "1.5"
               )?.status,
-              // Preserve saveAsDraft flag from database
-              saveAsDraft: getSectionFromNormalizedOrLegacy(
-                normalized,
-                legacy.section1_5,
-                "1.5"
-              )?.saveAsDraft,
             },
           });
 
@@ -1572,7 +1546,6 @@ export const InfraFinancingStep = () => {
         [sectionKey]: {
           ...sanitizedFormData[sectionKey],
           status: newStatus,
-          saveAsDraft: false, // Remove saveAsDraft flag when submitting/resubmitting
         },
       };
 
@@ -1599,7 +1572,6 @@ export const InfraFinancingStep = () => {
             ...prev[sectionKey],
             ...sanitizedFormData[sectionKey],
             status: newStatus,
-            saveAsDraft: false, // Remove saveAsDraft flag when submitting/resubmitting
           },
         };
         // Update form persistence with the merged data
@@ -1882,28 +1854,21 @@ export const InfraFinancingStep = () => {
     return (sectionData as any)?.status;
   };
 
-  // Helper function to check if indicator is saved as draft
-  const isIndicatorSavedAsDraft = (indicatorCode: string): boolean => {
-    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
-    const sectionData = formData[sectionKey];
-    return (sectionData as any)?.saveAsDraft === true;
-  };
-
   // Check if indicator is submitted or accepted (non-editable)
   // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
-  // Indicators with saveAsDraft flag remain editable
+  // SAVE_AS_DRAFT indicators remain editable
   const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
     // If indicator is in edit mode, it's editable
     if (editingIndicators.has(indicatorCode)) {
       return false;
     }
-    // Indicators with saveAsDraft flag remain editable
-    if (isIndicatorSavedAsDraft(indicatorCode)) {
+    // SAVE_AS_DRAFT indicators remain editable
+    if (upperStatus === "SAVE_AS_DRAFT") {
       return false;
     }
-    const status = getIndicatorStatus(indicatorCode);
-    if (!status) return false;
-    const upperStatus = status.toUpperCase();
     // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
     // Other statuses are non-editable
     return (
@@ -2179,7 +2144,6 @@ export const InfraFinancingStep = () => {
       const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
         status: newStatus,
-        saveAsDraft: false, // Remove saveAsDraft flag when saving after resubmission
       };
 
       // Create sanitized data with status for the saved indicator (same format as Submit)
@@ -2207,10 +2171,7 @@ export const InfraFinancingStep = () => {
       setFormData((prev: any) => {
         const updated = {
           ...prev,
-          [sectionKey]: {
-            ...sectionDataWithStatus,
-            saveAsDraft: false, // Ensure saveAsDraft is removed
-          },
+          [sectionKey]: sectionDataWithStatus,
         };
         // Also update form persistence with the merged data
         updateFormData("infraFinancing", {
@@ -2285,45 +2246,80 @@ export const InfraFinancingStep = () => {
     try {
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
 
+      // Use stored submission ID if available, otherwise try to find existing submission
+      // This ensures we always use the same submission form, even if it only has SAVE_AS_DRAFT indicators
+      let existingSubmissionId: string | null = currentSubmissionId;
+      
+      // If we don't have a stored ID, try to find existing submission
+      if (!existingSubmissionId) {
+        try {
+          // Try to get submissions with status DRAFT explicitly
+          const submissionsResp = await apiService.getSubmissions(1, 100, "DRAFT");
+          const userSubmission = submissionsResp.submissions.find(
+            (sub: any) =>
+              (sub.status === "DRAFT" ||
+                sub.status === "IN_PROGRESS" ||
+                sub.status === "RETURNED_FROM_STATE" ||
+                sub.status === "PENDING_STATE_APPROVAL") &&
+              sub.submittedBy === user?.id
+          );
+          
+          if (userSubmission?.id) {
+            existingSubmissionId = userSubmission.id;
+            setCurrentSubmissionId(userSubmission.id); // Store it for future use
+            console.log("📋 Found existing submission for draft save:", existingSubmissionId);
+          } else {
+            console.log("📋 No existing submission found, will create new one");
+          }
+        } catch (err) {
+          console.log("⚠️ Error finding existing submission, will let API handle:", err);
+        }
+      } else {
+        console.log("📋 Using stored submission ID for draft save:", existingSubmissionId);
+      }
+
       // Sanitize files and remove unwanted keys before saving
       const sanitizedFormData = deepRemoveUnwantedKeys(
         sanitizeFilesInFormData(formData)
       );
 
-      // Get current status to preserve it (REVERTED, SUBMITTED_TO_STATE, etc.)
-      const currentStatus = sanitizedFormData[sectionKey]?.status;
-
-      // Prepare data with saveAsDraft flag (preserve existing status)
-      const sectionDataWithDraftFlag = {
+      // Prepare data with SAVE_AS_DRAFT status
+      const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
-        saveAsDraft: true,
-        // Preserve existing status if it exists, otherwise don't set status
-        ...(currentStatus && { status: currentStatus }),
+        status: "SAVE_AS_DRAFT",
       };
 
-      // Create sanitized data with saveAsDraft flag for the draft indicator
-      const sanitizedFormDataWithDraftFlag = {
+      // Create sanitized data with status for the draft indicator
+      const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
-        [sectionKey]: sectionDataWithDraftFlag,
+        [sectionKey]: sectionDataWithStatus,
       };
 
-      // Use submitSectionToStateApprover API to save with saveAsDraft flag
-      await apiService.submitSectionToStateApprover(
-        sanitizedFormDataWithDraftFlag,
+      // Use submitSectionToStateApprover API to save with SAVE_AS_DRAFT status
+      // NOTE: The API will try to find existing submission, but if it only has SAVE_AS_DRAFT indicators,
+      // it might be filtered out by backend findAll. The stored currentSubmissionId helps, but
+      // the backend findAll should be updated to NOT filter when looking for submissions to update.
+      const result = await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
         "infraFinancing",
         [indicatorCode]
       );
+      
+      // Update stored submission ID if we got a new one from the API
+      if (result?.id && !currentSubmissionId) {
+        setCurrentSubmissionId(result.id);
+      }
 
-      // Update local formData state immediately to reflect saveAsDraft flag
+      // Update local formData state immediately to reflect SAVE_AS_DRAFT status
       setFormData((prev: any) => {
         const updated = {
           ...prev,
-          [sectionKey]: sectionDataWithDraftFlag,
+          [sectionKey]: sectionDataWithStatus,
         };
         // Also update form persistence with the merged data
         updateFormData("infraFinancing", {
           ...prev,
-          ...sanitizedFormDataWithDraftFlag,
+          ...sanitizedFormDataWithStatus,
         });
         return updated;
       });
@@ -2358,6 +2354,7 @@ export const InfraFinancingStep = () => {
         <Stepper
           steps={SUBMISSION_STEPS}
           currentStep={currentStep}
+          onStepClick={goToStep}
           onStepClick={goToStep}
         />
       </div>
@@ -2399,7 +2396,6 @@ export const InfraFinancingStep = () => {
               }
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.1")}
-              saveAsDraft={isIndicatorSavedAsDraft("1.1")}
               indicatorCode="1.1"
               isEditable={editingIndicators.has("1.1")}
               onEdit={() => handleEditIndicator("1.1")}
@@ -2602,7 +2598,6 @@ export const InfraFinancingStep = () => {
                 </div>
               }
               indicatorStatus={getIndicatorStatus("1.2")}
-              saveAsDraft={isIndicatorSavedAsDraft("1.2")}
               indicatorCode="1.2"
               isEditable={editingIndicators.has("1.2")}
               onEdit={() => handleEditIndicator("1.2")}
@@ -2802,7 +2797,6 @@ export const InfraFinancingStep = () => {
               }
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.3")}
-              saveAsDraft={isIndicatorSavedAsDraft("1.3")}
               indicatorCode="1.3"
               isEditable={editingIndicators.has("1.3")}
               onEdit={() => handleEditIndicator("1.3")}
@@ -3432,7 +3426,6 @@ export const InfraFinancingStep = () => {
               }
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.4")}
-              saveAsDraft={isIndicatorSavedAsDraft("1.4")}
               indicatorCode="1.4"
               isEditable={editingIndicators.has("1.4")}
               onEdit={() => handleEditIndicator("1.4")}
@@ -3937,7 +3930,6 @@ export const InfraFinancingStep = () => {
               }
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.5")}
-              saveAsDraft={isIndicatorSavedAsDraft("1.5")}
               indicatorCode="1.5"
               isEditable={editingIndicators.has("1.5")}
               onEdit={() => handleEditIndicator("1.5")}

@@ -333,145 +333,7 @@ export const DataReviewTab = ({
       );
     }
 
-    // Helper function to convert section key to indicator code (e.g., "section1_1" -> "1.1")
-    const sectionKeyToIndicatorCode = (sectionKey: string): string | null => {
-      if (!sectionKey || !sectionKey.startsWith("section")) {
-        return null;
-      }
-      // Convert "section1_1" to "1.1"
-      const code = sectionKey.replace(/^section/, "").replace("_", ".");
-      return /^\d+(\.\d+)*$/.test(code) ? code : null;
-    };
-
-    // Helper function to check if an indicator was previously submitted
-    const wasIndicatorPreviouslySubmitted = (
-      indicatorCode: string
-    ): boolean => {
-      if (!indicatorCode || !submission) {
-        return false;
-      }
-
-      // Check 1: Check if indicator is in completedIndicators array
-      if (
-        submission.section_status?.completedIndicators &&
-        Array.isArray(submission.section_status.completedIndicators)
-      ) {
-        if (
-          submission.section_status.completedIndicators.includes(indicatorCode)
-        ) {
-          return true;
-        }
-      }
-
-      // Check 2: Check if there are review comments for this indicator
-      // Review comments typically have a sectionId or indicatorCode field
-      if (
-        submission.reviewComments &&
-        Array.isArray(submission.reviewComments)
-      ) {
-        const hasComments = submission.reviewComments.some((comment: any) => {
-          // Check various possible fields where indicator code might be stored
-          const commentIndicatorCode =
-            comment.indicatorCode ||
-            comment.sectionId ||
-            comment.section?.replace("section", "").replace("_", ".");
-          return commentIndicatorCode === indicatorCode;
-        });
-        if (hasComments) {
-          return true;
-        }
-      }
-
-      // Check 3: Check section_status object for this section
-      // This is a fallback check
-      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
-      if (
-        submission.section_status &&
-        typeof submission.section_status === "object"
-      ) {
-        const sectionStatus = (submission.section_status as any)[sectionKey];
-        if (
-          sectionStatus &&
-          sectionStatus !== "NOT_STARTED" &&
-          sectionStatus !== null &&
-          sectionStatus !== undefined
-        ) {
-          return true;
-        }
-      }
-
-      return false;
-    };
-
-    // Helper function to check if an indicator was REVERTED (sent back by reviewer)
-    const wasIndicatorReverted = (indicatorCode: string): boolean => {
-      if (!indicatorCode || !submission) {
-        return false;
-      }
-
-      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
-
-      // Check 1: Check review comments for rejection/revert actions
-      if (
-        submission.reviewComments &&
-        Array.isArray(submission.reviewComments)
-      ) {
-        const hasRevertComment = submission.reviewComments.some(
-          (comment: any) => {
-            // Check if comment is for this indicator
-            const commentIndicatorCode =
-              comment.indicatorCode ||
-              comment.sectionId ||
-              comment.section?.replace("section", "").replace("_", ".");
-
-            if (commentIndicatorCode !== indicatorCode) {
-              return false;
-            }
-
-            // Check if comment type indicates rejection/revert
-            // Review comments can have type "rejection" or action "state_reject"
-            const isRejection =
-              comment.type === "rejection" ||
-              comment.action === "state_reject" ||
-              comment.action === "reject" ||
-              (comment.role === "STATE_APPROVER" &&
-                (comment.type === "rejection" ||
-                  comment.text?.toLowerCase().includes("sent back")));
-
-            return isRejection;
-          }
-        );
-
-        if (hasRevertComment) {
-          return true;
-        }
-      }
-
-      // Check 2: Check section_status for REVERTED status
-      if (
-        submission.section_status &&
-        typeof submission.section_status === "object"
-      ) {
-        const sectionStatus = (submission.section_status as any)[sectionKey];
-        if (
-          sectionStatus &&
-          String(sectionStatus).toUpperCase() === "REVERTED"
-        ) {
-          return true;
-        }
-      }
-
-      // Check 3: Check if there's a history of REVERTED status in formData
-      // This is a fallback - check if the original formData had REVERTED status
-      // We can't directly access history, but we can check if there are comments
-      // indicating it was sent back
-
-      return false;
-    };
-
-    // Helper function to filter out indicators with saveAsDraft flag from a category
-    // BUT keep indicators that were previously submitted (even if now saveAsDraft)
-    // The status field is preserved (REVERTED, SUBMITTED_TO_STATE, etc.) for reviewer visibility
+    // Helper function to filter out SAVE_AS_DRAFT indicators from a category
     const filterDraftIndicators = (categoryData: any): any => {
       if (!categoryData || typeof categoryData !== "object") {
         return categoryData;
@@ -480,28 +342,15 @@ export const DataReviewTab = ({
       const filtered: any = {};
       Object.keys(categoryData).forEach((key) => {
         const section = categoryData[key];
-        // Check if this is a section object
-        if (section && typeof section === "object") {
-          const saveAsDraft = section.saveAsDraft === true;
-          const indicatorCode = sectionKeyToIndicatorCode(key);
-
-          // If saveAsDraft flag is true, check if it was previously submitted
-          if (saveAsDraft) {
-            if (
-              indicatorCode &&
-              wasIndicatorPreviouslySubmitted(indicatorCode)
-            ) {
-              // Keep it - it was previously submitted, so reviewers should still see it
-              // Status is preserved (REVERTED, SUBMITTED_TO_STATE, etc.) so reviewers see correct badge
-              filtered[key] = section;
-            }
-            // Otherwise, filter it out (never submitted, just a draft)
-          } else {
-            // Include all non-draft indicators
+        // Check if this is a section object with a status field
+        if (section && typeof section === "object" && section.status) {
+          const status = String(section.status).toUpperCase();
+          // Only include if status is NOT SAVE_AS_DRAFT
+          if (status !== "SAVE_AS_DRAFT") {
             filtered[key] = section;
           }
         } else {
-          // If not an object, include it (might be metadata or other data)
+          // If no status field, include it (might be metadata or other data)
           filtered[key] = section;
         }
       });
