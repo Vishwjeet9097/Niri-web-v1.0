@@ -2552,6 +2552,12 @@ export const InfraDevelopmentReview = ({
       // BUT: Always keep sections that were previously submitted, even if they have no data now
       const existingSections = allPossibleSections.filter((sectionKey) => {
         const section = state[sectionKey];
+        
+        // Exclude SAVE_AS_DRAFT indicators from review
+        if (section?.status && section.status.toUpperCase() === "SAVE_AS_DRAFT") {
+          return false; // Exclude SAVE_AS_DRAFT indicators from review
+        }
+
         const hasData = sectionHasMeaningfulData(sectionKey, section);
         //  return hasSectionData(sectionKey, sectionData);
 

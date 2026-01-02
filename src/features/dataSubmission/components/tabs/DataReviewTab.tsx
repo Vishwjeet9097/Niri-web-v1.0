@@ -60,7 +60,7 @@ const DEFAULT_SECTIONS = [
 
 export const DataReviewTab = ({
   submissionId,
-  formData,
+  formData: rawFormData,
   submission,
   isPreview = false,
   assignedIndicators,
@@ -69,6 +69,20 @@ export const DataReviewTab = ({
   onRefetch,
 }: DataReviewTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Parse formData if it's a string
+  const formData = useMemo(() => {
+    if (!rawFormData) return rawFormData;
+    if (typeof rawFormData === "string") {
+      try {
+        return JSON.parse(rawFormData);
+      } catch (e) {
+        console.error("Failed to parse formData in DataReviewTab:", e);
+        return rawFormData;
+      }
+    }
+    return rawFormData;
+  }, [rawFormData]);
 
   // Get category from URL params or default to 0
   const categoryParam = searchParams.get("category");
@@ -319,12 +333,37 @@ export const DataReviewTab = ({
       );
     }
 
+    // Helper function to filter out SAVE_AS_DRAFT indicators from a category
+    const filterDraftIndicators = (categoryData: any): any => {
+      if (!categoryData || typeof categoryData !== 'object') {
+        return categoryData;
+      }
+      
+      const filtered: any = {};
+      Object.keys(categoryData).forEach((key) => {
+        const section = categoryData[key];
+        // Check if this is a section object with a status field
+        if (section && typeof section === 'object' && section.status) {
+          const status = String(section.status).toUpperCase();
+          // Only include if status is NOT SAVE_AS_DRAFT
+          if (status !== 'SAVE_AS_DRAFT') {
+            filtered[key] = section;
+          }
+        } else {
+          // If no status field, include it (might be metadata or other data)
+          filtered[key] = section;
+        }
+      });
+      
+      return filtered;
+    };
+
     const sectionFormData = filteredFormData
       ? {
-          infraFinancing: filteredFormData.infraFinancing,
-          infraDevelopment: filteredFormData.infraDevelopment,
-          pppDevelopment: filteredFormData.pppDevelopment,
-          infraEnablers: filteredFormData.infraEnablers,
+          infraFinancing: filterDraftIndicators(filteredFormData.infraFinancing),
+          infraDevelopment: filterDraftIndicators(filteredFormData.infraDevelopment),
+          pppDevelopment: filterDraftIndicators(filteredFormData.pppDevelopment),
+          infraEnablers: filterDraftIndicators(filteredFormData.infraEnablers),
         }
       : {};
 

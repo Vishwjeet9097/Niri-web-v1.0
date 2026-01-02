@@ -881,6 +881,13 @@ export const InfraFinancingReview = ({
     // For both nodal officers and non-nodal officers: only show indicators that have been submitted
     // This ensures only saved/submitted indicators are shown
     const final = merged.filter((sec) => {
+      // First, check if section has SAVE_AS_DRAFT status - exclude it from review
+      const sectionKey = sec;
+      const section = infraPayload?.[sectionKey];
+      if (section?.status && section.status.toUpperCase() === "SAVE_AS_DRAFT") {
+        return false; // Exclude SAVE_AS_DRAFT indicators from review
+      }
+
       // Check if section has actual data - only show if submitted OR if in edit mode
       if (sec === "section1_1") {
         const section = infraPayload?.section1_1;

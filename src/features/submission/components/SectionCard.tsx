@@ -75,6 +75,16 @@ export const SectionCard = ({
       );
     }
 
+    // Add SAVE_AS_DRAFT badge
+    if (upperStatus === "SAVE_AS_DRAFT") {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-300 flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          Draft
+        </Badge>
+      );
+    }
+
     return null;
   };
 

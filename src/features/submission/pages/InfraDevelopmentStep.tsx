@@ -292,6 +292,10 @@ export const InfraDevelopmentStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Track which indicators are being saved as draft
+  const [savingDraftIndicators, setSavingDraftIndicators] = useState<Set<string>>(
+    new Set()
+  );
   // Store snapshots of original form data when editing starts (for cancel functionality)
   const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
     Record<string, any>
@@ -1837,12 +1841,17 @@ export const InfraDevelopmentStep = () => {
 
   // Check if indicator is submitted or accepted (non-editable)
   // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
+  // SAVE_AS_DRAFT indicators remain editable
   const isIndicatorSubmitted = (indicatorCode: string): boolean => {
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return false;
     const upperStatus = status.toUpperCase();
     // If indicator is in edit mode, it's editable
     if (editingIndicators.has(indicatorCode)) {
+      return false;
+    }
+    // SAVE_AS_DRAFT indicators remain editable
+    if (upperStatus === "SAVE_AS_DRAFT") {
       return false;
     }
     // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
@@ -2216,6 +2225,71 @@ export const InfraDevelopmentStep = () => {
       newSet.delete(indicatorCode);
       return newSet;
     });
+  };
+
+  // Handle Save as Draft button click
+  const handleSaveAsDraftIndicator = async (indicatorCode: string) => {
+    setSavingDraftIndicators((prev) => new Set(prev).add(indicatorCode));
+    try {
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Sanitize files and remove unwanted keys before saving
+      const sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
+
+      // Prepare data with SAVE_AS_DRAFT status
+      const sectionDataWithStatus = {
+        ...sanitizedFormData[sectionKey],
+        status: "SAVE_AS_DRAFT",
+      };
+
+      // Create sanitized data with status for the draft indicator
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: sectionDataWithStatus,
+      };
+
+      // Use submitSectionToStateApprover API to save with SAVE_AS_DRAFT status
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "infraDevelopment",
+        [indicatorCode]
+      );
+
+      // Update local formData state immediately to reflect SAVE_AS_DRAFT status
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: sectionDataWithStatus,
+        };
+        // Also update form persistence with the merged data
+        updateFormData("infraDevelopment", {
+          ...prev,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
+      toast({
+        title: "Draft Saved",
+        description: `Indicator ${indicatorCode} has been saved as draft. You can edit it later.`,
+        variant: "default",
+      });
+    } catch (error) {
+      console.error(`Failed to save indicator ${indicatorCode} as draft:`, error);
+      toast({
+        title: "Save Failed",
+        description: `Failed to save indicator ${indicatorCode} as draft. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingDraftIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+    }
   };
 
   // --- UI ---
@@ -2748,7 +2822,7 @@ export const InfraDevelopmentStep = () => {
                   </div>
                 )}
 
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator(
@@ -2763,6 +2837,19 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("2.1", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("2.1")}
+                  disabled={
+                    savingDraftIndicators.has("2.1") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("2.1")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("2.1") ? "Saving..." : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -3146,7 +3233,7 @@ export const InfraDevelopmentStep = () => {
                   </div>
                 )
               )}
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator("2.2", "Specialized Entity")
@@ -3158,6 +3245,19 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("2.2", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("2.2")}
+                  disabled={
+                    savingDraftIndicators.has("2.2") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("2.2")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("2.2") ? "Saving..." : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -3539,7 +3639,7 @@ export const InfraDevelopmentStep = () => {
                     </table>
                   </div>
                 )}
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator(
@@ -3554,6 +3654,19 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("2.3", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("2.3")}
+                  disabled={
+                    savingDraftIndicators.has("2.3") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("2.3")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("2.3") ? "Saving..." : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -4048,7 +4161,7 @@ export const InfraDevelopmentStep = () => {
                   {renderFieldError("section2_4.comment")}
                 </div>
               )}
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator("2.4", "Investment Ready Projects")
@@ -4060,6 +4173,19 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("2.4", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("2.4")}
+                  disabled={
+                    savingDraftIndicators.has("2.4") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("2.4")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("2.4") ? "Saving..." : "Save as Draft"}
                 </Button>
               </div>
             </div>
@@ -4559,7 +4685,7 @@ export const InfraDevelopmentStep = () => {
                   {renderFieldError("section2_5.comment")}
                 </div>
               )}
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator("2.5", "Asset Monetization Pipeline")
@@ -4571,6 +4697,19 @@ export const InfraDevelopmentStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("2.5", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("2.5")}
+                  disabled={
+                    savingDraftIndicators.has("2.5") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("2.5")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("2.5") ? "Saving..." : "Save as Draft"}
                 </Button>
               </div>
             </div>

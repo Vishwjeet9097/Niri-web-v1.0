@@ -125,7 +125,23 @@ export const ReviewSubmitStep = () => {
     const allIndicators = isNodalOfficer
       ? assignedIndicators
       : availableIndicators;
-    const formData = submission.formData;
+    
+    // Parse formData if it's a string
+    let parsedFormData = submission.formData;
+    if (typeof submission.formData === "string") {
+      try {
+        parsedFormData = JSON.parse(submission.formData);
+      } catch (e) {
+        console.error("Failed to parse formData:", e);
+        return {
+          underReview: [],
+          pending: [],
+          accepted: [],
+        };
+      }
+    }
+    
+    const formData = parsedFormData;
 
     const underReview: string[] = [];
     const pending: string[] = [];
@@ -151,6 +167,11 @@ export const ReviewSubmitStep = () => {
       }
 
       const upperStatus = status?.toUpperCase() || "";
+
+      // Exclude SAVE_AS_DRAFT indicators from review - they should not be shown
+      if (upperStatus === "SAVE_AS_DRAFT") {
+        return; // Skip this indicator - don't include it in any category
+      }
 
       if (upperStatus === "ACCEPTED" || upperStatus === "APPROVED") {
         accepted.push(indicatorCode);

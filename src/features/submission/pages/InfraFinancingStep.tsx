@@ -376,6 +376,10 @@ export const InfraFinancingStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Track which indicators are being saved as draft
+  const [savingDraftIndicators, setSavingDraftIndicators] = useState<
+    Set<string>
+  >(new Set());
   // Store snapshots of original form data when editing starts (for cancel functionality)
   const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
     Record<string, any>
@@ -1848,12 +1852,17 @@ export const InfraFinancingStep = () => {
 
   // Check if indicator is submitted or accepted (non-editable)
   // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
+  // SAVE_AS_DRAFT indicators remain editable
   const isIndicatorSubmitted = (indicatorCode: string): boolean => {
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return false;
     const upperStatus = status.toUpperCase();
     // If indicator is in edit mode, it's editable
     if (editingIndicators.has(indicatorCode)) {
+      return false;
+    }
+    // SAVE_AS_DRAFT indicators remain editable
+    if (upperStatus === "SAVE_AS_DRAFT") {
       return false;
     }
     // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
@@ -2227,6 +2236,74 @@ export const InfraFinancingStep = () => {
     });
   };
 
+  // Handle Save as Draft button click
+  const handleSaveAsDraftIndicator = async (indicatorCode: string) => {
+    setSavingDraftIndicators((prev) => new Set(prev).add(indicatorCode));
+    try {
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Sanitize files and remove unwanted keys before saving
+      const sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
+
+      // Prepare data with SAVE_AS_DRAFT status
+      const sectionDataWithStatus = {
+        ...sanitizedFormData[sectionKey],
+        status: "SAVE_AS_DRAFT",
+      };
+
+      // Create sanitized data with status for the draft indicator
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: sectionDataWithStatus,
+      };
+
+      // Use submitSectionToStateApprover API to save with SAVE_AS_DRAFT status
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "infraFinancing",
+        [indicatorCode]
+      );
+
+      // Update local formData state immediately to reflect SAVE_AS_DRAFT status
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: sectionDataWithStatus,
+        };
+        // Also update form persistence with the merged data
+        updateFormData("infraFinancing", {
+          ...prev,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
+      toast({
+        title: "Draft Saved",
+        description: `Indicator ${indicatorCode} has been saved as draft. You can edit it later.`,
+        variant: "default",
+      });
+    } catch (error) {
+      console.error(
+        `Failed to save indicator ${indicatorCode} as draft:`,
+        error
+      );
+      toast({
+        title: "Save Failed",
+        description: `Failed to save indicator ${indicatorCode} as draft. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingDraftIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+    }
+  };
+
   return (
     <div className="w-full -mx-6 lg:-mx-8">
       <div className="px-6 lg:px-8">
@@ -2430,7 +2507,7 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_1.allocationToGSDP")}
                 </div>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator("1.1", "% Capex to GSDP")
@@ -2442,6 +2519,21 @@ export const InfraFinancingStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("1.1", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("1.1")}
+                  disabled={
+                    savingDraftIndicators.has("1.1") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("1.1")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("1.1")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </SectionCard>
@@ -2455,9 +2547,9 @@ export const InfraFinancingStep = () => {
                   <span className="text-base font-semibold ">
                     <span className="text-primary">1.2 -</span> % Capex
                     Utilization{" "}
-                    <span className="font-normal text-xs text-muted-foreground">
+                    {/* <span className="font-normal text-xs text-muted-foreground">
                       (10 marks per 1%)
-                    </span>
+                    </span> */}
                   </span>
                 </div>
               }
@@ -2616,7 +2708,7 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_2.capexActualsToGSDP")}
                 </div>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() =>
                     handleSubmitIndicator("1.2", "% Capex Utilization")
@@ -2628,6 +2720,21 @@ export const InfraFinancingStep = () => {
                   size="sm"
                 >
                   {getSubmitButtonText("1.2", submittingIndicator)}
+                </Button>
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("1.2")}
+                  disabled={
+                    savingDraftIndicators.has("1.2") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("1.2")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("1.2")
+                    ? "Saving..."
+                    : "Save as Draft"}
                 </Button>
               </div>
             </SectionCard>
@@ -3228,7 +3335,7 @@ export const InfraFinancingStep = () => {
                     </table>
                   </div>
                 )}
-                <div className="mt-4">
+                <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
                       handleSubmitIndicator("1.3", "% of Credit Rated ULBs")
@@ -3241,6 +3348,21 @@ export const InfraFinancingStep = () => {
                     size="sm"
                   >
                     {getSubmitButtonText("1.3", submittingIndicator)}
+                  </Button>
+                  <Button
+                    onClick={() => handleSaveAsDraftIndicator("1.3")}
+                    disabled={
+                      savingDraftIndicators.has("1.3") ||
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("1.3")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDraftIndicators.has("1.3")
+                      ? "Saving..."
+                      : "Save as Draft"}
                   </Button>
                 </div>
               </div>
@@ -3717,7 +3839,7 @@ export const InfraFinancingStep = () => {
                     </table>
                   </div>
                 )}
-                <div className="mt-4">
+                <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
                       handleSubmitIndicator("1.4", "% of ULBs issuing Bonds")
@@ -3730,6 +3852,21 @@ export const InfraFinancingStep = () => {
                     size="sm"
                   >
                     {getSubmitButtonText("1.4", submittingIndicator)}
+                  </Button>
+                  <Button
+                    onClick={() => handleSaveAsDraftIndicator("1.4")}
+                    disabled={
+                      savingDraftIndicators.has("1.4") ||
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("1.4")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDraftIndicators.has("1.4")
+                      ? "Saving..."
+                      : "Save as Draft"}
                   </Button>
                 </div>
               </div>
@@ -4200,7 +4337,7 @@ export const InfraFinancingStep = () => {
                     {renderFieldError("section1_5.comment")}
                   </div>
                 )}
-                <div className="mt-4">
+                <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
                       handleSubmitIndicator(
@@ -4216,6 +4353,21 @@ export const InfraFinancingStep = () => {
                     size="sm"
                   >
                     {getSubmitButtonText("1.5", submittingIndicator)}
+                  </Button>
+                  <Button
+                    onClick={() => handleSaveAsDraftIndicator("1.5")}
+                    disabled={
+                      savingDraftIndicators.has("1.5") ||
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("1.5")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDraftIndicators.has("1.5")
+                      ? "Saving..."
+                      : "Save as Draft"}
                   </Button>
                 </div>
               </div>
