@@ -59,18 +59,54 @@ export const validateRequired = (value: any): boolean => {
 
 /**
  * Validates a single field based on its type and rules
+ * @param field - The field definition
+ * @param value - The field value
+ * @param fieldPath - The field path (e.g., "section1_1.fieldId")
+ * @param yesNoValue - Optional: The Yes/No field value ("yes" or "no") for conditional validation
  */
 export const validateField = (
   field: any,
   value: any,
-  fieldPath: string
+  fieldPath: string,
+  yesNoValue?: string | null
 ): string | undefined => {
-  // All fields are mandatory
-  const isRequired = true;
+  // Check if this is a Comment field
+  const isComment = field.label?.toLowerCase().includes('comment') || 
+                   field.uiComponent === 'Text Area' ||
+                   field.uiComponent === 'TextArea';
   
-  // Required validation
-  if (isRequired && !validateRequired(value)) {
-    return `${field.label} is required.`;
+  // Determine if field is required based on Yes/No value
+  let isRequired = true;
+  
+  if (yesNoValue !== undefined && yesNoValue !== null) {
+    const normalizedYesNo = String(yesNoValue).toLowerCase().trim();
+    if (normalizedYesNo === 'yes') {
+      // When "Yes" is selected: Comment is NOT mandatory
+      if (isComment) {
+        isRequired = false;
+      }
+    } else if (normalizedYesNo === 'no') {
+      // When "No" is selected: Only Comment is mandatory, other fields are NOT mandatory
+      if (!isComment) {
+        isRequired = false;
+      }
+    }
+  }
+  
+  // Check if this is a calculated/percentage field
+  const isPercentageField = field.label?.toLowerCase().includes('% capex utilization') ||
+                           field.label?.toLowerCase().includes('percentage') ||
+                           field.uiComponent === 'Auto-calculated field';
+  
+  // For calculated fields, if they have a value (including 0), skip required validation
+  // The value will be calculated automatically, so if it exists, it's valid
+  if (isPercentageField && (value !== null && value !== undefined && value !== '')) {
+    // Value exists, skip required validation and proceed to other validations
+  } else {
+    // Required validation for other fields
+    if (isRequired && !validateRequired(value)) {
+      return `${field.label} is required.`;
+    }
   }
 
   // Skip other validations if field is empty and not required
@@ -109,6 +145,30 @@ export const validateField = (
       if (value && isNaN(Number(value))) {
         return `${field.label} must be a valid number.`;
       }
+      
+      // Special validation for calculation fields (must be > 0)
+      const isCalculationField = field.label?.toLowerCase().includes('capital expenditure allocation') ||
+                                 field.label?.toLowerCase().includes('capital expenditure actuals');
+      if (isCalculationField && value !== null && value !== undefined && value !== '') {
+        const numValue = Number(value);
+        if (!isNaN(numValue) && numValue <= 0) {
+          return `${field.label} must be greater than 0.`;
+        }
+      }
+      
+      // Special validation for percentage fields (must be between 0 and 100)
+      // Note: isPercentageField is already defined at the top of the function
+      if (isPercentageField && value !== null && value !== undefined && value !== '') {
+        const numValue = Number(value);
+        if (!isNaN(numValue)) {
+          if (numValue < 0) {
+            return `${field.label} cannot be negative.`;
+          }
+          if (numValue > 100) {
+            return `${field.label} cannot exceed 100%.`;
+          }
+        }
+      }
       break;
 
     case 'dropdown':
@@ -143,24 +203,73 @@ export const validateSection = (
   const errors: ValidationError = {};
   const sectionData = formData[sectionKey] || {};
 
+  // Find Yes/No field to determine validation rules
+  const yesNoField = section.inputs?.find((f: any) => 
+    f.label?.toLowerCase().includes('yes/no') || f.label === 'Yes/No'
+  );
+  const yesNoValue = yesNoField 
+    ? (sectionData[yesNoField.id] || '').toLowerCase().trim()
+    : null;
+
   // Validate direct input fields
   if (section.inputs && Array.isArray(section.inputs)) {
     section.inputs.forEach((field: any) => {
       const fieldPath = `${sectionKey}.${field.id}`;
       const fieldValue = sectionData[field.id];
       
-      // All fields are mandatory
-      const fieldWithRequired = {
-        ...field,
-        validationRules: {
-          ...field.validationRules,
-          required: true
+      // Skip validation for Yes/No field itself (it's always required)
+      const isYesNo = field.label?.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
+      if (isYesNo) {
+        const fieldWithRequired = {
+          ...field,
+          validationRules: {
+            ...field.validationRules,
+            required: true
+          }
+        };
+        // Yes/No field doesn't need yesNoValue parameter (it's the source)
+        const error = validateField(fieldWithRequired, fieldValue, fieldPath, null);
+        if (error) {
+          errors[fieldPath] = error;
         }
-      };
+        return; // Skip to next field
+      }
       
-      const error = validateField(fieldWithRequired, fieldValue, fieldPath);
-      if (error) {
-        errors[fieldPath] = error;
+      // Check if this is a Comment field
+      const isComment = field.label?.toLowerCase().includes('comment') || 
+                       field.uiComponent === 'Text Area' ||
+                       field.uiComponent === 'TextArea';
+      
+      // Determine if field is required based on Yes/No value
+      let isFieldRequired = true;
+      
+      if (yesNoField && yesNoValue !== null) {
+        if (yesNoValue === 'yes') {
+          // When "Yes" is selected: Comment is NOT mandatory, other fields are mandatory
+          if (isComment) {
+            isFieldRequired = false;
+          }
+        } else if (yesNoValue === 'no') {
+          // When "No" is selected: Only Comment is mandatory, other fields are NOT mandatory
+          if (!isComment) {
+            isFieldRequired = false;
+          }
+        }
+      }
+      
+      // Apply validation based on required status
+      if (isFieldRequired) {
+        const fieldWithRequired = {
+          ...field,
+          validationRules: {
+            ...field.validationRules,
+            required: true
+          }
+        };
+        const error = validateField(fieldWithRequired, fieldValue, fieldPath, yesNoValue);
+        if (error) {
+          errors[fieldPath] = error;
+        }
       }
     });
   }
@@ -207,7 +316,8 @@ export const validateSection = (
                 }
               };
               
-              const error = validateField(fieldWithRequired, fieldValue, fieldPath);
+              // Pass yesNoValue for conditional validation (subsections inherit section's Yes/No value)
+              const error = validateField(fieldWithRequired, fieldValue, fieldPath, yesNoValue);
               if (error) {
                 errors[fieldPath] = error;
               }

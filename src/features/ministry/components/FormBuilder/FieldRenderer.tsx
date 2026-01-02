@@ -66,6 +66,17 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
     return String(val); // Return as-is if not yes/no
   };
 
+  // Check if this is a calculated/auto-calculated field
+  const isCalculatedField = field.uiComponent === 'Auto-calculated field' || 
+                           field.uiComponent === 'Calculated' ||
+                           field.validationRules?.type === 'calculated' ||
+                           field.label?.toLowerCase().includes('auto-calculated') ||
+                           field.label?.toLowerCase().includes('% capex utilization');
+  
+  // Check if this is a calculation input field (must be > 0)
+  const isCalculationInputField = field.label?.toLowerCase().includes('capital expenditure allocation') ||
+                                  field.label?.toLowerCase().includes('capital expenditure actuals');
+
   switch (field.dataType) {
     case 'string':
       // Render Yes/No fields as radio buttons
@@ -183,15 +194,33 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             <Input
               type="number"
               value={value || ''}
+              min={isCalculationInputField ? "0.01" : undefined}
+              step="0.01"
               onChange={(e) => {
+                // Don't allow changes to calculated fields
+                if (isCalculatedField) return;
+                
                 const newValue = e.target.value;
-                // Only allow numbers
-                if (newValue === '' || /^-?\d*\.?\d*$/.test(newValue)) {
-                  onChange(newValue ? Number(newValue) : '');
-                  
-                  // Always validate on change - this will clear errors if field is valid
-                  if (onValidate && field) {
-                    onValidate(numberFieldPath, newValue ? Number(newValue) : '', field);
+                // Only allow numbers (prevent negative for calculation fields)
+                if (isCalculationInputField) {
+                  // For calculation fields, don't allow negative values
+                  if (newValue === '' || /^\d*\.?\d*$/.test(newValue)) {
+                    onChange(newValue ? Number(newValue) : '');
+                    
+                    // Always validate on change - this will clear errors if field is valid
+                    if (onValidate && field) {
+                      onValidate(numberFieldPath, newValue ? Number(newValue) : '', field);
+                    }
+                  }
+                } else {
+                  // For other number fields, allow negative
+                  if (newValue === '' || /^-?\d*\.?\d*$/.test(newValue)) {
+                    onChange(newValue ? Number(newValue) : '');
+                    
+                    // Always validate on change - this will clear errors if field is valid
+                    if (onValidate && field) {
+                      onValidate(numberFieldPath, newValue ? Number(newValue) : '', field);
+                    }
                   }
                 }
               }}
@@ -201,8 +230,15 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
                   onValidate(numberFieldPath, value, field);
                 }
               }}
-              disabled={disabled}
-              className={error ? 'border-destructive' : className}
+              disabled={disabled && !isCalculatedField}
+              readOnly={isCalculatedField}
+              placeholder={isCalculatedField ? "Auto-Calculated" : undefined}
+              className={cn(
+                error ? 'border-destructive' : '',
+                isCalculatedField ? 'cursor-default opacity-100 pointer-events-none' : '',
+                className
+              )}
+              style={isCalculatedField ? { opacity: 1, backgroundColor: '#fff' } : undefined}
             />
           ) : (
             <p className="text-sm">{value ?? 'N/A'}</p>

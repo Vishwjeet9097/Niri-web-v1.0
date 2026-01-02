@@ -358,9 +358,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
                     }`}
                   >
                     {field.label}
-                    {field.validationRules?.required && (
-                      <span className="text-destructive ml-1">*</span>
-                    )}
+                    <span className="text-destructive ml-1">*</span>
                   </th>
                 ))}
                 {mode === 'edit' && !disabled && (

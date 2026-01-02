@@ -201,20 +201,74 @@ export function MinistrySubmissionWrapper() {
   const validateFieldOnChange = useCallback((path: string, value: any, field: any) => {
     if (!field) return;
     
-    // Use imported validation function
-    const error = validateField(field, value, path);
+    // Extract section key from path (e.g., "section1_1" from "section1_1.fieldId")
+    const sectionKey = path.split('.')[0];
+    const sectionData = formData[sectionKey] || {};
+    
+    // Find Yes/No field value in the same section for conditional validation
+    let yesNoValue: string | null = null;
+    if (sectionData && typeof sectionData === 'object') {
+      // Look for Yes/No field in the section data
+      Object.keys(sectionData).forEach((key) => {
+        // Check if this might be a Yes/No field value
+        const val = sectionData[key];
+        if (val === 'yes' || val === 'no' || val === 'Yes' || val === 'No') {
+          // This could be a Yes/No value, but we need to verify it's from a Yes/No field
+          // We'll check if the field being validated is in a section that has Yes/No fields
+          // For now, we'll use a simpler approach: check all assignedIndicators to find Yes/No field
+          yesNoValue = String(val).toLowerCase();
+        }
+      });
+    }
+    
+    // Try to find Yes/No field from assignedIndicators
+    if (assignedIndicators.length > 0) {
+      for (const indicatorObj of assignedIndicators) {
+        const indicatorName = Object.keys(indicatorObj)[0];
+        const sections = indicatorObj[indicatorName];
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          // Check if this section matches the sectionKey
+          const sectionId = section.sNo?.replace('.', '_');
+          const expectedSectionKey = `section${sectionId}`;
+          
+          if (expectedSectionKey === sectionKey && section.inputs) {
+            // Find Yes/No field in this section
+            const yesNoField = section.inputs.find((f: any) => 
+              f.label?.toLowerCase().includes('yes/no') || f.label === 'Yes/No'
+            );
+            if (yesNoField) {
+              yesNoValue = (sectionData[yesNoField.id] || '').toLowerCase().trim() || null;
+              break;
+            }
+          }
+        }
+        if (yesNoValue !== null) break;
+      }
+    }
+    
+    // Use imported validation function with Yes/No value
+    const error = validateField(field, value, path, yesNoValue);
     
     // Use functional update to ensure we're working with latest state
     setValidationErrors((prev) => {
+      const hadError = prev[path] !== undefined;
+      
       // Always create a new object to ensure React detects the change
       const newErrors = { ...prev };
-      const hadError = prev[path] !== undefined;
       
       if (error) {
         // Set error if validation fails
         newErrors[path] = error;
+        if (!hadError) {
+          console.log(`❌ Setting error for ${path}:`, error);
+        }
       } else {
         // Clear error if field is now valid - always delete even if it doesn't exist
+        if (hadError) {
+          console.log(`✅ Clearing error for ${path} - field is now valid`);
+        }
         delete newErrors[path];
       }
       
@@ -222,7 +276,7 @@ export function MinistrySubmissionWrapper() {
       // This is critical for triggering re-renders in memoized components
       return newErrors;
     });
-  }, []);
+  }, [formData, assignedIndicators]);
 
   // Clear validation error for a field when user starts typing
   const clearFieldError = useCallback((path: string) => {
@@ -335,6 +389,117 @@ export function MinistrySubmissionWrapper() {
       return updated;
     });
   }, []);
+
+  // Auto-calculation for indicator 1.1: % Capex Utilization
+  // Formula: (Capital Expenditure Actuals / Capital Expenditure Allocation) × 100
+  useEffect(() => {
+    // Field IDs from API response for indicator 1.1
+    const CAPITAL_ALLOCATION_FIELD_ID = "ffeaee40-1485-4921-a201-f85aefb6d1bb";
+    const CAPITAL_ACTUALS_FIELD_ID = "a5a7a01d-9eed-4369-923b-8652b45badcf";
+    const CAPEX_UTILIZATION_FIELD_ID = "aed92319-dee2-41ee-858f-a10b167ce431";
+    const sectionKey = "section1_1";
+
+    const sectionData = formData[sectionKey];
+    if (!sectionData) return;
+
+    const capitalAllocation = parseFloat(
+      (sectionData[CAPITAL_ALLOCATION_FIELD_ID] || "").toString().replace(/[₹,]/g, "")
+    );
+    const capitalActuals = parseFloat(
+      (sectionData[CAPITAL_ACTUALS_FIELD_ID] || "").toString().replace(/[₹,]/g, "")
+    );
+
+    // Calculate percentage if both values are valid
+    // Validation: Both fields must be > 0
+    let calculatedValue: string | number = "";
+    
+    // Check if both values are valid numbers and greater than 0
+    const isValidAllocation = !isNaN(capitalAllocation) && capitalAllocation > 0;
+    const isValidActuals = !isNaN(capitalActuals) && capitalActuals > 0;
+    
+    if (isValidAllocation && isValidActuals) {
+      const percentage = (capitalActuals / capitalAllocation) * 100;
+      // Calculate the percentage (allow it to exceed 100 to show validation error)
+      if (percentage >= 0) {
+        calculatedValue = Math.round(percentage * 100) / 100; // Round to 2 decimal places
+      } else {
+        // If negative, set to 0 (shouldn't happen with positive inputs, but safety check)
+        calculatedValue = 0;
+      }
+    }
+    // If either field is invalid (0, negative, or empty), calculatedValue remains "" (empty)
+
+    // Only update if the calculated value has changed
+    const currentCalculatedValue = sectionData[CAPEX_UTILIZATION_FIELD_ID];
+    if (currentCalculatedValue !== calculatedValue) {
+      setFormData((prev) => {
+        const sectionData = prev[sectionKey] || {};
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...sectionData,
+            [CAPEX_UTILIZATION_FIELD_ID]: calculatedValue,
+          },
+        };
+      });
+
+      // Find the calculated field object and validate it
+      if (calculatedValue !== "" && assignedIndicators.length > 0) {
+        // Find the field definition for the calculated field
+        let calculatedField: any = null;
+        for (const indicatorObj of assignedIndicators) {
+          const indicatorName = Object.keys(indicatorObj)[0];
+          if (indicatorName === "Infra Financing") {
+            const sections = indicatorObj[indicatorName];
+            for (const sectionObj of sections) {
+              const sectionName = Object.keys(sectionObj)[0];
+              if (sectionName === "Capital Utilization") {
+                const section = sectionObj[sectionName];
+                if (section.inputs && Array.isArray(section.inputs)) {
+                  calculatedField = section.inputs.find(
+                    (input: any) => input.id === CAPEX_UTILIZATION_FIELD_ID
+                  );
+                  if (calculatedField) break;
+                }
+              }
+            }
+          }
+        }
+
+        // Validate the calculated field after setting its value
+        if (calculatedField && calculatedValue !== "") {
+          const calculatedFieldPath = `${sectionKey}.${CAPEX_UTILIZATION_FIELD_ID}`;
+          // Validate immediately with the calculated value
+          const error = validateField(calculatedField, calculatedValue, calculatedFieldPath);
+          
+          // Set validation error if percentage exceeds 100
+          setValidationErrors((prev) => {
+            const newErrors = { ...prev };
+            if (error) {
+              newErrors[calculatedFieldPath] = error;
+            } else {
+              // Clear error if valid
+              delete newErrors[calculatedFieldPath];
+            }
+            return newErrors;
+          });
+        } else if (calculatedValue === "") {
+          // Clear validation error if calculated value is cleared
+          const calculatedFieldPath = `${sectionKey}.${CAPEX_UTILIZATION_FIELD_ID}`;
+          setValidationErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors[calculatedFieldPath];
+            return newErrors;
+          });
+        }
+      }
+    }
+  }, [
+    formData.section1_1?.["ffeaee40-1485-4921-a201-f85aefb6d1bb"],
+    formData.section1_1?.["a5a7a01d-9eed-4369-923b-8652b45badcf"],
+    assignedIndicators,
+    validateFieldOnChange,
+  ]);
 
   // Sync formData to persistence with debouncing to prevent infinite loops
   // This ensures add/remove operations are persisted
@@ -1053,6 +1218,7 @@ export function MinistrySubmissionWrapper() {
                   isIndicatorSubmitted={isIndicatorSubmitted}
                   submittingIndicator={submittingIndicator}
                   validationErrors={validationErrors}
+                  onValidateField={validateFieldOnChange}
                 />
               </div>
 
