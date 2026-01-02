@@ -383,6 +383,72 @@ function UserFormComponent({
           indicators = [];
         }
         
+        // Filter out indicators that have been submitted by STATE_APPROVERs in this state
+        // This prevents submitted indicators (like 4.5) from appearing in the assignment list
+        try {
+          const submissionsResp = await apiService.getSubmissions(1, 100);
+          const submissionsArray = Array.isArray(submissionsResp)
+            ? submissionsResp
+            : submissionsResp?.submissions || submissionsResp?.data || [];
+          
+          // Find STATE_APPROVER submissions for this state
+          const stateApproverSubmissions = submissionsArray.filter((sub: any) => {
+            const isStateApprover = sub.user?.role === "STATE_APPROVER" || sub.currentOwnerRole === "STATE_APPROVER";
+            const isSameState = !stateName || 
+              (sub.stateUt || sub.user?.stateUt || "").toUpperCase() === stateName.toUpperCase();
+            return isStateApprover && isSameState;
+          });
+          
+          // Extract submitted indicator codes
+          const submittedIndicatorCodes = new Set<string>();
+          stateApproverSubmissions.forEach((submission: any) => {
+            const formData = submission.formData || {};
+            const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
+            
+            categories.forEach((category) => {
+              const categoryData = formData[category] || {};
+              Object.keys(categoryData).forEach((sectionKey) => {
+                if (sectionKey.startsWith("section")) {
+                  const sectionData = categoryData[sectionKey];
+                  const status = sectionData?.status?.toUpperCase() || "";
+                  
+                  // If indicator has been submitted (not DRAFT or empty), exclude it
+                  if (status && status !== "DRAFT" && status !== "NOT_STARTED") {
+                    const indicatorCode = sectionKey
+                      .replace("section", "")
+                      .replace("_", ".");
+                    if (ALL_INDICATOR_CODES.includes(indicatorCode)) {
+                      submittedIndicatorCodes.add(indicatorCode);
+                    }
+                  }
+                }
+              });
+            });
+          });
+          
+          // Filter out submitted indicators
+          if (submittedIndicatorCodes.size > 0) {
+            const beforeFilter = indicators.length;
+            indicators = indicators.filter((ind: any) => {
+              const code = ind?.code || ind;
+              return !submittedIndicatorCodes.has(code);
+            });
+            console.log(
+              `[UserForm] Filtered out ${beforeFilter - indicators.length} submitted indicators from available list for state ${stateName}`
+            );
+            console.log(
+              `[UserForm] Submitted indicators excluded:`,
+              Array.from(submittedIndicatorCodes)
+            );
+          }
+        } catch (submissionErr) {
+          console.warn(
+            "[UserForm] Failed to filter submitted indicators, using all available indicators:",
+            submissionErr
+          );
+          // Continue with all available indicators if filtering fails
+        }
+        
         setAvailableIndicatorsForState(indicators);
         fetchedIndicatorsRef.current = cacheKey; // Cache the result to prevent duplicate API calls
         // Track what we just fetched

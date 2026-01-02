@@ -209,11 +209,69 @@ export function useIndicatorAccess() {
 
             if (useCache) {
               const parsed = JSON.parse(cached || "[]");
-              setAvailableIndicators(Array.isArray(parsed) ? parsed : []);
+              let cachedCodes = Array.isArray(parsed) ? parsed : [];
+              
+              // Even when using cache, filter out submitted indicators to ensure accuracy
+              try {
+                const submissionsResp = await apiService.getSubmissions(1, 100);
+                const submissionsArray = Array.isArray(submissionsResp)
+                  ? submissionsResp
+                  : submissionsResp?.submissions || submissionsResp?.data || [];
+                
+                const stateApproverSubmissions = submissionsArray.filter((sub: any) => {
+                  const isOwnSubmission =
+                    (sub.user?.id === userId || sub.submittedBy === userId) &&
+                    (sub.user?.role === "STATE_APPROVER" || sub.currentOwnerRole === "STATE_APPROVER");
+                  const isSameState =
+                    !stateUt ||
+                    (sub.stateUt || sub.user?.stateUt || "").toUpperCase() === stateUt.toUpperCase();
+                  return isOwnSubmission && isSameState;
+                });
+                
+                const submittedIndicatorCodes = new Set<string>();
+                stateApproverSubmissions.forEach((submission: any) => {
+                  const formData = submission.formData || {};
+                  const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
+                  
+                  categories.forEach((category) => {
+                    const categoryData = formData[category] || {};
+                    Object.keys(categoryData).forEach((sectionKey) => {
+                      if (sectionKey.startsWith("section")) {
+                        const sectionData = categoryData[sectionKey];
+                        const status = sectionData?.status?.toUpperCase() || "";
+                        
+                        if (status && status !== "DRAFT" && status !== "NOT_STARTED") {
+                          const indicatorCode = sectionKey
+                            .replace("section", "")
+                            .replace("_", ".");
+                          if (ALL_INDICATOR_CODES.includes(indicatorCode)) {
+                            submittedIndicatorCodes.add(indicatorCode);
+                          }
+                        }
+                      }
+                    });
+                  });
+                });
+                
+                if (submittedIndicatorCodes.size > 0) {
+                  const beforeFilter = cachedCodes.length;
+                  cachedCodes = cachedCodes.filter((code: string) => !submittedIndicatorCodes.has(code));
+                  console.log(
+                    `useIndicatorAccess: Filtered ${beforeFilter - cachedCodes.length} submitted indicators from cache`
+                  );
+                }
+              } catch (filterErr) {
+                console.warn(
+                  "useIndicatorAccess: Failed to filter submitted indicators from cache, using cached data as-is:",
+                  filterErr
+                );
+              }
+              
+              setAvailableIndicators(cachedCodes);
               console.log(
-                "useIndicatorAccess: used available cache for stateUt",
+                "useIndicatorAccess: used available cache for stateUt (with submitted indicators filtered)",
                 stateUt,
-                parsed
+                cachedCodes
               );
             } else {
               console.log(
@@ -223,7 +281,78 @@ export function useIndicatorAccess() {
               const resp = await apiService.getAvailableIndicatorsForApprover(
                 stateUt
               );
-              const codes = normalizeToCodes(resp);
+              let codes = normalizeToCodes(resp);
+              
+              // Filter out indicators that have already been submitted by STATE_APPROVER
+              // This prevents submitted indicators from appearing in "create submission" and user management
+              try {
+                const submissionsResp = await apiService.getSubmissions(1, 100);
+                const submissionsArray = Array.isArray(submissionsResp)
+                  ? submissionsResp
+                  : submissionsResp?.submissions || submissionsResp?.data || [];
+                
+                // Find STATE_APPROVER's own submissions (DRAFT, IN_PROGRESS, or any status)
+                const stateApproverSubmissions = submissionsArray.filter((sub: any) => {
+                  const isOwnSubmission =
+                    (sub.user?.id === userId || sub.submittedBy === userId) &&
+                    (sub.user?.role === "STATE_APPROVER" || sub.currentOwnerRole === "STATE_APPROVER");
+                  const isSameState =
+                    !stateUt ||
+                    (sub.stateUt || sub.user?.stateUt || "").toUpperCase() === stateUt.toUpperCase();
+                  return isOwnSubmission && isSameState;
+                });
+                
+                // Extract submitted indicators from STATE_APPROVER's submissions
+                const submittedIndicatorCodes = new Set<string>();
+                stateApproverSubmissions.forEach((submission: any) => {
+                  const formData = submission.formData || {};
+                  const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
+                  
+                  categories.forEach((category) => {
+                    const categoryData = formData[category] || {};
+                    Object.keys(categoryData).forEach((sectionKey) => {
+                      if (sectionKey.startsWith("section")) {
+                        const sectionData = categoryData[sectionKey];
+                        const status = sectionData?.status?.toUpperCase() || "";
+                        
+                        // If indicator has been submitted (not DRAFT or empty), exclude it from available
+                        if (status && status !== "DRAFT" && status !== "NOT_STARTED") {
+                          // Extract indicator code from section key (e.g., "section4_5" -> "4.5")
+                          const indicatorCode = sectionKey
+                            .replace("section", "")
+                            .replace("_", ".");
+                          if (ALL_INDICATOR_CODES.includes(indicatorCode)) {
+                            submittedIndicatorCodes.add(indicatorCode);
+                            console.log(
+                              `useIndicatorAccess: Found submitted indicator ${indicatorCode} with status ${status}`
+                            );
+                          }
+                        }
+                      }
+                    });
+                  });
+                });
+                
+                // Filter out submitted indicators from available list
+                if (submittedIndicatorCodes.size > 0) {
+                  const beforeFilter = codes.length;
+                  codes = codes.filter((code: string) => !submittedIndicatorCodes.has(code));
+                  console.log(
+                    `useIndicatorAccess: Filtered out ${beforeFilter - codes.length} submitted indicators. Remaining: ${codes.length}`
+                  );
+                  console.log(
+                    `useIndicatorAccess: Submitted indicators excluded:`,
+                    Array.from(submittedIndicatorCodes)
+                  );
+                }
+              } catch (submissionErr) {
+                console.warn(
+                  "useIndicatorAccess: Failed to filter submitted indicators, using all available indicators:",
+                  submissionErr
+                );
+                // Continue with all available indicators if filtering fails
+              }
+              
               setAvailableIndicators(codes);
               // cache since we have a valid stateUt
               localStorage.setItem(cachedKey, JSON.stringify(codes));
