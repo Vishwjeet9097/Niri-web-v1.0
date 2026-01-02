@@ -2994,7 +2994,7 @@ export const InfraDevelopmentStep = () => {
               {/* If No → show comment box */}
               {formData.section2_2.hasSpecializedEntity === "no" && (
                 <div>
-                  <Label>Comments (Reason)</Label>
+                  <Label>Comments (Reason) <span className="text-red-500">*</span></Label>
                   <Input
                     placeholder="Enter reason or comment"
                     value={formData.section2_2.comment || ""}
@@ -3388,7 +3388,7 @@ export const InfraDevelopmentStep = () => {
               {/* If No → show comment box */}
               {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
                 <div>
-                  <Label>Comments (Reason)</Label>
+                  <Label>Comments (Reason) <span className="text-red-500">*</span></Label>
                   <Input
                     placeholder="Enter reason or comment"
                     value={formData.section2_3.comment || ""}

@@ -122,11 +122,21 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
     ),
 
-  section2_2: (data: any) =>
-    anyValid(
-      data?.specializedEntityArray,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
-    ),
+  section2_2: (data: any) => {
+    const d = data as Record<string, unknown>;
+    if (!hasMeaningfulValue(d?.hasSpecializedEntity)) return false;
+    if (d?.hasSpecializedEntity === "yes") {
+      return anyValid(
+        data?.specializedEntityArray,
+        (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
+      );
+    }
+    // If "no", comment is required
+    if (d?.hasSpecializedEntity === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return false;
+  },
 
   section2_3: (data: any) => {
     const d = data as Record<string, unknown>;

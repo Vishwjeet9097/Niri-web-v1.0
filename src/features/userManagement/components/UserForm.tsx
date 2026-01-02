@@ -35,7 +35,11 @@ interface UserFormProps {
     data: Omit<
       NodalOfficer,
       "id" | "state" | "createdAt" | "assignedIndicator"
-    > & { password?: string; assignedIndicators?: string[];stateId?: string | string[] }
+    > & {
+      password?: string;
+      assignedIndicators?: string[];
+      stateId?: string | string[];
+    }
   ) => void;
   onCancel: () => void;
   // parent passes full indicator objects (or at least objects with `.code`)
@@ -45,7 +49,6 @@ interface UserFormProps {
   stateApproverHasSubmission?: boolean;
   submittedIndicatorsInState?: string[];
 }
-
 
 function UserFormComponent({
   officer,
@@ -59,32 +62,54 @@ function UserFormComponent({
 }: UserFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   // Local state for submitted indicators (fallback if not provided)
-  const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(() => 
+  const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<
+    string[]
+  >(() =>
     Array.isArray(submittedIndicatorsInState) ? submittedIndicatorsInState : []
   );
-  
+
   // Use provided submittedIndicatorsInState or fallback to local state
   // Memoized to prevent unnecessary recalculations
   const effectiveSubmittedIndicators = useMemo(() => {
-    const submitted = Array.isArray(submittedIndicatorsInState) ? submittedIndicatorsInState : [];
+    const submitted = Array.isArray(submittedIndicatorsInState)
+      ? submittedIndicatorsInState
+      : [];
     return submitted.length > 0 ? submitted : localSubmittedIndicators;
   }, [submittedIndicatorsInState, localSubmittedIndicators]);
-  
+
   // Debug: Log when component receives submittedIndicatorsInState
   useEffect(() => {
     console.log("🔍 [UserForm] Component mounted/re-rendered");
-    console.log("🔍 [UserForm] submittedIndicatorsInState prop:", submittedIndicatorsInState);
-    console.log("🔍 [UserForm] localSubmittedIndicators:", localSubmittedIndicators);
-    console.log("🔍 [UserForm] effectiveSubmittedIndicators:", effectiveSubmittedIndicators);
+    console.log(
+      "🔍 [UserForm] submittedIndicatorsInState prop:",
+      submittedIndicatorsInState
+    );
+    console.log(
+      "🔍 [UserForm] localSubmittedIndicators:",
+      localSubmittedIndicators
+    );
+    console.log(
+      "🔍 [UserForm] effectiveSubmittedIndicators:",
+      effectiveSubmittedIndicators
+    );
     console.log("🔍 [UserForm] Officer stateUt:", officer?.stateUt);
     console.log("🔍 [UserForm] Officer state:", officer?.state);
     console.log("🔍 [UserForm] Current user stateUt:", user?.stateUt);
     console.log("🔍 [UserForm] Current user state:", user?.state);
     console.log("🔍 [UserForm] Current user:", user);
-  }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, officer?.state, user?.stateUt, user?.state, user]);
-  
+  }, [
+    submittedIndicatorsInState,
+    localSubmittedIndicators,
+    effectiveSubmittedIndicators,
+    officer?.stateUt,
+    officer?.state,
+    user?.stateUt,
+    user?.state,
+    user,
+  ]);
+
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
   useEffect(() => {
     const fetchIfNeeded = async () => {
@@ -92,29 +117,43 @@ function UserFormComponent({
       // 1. No submitted indicators provided
       // 2. We have a stateUt (from officer or user)
       // 3. We haven't already fetched for this stateUt
-      const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
-      const cacheKey = `${stateUt || 'none'}`;
-      
-      if (submittedIndicatorsInState.length === 0 && 
-          localSubmittedIndicators.length === 0 && 
-          stateUt && 
-          fetchedSubmittedIndicatorsRef.current !== cacheKey) {
-        
+      const stateUt =
+        officer?.stateUt || officer?.state || user?.stateUt || user?.state;
+      const cacheKey = `${stateUt || "none"}`;
+
+      if (
+        submittedIndicatorsInState.length === 0 &&
+        localSubmittedIndicators.length === 0 &&
+        stateUt &&
+        fetchedSubmittedIndicatorsRef.current !== cacheKey
+      ) {
         fetchedSubmittedIndicatorsRef.current = cacheKey;
-        
+
         try {
-          const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+          const submitted = await apiService.getSubmittedIndicatorsInState(
+            stateUt
+          );
           setLocalSubmittedIndicators(submitted);
         } catch (error) {
-          console.error("❌ [UserForm] Error fetching submitted indicators (fallback):", error);
+          console.error(
+            "❌ [UserForm] Error fetching submitted indicators (fallback):",
+            error
+          );
           fetchedSubmittedIndicatorsRef.current = ""; // Reset on error to allow retry
         }
       }
     };
-    
+
     fetchIfNeeded();
-  }, [submittedIndicatorsInState.length, localSubmittedIndicators.length, officer?.stateUt, officer?.state, user?.stateUt, user?.state]);
-  
+  }, [
+    submittedIndicatorsInState.length,
+    localSubmittedIndicators.length,
+    officer?.stateUt,
+    officer?.state,
+    user?.stateUt,
+    user?.state,
+  ]);
+
   // Update local state when prop changes
   useEffect(() => {
     if (submittedIndicatorsInState.length > 0) {
@@ -157,9 +196,9 @@ function UserFormComponent({
     // Helper function to get default role based on current user
     const getDefaultRole = () => {
       let defaultRole = "NODAL_OFFICER";
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
-          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
           if (currentUser?.role === "STATE_APPROVER") {
             defaultRole = "NODAL_OFFICER";
           } else if (currentUser?.role === "MOSPI_APPROVER") {
@@ -176,17 +215,22 @@ function UserFormComponent({
 
     // Helper function to get available role values based on current user
     const getAvailableRoleValues = () => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
-          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
           const userRole = currentUser?.role;
-          
+
           if (userRole === "STATE_APPROVER") {
             return ["NODAL_OFFICER"];
           } else if (userRole === "MOSPI_APPROVER") {
             return ["MOSPI_REVIEWER", "STATE_APPROVER"];
           } else if (userRole === "ADMIN") {
-            return ["STATE_APPROVER", "MOSPI_REVIEWER", "MOSPI_APPROVER", "ADMIN"];
+            return [
+              "STATE_APPROVER",
+              "MOSPI_REVIEWER",
+              "MOSPI_APPROVER",
+              "ADMIN",
+            ];
           }
         } catch (e) {
           // Ignore errors
@@ -196,38 +240,45 @@ function UserFormComponent({
     };
 
     // Try to restore from sessionStorage if creating a new user (not editing)
-    if (typeof window !== 'undefined' && !officer) {
-      const savedFormData = sessionStorage.getItem('userManagementFormDraft');
+    if (typeof window !== "undefined" && !officer) {
+      const savedFormData = sessionStorage.getItem("userManagementFormDraft");
       if (savedFormData) {
         try {
           const parsed = JSON.parse(savedFormData);
           // Only restore if it's recent (within last hour) and has valid data
-          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000 && parsed.data) {
+          if (
+            parsed.timestamp &&
+            Date.now() - parsed.timestamp < 3600000 &&
+            parsed.data
+          ) {
             const restoredData = parsed.data;
             const availableRoles = getAvailableRoleValues();
             const defaultRole = getDefaultRole();
-            
+
             // Validate that the restored role is in the available roles list
             // If not, replace it with the default role
-            if (!restoredData.role || !availableRoles.includes(restoredData.role)) {
+            if (
+              !restoredData.role ||
+              !availableRoles.includes(restoredData.role)
+            ) {
               restoredData.role = defaultRole;
             }
-            
+
             return restoredData;
           } else {
             // Clear old data
-            sessionStorage.removeItem('userManagementFormDraft');
+            sessionStorage.removeItem("userManagementFormDraft");
           }
         } catch (e) {
-          console.warn('Failed to parse saved form data:', e);
-          sessionStorage.removeItem('userManagementFormDraft');
+          console.warn("Failed to parse saved form data:", e);
+          sessionStorage.removeItem("userManagementFormDraft");
         }
       }
     }
-    
+
     // Default initial state
     const defaultRole = getDefaultRole();
-    
+
     return {
       firstName: "",
       lastName: "",
@@ -251,9 +302,9 @@ function UserFormComponent({
   const [nodalHasSubmission, setNodalHasSubmission] = useState(false);
   const [checkingNodalSubmission, setCheckingNodalSubmission] = useState(false);
 
-
   // State for API response
-  const [availableIndicatorsForState, setAvailableIndicatorsForState] = useState<any[]>([]);
+  const [availableIndicatorsForState, setAvailableIndicatorsForState] =
+    useState<any[]>([]);
 
   // State for checking duplicates
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -277,7 +328,7 @@ function UserFormComponent({
     officerId: string | undefined;
     role: string;
   } | null>(null);
-  
+
   // Stabilize user role and state to prevent unnecessary re-renders
   const userRole = user?.role;
   const userState = user?.state;
@@ -288,7 +339,7 @@ function UserFormComponent({
     if (isInitializingRef.current) {
       return;
     }
-    
+
     // Early return checks BEFORE async function to prevent unnecessary calls
     // Only compute indicators if creating a NODAL_OFFICER
     if (formData.role !== "NODAL_OFFICER") {
@@ -306,13 +357,13 @@ function UserFormComponent({
       // For admin, use allIndicators directly but filter to only valid indicator codes
       if (allIndicators.length > 0) {
         // Only update if not already set or if allIndicators changed
-        const validIndicators = allIndicators.filter((ind: any) => 
-          ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+        const validIndicators = allIndicators.filter(
+          (ind: any) => ind.code && ALL_INDICATOR_CODES.includes(ind.code)
         );
         const formattedAvailable = validIndicators.map((ind: any) => ({
           code: ind.code,
           name: ind.name || getIndicatorDisplayName(ind.code),
-          category: ind.category || ind.section || '',
+          category: ind.category || ind.section || "",
           id: ind.id,
         }));
         setAvailableIndicatorsForState(formattedAvailable);
@@ -322,7 +373,7 @@ function UserFormComponent({
 
     // For non-admin users (STATE_APPROVER, etc.), fetch filtered indicators
     const stateName = userState || "";
-    
+
     if (!stateName) {
       setAvailableIndicatorsForState([]);
       return;
@@ -330,45 +381,57 @@ function UserFormComponent({
 
     // Create cache key to prevent duplicate API calls
     // Use a stable key based on state and officer only (not allIndicators.length)
-    const cacheKey = `${stateName}-${officer?.id || 'new'}`;
-    
+    const cacheKey = `${stateName}-${officer?.id || "new"}`;
+
     // Check if we've already fetched for this exact scenario BEFORE async function
     // Compare with last fetched values to prevent duplicate calls
-    if (fetchedIndicatorsRef.current === cacheKey && 
-        lastFetchedRef.current?.stateName === stateName &&
-        lastFetchedRef.current?.officerId === (officer?.id || 'new') &&
-        lastFetchedRef.current?.role === formData.role) {
+    if (
+      fetchedIndicatorsRef.current === cacheKey &&
+      lastFetchedRef.current?.stateName === stateName &&
+      lastFetchedRef.current?.officerId === (officer?.id || "new") &&
+      lastFetchedRef.current?.role === formData.role
+    ) {
       return; // Already fetched, skip
     }
-    
+
     // Throttle: Only as a safety mechanism - prevent rapid successive calls
     // This should NOT trigger periodic calls, only prevent duplicate rapid calls
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchTimeRef.current;
     const THROTTLE_MS = 1000; // 1 second safety throttle - only prevents rapid duplicates
-    
+
     // Only throttle if we've fetched very recently (within 1 second)
     // This prevents duplicate calls from rapid state updates, not periodic calls
-    if (timeSinceLastFetch < THROTTLE_MS && fetchedIndicatorsRef.current === cacheKey) {
+    if (
+      timeSinceLastFetch < THROTTLE_MS &&
+      fetchedIndicatorsRef.current === cacheKey
+    ) {
       // Skip only if cache key matches AND it's been less than 1 second
       // This means it's a duplicate rapid call, not a legitimate change
       return;
     }
-    
+
     // Update last fetch time BEFORE async call
     lastFetchTimeRef.current = now;
-    
-    const computeAvailableIndicators = async () => {
 
+    const computeAvailableIndicators = async () => {
       try {
         // Use backend API to get real-time available indicators
-        const availableIndicators: any = await apiService.getAvailableIndicatorsForApprover(stateName);
-        
+        const availableIndicators: any =
+          await apiService.getAvailableIndicatorsForApprover(stateName);
+
         // Handle response structure (interceptor may have extracted data)
         let indicators: any = availableIndicators;
-        if (availableIndicators && typeof availableIndicators === 'object' && !Array.isArray(availableIndicators)) {
+        if (
+          availableIndicators &&
+          typeof availableIndicators === "object" &&
+          !Array.isArray(availableIndicators)
+        ) {
           // If response has data property, extract it
-          if (availableIndicators.data && Array.isArray(availableIndicators.data)) {
+          if (
+            availableIndicators.data &&
+            Array.isArray(availableIndicators.data)
+          ) {
             indicators = availableIndicators.data;
           } else if (Array.isArray(availableIndicators)) {
             indicators = availableIndicators;
@@ -376,13 +439,16 @@ function UserFormComponent({
             indicators = [];
           }
         }
-        
+
         // Ensure we have an array
         if (!Array.isArray(indicators)) {
-          console.warn("⚠️ API returned invalid indicators format:", indicators);
+          console.warn(
+            "⚠️ API returned invalid indicators format:",
+            indicators
+          );
           indicators = [];
         }
-        
+
         // Filter out indicators that have been submitted by STATE_APPROVERs in this state
         // This prevents submitted indicators (like 4.5) from appearing in the assignment list
         try {
@@ -390,30 +456,45 @@ function UserFormComponent({
           const submissionsArray = Array.isArray(submissionsResp)
             ? submissionsResp
             : submissionsResp?.submissions || submissionsResp?.data || [];
-          
+
           // Find STATE_APPROVER submissions for this state
-          const stateApproverSubmissions = submissionsArray.filter((sub: any) => {
-            const isStateApprover = sub.user?.role === "STATE_APPROVER" || sub.currentOwnerRole === "STATE_APPROVER";
-            const isSameState = !stateName || 
-              (sub.stateUt || sub.user?.stateUt || "").toUpperCase() === stateName.toUpperCase();
-            return isStateApprover && isSameState;
-          });
-          
+          const stateApproverSubmissions = submissionsArray.filter(
+            (sub: any) => {
+              const isStateApprover =
+                sub.user?.role === "STATE_APPROVER" ||
+                sub.currentOwnerRole === "STATE_APPROVER";
+              const isSameState =
+                !stateName ||
+                (sub.stateUt || sub.user?.stateUt || "").toUpperCase() ===
+                  stateName.toUpperCase();
+              return isStateApprover && isSameState;
+            }
+          );
+
           // Extract submitted indicator codes
           const submittedIndicatorCodes = new Set<string>();
           stateApproverSubmissions.forEach((submission: any) => {
             const formData = submission.formData || {};
-            const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
-            
+            const categories = [
+              "infraFinancing",
+              "infraDevelopment",
+              "pppDevelopment",
+              "infraEnablers",
+            ];
+
             categories.forEach((category) => {
               const categoryData = formData[category] || {};
               Object.keys(categoryData).forEach((sectionKey) => {
                 if (sectionKey.startsWith("section")) {
                   const sectionData = categoryData[sectionKey];
                   const status = sectionData?.status?.toUpperCase() || "";
-                  
+
                   // If indicator has been submitted (not DRAFT or empty), exclude it
-                  if (status && status !== "DRAFT" && status !== "NOT_STARTED") {
+                  if (
+                    status &&
+                    status !== "DRAFT" &&
+                    status !== "NOT_STARTED"
+                  ) {
                     const indicatorCode = sectionKey
                       .replace("section", "")
                       .replace("_", ".");
@@ -425,7 +506,7 @@ function UserFormComponent({
               });
             });
           });
-          
+
           // Filter out submitted indicators
           if (submittedIndicatorCodes.size > 0) {
             const beforeFilter = indicators.length;
@@ -434,7 +515,9 @@ function UserFormComponent({
               return !submittedIndicatorCodes.has(code);
             });
             console.log(
-              `[UserForm] Filtered out ${beforeFilter - indicators.length} submitted indicators from available list for state ${stateName}`
+              `[UserForm] Filtered out ${
+                beforeFilter - indicators.length
+              } submitted indicators from available list for state ${stateName}`
             );
             console.log(
               `[UserForm] Submitted indicators excluded:`,
@@ -448,21 +531,26 @@ function UserFormComponent({
           );
           // Continue with all available indicators if filtering fails
         }
-        
+
         setAvailableIndicatorsForState(indicators);
         fetchedIndicatorsRef.current = cacheKey; // Cache the result to prevent duplicate API calls
         // Track what we just fetched
         lastFetchedRef.current = {
           stateName,
-          officerId: officer?.id || 'new',
+          officerId: officer?.id || "new",
           role: formData.role,
         };
       } catch (error) {
-        console.error("❌ Failed to fetch available indicators from API, falling back to frontend filtering:", error);
-        
+        console.error(
+          "❌ Failed to fetch available indicators from API, falling back to frontend filtering:",
+          error
+        );
+
         // Fallback to frontend filtering if API fails
         if (allIndicators.length === 0) {
-          console.warn("⚠️ allIndicators is empty, cannot show indicators. Please wait for indicators to load.");
+          console.warn(
+            "⚠️ allIndicators is empty, cannot show indicators. Please wait for indicators to load."
+          );
           setAvailableIndicatorsForState([]);
           return;
         }
@@ -490,29 +578,32 @@ function UserFormComponent({
 
         // Return indicators whose code is NOT in assignedSet AND is a valid indicator code
         // Convert to the same format as API response (array of objects with code, name, category)
-        const available = allIndicators.filter((ind: any) => 
-          !assignedSet.has(ind.code) && ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+        const available = allIndicators.filter(
+          (ind: any) =>
+            !assignedSet.has(ind.code) &&
+            ind.code &&
+            ALL_INDICATOR_CODES.includes(ind.code)
         );
-        
+
         // Transform to match API response format
         const formattedAvailable = available.map((ind: any) => ({
           code: ind.code,
           name: ind.name || getIndicatorDisplayName(ind.code),
-          category: ind.category || ind.section || '',
+          category: ind.category || ind.section || "",
           id: ind.id,
         }));
-        
+
         setAvailableIndicatorsForState(formattedAvailable);
         fetchedIndicatorsRef.current = cacheKey; // Cache the result
         // Track what we just fetched
         lastFetchedRef.current = {
           stateName,
-          officerId: officer?.id || 'new',
+          officerId: officer?.id || "new",
           role: formData.role,
         };
       }
     };
-    
+
     computeAvailableIndicators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.role, userRole, userState, officer?.id]); // Use stabilized userRole/userState instead of user?.role/user?.state
@@ -522,34 +613,42 @@ function UserFormComponent({
   const indicatorOptions: MultiSelectOption[] = useMemo(() => {
     // Collect all codes from API response (available indicators)
     let apiCodes: string[] = [];
-    if (!availableIndicatorsForState || availableIndicatorsForState.length === 0) {
+    if (
+      !availableIndicatorsForState ||
+      availableIndicatorsForState.length === 0
+    ) {
       apiCodes = [];
-    } else if (availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
-      apiCodes = availableIndicatorsForState.map((item: any) => item.code).filter(Boolean);
+    } else if (
+      availableIndicatorsForState.length > 0 &&
+      typeof availableIndicatorsForState[0] === "object"
+    ) {
+      apiCodes = availableIndicatorsForState
+        .map((item: any) => item.code)
+        .filter(Boolean);
     } else {
       apiCodes = availableIndicatorsForState.filter(Boolean);
     }
 
     // Get currently assigned indicators
     const assigned = formData.assignedIndicators || [];
-    
+
     // Get submitted indicators that are currently assigned - these MUST always appear
-    const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
+    const submittedAssigned = effectiveSubmittedIndicators.filter((code) =>
       assigned.includes(code)
     );
-    
+
     // Get original assigned indicators from officer (when editing)
     // This ensures indicators remain visible even after deselection
-    const originalAssigned = officer?.assignedIndicators 
-      ? (Array.isArray(officer.assignedIndicators) 
-          ? officer.assignedIndicators 
-          : [officer.assignedIndicators])
+    const originalAssigned = officer?.assignedIndicators
+      ? Array.isArray(officer.assignedIndicators)
+        ? officer.assignedIndicators
+        : [officer.assignedIndicators]
       : [];
-    
+
     // CRITICAL: Build allCodes to ensure indicators are always visible
     // This prevents indicators from disappearing when deselected
     let allCodes: string[] = [];
-    
+
     if (user?.role === "ADMIN") {
       // Admin can see and assign all valid indicators
       allCodes = [...ALL_INDICATOR_CODES];
@@ -558,61 +657,65 @@ function UserFormComponent({
       // Show indicators that are available from API (not assigned to other users)
       // OR currently assigned to the user being edited
       // OR originally assigned to the user being edited (to allow re-selection after deselection)
-      
+
       // Start with API codes (available indicators that aren't assigned to others)
       if (apiCodes.length > 0) {
         allCodes = [...apiCodes];
       }
-      
+
       // CRITICAL: Always include ALL currently assigned indicators
       // This ensures they remain visible even if API doesn't return them
-      assigned.forEach(code => {
+      assigned.forEach((code) => {
         if (!allCodes.includes(code) && ALL_INDICATOR_CODES.includes(code)) {
           allCodes.push(code);
         }
       });
-      
+
       // CRITICAL: When editing, always include originally assigned indicators
       // This allows re-selection after deselection
       if (officer && originalAssigned.length > 0) {
-        originalAssigned.forEach(code => {
+        originalAssigned.forEach((code) => {
           if (!allCodes.includes(code) && ALL_INDICATOR_CODES.includes(code)) {
             allCodes.push(code);
           }
         });
       }
-      
+
       // If no indicators from API and no assigned indicators, show all as fallback
       // This prevents empty dropdown while API is loading
       if (allCodes.length === 0) {
         allCodes = [...ALL_INDICATOR_CODES];
       }
     }
-    
+
     // CRITICAL: Ensure ALL submitted indicators that are assigned are ALWAYS in allCodes
     // This prevents them from disappearing even if they're temporarily removed from assigned
-    submittedAssigned.forEach(code => {
+    submittedAssigned.forEach((code) => {
       if (!allCodes.includes(code) && ALL_INDICATOR_CODES.includes(code)) {
         allCodes.unshift(code); // Add at beginning to keep them visible
       }
     });
-    
+
     // Remove duplicates while preserving order (submitted/assigned first, then others)
     allCodes = Array.from(new Set(allCodes));
 
     // Build name map - prioritize frontend mapping for 4.x indicators, then API response, then allIndicators, then fallback
     const indicatorNameMap: Record<string, string> = {};
     const indicatorCategoryMap: Record<string, string> = {};
-    
+
     // First, set frontend display names for Infrastructure Enablers (4.1-4.5) to ensure correct names
     // This overrides any incorrect names from the backend API
     const infraEnablersCodes = ["4.1", "4.2", "4.3", "4.4", "4.5"];
     infraEnablersCodes.forEach((code) => {
       indicatorNameMap[code] = getIndicatorDisplayName(code);
     });
-    
+
     // Then, add from API response (but don't override 4.x indicators we just set)
-    if (availableIndicatorsForState && availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
+    if (
+      availableIndicatorsForState &&
+      availableIndicatorsForState.length > 0 &&
+      typeof availableIndicatorsForState[0] === "object"
+    ) {
       availableIndicatorsForState.forEach((item: any) => {
         if (item && item.code) {
           // Only use API name if it's not a 4.x indicator (we want frontend names for those)
@@ -623,21 +726,25 @@ function UserFormComponent({
         }
       });
     }
-    
+
     // Then, add from allIndicators for any missing ones (especially assigned indicators)
     allIndicators.forEach((ind: any) => {
       const code = ind.code;
       if (code) {
         // Only use allIndicators name if it's not a 4.x indicator and not already set
-        if (!infraEnablersCodes.includes(code) && !indicatorNameMap[code] && ind.name) {
+        if (
+          !infraEnablersCodes.includes(code) &&
+          !indicatorNameMap[code] &&
+          ind.name
+        ) {
           indicatorNameMap[code] = ind.name;
         }
         if (!indicatorCategoryMap[code] && (ind.category || ind.section)) {
-          indicatorCategoryMap[code] = ind.category || ind.section || '';
+          indicatorCategoryMap[code] = ind.category || ind.section || "";
         }
       }
     });
-    
+
     // Finally, fallback to getIndicatorDisplayName for any remaining codes
     allCodes.forEach((code: string) => {
       if (!indicatorNameMap[code]) {
@@ -648,20 +755,27 @@ function UserFormComponent({
     // Build options array - ensure ALL codes (especially assigned ones) are included
     const options = allCodes.map((code: string) => {
       // Try to get category from availableIndicatorsForState first
-      let section = indicatorCategoryMap[code] || '';
+      let section = indicatorCategoryMap[code] || "";
       let description = indicatorNameMap[code];
-      
+
       // If not found in maps, try to find in API response
-      if (!section && availableIndicatorsForState && availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
-        const found = availableIndicatorsForState.find((item: any) => item.code === code);
+      if (
+        !section &&
+        availableIndicatorsForState &&
+        availableIndicatorsForState.length > 0 &&
+        typeof availableIndicatorsForState[0] === "object"
+      ) {
+        const found = availableIndicatorsForState.find(
+          (item: any) => item.code === code
+        );
         if (found) {
           section = found.category || section;
           description = found.name || description;
         }
       }
-      
+
       const isSubmitted = effectiveSubmittedIndicators.includes(code);
-      
+
       // Debug logging for indicator 1.1 specifically
       if (code === "1.1") {
         console.log("🔍 [UserForm] Indicator 1.1 Debug:", {
@@ -675,10 +789,10 @@ function UserFormComponent({
           submittedIndicatorsLength: submittedIndicatorsInState.length,
         });
       }
-      
+
       return {
         value: code,
-        label: isSubmitted 
+        label: isSubmitted
           ? `${code} - ${indicatorNameMap[code]} (Submitted)`
           : `${code} - ${indicatorNameMap[code]}`,
         section,
@@ -694,32 +808,43 @@ function UserFormComponent({
         availableFromAPI: apiCodes.length,
         allCodesCount: allCodes.length,
         optionsCount: options.length,
-        assignedInOptions: options.filter(opt => formData.assignedIndicators.includes(opt.value)).map(opt => opt.value),
+        assignedInOptions: options
+          .filter((opt) => formData.assignedIndicators.includes(opt.value))
+          .map((opt) => opt.value),
         submittedIndicatorsInState: submittedIndicatorsInState,
         effectiveSubmittedIndicators: effectiveSubmittedIndicators,
         localSubmittedIndicators: localSubmittedIndicators,
         submittedIndicatorsCount: effectiveSubmittedIndicators.length,
-        disabledOptions: options.filter(opt => opt.disabled).map(opt => opt.value),
+        disabledOptions: options
+          .filter((opt) => opt.disabled)
+          .map((opt) => opt.value),
       });
     }
 
     return options;
-  }, [availableIndicatorsForState, formData.assignedIndicators, allIndicators, effectiveSubmittedIndicators]);
+  }, [
+    availableIndicatorsForState,
+    formData.assignedIndicators,
+    allIndicators,
+    effectiveSubmittedIndicators,
+  ]);
 
   // Memoize the MultiSelect value to ensure submitted indicators are always included
   const multiSelectValue = useMemo(() => {
     // Ensure submitted indicators are always in the value, even if somehow removed
     const currentAssigned = formData.assignedIndicators || [];
     // Always include submitted indicators that are assigned to this user
-    const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
+    const submittedAssigned = effectiveSubmittedIndicators.filter((code) =>
       currentAssigned.includes(code)
     );
     // Merge: current assigned + ensure submitted ones are included
-    const finalValue = Array.from(new Set([...currentAssigned, ...submittedAssigned]));
+    const finalValue = Array.from(
+      new Set([...currentAssigned, ...submittedAssigned])
+    );
     return finalValue;
   }, [formData.assignedIndicators, effectiveSubmittedIndicators]);
 
-// Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
+  // Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
   // Debug: Log indicator options to verify 4.6 is included
   useEffect(() => {
@@ -731,64 +856,87 @@ function UserFormComponent({
   }, []);
 
   // Handle indicator selection change - memoized to prevent re-renders
-  const handleIndicatorChange = useCallback((selectedIndicators: string[]) => {
-    console.log("🔍 [UserForm] handleIndicatorChange called:", {
-      selectedIndicators,
-      currentAssigned: formData.assignedIndicators,
-      submittedIndicatorsInState,
-      effectiveSubmittedIndicators,
-    });
-    
-    // Always preserve submitted indicators that are currently assigned
-    const currentlySelected = formData.assignedIndicators || [];
-    const submittedAssigned = currentlySelected.filter((ind) =>
-      effectiveSubmittedIndicators.includes(ind)
-    );
-
-    console.log("🔍 [UserForm] handleIndicatorChange - submittedAssigned:", submittedAssigned);
-
-    // Check if user tried to remove any submitted indicators
-    const beingRemoved = currentlySelected.filter(
-      (ind) => !selectedIndicators.includes(ind)
-    );
-    const cannotRemove = beingRemoved.filter((ind) =>
-      effectiveSubmittedIndicators.includes(ind)
-    );
-
-    console.log("🔍 [UserForm] handleIndicatorChange - beingRemoved:", beingRemoved);
-    console.log("🔍 [UserForm] handleIndicatorChange - cannotRemove:", cannotRemove);
-
-    // If user tried to remove submitted indicators, show error and prevent change
-    if (cannotRemove.length > 0) {
-      console.warn("⚠️ [UserForm] Attempted to remove submitted indicators:", cannotRemove);
-      toast({
-        title: "Cannot Remove Indicators",
-        description: `The following indicators are already submitted and cannot be removed: ${cannotRemove.join(", ")}`,
-        variant: "destructive",
+  const handleIndicatorChange = useCallback(
+    (selectedIndicators: string[]) => {
+      console.log("🔍 [UserForm] handleIndicatorChange called:", {
+        selectedIndicators,
+        currentAssigned: formData.assignedIndicators,
+        submittedIndicatorsInState,
+        effectiveSubmittedIndicators,
       });
-      // Don't update state - keep submitted indicators
-      return;
-    }
 
-    // Merge: keep submitted indicators + new selection (excluding submitted ones from new selection to avoid duplicates)
-    const newSelectionWithoutSubmitted = selectedIndicators.filter(
-      (ind) => !effectiveSubmittedIndicators.includes(ind)
-    );
-    const finalSelection = [...submittedAssigned, ...newSelectionWithoutSubmitted];
+      // Always preserve submitted indicators that are currently assigned
+      const currentlySelected = formData.assignedIndicators || [];
+      const submittedAssigned = currentlySelected.filter((ind) =>
+        effectiveSubmittedIndicators.includes(ind)
+      );
 
-    console.log("🔍 [UserForm] handleIndicatorChange - finalSelection:", finalSelection);
+      console.log(
+        "🔍 [UserForm] handleIndicatorChange - submittedAssigned:",
+        submittedAssigned
+      );
 
-    // Always update with final selection (includes submitted indicators)
-    setFormData((prev) => ({
-      ...prev,
-      assignedIndicators: finalSelection,
-    }));
-  }, [effectiveSubmittedIndicators, toast, formData.assignedIndicators]);
+      // Check if user tried to remove any submitted indicators
+      const beingRemoved = currentlySelected.filter(
+        (ind) => !selectedIndicators.includes(ind)
+      );
+      const cannotRemove = beingRemoved.filter((ind) =>
+        effectiveSubmittedIndicators.includes(ind)
+      );
+
+      console.log(
+        "🔍 [UserForm] handleIndicatorChange - beingRemoved:",
+        beingRemoved
+      );
+      console.log(
+        "🔍 [UserForm] handleIndicatorChange - cannotRemove:",
+        cannotRemove
+      );
+
+      // If user tried to remove submitted indicators, show error and prevent change
+      if (cannotRemove.length > 0) {
+        console.warn(
+          "⚠️ [UserForm] Attempted to remove submitted indicators:",
+          cannotRemove
+        );
+        toast({
+          title: "Cannot Remove Indicators",
+          description: `The following indicators are already submitted and cannot be removed: ${cannotRemove.join(
+            ", "
+          )}`,
+          variant: "destructive",
+        });
+        // Don't update state - keep submitted indicators
+        return;
+      }
+
+      // Merge: keep submitted indicators + new selection (excluding submitted ones from new selection to avoid duplicates)
+      const newSelectionWithoutSubmitted = selectedIndicators.filter(
+        (ind) => !effectiveSubmittedIndicators.includes(ind)
+      );
+      const finalSelection = [
+        ...submittedAssigned,
+        ...newSelectionWithoutSubmitted,
+      ];
+
+      console.log(
+        "🔍 [UserForm] handleIndicatorChange - finalSelection:",
+        finalSelection
+      );
+
+      // Always update with final selection (includes submitted indicators)
+      setFormData((prev) => ({
+        ...prev,
+        assignedIndicators: finalSelection,
+      }));
+    },
+    [effectiveSubmittedIndicators, toast, formData.assignedIndicators]
+  );
 
   // Fetch assigned indicators from API for editing
   const fetchAssignedIndicators = async (userId: string) => {
     try {
-     // console.log("🔍 Fetching assigned indicators for user:", userId);
+      // console.log("🔍 Fetching assigned indicators for user:", userId);
       const indicators = await apiService.getUserAssignedIndicators(userId);
       //console.log("🔍 Fetched indicators:", indicators);
 
@@ -815,7 +963,7 @@ function UserFormComponent({
     try {
       const response = await apiService.get(`/submission/user/${userId}`);
       const submission = response?.data?.data || response?.data;
-      
+
       if (submission?.id && submission?.formData) {
         const formData = submission.formData;
         // Check if any step has data
@@ -847,7 +995,7 @@ function UserFormComponent({
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
 
-   // console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
+    // console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
 
     switch (currentUserRole) {
       case "STATE_APPROVER":
@@ -904,24 +1052,25 @@ function UserFormComponent({
     if (isInitializingRef.current || roleFixedRef.current) {
       return;
     }
-    
+
     if (!officer && formData.role) {
       const availableRoles = getAvailableRoles();
-      const availableRoleValues = availableRoles.map(r => r.value);
-      
+      const availableRoleValues = availableRoles.map((r) => r.value);
+
       // If current role is not in available roles, fix it (only once)
       if (!availableRoleValues.includes(formData.role)) {
-        const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+        const defaultRole =
+          availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
         roleFixedRef.current = true; // Mark as fixed to prevent loop
         // Use setTimeout to batch this update and prevent immediate re-render
         setTimeout(() => {
-          setFormData(prev => ({ ...prev, role: defaultRole }));
+          setFormData((prev) => ({ ...prev, role: defaultRole }));
         }, 0);
       } else {
         roleFixedRef.current = true; // Role is valid, mark as checked
       }
     }
-    
+
     // Reset flag when officer changes or when creating new user
     if (!officer && !formData.role) {
       roleFixedRef.current = false;
@@ -933,26 +1082,33 @@ function UserFormComponent({
     formDataInitializedRef.current = false;
     isInitializingRef.current = true; // Mark as initializing
     roleFixedRef.current = false; // Reset role fixed flag
-    
-     if (officer) {
+
+    if (officer) {
       // console.log("🔍 Setting form data for officer:", {
       //   officer,
       //   stateId: officer.stateId,
       //   state: officer.state,
       // });
       const stateIdsRaw = officer.state
-        ? officer.state.split(",").map(name => {
-            const match = states.find(s => s.name.trim() === name.trim());
-            return match ? match.id : officer.state;
-          }).filter(Boolean)
+        ? officer.state
+            .split(",")
+            .map((name) => {
+              const match = states.find((s) => s.name.trim() === name.trim());
+              return match ? match.id : officer.state;
+            })
+            .filter(Boolean)
         : [];
       // Deduplicate stateIds
       const stateIds = Array.from(new Set(stateIdsRaw));
       // Get unique state names for stateUt
-      const uniqueStateNames = Array.from(new Set(stateIds.map(id => {
-        const found = states.find(s => s.id === id);
-        return found ? found.name : id;
-      })));
+      const uniqueStateNames = Array.from(
+        new Set(
+          stateIds.map((id) => {
+            const found = states.find((s) => s.id === id);
+            return found ? found.name : id;
+          })
+        )
+      );
       // Only update form data if it hasn't been initialized for this officer
       if (!formDataInitializedRef.current) {
         setFormData({
@@ -962,7 +1118,7 @@ function UserFormComponent({
           email: officer.email || "",
           password: "", // Don't show password for existing users
           role: officer.role || "NODAL_OFFICER",
-          stateId: stateIds, // Will be set after states are loaded 
+          stateId: stateIds, // Will be set after states are loaded
           stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
           assignedIndicators: (() => {
             if (Array.isArray(officer.assignedIndicators)) {
@@ -976,7 +1132,9 @@ function UserFormComponent({
                 const arr = officer.assignedIndicators as any;
                 if (Array.isArray(arr)) {
                   return arr
-                    .map((ai: any) => ai.indicator?.code || ai.indicatorId || ai)
+                    .map(
+                      (ai: any) => ai.indicator?.code || ai.indicatorId || ai
+                    )
                     .filter(Boolean) as string[];
                 }
               } catch (e) {
@@ -1001,29 +1159,40 @@ function UserFormComponent({
       // For new user: Restore from sessionStorage if available, otherwise use defaults
       // Don't clear sessionStorage here - it should only be cleared on save or cancel
       // This allows form data to persist across tab switches and page refreshes
-      
+
       // Check if we have saved data in sessionStorage
-      const savedFormData = typeof window !== 'undefined' 
-        ? sessionStorage.getItem('userManagementFormDraft') 
-        : null;
-      
+      const savedFormData =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("userManagementFormDraft")
+          : null;
+
       if (savedFormData) {
         try {
           const parsed = JSON.parse(savedFormData);
           // Only restore if it's recent (within last hour) and has valid data
-          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000 && parsed.data) {
+          if (
+            parsed.timestamp &&
+            Date.now() - parsed.timestamp < 3600000 &&
+            parsed.data
+          ) {
             // Get available roles to validate restored role
             const availableRoles = getAvailableRoles();
-            const availableRoleValues = availableRoles.map(r => r.value);
-            const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
-            
+            const availableRoleValues = availableRoles.map((r) => r.value);
+            const defaultRole =
+              availableRoles.length > 0
+                ? availableRoles[0].value
+                : "NODAL_OFFICER";
+
             // Validate that the restored role is in the available roles list
             // If not, replace it with the first available role (default)
             const restoredData = { ...parsed.data };
-            if (!restoredData.role || !availableRoleValues.includes(restoredData.role)) {
+            if (
+              !restoredData.role ||
+              !availableRoleValues.includes(restoredData.role)
+            ) {
               restoredData.role = defaultRole;
             }
-            
+
             // Only restore if form hasn't been initialized yet
             if (!formDataInitializedRef.current) {
               // Restore form data from sessionStorage (with validated role)
@@ -1039,24 +1208,24 @@ function UserFormComponent({
               // Clear errors when restoring
               setErrors({});
               setNodalHasSubmission(false);
-              
+
               // Mark initialization complete after a brief delay
               setTimeout(() => {
                 isInitializingRef.current = false;
               }, 100);
-              
+
               return; // Exit early - form data restored from sessionStorage
             }
           } else {
             // Clear old/stale data
-            sessionStorage.removeItem('userManagementFormDraft');
+            sessionStorage.removeItem("userManagementFormDraft");
           }
         } catch (e) {
-          console.warn('Failed to parse saved form data:', e);
-          sessionStorage.removeItem('userManagementFormDraft');
+          console.warn("Failed to parse saved form data:", e);
+          sessionStorage.removeItem("userManagementFormDraft");
         }
       }
-      
+
       // No saved data or data is stale - use default values
       // Reset cache refs to allow fresh API calls
       fetchedIndicatorsRef.current = "";
@@ -1091,13 +1260,13 @@ function UserFormComponent({
         });
         formDataInitializedRef.current = true;
         roleFixedRef.current = false; // Reset role fixed flag for new user
-        
+
         // Clear errors
         setErrors({});
-        
+
         // Reset nodal submission check for new user
         setNodalHasSubmission(false);
-        
+
         // Mark initialization complete after a brief delay
         setTimeout(() => {
           isInitializingRef.current = false;
@@ -1105,7 +1274,17 @@ function UserFormComponent({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officer?.id, officer?.firstName, officer?.lastName, officer?.email, officer?.contactNumber, officer?.role, officer?.state, user?.state, user?.role]); // Removed states array to prevent frequent re-renders
+  }, [
+    officer?.id,
+    officer?.firstName,
+    officer?.lastName,
+    officer?.email,
+    officer?.contactNumber,
+    officer?.role,
+    officer?.state,
+    user?.state,
+    user?.role,
+  ]); // Removed states array to prevent frequent re-renders
 
   // Debounce ref for sessionStorage saves to prevent excessive writes
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1114,32 +1293,40 @@ function UserFormComponent({
   // Skip during initialization to prevent unnecessary saves
   useEffect(() => {
     // Skip if form is initializing or if editing an existing user
-    if (isInitializingRef.current || officer || typeof window === 'undefined') {
+    if (isInitializingRef.current || officer || typeof window === "undefined") {
       return;
     }
-    
+
     // Clear any pending save
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     // Debounce the save to prevent excessive sessionStorage writes and UI flickering
     // Increased debounce time to 1000ms to reduce frequency
     saveTimeoutRef.current = setTimeout(() => {
       // Only save if form has meaningful data (not empty form)
-      const hasData = formData.firstName || formData.lastName || formData.email || 
-                     formData.contactNumber || formData.password || 
-                     (Array.isArray(formData.assignedIndicators) && formData.assignedIndicators.length > 0);
-      
+      const hasData =
+        formData.firstName ||
+        formData.lastName ||
+        formData.email ||
+        formData.contactNumber ||
+        formData.password ||
+        (Array.isArray(formData.assignedIndicators) &&
+          formData.assignedIndicators.length > 0);
+
       if (hasData) {
         const dataToSave = {
           data: formData,
           timestamp: Date.now(),
         };
-        sessionStorage.setItem('userManagementFormDraft', JSON.stringify(dataToSave));
+        sessionStorage.setItem(
+          "userManagementFormDraft",
+          JSON.stringify(dataToSave)
+        );
       } else {
         // Clear sessionStorage if form is empty
-        sessionStorage.removeItem('userManagementFormDraft');
+        sessionStorage.removeItem("userManagementFormDraft");
       }
     }, 1000); // Increased debounce to 1000ms to reduce frequency
     // Cleanup timeout on unmount or when officer changes
@@ -1168,8 +1355,7 @@ function UserFormComponent({
           officer &&
           (!officer.stateId || officer.stateId === "") &&
           officer.state
-        ) {          
-
+        ) {
           const foundState = statesData.find(
             (state) =>
               state.name.toLowerCase() === officer.state.toLowerCase() ||
@@ -1177,7 +1363,7 @@ function UserFormComponent({
           );
 
           if (foundState) {
-           // console.log("🔍 Found matching state:", foundState);
+            // console.log("🔍 Found matching state:", foundState);
             setFormData((prev) => ({
               ...prev,
               stateId: foundState.id,
@@ -1199,7 +1385,6 @@ function UserFormComponent({
   // Set stateId after states are loaded and officer is available
   useEffect(() => {
     if (officer && states.length > 0 && !formData.stateId) {
-     
       const foundState = states.find(
         (state) =>
           state.name.toLowerCase() === officer.state.toLowerCase() ||
@@ -1207,7 +1392,6 @@ function UserFormComponent({
       );
 
       if (foundState) {
-        
         setFormData((prev) => ({
           ...prev,
           stateId: foundState.id,
@@ -1232,13 +1416,15 @@ function UserFormComponent({
     if (!formData.firstName.trim()) {
       newErrors.firstName = "First name is required";
     } else if (!isAlphabetsOnly(formData.firstName)) {
-      newErrors.firstName = "First name should contain only letters, spaces, hyphens, and apostrophes";
+      newErrors.firstName =
+        "First name should contain only letters, spaces, hyphens, and apostrophes";
     }
 
     if (!formData.lastName.trim()) {
       newErrors.lastName = "Last name is required";
     } else if (!isAlphabetsOnly(formData.lastName)) {
-      newErrors.lastName = "Last name should contain only letters, spaces, hyphens, and apostrophes";
+      newErrors.lastName =
+        "Last name should contain only letters, spaces, hyphens, and apostrophes";
     }
 
     if (!formData.contactNumber.trim()) {
@@ -1272,232 +1458,261 @@ function UserFormComponent({
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
     // ✅ State validation - ADMIN and MOSPI_APPROVER roles don't require state
-   if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
-    if (formData.role === "MOSPI_REVIEWER") {
-      // Validate multiple states for MOSPI_REVIEWER
-      if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
-        newErrors.stateId = "Please select at least one state";
-      }
-    } else if (formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN") {
-      // Validate single state for other roles (excluding MOSPI_APPROVER and ADMIN)
-      if (!formData.stateId || (Array.isArray(formData.stateId) && formData.stateId.length === 0)) {
-        newErrors.stateId = "State is required";
+    if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
+      if (formData.role === "MOSPI_REVIEWER") {
+        // Validate multiple states for MOSPI_REVIEWER
+        if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
+          newErrors.stateId = "Please select at least one state";
+        }
+      } else if (
+        formData.role !== "MOSPI_APPROVER" &&
+        formData.role !== "ADMIN"
+      ) {
+        // Validate single state for other roles (excluding MOSPI_APPROVER and ADMIN)
+        if (
+          !formData.stateId ||
+          (Array.isArray(formData.stateId) && formData.stateId.length === 0)
+        ) {
+          newErrors.stateId = "State is required";
+        }
       }
     }
-  }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  
-  
-   const handleSubmit1 = () => {
-  if (!validate()) return;
+  const handleSubmit1 = () => {
+    if (!validate()) return;
 
-  const normalizedStateId =
-    formData.role === "MOSPI_REVIEWER"
-      ? Array.isArray(formData.stateId)
-        ? formData.stateId.filter(Boolean)
+    const normalizedStateId =
+      formData.role === "MOSPI_REVIEWER"
+        ? Array.isArray(formData.stateId)
+          ? formData.stateId.filter(Boolean)
+          : formData.stateId
+          ? [formData.stateId]
+          : []
+        : Array.isArray(formData.stateId)
+        ? [formData.stateId[0] ?? ""].filter(Boolean)
         : formData.stateId
         ? [formData.stateId]
-        : []
-      : Array.isArray(formData.stateId)
-      ? [formData.stateId[0] ?? ""].filter(Boolean)
-      : formData.stateId
-      ? [formData.stateId]
-      : [];
+        : [];
 
-  const stateNames = normalizedStateId.map(
-    (id) => states.find((s) => s.id === id)?.name ?? id
-  );
+    const stateNames = normalizedStateId.map(
+      (id) => states.find((s) => s.id === id)?.name ?? id
+    );
 
-  const payload = {
-    ...formData,
-    stateUt: stateNames.join(", "),      // string for backend
-     stateId: normalizedStateId,  // ✅ string for backend
-  };
+    const payload = {
+      ...formData,
+      stateUt: stateNames.join(", "), // string for backend
+      stateId: normalizedStateId, // ✅ string for backend
+    };
     type SubmitPayload = Omit<
-  NodalOfficer,
-  "id" | "state" | "createdAt" | "assignedIndicator"
-> & {
-  password?: string;
-  assignedIndicators?: string[];
-  stateId?: string | string[];
-  stateUt?: string; // ✅ string, since we're joining 
-};
+      NodalOfficer,
+      "id" | "state" | "createdAt" | "assignedIndicator"
+    > & {
+      password?: string;
+      assignedIndicators?: string[];
+      stateId?: string | string[];
+      stateUt?: string; // ✅ string, since we're joining
+    };
 
-  // Clear saved draft before saving
-  if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('userManagementFormDraft');
-  }
-
-  console.log("payload", formData);
-
-  onSave(payload  as SubmitPayload); // Make sure onSave type includes stateUt
-
-   
-};
-
- const handleSubmit = async () => {
-  if (!validate()) return;
-
-  // Always check email via API before saving (even if unchanged)
-  // This ensures we verify against the full database, not just local officers array
-  if (formData.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-    try {
-      console.log("🔍 [handleSubmit] Checking email availability via API...", {
-        email: formData.email,
-        officerId: officer?.id,
-        isEditing: !!officer
-      });
-      
-      setCheckingEmail(true);
-      const isEmailAvailable = await apiService.checkEmailAvailability(
-        formData.email,
-        officer?.id // This excludes current user when editing
-      );
-
-      console.log("🔍 [handleSubmit] Email API response:", {
-        isAvailable: isEmailAvailable,
-        email: formData.email
-      });
-
-      if (!isEmailAvailable) {
-        setErrors((prev) => ({
-          ...prev,
-          email: "This email is already registered to another user",
-        }));
-        setCheckingEmail(false);
-        // Error is shown inline in the UI, no toast needed
-        return; // Stop submission
-      }
-      
-      // Clear any existing email errors if API check passes
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        if (newErrors.email === "This email is already registered to another user") {
-          delete newErrors.email;
-        }
-        return newErrors;
-      });
-    } catch (error: any) {
-      console.error("❌ [handleSubmit] Error checking email availability:", error);
-      // On error, set error state to show in UI, but allow submission (fail open)
-      setErrors((prev) => ({
-        ...prev,
-        email: "Could not verify email availability. Please verify manually.",
-      }));
-    } finally {
-      setCheckingEmail(false);
+    // Clear saved draft before saving
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("userManagementFormDraft");
     }
-  }
 
-  // Always check contact number via API before saving (even if unchanged)
-  // This ensures we verify against the full database, not just local officers array
-  const normalizedContact = formData.contactNumber.replace(/\s/g, "");
-  if (normalizedContact && /^\d{10}$/.test(normalizedContact)) {
-    try {
-      console.log("🔍 [handleSubmit] Checking contact availability via API...", {
-        contactNumber: normalizedContact,
-        officerId: officer?.id,
-        isEditing: !!officer
-      });
-      
-      setCheckingContact(true);
-      const isContactAvailable = await apiService.checkContactAvailability(
-        normalizedContact,
-        officer?.id // This excludes current user when editing
-      );
+    console.log("payload", formData);
 
-      console.log("🔍 [handleSubmit] API response:", {
-        isAvailable: isContactAvailable,
-        contactNumber: normalizedContact
-      });
-
-      if (!isContactAvailable) {
-        setErrors((prev) => ({
-          ...prev,
-          contactNumber: "This contact number is already registered to another user",
-        }));
-        setCheckingContact(false);
-        // Error is shown inline in the UI, no toast needed
-        return; // Stop submission
-      }
-      
-      // Clear any existing contact number errors if API check passes
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        if (newErrors.contactNumber === "This contact number is already registered to another user" ||
-            newErrors.contactNumber === "This contact number is already assigned to another user") {
-          delete newErrors.contactNumber;
-        }
-        return newErrors;
-      });
-    } catch (error: any) {
-      console.error("❌ [handleSubmit] Error checking contact availability:", error);
-      console.error("❌ [handleSubmit] Error details:", {
-        message: error?.message,
-        response: error?.response?.data,
-        status: error?.response?.status,
-        url: error?.config?.url
-      });
-      // On error, set error state to show in UI, but allow submission (fail open)
-      setErrors((prev) => ({
-        ...prev,
-        contactNumber: "Could not verify contact number availability. Please verify manually.",
-      }));
-    } finally {
-      setCheckingContact(false);
-    }
-  }
-
-  const normalizedStateId =
-    formData.role === "MOSPI_REVIEWER"
-      ? Array.isArray(formData.stateId)
-        ? formData.stateId.filter(Boolean)
-        : formData.stateId
-        ? [formData.stateId]
-        : []
-      : Array.isArray(formData.stateId)
-      ? [formData.stateId[0] ?? ""].filter(Boolean)
-      : formData.stateId
-      ? [formData.stateId]
-      : [];
-
-  // Get unique state names only for stateUt
-  const stateNames = Array.from(new Set(normalizedStateId.map(
-    (id) => states.find((s) => s.id === id)?.name ?? id
-  )));
-
-  const payload = {
-    ...formData,
-    stateUt: stateNames.join(", "), // always only the selected unique state(s)
-    stateId: normalizedStateId,
+    onSave(payload as SubmitPayload); // Make sure onSave type includes stateUt
   };
 
-  type SubmitPayload = Omit<
-  NodalOfficer,
-  "id" | "state" | "createdAt" | "assignedIndicator"
-> & {
-  password?: string;
-  assignedIndicators?: string[];
-  stateId?: string | string[];
-  stateUt?: string; // string joined for backend
-};
+  const handleSubmit = async () => {
+    if (!validate()) return;
 
-  // Clear saved draft before saving
-  if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('userManagementFormDraft');
-  }
+    // Always check email via API before saving (even if unchanged)
+    // This ensures we verify against the full database, not just local officers array
+    if (
+      formData.email.trim() &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+    ) {
+      try {
+        console.log(
+          "🔍 [handleSubmit] Checking email availability via API...",
+          {
+            email: formData.email,
+            officerId: officer?.id,
+            isEditing: !!officer,
+          }
+        );
 
-  // Call onSave - the parent component will handle redirect and form clearing
-  onSave(payload as SubmitPayload);
-  
-  // Note: Form clearing is now handled by the parent component (UserManagementPage)
-  // to ensure it happens simultaneously with redirect, preventing visible form clearing
-};
+        setCheckingEmail(true);
+        const isEmailAvailable = await apiService.checkEmailAvailability(
+          formData.email,
+          officer?.id // This excludes current user when editing
+        );
 
+        console.log("🔍 [handleSubmit] Email API response:", {
+          isAvailable: isEmailAvailable,
+          email: formData.email,
+        });
+
+        if (!isEmailAvailable) {
+          setErrors((prev) => ({
+            ...prev,
+            email: "This email is already registered to another user",
+          }));
+          setCheckingEmail(false);
+          // Error is shown inline in the UI, no toast needed
+          return; // Stop submission
+        }
+
+        // Clear any existing email errors if API check passes
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          if (
+            newErrors.email ===
+            "This email is already registered to another user"
+          ) {
+            delete newErrors.email;
+          }
+          return newErrors;
+        });
+      } catch (error: any) {
+        console.error(
+          "❌ [handleSubmit] Error checking email availability:",
+          error
+        );
+        // On error, set error state to show in UI, but allow submission (fail open)
+        setErrors((prev) => ({
+          ...prev,
+          email: "Could not verify email availability. Please verify manually.",
+        }));
+      } finally {
+        setCheckingEmail(false);
+      }
+    }
+
+    // Always check contact number via API before saving (even if unchanged)
+    // This ensures we verify against the full database, not just local officers array
+    const normalizedContact = formData.contactNumber.replace(/\s/g, "");
+    if (normalizedContact && /^\d{10}$/.test(normalizedContact)) {
+      try {
+        console.log(
+          "🔍 [handleSubmit] Checking contact availability via API...",
+          {
+            contactNumber: normalizedContact,
+            officerId: officer?.id,
+            isEditing: !!officer,
+          }
+        );
+
+        setCheckingContact(true);
+        const isContactAvailable = await apiService.checkContactAvailability(
+          normalizedContact,
+          officer?.id // This excludes current user when editing
+        );
+
+        console.log("🔍 [handleSubmit] API response:", {
+          isAvailable: isContactAvailable,
+          contactNumber: normalizedContact,
+        });
+
+        if (!isContactAvailable) {
+          setErrors((prev) => ({
+            ...prev,
+            contactNumber:
+              "This contact number is already registered to another user",
+          }));
+          setCheckingContact(false);
+          // Error is shown inline in the UI, no toast needed
+          return; // Stop submission
+        }
+
+        // Clear any existing contact number errors if API check passes
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          if (
+            newErrors.contactNumber ===
+              "This contact number is already registered to another user" ||
+            newErrors.contactNumber ===
+              "This contact number is already assigned to another user"
+          ) {
+            delete newErrors.contactNumber;
+          }
+          return newErrors;
+        });
+      } catch (error: any) {
+        console.error(
+          "❌ [handleSubmit] Error checking contact availability:",
+          error
+        );
+        console.error("❌ [handleSubmit] Error details:", {
+          message: error?.message,
+          response: error?.response?.data,
+          status: error?.response?.status,
+          url: error?.config?.url,
+        });
+        // On error, set error state to show in UI, but allow submission (fail open)
+        setErrors((prev) => ({
+          ...prev,
+          contactNumber:
+            "Could not verify contact number availability. Please verify manually.",
+        }));
+      } finally {
+        setCheckingContact(false);
+      }
+    }
+
+    const normalizedStateId =
+      formData.role === "MOSPI_REVIEWER"
+        ? Array.isArray(formData.stateId)
+          ? formData.stateId.filter(Boolean)
+          : formData.stateId
+          ? [formData.stateId]
+          : []
+        : Array.isArray(formData.stateId)
+        ? [formData.stateId[0] ?? ""].filter(Boolean)
+        : formData.stateId
+        ? [formData.stateId]
+        : [];
+
+    // Get unique state names only for stateUt
+    const stateNames = Array.from(
+      new Set(
+        normalizedStateId.map(
+          (id) => states.find((s) => s.id === id)?.name ?? id
+        )
+      )
+    );
+
+    const payload = {
+      ...formData,
+      stateUt: stateNames.join(", "), // always only the selected unique state(s)
+      stateId: normalizedStateId,
+    };
+
+    type SubmitPayload = Omit<
+      NodalOfficer,
+      "id" | "state" | "createdAt" | "assignedIndicator"
+    > & {
+      password?: string;
+      assignedIndicators?: string[];
+      stateId?: string | string[];
+      stateUt?: string; // string joined for backend
+    };
+
+    // Clear saved draft before saving
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("userManagementFormDraft");
+    }
+
+    // Call onSave - the parent component will handle redirect and form clearing
+    onSave(payload as SubmitPayload);
+
+    // Note: Form clearing is now handled by the parent component (UserManagementPage)
+    // to ensure it happens simultaneously with redirect, preventing visible form clearing
+  };
 
   // Get selected state name for display
   const getSelectedStateName1 = () => {
@@ -1505,47 +1720,57 @@ function UserFormComponent({
     const selectedState = states.find((state) => state.id === formData.stateId);
     return selectedState ? selectedState.name : formData.stateId; // Fallback to stateId if not found
   };
-const getSelectedStateName = () => {
-  if (!formData.stateId) return "";
-  const id = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
-  const state = states.find((s) => s.id === id);
-  return state ? state.name : id; // fallback to ID if name not found
-};
+  const getSelectedStateName = () => {
+    if (!formData.stateId) return "";
+    const id = Array.isArray(formData.stateId)
+      ? formData.stateId[0]
+      : formData.stateId;
+    const state = states.find((s) => s.id === id);
+    return state ? state.name : id; // fallback to ID if name not found
+  };
 
-  
-
-const handleStateChange = useCallback((values: string | string[]) => {
-  // Always update stateId and stateUt to reflect the latest selection, not keeping previous state
-  if (!values || (Array.isArray(values) && values.length === 0)) {
-    setFormData(prev => ({
-      ...prev,
-      stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
-      stateUt: ''
-    }));
-    return;
-  }
-  if (formData.role === "MOSPI_REVIEWER") {
-    // Multiple selection
-    const stateValues = Array.isArray(values) ? values.filter(Boolean) : [values].filter(Boolean);
-    // Get unique state names only
-    const uniqueNames = Array.from(new Set(stateValues.map(id => states.find(s => s.id === id)?.name ?? id)));
-    setFormData(prev => ({
-      ...prev,
-      stateId: stateValues, // always array for reviewer
-      stateUt: uniqueNames.join(", ")
-    }));
-  } else {
-    // Single selection
-    const singleValue = Array.isArray(values) ? values[0] : values;
-    const name = singleValue ? states.find(s => s.id === singleValue)?.name ?? singleValue : '';
-    setFormData(prev => ({
-      ...prev,
-      stateId: singleValue || '',
-      stateUt: name
-    }));
-  }
-}, [formData.role, states]);
- 
+  const handleStateChange = useCallback(
+    (values: string | string[]) => {
+      // Always update stateId and stateUt to reflect the latest selection, not keeping previous state
+      if (!values || (Array.isArray(values) && values.length === 0)) {
+        setFormData((prev) => ({
+          ...prev,
+          stateId: formData.role === "MOSPI_REVIEWER" ? [] : "",
+          stateUt: "",
+        }));
+        return;
+      }
+      if (formData.role === "MOSPI_REVIEWER") {
+        // Multiple selection
+        const stateValues = Array.isArray(values)
+          ? values.filter(Boolean)
+          : [values].filter(Boolean);
+        // Get unique state names only
+        const uniqueNames = Array.from(
+          new Set(
+            stateValues.map((id) => states.find((s) => s.id === id)?.name ?? id)
+          )
+        );
+        setFormData((prev) => ({
+          ...prev,
+          stateId: stateValues, // always array for reviewer
+          stateUt: uniqueNames.join(", "),
+        }));
+      } else {
+        // Single selection
+        const singleValue = Array.isArray(values) ? values[0] : values;
+        const name = singleValue
+          ? states.find((s) => s.id === singleValue)?.name ?? singleValue
+          : "";
+        setFormData((prev) => ({
+          ...prev,
+          stateId: singleValue || "",
+          stateUt: name,
+        }));
+      }
+    },
+    [formData.role, states]
+  );
 
   // Fetch assigned states by role to disable them in dropdown
   useEffect(() => {
@@ -1557,7 +1782,7 @@ const handleStateChange = useCallback((values: string | string[]) => {
           fetchedDisabledStatesRef.current = "";
           return;
         }
-        
+
         // Only fetch for roles that can have state assignments checked
         // Skip NODAL_OFFICER as they don't need this check (they are assigned to states, not the other way around)
         if (formData.role === "NODAL_OFFICER") {
@@ -1565,17 +1790,19 @@ const handleStateChange = useCallback((values: string | string[]) => {
           fetchedDisabledStatesRef.current = "";
           return;
         }
-        
+
         // Check if we've already fetched for this role
         if (fetchedDisabledStatesRef.current === formData.role) {
           return; // Skip duplicate API call
         }
-        
+
         const response = await apiService.getAssignedStateOnly(formData.role);
-        
+
         // Extract state names from the response
         if (response && Array.isArray(response)) {
-          const stateNames = response.map((item: any) => item.stateName || item.name || item).filter(Boolean);
+          const stateNames = response
+            .map((item: any) => item.stateName || item.name || item)
+            .filter(Boolean);
           setDisabledStateNames(stateNames);
           fetchedDisabledStatesRef.current = formData.role; // Cache the role we fetched for
         }
@@ -1620,7 +1847,10 @@ const handleStateChange = useCallback((values: string | string[]) => {
           setErrors((prev) => {
             const newErrors = { ...prev };
             // Only clear duplicate error, keep format errors
-            if (newErrors.email === "This email is already registered to another user") {
+            if (
+              newErrors.email ===
+              "This email is already registered to another user"
+            ) {
               delete newErrors.email;
             }
             return newErrors;
@@ -1640,7 +1870,7 @@ const handleStateChange = useCallback((values: string | string[]) => {
           debouncedEmail,
           officer?.id
         );
-        
+
         // Only update state if this request hasn't been cancelled
         if (!isCancelled) {
           if (!isAvailable) {
@@ -1652,7 +1882,10 @@ const handleStateChange = useCallback((values: string | string[]) => {
             setErrors((prev) => {
               const newErrors = { ...prev };
               // Only clear email error if it's a duplicate error, keep format errors
-              if (newErrors.email === "This email is already registered to another user") {
+              if (
+                newErrors.email ===
+                "This email is already registered to another user"
+              ) {
                 delete newErrors.email;
               }
               return newErrors;
@@ -1665,7 +1898,10 @@ const handleStateChange = useCallback((values: string | string[]) => {
         if (!isCancelled) {
           setErrors((prev) => {
             const newErrors = { ...prev };
-            if (newErrors.email === "This email is already registered to another user") {
+            if (
+              newErrors.email ===
+              "This email is already registered to another user"
+            ) {
               delete newErrors.email;
             }
             return newErrors;
@@ -1709,19 +1945,25 @@ const handleStateChange = useCallback((values: string | string[]) => {
 
       // Only check if it's a valid 10-digit number
       const normalizedContact = debouncedContactNumber.replace(/\s/g, "");
-      
+
       // Skip if we've already checked this exact contact number
-      if (normalizedContact && lastCheckedContactRef.current === normalizedContact) {
+      if (
+        normalizedContact &&
+        lastCheckedContactRef.current === normalizedContact
+      ) {
         return;
       }
-      
+
       if (!normalizedContact || !/^\d{10}$/.test(normalizedContact)) {
         // Clear duplicate error if contact number is empty or invalid format
         if (!isCancelled) {
           setErrors((prev) => {
             const newErrors = { ...prev };
             // Only clear duplicate error, keep format errors
-            if (newErrors.contactNumber === "This contact number is already registered to another user") {
+            if (
+              newErrors.contactNumber ===
+              "This contact number is already registered to another user"
+            ) {
               delete newErrors.contactNumber;
             }
             return newErrors;
@@ -1741,19 +1983,23 @@ const handleStateChange = useCallback((values: string | string[]) => {
           normalizedContact,
           officer?.id
         );
-        
+
         // Only update state if this request hasn't been cancelled
         if (!isCancelled) {
           if (!isAvailable) {
             setErrors((prev) => ({
               ...prev,
-              contactNumber: "This contact number is already registered to another user",
+              contactNumber:
+                "This contact number is already registered to another user",
             }));
           } else {
             setErrors((prev) => {
               const newErrors = { ...prev };
               // Only clear duplicate error, keep format errors
-              if (newErrors.contactNumber === "This contact number is already registered to another user") {
+              if (
+                newErrors.contactNumber ===
+                "This contact number is already registered to another user"
+              ) {
                 delete newErrors.contactNumber;
               }
               return newErrors;
@@ -1766,7 +2012,10 @@ const handleStateChange = useCallback((values: string | string[]) => {
         if (!isCancelled) {
           setErrors((prev) => {
             const newErrors = { ...prev };
-            if (newErrors.contactNumber === "This contact number is already registered to another user") {
+            if (
+              newErrors.contactNumber ===
+              "This contact number is already registered to another user"
+            ) {
               delete newErrors.contactNumber;
             }
             return newErrors;
@@ -1793,7 +2042,7 @@ const handleStateChange = useCallback((values: string | string[]) => {
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">
           User Management
-        </h2>        
+        </h2>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -1894,16 +2143,16 @@ const handleStateChange = useCallback((values: string | string[]) => {
             value={formData.contactNumber}
             onChange={(e) => {
               // Only allow numeric characters
-              const inputValue = e.target.value.replace(/\D/g, '');
-              
+              const inputValue = e.target.value.replace(/\D/g, "");
+
               // Limit to 10 digits
               const contactNumber = inputValue.slice(0, 10);
-              
+
               setFormData((prev) => ({ ...prev, contactNumber }));
 
               // Real-time validation
               const newErrors: Record<string, string> = { ...errors };
-              
+
               if (!contactNumber.trim()) {
                 // Only show required error if there was a previous error (user has interacted)
                 if (errors.contactNumber) {
@@ -1914,29 +2163,38 @@ const handleStateChange = useCallback((values: string | string[]) => {
                 }
               } else if (contactNumber.length !== 10) {
                 // Show error if not exactly 10 digits
-                newErrors.contactNumber = "Please enter a valid 10-digit phone number";
+                newErrors.contactNumber =
+                  "Please enter a valid 10-digit phone number";
               } else {
                 // Valid format (10 digits) - check for local duplicates (quick check)
-                const normalizedContactNumber = contactNumber.replace(/\s/g, "");
+                const normalizedContactNumber = contactNumber.replace(
+                  /\s/g,
+                  ""
+                );
                 const duplicateContact = officers.find(
                   (o) =>
                     o.id !== officer?.id && // Exclude current officer if editing
                     o.contactNumber &&
-                    o.contactNumber.replace(/\s/g, "") === normalizedContactNumber
+                    o.contactNumber.replace(/\s/g, "") ===
+                      normalizedContactNumber
                 );
                 if (duplicateContact) {
-                  newErrors.contactNumber = "This contact number is already assigned to another user";
+                  newErrors.contactNumber =
+                    "This contact number is already assigned to another user";
                 } else {
                   // Clear format errors, but preserve API duplicate error if it exists
                   // The checkContactAvailability function will handle API-level duplicate checking
-                  if (newErrors.contactNumber === "Please enter a valid 10-digit phone number") {
+                  if (
+                    newErrors.contactNumber ===
+                    "Please enter a valid 10-digit phone number"
+                  ) {
                     delete newErrors.contactNumber;
                   }
                   // Note: We preserve "This contact number is already registered to another user" error
                   // which is set by the checkContactAvailability function
                 }
               }
-              
+
               setErrors(newErrors);
             }}
             onBlur={() => {
@@ -1951,7 +2209,9 @@ const handleStateChange = useCallback((values: string | string[]) => {
             className={errors.contactNumber ? "border-destructive" : ""}
           />
           {checkingContact && (
-            <p className="text-sm text-muted-foreground">Checking availability...</p>
+            <p className="text-sm text-muted-foreground">
+              Checking availability...
+            </p>
           )}
           {errors.contactNumber && (
             <p className="text-sm text-destructive">{errors.contactNumber}</p>
@@ -1985,7 +2245,7 @@ const handleStateChange = useCallback((values: string | string[]) => {
 
               // Real-time validation
               const newErrors: Record<string, string> = { ...errors };
-              
+
               if (!email.trim()) {
                 // Only show required error if there was a previous error (user has interacted)
                 if (errors.email && errors.email === "Email is required") {
@@ -2002,20 +2262,24 @@ const handleStateChange = useCallback((values: string | string[]) => {
                   newErrors.email = "Please enter a valid email address";
                 } else if (!/@(gov\.in|nic\.in)$/i.test(email)) {
                   // Valid format but wrong domain
-                  newErrors.email = "Only @gov.in and @nic.in email addresses are allowed";
+                  newErrors.email =
+                    "Only @gov.in and @nic.in email addresses are allowed";
                 } else {
                   // Valid email with correct domain - clear format/domain errors
                   // But preserve duplicate error if it exists (will be checked by checkEmailAvailability)
-                  if (newErrors.email && 
-                      (newErrors.email === "Please enter a valid email address" || 
-                       newErrors.email === "Only @gov.in and @nic.in email addresses are allowed")) {
+                  if (
+                    newErrors.email &&
+                    (newErrors.email === "Please enter a valid email address" ||
+                      newErrors.email ===
+                        "Only @gov.in and @nic.in email addresses are allowed")
+                  ) {
                     delete newErrors.email;
                   }
                   // Note: We preserve "This email is already registered to another user" error
                   // which is set by the checkEmailAvailability function
                 }
               }
-              
+
               setErrors(newErrors);
             }}
             onBlur={() => {
@@ -2027,10 +2291,18 @@ const handleStateChange = useCallback((values: string | string[]) => {
                 }));
               }
             }}
-            className={errors.email ? "border-destructive" : officer ? "bg-muted cursor-not-allowed" : ""}
+            className={
+              errors.email
+                ? "border-destructive"
+                : officer
+                ? "bg-muted cursor-not-allowed"
+                : ""
+            }
           />
           {checkingEmail && !officer && (
-            <p className="text-sm text-muted-foreground">Checking availability...</p>
+            <p className="text-sm text-muted-foreground">
+              Checking availability...
+            </p>
           )}
           {errors.email && (
             <p className="text-sm text-destructive">{errors.email}</p>
@@ -2101,24 +2373,28 @@ const handleStateChange = useCallback((values: string | string[]) => {
           </Label>
           {(() => {
             const availableRoles = getAvailableRoles();
-            const availableRoleValues = availableRoles.map(r => r.value);
-            const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
-            
+            const availableRoleValues = availableRoles.map((r) => r.value);
+            const defaultRole =
+              availableRoles.length > 0
+                ? availableRoles[0].value
+                : "NODAL_OFFICER";
+
             // Ensure formData.role is valid - if not, use default (useEffect will fix it)
-            const currentRole = formData.role && availableRoleValues.includes(formData.role) 
-              ? formData.role 
-              : defaultRole;
-            
+            const currentRole =
+              formData.role && availableRoleValues.includes(formData.role)
+                ? formData.role
+                : defaultRole;
+
             return (
               <Select
                 value={currentRole}
                 disabled={user?.role === "STATE_APPROVER"}
                 onValueChange={(value) => {
-                  setFormData(prev => ({
+                  setFormData((prev) => ({
                     ...prev,
                     role: value,
-                    stateId: value === "MOSPI_REVIEWER" ? [] : '',
-                    stateUt: ''
+                    stateId: value === "MOSPI_REVIEWER" ? [] : "",
+                    stateUt: "",
                   }));
                   // Reset nodal submission check when role changes
                   if (value !== "NODAL_OFFICER") {
@@ -2129,7 +2405,7 @@ const handleStateChange = useCallback((values: string | string[]) => {
                   }
                 }}
               >
-                <SelectTrigger 
+                <SelectTrigger
                   className={errors.role ? "border-destructive" : ""}
                 >
                   <SelectValue placeholder="Select role" />
@@ -2150,11 +2426,13 @@ const handleStateChange = useCallback((values: string | string[]) => {
         </div>
 
         <div className="space-y-2">
-          {formData?.role !== "MOSPI_APPROVER" && formData?.role !== "ADMIN" && (<>
-          <Label htmlFor="stateId" className="flex items-center gap-2">
-              State/UT
-            <span className="text-destructive">*</span>
-            {/* <TooltipProvider>
+          {formData?.role !== "MOSPI_APPROVER" &&
+            formData?.role !== "ADMIN" && (
+              <>
+                <Label htmlFor="stateId" className="flex items-center gap-2">
+                  State/UT
+                  <span className="text-destructive">*</span>
+                  {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -2168,10 +2446,9 @@ const handleStateChange = useCallback((values: string | string[]) => {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider> */}
-          </Label>
-          </>
-      )}
-          
+                </Label>
+              </>
+            )}
 
           {/* {user?.role === "ADMIN"  || user?.role === "MOSPI_APPROVER" ? (
             <Select
@@ -2237,115 +2514,160 @@ const handleStateChange = useCallback((values: string | string[]) => {
             />
           )} */}
 
+          {user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
+            formData.role === "MOSPI_REVIEWER" ? (
+              <div
+                style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
+              >
+                <MultiSelect
+                  options={states.map((state) => {
+                    const isAssigned = (officers || []).some(
+                      (o) =>
+                        o.role === "MOSPI_REVIEWER" &&
+                        o.id !== officer?.id &&
+                        ((Array.isArray(o.stateId) &&
+                          o.stateId.includes(state.id)) ||
+                          (!Array.isArray(o.stateId) && o.stateId === state.id))
+                    );
 
- 
-{user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
-   formData.role === "MOSPI_REVIEWER" ? (
-    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-   <MultiSelect
-  options={states.map(state => {
-    const isAssigned = (officers || []).some(o =>
-      o.role === 'MOSPI_REVIEWER' &&
-      o.id !== officer?.id &&
-      (
-        (Array.isArray(o.stateId) && o.stateId.includes(state.id)) ||
-        (!Array.isArray(o.stateId) && o.stateId === state.id)
-      )
-    );
+                    const stateNameNorm = (state.name || "")
+                      .trim()
+                      .toLowerCase();
+                    const normalizedDisabledNames = disabledStateNames.map(
+                      (n) => n.toString().trim().toLowerCase()
+                    );
+                    const isDisabledByName =
+                      normalizedDisabledNames.includes(stateNameNorm);
 
-    const stateNameNorm = (state.name || '').trim().toLowerCase();
-    const normalizedDisabledNames = disabledStateNames.map(n => n.toString().trim().toLowerCase());
-    const isDisabledByName = normalizedDisabledNames.includes(stateNameNorm);
+                    return {
+                      value: state.id,
+                      label: state.name,
+                      disabled:
+                        !state.isActive || isAssigned || isDisabledByName,
+                    };
+                  })}
+                  value={
+                    Array.isArray(formData.stateId)
+                      ? formData.stateId
+                      : [formData.stateId].filter(Boolean)
+                  }
+                  onChange={(selected) => {
+                    // Only keep the current selection, do not merge with previous state
+                    handleStateChange(selected);
+                  }}
+                  placeholder={
+                    loadingStates
+                      ? "Loading states..."
+                      : "Select multiple states"
+                  }
+                  searchPlaceholder="Search states..."
+                  showSearch
+                  className={errors.stateId ? "border-destructive" : ""}
+                  disabled={loadingStates}
+                  showSelectAll
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleStateChange([])}
+                  disabled={loadingStates}
+                >
+                  Clear
+                </Button>
+              </div>
+            ) : formData.role !== "MOSPI_APPROVER" &&
+              formData.role !== "ADMIN" ? (
+              <Select
+                value={
+                  typeof formData.stateId === "string"
+                    ? formData.stateId
+                    : Array.isArray(formData.stateId)
+                    ? formData.stateId[0]
+                    : ""
+                }
+                onValueChange={(value) => handleStateChange(value)}
+                disabled={loadingStates}
+              >
+                <SelectTrigger
+                  className={errors.stateId ? "border-destructive" : ""}
+                >
+                  <SelectValue placeholder="Please select a state/UT">
+                    {formData.stateId
+                      ? getSelectedStateName()
+                      : loadingStates
+                      ? "Loading states..."
+                      : "Select state/UT"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {loadingStates ? (
+                    <div className="flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Loading states...
+                    </div>
+                  ) : (
+                    states.map((state) => {
+                      // Disable if not active or in disabledStateNames (case-insensitive, trimmed)
+                      const isDisabledByName = disabledStateNames.some(
+                        (n) =>
+                          n.trim().toLowerCase() ===
+                          state.name.trim().toLowerCase()
+                      );
 
-      return {
-        value: state.id,
-        label: state.name,
-        disabled: !state.isActive || isAssigned || isDisabledByName
-      };
-  })}
-  value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
-  onChange={(selected) => {
-    // Only keep the current selection, do not merge with previous state
-    handleStateChange(selected);
-  }}
-  placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
-  searchPlaceholder="Search states..."
-  showSearch
-  className={errors.stateId ? "border-destructive" : ""}
-  disabled={loadingStates}
-  showSelectAll
-/> 
-      <Button type="button" variant="outline" size="sm" onClick={() => handleStateChange([])} disabled={loadingStates}>
-        Clear
-      </Button>
-    </div>
-  ) : formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN" ? (
-    <Select
-      value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
-      onValueChange={(value) => handleStateChange(value)}
-      disabled={loadingStates}
-    >
-      <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
-        <SelectValue placeholder="Please select a state/UT" >
-          {formData.stateId
-            ? getSelectedStateName()
-            : loadingStates
-            ? "Loading states..."
-            : "Select state/UT"}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {loadingStates ? (
-          <div className="flex items-center justify-center p-2">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            Loading states...
-          </div>
-        ) : (
-          states.map((state) => {
-            // Disable if not active or in disabledStateNames (case-insensitive, trimmed)
-            const isDisabledByName = disabledStateNames.some(
-              n => n.trim().toLowerCase() === state.name.trim().toLowerCase()
-            );
-            
-            // Check if STATE_APPROVER already exists for this state
-            // Each state can have only one active STATE_APPROVER
-            const hasStateApprover = formData.role === "STATE_APPROVER" && (officers || []).some(o =>
-              o.role === 'STATE_APPROVER' &&
-              o.id !== officer?.id && // Exclude current officer if editing
-              o.isActive !== false && // Only check active STATE_APPROVERs (exclude explicitly deactivated ones)
-              (
-                (typeof o.state === 'string' && o.state.trim().toLowerCase() === state.name.trim().toLowerCase()) ||
-                (typeof o.stateId === 'string' && o.stateId === state.id) ||
-                (Array.isArray(o.stateId) && o.stateId.includes(state.id))
-              )
-            );
-            
-            return (
-              <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName || hasStateApprover}>
-                {state.name}
-              </SelectItem>
-            );
-          })
-        )}
-      </SelectContent>
-    </Select>
-  ):null
-) : (
-  <Input
-    id="stateId"
-    value={user?.state || "Loading..."}
-    disabled={true}
-    className="bg-muted"
-    placeholder="Your current state"
-  />
-)}
+                      // Check if STATE_APPROVER already exists for this state
+                      // Each state can have only one active STATE_APPROVER
+                      const hasStateApprover =
+                        formData.role === "STATE_APPROVER" &&
+                        (officers || []).some(
+                          (o) =>
+                            o.role === "STATE_APPROVER" &&
+                            o.id !== officer?.id && // Exclude current officer if editing
+                            o.isActive !== false && // Only check active STATE_APPROVERs (exclude explicitly deactivated ones)
+                            ((typeof o.state === "string" &&
+                              o.state.trim().toLowerCase() ===
+                                state.name.trim().toLowerCase()) ||
+                              (typeof o.stateId === "string" &&
+                                o.stateId === state.id) ||
+                              (Array.isArray(o.stateId) &&
+                                o.stateId.includes(state.id)))
+                        );
 
-          {formData?.role !== "ADMIN" && formData?.role !== "MOSPI_APPROVER" && (
-            <p className="text-sm text-muted-foreground">
-              {/* Users will be created in your current state:{" "} */}
-              {/* <strong>{user?.state}</strong> */}
-            </p>
+                      return (
+                        <SelectItem
+                          key={state.id}
+                          value={state.id}
+                          disabled={
+                            !state.isActive ||
+                            isDisabledByName ||
+                            hasStateApprover
+                          }
+                        >
+                          {state.name}
+                        </SelectItem>
+                      );
+                    })
+                  )}
+                </SelectContent>
+              </Select>
+            ) : null
+          ) : (
+            <Input
+              id="stateId"
+              value={user?.state || "Loading..."}
+              disabled={true}
+              className="bg-muted"
+              placeholder="Your current state"
+            />
           )}
+
+          {formData?.role !== "ADMIN" &&
+            formData?.role !== "MOSPI_APPROVER" && (
+              <p className="text-sm text-muted-foreground">
+                {/* Users will be created in your current state:{" "} */}
+                {/* <strong>{user?.state}</strong> */}
+              </p>
+            )}
 
           {errors.stateId && (
             <p className="text-sm text-destructive">{errors.stateId}</p>
@@ -2376,7 +2698,9 @@ const handleStateChange = useCallback((values: string | string[]) => {
             {stateApproverHasSubmission && officer && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> Indicator reassignment is disabled because you have already submitted your consolidated submission.
+                  <strong>Note:</strong> Indicator reassignment is disabled
+                  because you have already submitted your consolidated
+                  submission.
                 </p>
               </div>
             )}
@@ -2385,7 +2709,9 @@ const handleStateChange = useCallback((values: string | string[]) => {
             {nodalHasSubmission && officer && !stateApproverHasSubmission && (
               <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <p className="text-sm text-orange-800">
-                  <strong>Note:</strong> Indicator modification is disabled because this nodal officer has already submitted their submission. No indicator changes are allowed.
+                  <strong>Note:</strong> Indicator modification is disabled
+                  because this nodal officer has already submitted their
+                  submission. No indicator changes are allowed.
                 </p>
               </div>
             )}
@@ -2399,14 +2725,19 @@ const handleStateChange = useCallback((values: string | string[]) => {
             {/* Warning about submitted indicators - only show if at least one submitted indicator is present in the options list */}
             {(() => {
               // Check if any submitted indicators are actually present in the options list
-              const submittedInOptions = indicatorOptions.some(opt => 
-                effectiveSubmittedIndicators.includes(opt.value) && opt.disabled
+              const submittedInOptions = indicatorOptions.some(
+                (opt) =>
+                  effectiveSubmittedIndicators.includes(opt.value) &&
+                  opt.disabled
               );
               return submittedInOptions;
             })() && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Some indicators are disabled because they have already been submitted by the nodal officer in your state. These indicators cannot be reassigned to prevent duplicate submissions.
+                  <strong>Note:</strong> Some indicators are disabled because
+                  they have already been submitted by the nodal officer in your
+                  state. These indicators cannot be reassigned to prevent
+                  duplicate submissions.
                 </p>
               </div>
             )}
@@ -2427,7 +2758,11 @@ const handleStateChange = useCallback((values: string | string[]) => {
               groupBySection={true}
               className="w-full"
               maxHeight="250px"
-              disabled={loadingIndicators || (stateApproverHasSubmission && !!officer) || (nodalHasSubmission && !!officer)}
+              disabled={
+                loadingIndicators ||
+                (stateApproverHasSubmission && !!officer) ||
+                (nodalHasSubmission && !!officer)
+              }
             />
             {loadingIndicators && (
               <p className="text-sm text-muted-foreground mt-1">
@@ -2491,12 +2826,12 @@ const handleStateChange = useCallback((values: string | string[]) => {
       </div>
 
       <div className="flex justify-end gap-3 pt-6">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => {
             // Clear saved draft on cancel
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('userManagementFormDraft');
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("userManagementFormDraft");
             }
             onCancel();
           }}
