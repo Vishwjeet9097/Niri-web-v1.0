@@ -728,13 +728,13 @@ export function UserForm({
   // Debug log removed
 
     switch (currentUserRole) {
-    case "MINISTRY_APPROVER":
-          return [
-            {
-              value: "MINISTRY_APPROVER",
-              label: getRoleDisplayName("MINISTRY_APPROVER"),
-            },
-          ];
+      case "MINISTRY_APPROVER":
+        return [
+          {
+            value: "MINISTRY_APPROVER",
+            label: getRoleDisplayName("MINISTRY_APPROVER"),
+          },
+        ];
       case "STATE_APPROVER":
         // State Approver can only create Nodal Officers
         return [
@@ -744,7 +744,7 @@ export function UserForm({
           },
         ];
       case "MOSPI_APPROVER":
-        // MoSPI Approver can create MoSPI Reviewers and State Approvers
+        // MoSPI Approver can create only MoSPI Reviewers and State Approvers
         return [
           {
             value: "MOSPI_REVIEWER",
@@ -758,7 +758,7 @@ export function UserForm({
       case "ADMIN":
         // Admin can create all roles (for system administration)
         return [
- 	    {
+          {
             value: "MINISTRY_APPROVER",
             label: getRoleDisplayName("MINISTRY_APPROVER"),
           },
@@ -774,10 +774,10 @@ export function UserForm({
             value: "MOSPI_APPROVER",
             label: getRoleDisplayName("MOSPI_APPROVER"),
           },
-          { 
-	   value: "ADMIN",
-	   label: getRoleDisplayName("ADMIN") 
-	   },
+          {
+            value: "ADMIN",
+            label: getRoleDisplayName("ADMIN")
+          },
         ];
       default:
         // Default fallback - no roles available
@@ -929,54 +929,47 @@ export function UserForm({
     }
   }, [formData, officer]);
 
-  // Load states only if stateUt is present
+  // Always load states if MOSPI_REVIEWER or STATE_APPROVER is selected, or user is STATE_APPROVER
   useEffect(() => {
-    // Do not call states API for MINISTRY_APPROVER
     if (formData.role === "MINISTRY_APPROVER") {
       setLoadingStates(false);
       return;
     }
-    const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
-    if (!stateUt) {
-      setLoadingStates(false);
-      return;
-    }
-    // Only call states API if not MINISTRY_APPROVER
-    const loadStates = async () => {
-      if (formData.role === "MINISTRY_APPROVER") {
-        setLoadingStates(false);
-        return;
-      }
-      setLoadingStates(true);
-      try {
-        const statesData = await statesService.getStates();
-        setStates(statesData);
-        // If we have an officer but no stateId, try to find it by stateUt/state name
-        if (
-          officer &&
-          (!officer.stateId || officer.stateId === "") &&
-          officer.state
-        ) {
-          const foundState = statesData.find(
-            (state) =>
-              state.name.toLowerCase() === officer.state.toLowerCase() ||
-              state.code.toLowerCase() === officer.state.toLowerCase()
-          );
-          if (foundState) {
-            setFormData((prev) => ({
-              ...prev,
-              stateId: foundState.id,
-            }));
+    if (formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER" || user?.role === "STATE_APPROVER") {
+      const loadStates = async () => {
+        setLoadingStates(true);
+        try {
+          const statesData = await statesService.getStates();
+          setStates(statesData);
+          // If we have an officer but no stateId, try to find it by stateUt/state name
+          if (
+            officer &&
+            (!officer.stateId || officer.stateId === "") &&
+            officer.state
+          ) {
+            const foundState = statesData.find(
+              (state) =>
+                state.name.toLowerCase() === officer.state.toLowerCase() ||
+                state.code.toLowerCase() === officer.state.toLowerCase()
+            );
+            if (foundState) {
+              setFormData((prev) => ({
+                ...prev,
+                stateId: foundState.id,
+              }));
+            }
           }
+        } catch (error) {
+          // Error log removed
+        } finally {
+          setLoadingStates(false);
         }
-      } catch (error) {
-        // Error log removed
-      } finally {
-        setLoadingStates(false);
-      }
-    };
-    loadStates();
-  }, [officer, user?.role, officer?.stateUt, officer?.state, user?.stateUt, user?.state, formData.role]);
+      };
+      loadStates();
+    } else {
+      setLoadingStates(false);
+    }
+  }, [officer, user?.role, formData.role]);
 
   // Set stateId after states are loaded and officer is available
   useEffect(() => {
@@ -1808,9 +1801,12 @@ const handleStateChange = (values: string | string[]) => {
                   setFormData(prev => {
                     if (prev.role === value) return prev;
                     let newFormData = { ...prev, role: value };
-                    // Only reset fields that are not relevant for the new role
+                    // Reset state selection for MOSPI_REVIEWER or STATE_APPROVER
                     if (value === "MOSPI_REVIEWER") {
                       newFormData.stateId = [];
+                      newFormData.stateUt = '';
+                    } else if (value === "STATE_APPROVER") {
+                      newFormData.stateId = '';
                       newFormData.stateUt = '';
                     }
                     // Handle ministryId only if switching to/from MINISTRY_APPROVER
@@ -1879,9 +1875,8 @@ const handleStateChange = (values: string | string[]) => {
   {/* State/UT and Assign Indicators are hidden by default, only show if a role is selected and not empty/whitespace */}
   {formData.role && formData.role.trim() !== "" && (
     <>
-      {/* State/UT Dropdown - show for STATE_APPROVER login, or if MOSPI_REVIEWER or STATE_APPROVER is selected as role, but never for MINISTRY_APPROVER */}
-      {(user?.role === "STATE_APPROVER" ||
-        ((formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER") && user?.role !== "MINISTRY_APPROVER")) && (
+      {/* State/UT Dropdown - always show if MOSPI_REVIEWER or STATE_APPROVER is selected as role, or if user is STATE_APPROVER, but never for MINISTRY_APPROVER */}
+      {((formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER") || user?.role === "STATE_APPROVER") && formData.role !== "MINISTRY_APPROVER" && (
         <div className="space-y-2">
           <Label htmlFor="stateId" className="flex items-center gap-2">
             State/UT
