@@ -48,6 +48,10 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
     }
   };
 
+  // Only show if officer.role or user role is MINISTRY_APPROVER
+  if (!(officer?.role === "MINISTRY_APPROVER")) {
+    return null;
+  }
   return (
     <div className="space-y-2">
       <Label className="flex items-center gap-2">
