@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
+import { validateField } from '@/features/ministry/utils/validation';
 import type { FileUpload } from '@/features/submission/types';
 import type { FieldRendererProps } from './types';
 
@@ -19,8 +20,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   error,
   dropdownOptions,
   className,
+  indicatorName,
+  onValidate,
+  onClearError,
 }) => {
-  const isRequired = field.validationRules?.required;
+  // All fields are mandatory - always show asterisk
+  const isRequired = true;
   
   if (mode === 'review' && !value && field.dataType !== 'file') {
     return (
@@ -66,10 +71,16 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
       // Render Yes/No fields as radio buttons
       if (isYesNoField) {
         const normalizedValue = normalizeYesNoValue(value);
+        const fieldPath = `${field.sectionId}.${field.id}`;
+        // Format label: "{indicatorName}?"
+        const displayLabel = indicatorName 
+          ? `${indicatorName}?`
+          : `${getDisplayLabel(field.label)}?`;
+        
         return (
-          <div className="space-y-2">
+          <div className="space-y-2" data-field-path={fieldPath}>
             <Label>
-              {getDisplayLabel(field.label)} {isRequired && <span className="text-destructive">*</span>}
+              {displayLabel} {isRequired && <span className="text-destructive">*</span>}
             </Label>
             {mode === 'edit' ? (
               <RadioGroup
@@ -97,7 +108,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             ) : (
               <p className="text-sm">{denormalizeYesNoValue(value) || 'N/A'}</p>
             )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-destructive mt-1">{error}</p>}
           </div>
         );
       }
@@ -108,8 +119,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
                             field.uiComponent === 'TextArea';
       
       // Regular string input or TextArea for comments
+      const fieldPath = `${field.sectionId}.${field.id}`;
       return (
-        <div className="space-y-2">
+        <div className="space-y-2" data-field-path={fieldPath}>
           <Label>
             {field.label} {isRequired && <span className="text-destructive">*</span>}
           </Label>
@@ -131,7 +143,24 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             ) : (
               <Input
                 value={value || ''}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  onChange(newValue);
+                  
+                  const fieldPath = `${field.sectionId}.${field.id}`;
+                  
+                  // Always validate on change - this will clear errors if field is valid
+                  if (onValidate && field) {
+                    onValidate(fieldPath, newValue, field);
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur as well
+                  if (onValidate && field && value) {
+                    const fieldPath = `${field.sectionId}.${field.id}`;
+                    onValidate(fieldPath, value, field);
+                  }
+                }}
                 disabled={disabled}
                 className={error ? 'border-destructive' : className}
               />
@@ -139,13 +168,14 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
           ) : (
             <p className="text-sm">{value || 'N/A'}</p>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
       );
 
     case 'number':
+      const numberFieldPath = `${field.sectionId}.${field.id}`;
       return (
-        <div className="space-y-2">
+        <div className="space-y-2" data-field-path={numberFieldPath}>
           <Label>
             {field.label} {isRequired && <span className="text-destructive">*</span>}
           </Label>
@@ -153,23 +183,41 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             <Input
               type="number"
               value={value || ''}
-              onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                // Only allow numbers
+                if (newValue === '' || /^-?\d*\.?\d*$/.test(newValue)) {
+                  onChange(newValue ? Number(newValue) : '');
+                  
+                  // Always validate on change - this will clear errors if field is valid
+                  if (onValidate && field) {
+                    onValidate(numberFieldPath, newValue ? Number(newValue) : '', field);
+                  }
+                }
+              }}
+              onBlur={() => {
+                // Validate on blur as well
+                if (onValidate && field && value) {
+                  onValidate(numberFieldPath, value, field);
+                }
+              }}
               disabled={disabled}
               className={error ? 'border-destructive' : className}
             />
           ) : (
             <p className="text-sm">{value ?? 'N/A'}</p>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
       );
 
     case 'dropdown':
+      const dropdownFieldPath = `${field.sectionId}.${field.id}`;
       const options = dropdownOptions || 
         (field.validationRules?.options?.map(opt => ({ value: opt, label: opt })) || []);
       
       return (
-        <div className="space-y-2">
+        <div className="space-y-2" data-field-path={dropdownFieldPath}>
           <Label>
             {field.label} {isRequired && <span className="text-destructive">*</span>}
           </Label>
@@ -184,13 +232,14 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
           ) : (
             <p className="text-sm">{value || 'N/A'}</p>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
       );
 
     case 'file':
+      const fileFieldPath = `${field.sectionId}.${field.id}`;
       return (
-        <div className="space-y-2">
+        <div className="space-y-2" data-field-path={fileFieldPath}>
           <FileUploadSection
             label={field.label}
             value={value as FileUpload | null}
@@ -200,7 +249,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             disabled={disabled || mode === 'review'}
             className={error ? 'border-destructive' : className}
           />
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
       );
 

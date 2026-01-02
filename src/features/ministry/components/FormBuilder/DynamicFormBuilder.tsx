@@ -1,7 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
-import { SectionCard } from '@/features/submission/components/SectionCard';
+import { MinistrySectionCard } from '../MinistrySectionCard';
 import { FieldRenderer } from './FieldRenderer';
-import { SubsectionTable } from './SubsectionTable';
+import { MinistrySubsectionForm } from './MinistrySubsectionForm';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DynamicFormBuilderProps } from './types';
 
@@ -16,11 +18,15 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
   getDropdownOptions,
   onSectionSubmit,
   isIndicatorSubmitted,
+  submittingIndicator,
+  validationErrors,
+  onValidateField,
+  onClearFieldError,
 }) => {
   const generateItemId = useCallback(() => crypto.randomUUID(), []);
 
-  const handleFieldChange = useCallback((path: string, value: any) => {
-    onChange(path, value);
+  const handleFieldChange = useCallback((path: string, value: any, field?: any) => {
+    onChange(path, value, field);
   }, [onChange]);
 
   const handleSubsectionAdd = useCallback((sectionKey: string, subsectionName: string) => {
@@ -101,13 +107,48 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
               const indicatorId = section.sNo;
               const isSubmitted = isIndicatorSubmitted?.(indicatorId) || false;
 
+              // Check if this indicator has validation errors
+              // Check both sectionKey and any subsection paths
+              const indicatorErrors = validationErrors 
+                ? Object.keys(validationErrors).filter(key => {
+                    // Match sectionKey directly or any subsection within this section
+                    return key.startsWith(sectionKey);
+                  })
+                : [];
+              const hasIndicatorErrors = indicatorErrors.length > 0;
+
               return (
-                <SectionCard
+                <MinistrySectionCard
                   key={section.sNo}
                   title={`${section.sNo} - ${sectionName}`}
                   onSave={onSectionSubmit ? () => onSectionSubmit(indicatorId) : undefined}
                   indicatorCode={indicatorId}
+                  isSaving={submittingIndicator === indicatorId}
                 >
+                  {/* Show general error message above all fields if validation failed */}
+                  {hasIndicatorErrors && (() => {
+                    // Check if there's a subsection error (no subsections added)
+                    const subsectionError = indicatorErrors.find(key => {
+                      const errorKey = key.replace(/\[.*?\]/g, ''); // Remove array indices
+                      return errorKey.includes(sectionKey) && 
+                             !errorKey.includes('[') && 
+                             validationErrors[key]?.includes('At least one') &&
+                             validationErrors[key]?.includes('entry is required');
+                    });
+                    
+                    return (
+                      <div 
+                        className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md"
+                        data-indicator-error={indicatorId}
+                      >
+                        <p className="text-sm text-destructive font-medium">
+                          {subsectionError 
+                            ? validationErrors[subsectionError]
+                            : "Please fill all the mandatory fields."}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   {/* Find Yes/No field (if exists) to determine subsection visibility */}
                   {(() => {
                     // Find the Yes/No field in this section to check its value
@@ -158,17 +199,32 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                     const fieldPath = `${sectionKey}.${field.id}`;
                                     const fieldValue = formData[sectionKey]?.[field.id];
                                     
+                                    // Validate field on change
+                                    const fieldError = getFieldError?.(fieldPath) || 
+                                      (field.validationRules?.required && !fieldValue 
+                                        ? `${field.label} is required.` 
+                                        : undefined);
+                                    
                                     return (
                                       <FieldRenderer
                                         key={field.id}
                                         field={field}
                                         value={fieldValue}
-                                        onChange={(value) => handleFieldChange(fieldPath, value)}
+                                        onChange={(value) => {
+                                          handleFieldChange(fieldPath, value, field);
+                                          // Real-time validation
+                                          if (onValidateField) {
+                                            onValidateField(fieldPath, value, field);
+                                          }
+                                        }}
                                         mode={mode}
                                         disabled={disabled || isSubmitted}
                                         submissionId={submissionId}
-                                        error={getFieldError?.(fieldPath)}
+                                        error={fieldError}
                                         dropdownOptions={getDropdownOptions?.(field.id, field.sectionId, field.label)}
+                                        indicatorName={sectionName}
+                                        onValidate={onValidateField}
+                                        onClearError={onClearFieldError}
                                       />
                                     );
                                   })}
@@ -189,12 +245,20 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                           key={field.id}
                                           field={field}
                                           value={fieldValue}
-                                          onChange={(value) => handleFieldChange(fieldPath, value)}
+                                          onChange={(value) => {
+                                            handleFieldChange(fieldPath, value, field);
+                                            // Real-time validation
+                                            if (onValidateField) {
+                                              onValidateField(fieldPath, value, field);
+                                            }
+                                          }}
                                           mode={mode}
                                           disabled={disabled || isSubmitted}
                                           submissionId={submissionId}
                                           error={getFieldError?.(fieldPath)}
                                           dropdownOptions={getDropdownOptions?.(field.id, field.sectionId, field.label)}
+                                          indicatorName={sectionName}
+                                          onValidate={onValidateField}
                                         />
                                       );
                                     })}
@@ -215,38 +279,54 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                           key={field.id}
                                           field={field}
                                           value={fieldValue}
-                                          onChange={(value) => handleFieldChange(fieldPath, value)}
+                                          onChange={(value) => {
+                                            handleFieldChange(fieldPath, value, field);
+                                            // Real-time validation
+                                            if (onValidateField) {
+                                              onValidateField(fieldPath, value, field);
+                                            }
+                                          }}
                                           mode={mode}
                                           disabled={disabled || isSubmitted}
                                           submissionId={submissionId}
                                           error={getFieldError?.(fieldPath)}
                                           dropdownOptions={getDropdownOptions?.(field.id, field.sectionId, field.label)}
+                                          indicatorName={sectionName}
+                                          onValidate={onValidateField}
                                         />
                                       );
                                     })}
                                 </div>
                               )}
                               
-                              {/* Render all other fields in grid */}
-                              {otherFields.length > 0 && (
+                              {/* Render all other fields in grid - only when "yes" is selected or no Yes/No field exists */}
+                              {otherFields.length > 0 && (yesNoValue === 'yes' || !yesNoField) && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                                   {otherFields
                                     .sort((a, b) => a.sequence - b.sequence)
                                     .map((field) => {
                                       const fieldPath = `${sectionKey}.${field.id}`;
                                       const fieldValue = formData[sectionKey]?.[field.id];
-                                      
+
                                       return (
                                         <FieldRenderer
                                           key={field.id}
                                           field={field}
                                           value={fieldValue}
-                                          onChange={(value) => handleFieldChange(fieldPath, value)}
+                                          onChange={(value) => {
+                                            handleFieldChange(fieldPath, value, field);
+                                            // Real-time validation
+                                            if (onValidateField) {
+                                              onValidateField(fieldPath, value, field);
+                                            }
+                                          }}
                                           mode={mode}
                                           disabled={disabled || isSubmitted}
                                           submissionId={submissionId}
                                           error={getFieldError?.(fieldPath)}
                                           dropdownOptions={getDropdownOptions?.(field.id, field.sectionId, field.label)}
+                                          indicatorName={sectionName}
+                                          onValidate={onValidateField}
                                         />
                                       );
                                     })}
@@ -270,7 +350,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                               const subsectionData = formData[sectionKey]?.[subsectionName] || [];
 
                               return (
-                                <SubsectionTable
+                                <MinistrySubsectionForm
                                   key={`${sectionKey}-${subsectionName}-${subIndex}`}
                                   subsection={subsection}
                                   sectionKey={sectionKey}
@@ -285,6 +365,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                   submissionId={submissionId}
                                   getFieldError={getFieldError}
                                   getDropdownOptions={getDropdownOptions}
+                                  yesNoValue={yesNoValue}
+                                  onValidateField={onValidateField}
+                                  onClearFieldError={onClearFieldError}
                                 />
                               );
                             })}
@@ -293,7 +376,29 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                       </>
                     );
                   })()}
-                </SectionCard>
+                  
+                  {/* Submit button at the bottom of each indicator */}
+                  {onSectionSubmit && !isSubmitted && (
+                    <div className="mt-6 flex justify-start">
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={() => onSectionSubmit(indicatorId)}
+                        disabled={submittingIndicator === indicatorId || disabled}
+                        className="flex items-center gap-2"
+                      >
+                        {submittingIndicator === indicatorId ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </MinistrySectionCard>
               );
             })}
           </div>
@@ -303,10 +408,12 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for React.memo - shallow comparison for better performance
+  // Always re-render if validationErrors change
   if (
     prevProps.mode !== nextProps.mode ||
     prevProps.disabled !== nextProps.disabled ||
-    prevProps.submissionId !== nextProps.submissionId
+    prevProps.submissionId !== nextProps.submissionId ||
+    prevProps.validationErrors !== nextProps.validationErrors
   ) {
     return false; // Re-render needed
   }
@@ -377,6 +484,26 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     }
   }
 
+  // Deep comparison for validationErrors - always check this
+  const prevErrors = prevProps.validationErrors || {};
+  const nextErrors = nextProps.validationErrors || {};
+  
+  // If validationErrors changed, always re-render
+  if (Object.keys(prevErrors).length !== Object.keys(nextErrors).length) {
+    return false; // Re-render needed
+  }
+  
+  for (const key in prevErrors) {
+    if (prevErrors[key] !== nextErrors[key]) {
+      return false; // Re-render needed
+    }
+  }
+  
+  for (const key in nextErrors) {
+    if (!(key in prevErrors)) {
+      return false; // Re-render needed
+    }
+  }
+
   return true; // No re-render needed
 });
-

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
-import { getMinistrySubmissionDetails } from "@/services/ministry.service";
+import { getMinistrySubmissionDetails, submitIndicatorToMinistryApprover } from "@/services/ministry.service";
 import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ import { useFormPersistence } from "@/features/submission/hooks/useFormPersisten
 import { useFieldValidation } from "@/features/submission/hooks/useFieldValidation";
 import { getDropdownOptions } from "../constants/dropdownMappings";
 import { transformApiResponseToFormData, getCategoryFromSectionId } from "../utils/formDataTransformer";
+import { validateIndicator, validateField, validateSection } from "../utils/validation";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
 import { MinistryStepper } from "../components/Stepper";
 import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
@@ -28,6 +29,7 @@ export function MinistrySubmissionWrapper() {
   const [assignedIndicators, setAssignedIndicators] = useState<AssignedIndicator[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [submittedIndicators, setSubmittedIndicators] = useState<Set<string>>(new Set());
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<string | null>(submissionIdFromParams || null);
   
   const {
@@ -195,9 +197,60 @@ export function MinistrySubmissionWrapper() {
   }, [checking, user?.role, toast, submissionId]); // Removed persistedFormData
 
   // Handle field changes - optimized to prevent full re-renders
+  // Real-time validation on field change
+  const validateFieldOnChange = useCallback((path: string, value: any, field: any) => {
+    if (!field) return;
+    
+    // Use imported validation function
+    const error = validateField(field, value, path);
+    
+    // Use functional update to ensure we're working with latest state
+    setValidationErrors((prev) => {
+      // Always create a new object to ensure React detects the change
+      const newErrors = { ...prev };
+      const hadError = prev[path] !== undefined;
+      
+      if (error) {
+        // Set error if validation fails
+        newErrors[path] = error;
+      } else {
+        // Clear error if field is now valid - always delete even if it doesn't exist
+        delete newErrors[path];
+      }
+      
+      // Always return a new object reference to ensure React detects the change
+      // This is critical for triggering re-renders in memoized components
+      return newErrors;
+    });
+  }, []);
+
+  // Clear validation error for a field when user starts typing
+  const clearFieldError = useCallback((path: string) => {
+    setValidationErrors((prev) => {
+      if (prev[path]) {
+        const newErrors = { ...prev };
+        delete newErrors[path];
+        return newErrors;
+      }
+      return prev;
+    });
+  }, []);
+
+  // Memoized getFieldError function that updates when validationErrors changes
+  const getFieldErrorMemoized = useCallback((path: string) => {
+    // Only check validationErrors - return undefined if no error exists
+    // This ensures errors are cleared immediately when validation passes
+    if (validationErrors && validationErrors[path]) {
+      return validationErrors[path];
+    }
+    // Return undefined if no error - this clears the error message
+    return undefined;
+  }, [validationErrors]);
+
   // Supports both direct values and function updates (for getting latest state)
-  const handleFieldChange = useCallback((path: string, value: any) => {
+  const handleFieldChange = useCallback((path: string, value: any, field?: any) => {
     console.log("🔄 handleFieldChange called - path:", path, "value type:", typeof value === 'function' ? 'function' : typeof value);
+    
     setFormData((prev) => {
       const keys = path.split('.');
       const sectionKey = keys[0]; // First key is always the section (e.g., "section1_2")
@@ -443,11 +496,6 @@ export function MinistrySubmissionWrapper() {
     };
   }, [formData, updateFormData]);
 
-  // Check if indicator is submitted
-  const isIndicatorSubmitted = useCallback((indicatorId: string): boolean => {
-    return submittedIndicators.has(indicatorId);
-  }, [submittedIndicators]);
-
   // Map API category names to step keys
   const categoryToStepMap: Record<string, string> = {
     "Infra Financing": "infra-financing",
@@ -651,76 +699,267 @@ export function MinistrySubmissionWrapper() {
     }) || null;
   }, [stepsWithProgress, currentStep, assignedIndicators, isReviewStep]);
 
-  // Handle section submission
-  const handleSectionSubmit = useCallback(async (sectionId: string) => {
+  // Handle indicator submission
+  const handleSubmitIndicator = useCallback(async (indicatorCode: string) => {
     try {
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      setSubmittingIndicator(indicatorCode);
+      
+      // Get the section key for this indicator
+      const sectionKey = `section${indicatorCode.replace('.', '_')}`;
       const sectionData = formData[sectionKey];
       
-      if (!sectionData) {
+      // Find the indicator in assignedIndicators
+      const currentIndicator = assignedIndicators.find((indicatorObj) => {
+        const categoryName = Object.keys(indicatorObj)[0];
+        const sections = indicatorObj[categoryName];
+        if (Array.isArray(sections)) {
+          return sections.some((sectionObj: any) => {
+            const sectionName = Object.keys(sectionObj)[0];
+            const section = sectionObj[sectionName];
+            return section.sNo === indicatorCode;
+          });
+        }
+        return false;
+      });
+
+      if (!currentIndicator) {
         toast({
           title: "Error",
-          description: "Section data not found",
+          description: `Could not find indicator ${indicatorCode} in form structure.`,
           variant: "destructive",
         });
+        setSubmittingIndicator(null);
         return;
       }
 
-      // For Ministry Approver, we'll need to implement a specific submission API
-      // For now, show a message that this needs to be implemented
+      // Find the specific section being submitted (not all sections in the indicator)
+      const indicatorName = Object.keys(currentIndicator)[0];
+      const sections = currentIndicator[indicatorName];
+      let currentSection = null;
+      
+      if (Array.isArray(sections)) {
+        sections.forEach((sectionObj: any) => {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          if (section.sNo === indicatorCode) {
+            currentSection = section;
+          }
+        });
+      }
+
+      if (!currentSection) {
+        toast({
+          title: "Error",
+          description: `Could not find section ${indicatorCode} in form structure.`,
+          variant: "destructive",
+        });
+        setSubmittingIndicator(null);
+        return;
+      }
+
+      // Log form data BEFORE validation
+      console.log("📋 BEFORE VALIDATION - Full Form Data:", JSON.stringify(formData, null, 2));
+      console.log("📋 BEFORE VALIDATION - Section Data:", JSON.stringify(sectionData, null, 2));
+      console.log("📋 BEFORE VALIDATION - Section Key:", sectionKey);
+      console.log("📋 BEFORE VALIDATION - Indicator Code:", indicatorCode);
+      
+      // Validate ONLY the section being submitted, not all sections in the indicator
+      const sectionErrors = validateSection(currentSection, sectionKey, formData);
+      const validationResult = {
+        isValid: Object.keys(sectionErrors).length === 0,
+        errors: sectionErrors,
+      };
+      
+      console.log("🔍 Validation Result:", {
+        isValid: validationResult.isValid,
+        errors: validationResult.errors,
+        errorCount: Object.keys(validationResult.errors).length,
+        errorDetails: Object.entries(validationResult.errors).map(([path, message]) => ({
+          path,
+          message
+        }))
+      });
+      
+      // Log errors in a more readable format
+      if (!validationResult.isValid) {
+        console.log("❌ VALIDATION ERRORS FOUND:");
+        console.log("==========================================");
+        Object.entries(validationResult.errors).forEach(([path, message], index) => {
+          console.log(`${index + 1}. Path: ${path}`);
+          console.log(`   Error: ${message}`);
+        });
+        console.log("==========================================");
+      }
+      
+      if (!validationResult.isValid) {
+        console.log("❌ Validation FAILED - Errors found:", validationResult.errors);
+        
+        // Log the actual field values that are causing validation to fail
+        console.log("🔍 Field Values for Failed Validation:");
+        Object.keys(validationResult.errors).forEach((errorPath) => {
+          if (errorPath.startsWith(sectionKey)) {
+            // Extract field path and get value
+            const pathParts = errorPath.split('.');
+            let value = sectionData;
+            
+            // Navigate through nested structure
+            for (let i = 1; i < pathParts.length; i++) {
+              const part = pathParts[i];
+              // Handle array indices like [0]
+              if (part.includes('[')) {
+                const [arrayName, indexStr] = part.split('[');
+                const index = parseInt(indexStr.replace(']', ''));
+                if (value && value[arrayName] && Array.isArray(value[arrayName])) {
+                  value = value[arrayName][index];
+                } else {
+                  value = undefined;
+                  break;
+                }
+              } else {
+                value = value?.[part];
+              }
+            }
+            
+            console.log(`   ${errorPath}:`, value, `(Error: ${validationResult.errors[errorPath]})`);
+          }
+        });
+        
+        // Set validation errors ONLY for this indicator - clear other indicators' errors
+        const newErrors: Record<string, string> = {};
+        
+        // Only add errors for this specific indicator (sectionKey)
+        Object.keys(validationResult.errors).forEach((key) => {
+          if (key.startsWith(sectionKey)) {
+            newErrors[key] = validationResult.errors[key];
+          }
+        });
+        
+        console.log("❌ Setting validation errors:", newErrors);
+        
+        // Set errors immediately - only for this indicator
+        setValidationErrors(newErrors);
+        
+        // Stop submission immediately
+        setSubmittingIndicator(null);
+        
+        // Scroll after a brief moment to allow DOM update
+        setTimeout(() => {
+          // Scroll to first error field or general error message
+          const firstErrorPath = Object.keys(validationResult.errors)[0];
+          if (firstErrorPath) {
+            const errorElement = document.querySelector(`[data-field-path="${firstErrorPath}"]`);
+            if (errorElement) {
+              errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+              // If field not found, try scrolling to the general error message
+              const generalError = document.querySelector(`[data-indicator-error="${indicatorCode}"]`);
+              if (generalError) {
+                generalError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }
+          }
+        }, 50);
+        
+        return;
+      }
+      
+      console.log("✅ Validation PASSED - Proceeding with submission");
+
+      // Clear validation errors for this indicator if validation passes
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        // Remove errors for this indicator's section
+        Object.keys(newErrors).forEach((key) => {
+          if (key.startsWith(sectionKey)) {
+            delete newErrors[key];
+          }
+        });
+        return newErrors;
+      });
+
+      // Get category from indicator code
+      const category = getCategoryFromSectionId(indicatorCode);
+      if (!category) {
+        toast({
+          title: "Error",
+          description: `Could not determine category for indicator ${indicatorCode}.`,
+          variant: "destructive",
+        });
+        setSubmittingIndicator(null);
+        return;
+      }
+
+      if (!submissionId) {
+        toast({
+          title: "Error",
+          description: "No submission ID available.",
+          variant: "destructive",
+        });
+        setSubmittingIndicator(null);
+        return;
+      }
+
+      // Prepare the form data for this specific indicator
+      // Only include the section data for this indicator
+      const indicatorFormData: Record<string, any> = {
+        [sectionKey]: sectionData,
+      };
+
+      // Log all formData for debugging - AFTER validation passes
+      console.log("==========================================");
+      console.log("📋 SUBMITTING INDICATOR:", indicatorCode);
+      console.log("==========================================");
+      console.log("📋 Full Form Data:", JSON.stringify(formData, null, 2));
+      console.log("📋 Indicator Form Data:", JSON.stringify(indicatorFormData, null, 2));
+      console.log("📋 Section Data:", JSON.stringify(sectionData, null, 2));
+      console.log("📋 Category:", category);
+      console.log("📋 Indicator Code:", indicatorCode);
+      console.log("📋 Submission ID:", submissionId);
+      console.log("==========================================");
+
+      // TODO: Uncomment when API is ready
+      // await submitIndicatorToMinistryApprover(
+      //   indicatorFormData,
+      //   category,
+      //   indicatorCode,
+      //   submissionId
+      // );
+
+      // For now, just log
+      console.log("✅ Would submit indicator:", {
+        submissionId,
+        category,
+        indicatorCode,
+        sectionData: indicatorFormData,
+      });
+
+      // Mark indicator as submitted
+      setSubmittedIndicators((prev) => new Set(prev).add(indicatorCode));
+
       toast({
-        title: "Info",
-        description: "Ministry submission API integration pending. Please contact administrator.",
+        title: "Success",
+        description: `Indicator ${indicatorCode} submitted successfully.`,
         variant: "default",
       });
-      return;
-      
-      // TODO: Implement Ministry Approver submission API
-      // let currentSubmissionId = submissionId;
-      // if (!currentSubmissionId) {
-      //   // Create submission for Ministry Approver
-      //   const createResponse = await apiService.post("/ministry/submission/create", {});
-      //   currentSubmissionId = createResponse?.id || createResponse?.data?.id;
-      //   if (currentSubmissionId) {
-      //     setSubmissionId(currentSubmissionId);
-      //   }
-      // }
-      // 
-      // if (!currentSubmissionId) {
-      //   toast({
-      //     title: "Error",
-      //     description: "Failed to create submission",
-      //     variant: "destructive",
-      //   });
-      //   return;
-      // }
-      // 
-      // const category = getCategoryFromSectionId(sectionId);
-      // const result = await apiService.post("/ministry/submission/submit-section", {
-      //   submissionId: currentSubmissionId,
-      //   sectionData: { [sectionKey]: sectionData },
-      //   category,
-      //   indicators: [sectionId]
-      // });
-
-      // TODO: Uncomment when API is implemented
-      // if (result) {
-      //   setSubmittedIndicators(prev => new Set(prev).add(sectionId));
-      //   toast({
-      //     title: "Success",
-      //     description: `Section ${sectionId} submitted successfully`,
-      //     variant: "default",
-      //   });
-      // }
     } catch (error: any) {
-      console.error("❌ Error submitting section:", error);
+      console.error("Submit error:", error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to submit section",
+        title: "Submission Failed",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to submit indicator. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSubmittingIndicator(null);
     }
-  }, [formData, submissionId, toast]);
+  }, [formData, submissionId, toast, assignedIndicators]);
+
+  // Helper to check if indicator is submitted
+  const isIndicatorSubmitted = useCallback((indicatorCode: string): boolean => {
+    return submittedIndicators.has(indicatorCode);
+  }, [submittedIndicators]);
 
   if (checking) {
     return (
@@ -808,12 +1047,12 @@ export function MinistrySubmissionWrapper() {
                   mode="edit"
                   disabled={false}
                   submissionId={submissionId || undefined}
-                  getFieldError={(path: string) => {
-                    return getFieldError(path, validationErrors, {}, false);
-                  }}
+                  getFieldError={getFieldErrorMemoized}
                   getDropdownOptions={getDropdownOptions}
-                  onSectionSubmit={handleSectionSubmit}
+                  onSectionSubmit={handleSubmitIndicator}
                   isIndicatorSubmitted={isIndicatorSubmitted}
+                  submittingIndicator={submittingIndicator}
+                  validationErrors={validationErrors}
                 />
               </div>
 

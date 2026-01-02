@@ -184,3 +184,52 @@ export async function getMinistrySubmissionDetails(submissionId: string): Promis
     }
 }
 
+/**
+ * Submit an indicator to Ministry Approver
+ * @param sectionData - The form data for the specific section/indicator
+ * @param category - The category/section identifier (e.g., 'infraFinancing', 'infraDevelopment', etc.)
+ * @param indicatorCode - The indicator code being submitted (e.g., '1.1', '2.3')
+ * @param submissionId - The submission ID
+ */
+export async function submitIndicatorToMinistryApprover(
+  sectionData: Record<string, any>,
+  category: string,
+  indicatorCode: string,
+  submissionId: string
+): Promise<any> {
+  try {
+    // TODO: Replace with actual API endpoint once available
+    const url = getApiUrl(`/ministry/form/submit/indicator`); // Placeholder URL
+    
+    const payload = {
+      submissionId,
+      category,
+      indicatorCode,
+      sectionData,
+    };
+
+    console.log("📤 Submitting indicator to Ministry Approver:", {
+      submissionId,
+      category,
+      indicatorCode,
+      sectionData,
+    });
+
+    // TODO: Uncomment when API is ready
+    // const response = await apiService.post(url, payload, { withCredentials: true });
+    // return response.data?.data || response.data || response;
+
+    // TEMPORARY: Just console.log for now
+    console.log("✅ Indicator submission payload (API not ready yet):", payload);
+    
+    // Return mock response for now
+    return {
+      status: true,
+      message: `Indicator ${indicatorCode} submitted successfully (mock)`,
+      data: payload,
+    };
+  } catch (error) {
+    console.error('❌ Error in submitIndicatorToMinistryApprover:', error);
+    throw error;
+  }
+}

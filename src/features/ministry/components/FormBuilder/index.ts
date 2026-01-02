@@ -1,6 +1,7 @@
 export { DynamicFormBuilder } from './DynamicFormBuilder';
 export { FieldRenderer } from './FieldRenderer';
 export { SubsectionRenderer } from './SubsectionRenderer';
+export { MinistrySubsectionForm } from './MinistrySubsectionForm';
 export type {
   InputField,
   Subsection,

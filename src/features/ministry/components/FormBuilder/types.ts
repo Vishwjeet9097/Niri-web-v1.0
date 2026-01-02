@@ -38,7 +38,7 @@ export interface AssignedIndicator {
 export interface DynamicFormBuilderProps {
   indicators: Indicator[];
   formData: Record<string, any>;
-  onChange: (path: string, value: any) => void;
+  onChange: (path: string, value: any, field?: any) => void;
   mode?: 'edit' | 'review';
   disabled?: boolean;
   submissionId?: string;
@@ -48,8 +48,12 @@ export interface DynamicFormBuilderProps {
     sectionId: string, 
     label?: string
   ) => { value: string; label: string }[];
-  onSectionSubmit?: (sectionId: string) => Promise<void>;
-  isIndicatorSubmitted?: (indicatorId: string) => boolean;
+  onSectionSubmit?: (indicatorCode: string) => void | Promise<void>;
+  isIndicatorSubmitted?: (indicatorCode: string) => boolean;
+  submittingIndicator?: string | null;
+  validationErrors?: Record<string, string>; // Validation errors to display general message
+  onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
+  onClearFieldError?: (path: string) => void; // Clear error when user starts typing
 }
 
 export interface FieldRendererProps {
@@ -62,6 +66,9 @@ export interface FieldRendererProps {
   error?: string;
   dropdownOptions?: { value: string; label: string }[];
   className?: string;
+  indicatorName?: string; // Indicator name (e.g., "Availability of Infrastructure Development Plan") for Yes/No field labels
+  onValidate?: (path: string, value: any, field: any) => void; // Real-time validation callback
+  onClearError?: (path: string) => void; // Clear error when user starts typing
 }
 
 export interface SubsectionRendererProps {
@@ -80,5 +87,8 @@ export interface SubsectionRendererProps {
     sectionId: string, 
     label?: string
   ) => { value: string; label: string }[];
+  yesNoValue?: string | null; // Value of the Yes/No field from parent section
+  onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
+  onClearFieldError?: (path: string) => void; // Clear error when user starts typing
 }
 
