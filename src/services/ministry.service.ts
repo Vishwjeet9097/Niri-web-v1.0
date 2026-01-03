@@ -130,4 +130,27 @@ export async function getRemainingMinistryIndicators(userId?: string) {
     }
 }
 
+/**
+ * Reassign indicators to a nodal officer by a ministry approver
+ * @param nodalUserId - The ID of the nodal officer
+ * @param ministryUserId - The ID of the ministry approver
+ * @param indicatorsId - Array of indicator IDs to reassign
+ */
+export async function reassignIndicatorsToNodal(
+    nodalUserId: string,
+    ministryUserId: string,
+    indicatorsId: string[]
+) {
+    const url = getApiUrl("/ministry/form/create/reassign-indicator");
+    return apiService.post(
+        url,
+        {
+            nodalUserId,
+            ministryUserId,
+            indicatorsId,
+        },
+        { withCredentials: true }
+    );
+}
+
 

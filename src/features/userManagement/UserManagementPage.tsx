@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
+import type { MultiSelectOption } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +19,7 @@ import {
 } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
-import { getRemainingMinistryIndicators, minstryRegistrationForm } from "@/services/ministry.service";
+import { getMinistryFormIndicators, getRemainingMinistryIndicators, minstryRegistrationForm, reassignIndicatorsToNodal } from "@/services/ministry.service";
 import { EmptyState } from "./components/EmptyState";
 import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
@@ -51,7 +52,7 @@ export function UserManagementPage() {
   const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<string[]>([]);
 
   // State for ministry assignable indicators (for Ministry Approver edit)
-  const [ministryAssignableIndicators, setMinistryAssignableIndicators] = useState<string[]>([]);
+  const [ministryAssignableIndicators, setMinistryAssignableIndicators] = useState<MultiSelectOption[]>([]);
 
   const { refresh } = useIndicatorAccess();
 
@@ -248,36 +249,144 @@ export function UserManagementPage() {
 
   // Ministry Approver: Edit handler (fetch assignable indicators)
   const handleMinistryEditUser = async (officer: NodalOfficer) => {
-    setEditingOfficer(officer);
-    setShowForm(true);
-    if (officer?.id) {
-      try {
-        const response = await getRemainingMinistryIndicators(officer.id);
-        // Support both flat array and grouped object API responses
-        let allFlat = []; 
-        if (response) {
-          if (Array.isArray(response)) {
-            // Already flat array
-            allFlat = response;
-          } else if (typeof response === 'object') {
-            // Grouped by section/category
-            Object.entries(response).forEach(([section, arr]) => {
-              if (Array.isArray(arr)) {
-                arr.forEach((item) => {
-                  allFlat.push({ ...item, section });
-                });
+  setEditingOfficer(officer);
+  setShowForm(true);   
+
+  if (officer?.id) {
+    try {
+      // Get remaining indicators for this nodal officer (these should be checked/selected)
+      let nodalOfficerData = await getRemainingMinistryIndicators(officer.id);
+      // Get ALL indicators (these will all be shown in dropdown)
+      let allDataData = await getRemainingMinistryIndicators(user.id); 
+      
+      // Defensive: Handle response structure for all indicators
+      let allIndicators = allDataData;
+      if (allDataData && typeof allDataData === 'object' && allDataData.status && allDataData.data) {
+        allIndicators = allDataData.data;
+      }
+      
+      // Defensive: Handle response structure for remaining indicators
+      let remainingIndicators = nodalOfficerData;
+      if (nodalOfficerData && typeof nodalOfficerData === 'object' && nodalOfficerData.status && nodalOfficerData.data) {
+        remainingIndicators = nodalOfficerData.data;
+      }
+      
+      // Flatten all indicators into array (these will all be shown in dropdown)
+      let allFlat: any[] = [];
+      if (Array.isArray(allIndicators)) {
+        allFlat = allIndicators;
+      } else if (allIndicators && typeof allIndicators === 'object') {
+        Object.entries(allIndicators).forEach(([section, arr]) => {
+          if (Array.isArray(arr)) {
+            arr.forEach((item) => {
+              if (item && typeof item === 'object') {
+                allFlat.push({ ...item, section });
               }
             });
           }
-        }
-        setMinistryAssignableIndicators(allFlat);
-      } catch (err) {
-        setMinistryAssignableIndicators([]);
+        });
       }
-    } else {
+      
+      // Flatten remaining indicators into array (these match what should be checked)
+      let remainingFlat: any[] = [];
+      if (Array.isArray(remainingIndicators)) {
+        remainingFlat = remainingIndicators;
+      } else if (remainingIndicators && typeof remainingIndicators === 'object') {
+        Object.entries(remainingIndicators).forEach(([section, arr]) => {
+          if (Array.isArray(arr)) {
+            arr.forEach((item) => {
+              if (item && typeof item === 'object') {
+                remainingFlat.push({ ...item, section });
+              }
+            });
+          }
+        });
+      }
+      
+      // Merge both datasets (allDataData and nodalOfficerData) into dropdown
+      // Use a Map to avoid duplicates based on identifier (id, code, or value)
+      const mergedMap = new Map<string, any>();
+      
+      // Add all indicators from allDataData
+      allFlat.forEach((item) => {
+        if (item && typeof item === 'object') {
+          const id = item.id || item.code || item.value || '';
+          if (id && !mergedMap.has(String(id))) {
+            mergedMap.set(String(id), item);
+          }
+        }
+      });
+      
+      // Add indicators from nodalOfficerData (will overwrite duplicates if any)
+      remainingFlat.forEach((item) => {
+        if (item && typeof item === 'object') {
+          const id = item.id || item.code || item.value || '';
+          if (id) {
+            mergedMap.set(String(id), item);
+          }
+        }
+      });
+      
+      // Convert merged map back to array
+      const mergedFlat = Array.from(mergedMap.values());
+      
+      // Create a set of identifiers from remaining indicators (nodalOfficerData) for matching
+      // These are the indicators that exist for this nodal officer - they should be disabled
+      const remainingIds = new Set<string>();
+      remainingFlat.forEach((item) => {
+        if (item && typeof item === 'object') {
+          const id = item.id || item.code || item.value || '';
+          if (id) {
+            remainingIds.add(String(id));
+          }
+        }
+      });
+      
+      // Format ALL indicators (merged from allDataData and nodalOfficerData) for MultiSelect
+      // ALL indicators from both datasets will be shown in dropdown
+      // Only matched indicators (those in nodalOfficerData) will be selected/checked
+      // All indicators are enabled (not disabled) so users can interact with them
+      const formattedAllIndicators = mergedFlat
+        .filter((item) => item && typeof item === 'object') // Safety filter
+        .map((item) => {
+          const value = item.id || item.code || item.value || '';
+          // Check if this indicator exists in nodalOfficerData (remaining indicators)
+          // If it exists, it means it's already assigned to this officer, so select it
+          const isMatched = value && remainingIds.has(String(value));
+          
+          return {
+            value: value || '',
+            label: `${item.sNo ? item.sNo + ' - ' : ''}${item.name || item.label || item.code || ''}`,
+            section: item.category || item.section || item.section || '',
+            description: item.description || '',
+            // All indicators are enabled (not disabled) - users can select/deselect any
+            disabled: false,
+            // Add a flag to identify matched indicators (these will be checked/selected)
+            _isMatched: isMatched,
+          };
+        })
+        .filter((item) => item.value !== ''); // Remove items without valid values
+      
+      // Set all indicators as options (all will be shown in dropdown)
+      // All indicators from getMinistryFormIndicators() are included
+      // Only matched ones (from getRemainingMinistryIndicators) are disabled
+      setMinistryAssignableIndicators(Array.isArray(formattedAllIndicators) ? formattedAllIndicators : []);
+      
+    } catch (err) {
+      console.error('Error in handleMinistryEditUser:', err);
       setMinistryAssignableIndicators([]);
-     }
-  };
+      if (toast) {
+        toast({
+          title: 'Unexpected Error',
+          description: 'An unexpected error occurred while loading ministry indicators. Please try again or contact support.',
+          variant: 'destructive',
+        });
+      }
+    }
+  } else {
+    setMinistryAssignableIndicators([]);
+  }
+};
 
   const handleEditUser = (officer: NodalOfficer) => {
     setEditingOfficer(officer);
@@ -1181,29 +1290,58 @@ export function UserManagementPage() {
       > & { nodalUserId: string; ministryAssignedIndicators?: string[] }
     ) => {
        if (editingOfficer) {
-          
+          // Update user basic info
           await apiService.updateUser(editingOfficer.id, {
-          firstName: officerData.firstName,
-          lastName: officerData.lastName,
-          contactNumber: officerData.contactNumber,
-          role: officerData.role as
-            | "NODAL_OFFICER"
-            | "STATE_APPROVER"
-            | "MOSPI_REVIEWER"
-            | "MOSPI_APPROVER"
-            | "MINISTRY_APPROVER",
-         } as any);
+            firstName: officerData.firstName,
+            lastName: officerData.lastName,
+            contactNumber: officerData.contactNumber,
+            role: officerData.role as
+              | "NODAL_OFFICER"
+              | "STATE_APPROVER"
+              | "MOSPI_REVIEWER"
+              | "MOSPI_APPROVER"
+              | "MINISTRY_APPROVER",
+          } as any);
 
-          notificationService.success(
-          "Officer updated successfully",
-          "Update Successful"
-        );
+          // If indicators are provided, reassign them
+          if (
+            officerData.ministryAssignedIndicators &&
+            officerData.ministryAssignedIndicators.length > 0 &&
+            user?.id
+          ) {
+            try {
+              await reassignIndicatorsToNodal(
+                editingOfficer.id, // nodalUserId
+                user.id, // ministryUserId
+                officerData.ministryAssignedIndicators // indicatorsId
+              );
 
-        // Refresh the user list after update
- 
-        await loadOfficers()
-        setShowForm(false);
-        setEditingOfficer(null);
+              notificationService.success(
+                "Officer and indicators updated successfully",
+                "Update Successful"
+              );
+            } catch (error: any) {
+              console.error('Error reassigning indicators:', error);
+              let errorMessage = "Failed to reassign indicators. Please try again.";
+              if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              }
+              notificationService.error(
+                errorMessage,
+                "Reassignment Failed"
+              );
+            }
+          } else {
+            notificationService.success(
+              "Officer updated successfully",
+              "Update Successful"
+            );
+          }
+
+          // Refresh the user list after update
+          await loadOfficers();
+          setShowForm(false);
+          setEditingOfficer(null);
        
        }else{
         try {

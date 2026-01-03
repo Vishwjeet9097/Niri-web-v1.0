@@ -11,6 +11,7 @@ export type MinistryIndicatorsSectionProps = {
   ministryIndicatorsError: string | null;
   stateApproverHasSubmission: boolean;
   officer: any;
+  role?: string;
   nodalHasSubmission: boolean;
   checkingNodalSubmission: boolean;
   errors: Record<string, string>;
@@ -26,6 +27,7 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
   ministryIndicatorsError,
   stateApproverHasSubmission,
   officer,
+  role,
   nodalHasSubmission,
   checkingNodalSubmission,
   errors,
@@ -33,6 +35,7 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
   setFormData,
   onMinistryIndicatorsChange,
 }) => {
+  
 
   // Use assignedIndicators prop as the source of truth
   const [ministryShowAllSelectedIndicators, setMinistryShowAllSelectedIndicators] = React.useState(false);
@@ -48,10 +51,8 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
     }
   };
 
-  // Only show if officer.role or user role is MINISTRY_APPROVER
-  if (!(officer?.role === "MINISTRY_APPROVER")) {
-    return null;
-  }
+  
+
   return (
     <div className="space-y-2">
       <Label className="flex items-center gap-2">
@@ -104,7 +105,7 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
           groupBySection={true}
           className="w-full"
           maxHeight="250px"
-          disabled={loadingMinistryIndicators || (nodalHasSubmission && !!officer) || (officer && ministryIndicators && ministryIndicators.length > 0)}
+          disabled={loadingMinistryIndicators || (nodalHasSubmission && !!officer)}
       />
       {loadingMinistryIndicators && (
         <p className="text-sm text-muted-foreground mt-1">
@@ -131,15 +132,33 @@ const MinistryIndicatorsSection: React.FC<MinistryIndicatorsSectionProps> = ({
             {(ministryShowAllSelectedIndicators
               ? ministryAssignedIndicators
               : ministryAssignedIndicators.slice(0, 3)
-            ).map((indicator, index) => (
-              <Badge
-                key={`indicator-${index}-${indicator}`}
-                variant="secondary"
-                className="text-xs bg-blue-100 text-blue-800"
-              >
-                {indicator}
-              </Badge>
-            ))}
+            )
+              .filter((indicator) => indicator != null) // Filter out null/undefined
+              .map((indicator, index) => {
+                // Safety: Ensure indicator is always a string
+                let indicatorValue: string;
+                if (typeof indicator === 'string') {
+                  indicatorValue = indicator;
+                } else if (indicator && typeof indicator === 'object') {
+                  // If it's an object, extract the value
+                  const ind = indicator as any;
+                  indicatorValue = ind.value || ind.id || ind.code || String(indicator) || '';
+                } else {
+                  indicatorValue = String(indicator || '');
+                }
+                
+                if (!indicatorValue) return null;
+                
+                return (
+                  <Badge
+                    key={`indicator-${index}-${indicatorValue}`}
+                    variant="secondary"
+                    className="text-xs bg-blue-100 text-blue-800"
+                  >
+                    {indicatorValue}
+                  </Badge>
+                );
+              })}
             {ministryAssignedIndicators.length > 3 &&
               !ministryShowAllSelectedIndicators && (
                 <button

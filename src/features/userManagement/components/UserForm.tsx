@@ -1,3 +1,4 @@
+
 import React from "react";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -50,7 +51,7 @@ interface UserFormProps {
   loadingIndicators?: boolean;
   stateApproverHasSubmission?: boolean;
   submittedIndicatorsInState?: string[];
-  ministryAssignableIndicators?: string[]; // Only for Ministry Approver edit
+  ministryAssignableIndicators?: MultiSelectOption[]; // Only for Ministry Approver edit
 }
 
 
@@ -80,11 +81,21 @@ export function UserForm({
   // For Ministry Approver edit: select all ministryAssignableIndicators and disable them
   const [ministryAssignedIndicators, setMinistryAssignedIndicators] = useState<string[]>(() => {
     if (user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0) {
-      // Select all assignable indicators
-      return ministryAssignableIndicators.map(ind => ind);
+      // Extract values of indicators that are matched (should be checked)
+      return ministryAssignableIndicators
+        .filter((ind: any) => ind && typeof ind === 'object' && ind._isMatched === true)
+        .map((ind: any) => {
+          // Ensure we extract the value as a string
+          if (typeof ind === 'string') return ind;
+          return String(ind.value || ind.id || ind.code || '');
+        })
+        .filter((val: string) => val !== '');
     }
     if (officer && Array.isArray(officer.assignedIndicators)) {
-      return officer.assignedIndicators;
+      // Ensure assignedIndicators are strings
+      return officer.assignedIndicators.map((ind: any) => 
+        typeof ind === 'string' ? ind : String(ind?.value || ind?.id || ind?.code || ind || '')
+      ).filter((val: string) => val !== '');
     }
     return [];
   });
@@ -97,21 +108,36 @@ export function UserForm({
       ministryAssignedIndicators: selected,
     }));
   };
+  
 
-  // Update ministryAssignedIndicators when editing a different officer (Ministry Approver: select all and disable)
+  // Update ministryAssignedIndicators when editing a different officer (Ministry Approver: select matched ones only)
   useEffect(() => {
     if (user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0) {
-      const allSelected = ministryAssignableIndicators.map(ind => ind);
-      setMinistryAssignedIndicators(allSelected);
+      // Extract values of indicators that are matched (should be checked)
+      const matchedValues = ministryAssignableIndicators
+        .filter((ind: any) => ind && typeof ind === 'object' && ind._isMatched === true)
+        .map((ind: any) => {
+          // Ensure we extract the value as a string
+          if (typeof ind === 'string') return ind;
+          return String(ind.value || ind.id || ind.code || '');
+        })
+        .filter((val: string) => val !== '');
+      
+      setMinistryAssignedIndicators(matchedValues);
       setFormData(prev => ({
         ...prev,
-        ministryAssignedIndicators: allSelected,
+        ministryAssignedIndicators: matchedValues,
       }));
     } else if (officer && Array.isArray(officer.assignedIndicators)) {
-      setMinistryAssignedIndicators(officer.assignedIndicators);
+      // Ensure assignedIndicators are strings
+      const stringIndicators = officer.assignedIndicators.map((ind: any) => 
+        typeof ind === 'string' ? ind : String(ind?.value || ind?.id || ind?.code || ind || '')
+      ).filter((val: string) => val !== '');
+      
+      setMinistryAssignedIndicators(stringIndicators);
       setFormData(prev => ({
         ...prev,
-        ministryAssignedIndicators: officer.assignedIndicators,
+        ministryAssignedIndicators: stringIndicators,
       }));
     } else {
       setMinistryAssignedIndicators([]);
@@ -143,6 +169,7 @@ export function UserForm({
     // Debug logs removed
   }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, officer?.state, user?.stateUt, user?.state, user]);
 
+  
   // Fetch ministry indicators if user is MINISTRY_APPROVER
   // Only fetch all ministry indicators when adding a user (not editing)
   useEffect(() => {
@@ -155,6 +182,8 @@ export function UserForm({
           // Fetch all indicators
           const ministryUserId = user.id;
           let allData = await getRemainingMinistryIndicators(ministryUserId);
+
+          console.log("Hllo===", allData)
 
           // If allData is blank (null, undefined, empty object, or empty array), fallback to getMinistryFormIndicators()
           const isBlank =
@@ -191,6 +220,8 @@ export function UserForm({
     }
   }, [user, officer]);
 
+  
+
   // Use ministryAssignableIndicators for edit, otherwise use allMinistryIndicators for add
   const ministryIndicators: MultiSelectOption[] = useMemo(() => {
     let source = [];
@@ -202,23 +233,35 @@ export function UserForm({
     if (!source || source.length === 0) {
       return [];
     }
-    // Only show indicators returned by getRemainingMinistryIndicators (hide assigned ones)
+    // Format indicators - handle both MultiSelectOption format and raw indicator format
     const options = source.map((item: any) => {
+      // If already in MultiSelectOption format (has value, label), use it directly
+      if (item && typeof item === 'object' && item.value && item.label) {
+        return {
+          value: String(item.value || ''),
+          label: item.label || '',
+          section: item.section || '',
+          description: item.description || '',
+          // All indicators are enabled - no disabled state
+          disabled: false,
+        };
+      }
+      // Otherwise, format from raw indicator object
       const value = item.id || item.code || item.value || '';
       const sNo = item.sNo || '';
       const name = item.name || item.label || item.code || '';
       const section = item.category || item.section || '';
       const description = item.description || '';
-      // If editing as Ministry Approver, all should be disabled
-      const disabled = user?.role === "MINISTRY_APPROVER" && officer && Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0;
+      // All indicators are enabled - no disabled state
+      const disabled = false;
       return {
-        value,
+        value: String(value || ''),
         label: `${sNo ? sNo + ' - ' : ''}${name}`,
         section,
         description,
         disabled,
       };
-    });
+    }).filter((item) => item.value !== ''); // Remove items without valid values
     return options;
   }, [user?.role, officer, ministryAssignableIndicators, rawMinistryIndicators]);
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
@@ -246,6 +289,8 @@ export function UserForm({
     fetchIfNeeded();
   }, [submittedIndicatorsInState.length, localSubmittedIndicators.length, officer?.stateUt, officer?.state, user?.stateUt, user?.state]);
   
+
+  
   // Update local state when prop changes
   useEffect(() => {
     if (submittedIndicatorsInState.length > 0) {
@@ -265,18 +310,35 @@ export function UserForm({
     assignedIndicators: string[];
     stateUt: string | string[];
     ministryId: string;
-  }>(() => ({
-    firstName: "",
-    lastName: "",
-    contactNumber: "",
-    email: "",
-    password: "",
-    role: "NODAL_OFFICER",
-    stateId: "",
-    assignedIndicators: [],
-    stateUt: "",
-    ministryId: "",
-  }));
+  }>(() => {
+    // If logged in as Ministry Approver, default role is NODAL_OFFICER and ministry is selected
+    if (user?.role === "MINISTRY_APPROVER") {
+      return {
+        firstName: "",
+        lastName: "",
+        contactNumber: "",
+        email: "",
+        password: "",
+        role: "NODAL_OFFICER",
+        stateId: "",
+        assignedIndicators: [],
+        stateUt: "",
+        ministryId: user.ministryId || "",
+      };
+    }
+    return {
+      firstName: "",
+      lastName: "",
+      contactNumber: "",
+      email: "",
+      password: "",
+      role: "NODAL_OFFICER",
+      stateId: "",
+      assignedIndicators: [],
+      stateUt: "",
+      ministryId: "",
+    };
+  });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<State[]>([]);
@@ -330,7 +392,10 @@ export function UserForm({
           let data = res?.data?.data || res?.data || res;
           if (Array.isArray(data)) {
             setMinistries(data);
-            // Do not auto-select the first ministry. Only set ministryId if not set and only for new user elsewhere.
+            // Auto-select ministry if MINISTRY_APPROVER is selected and logged in as Ministry Approver
+            if (formData.role === "MINISTRY_APPROVER" && user?.role === "MINISTRY_APPROVER" && user?.ministryId && !formData.ministryId) {
+              setFormData(prev => ({ ...prev, ministryId: user.ministryId || "" }));
+            }
           } else {
             setMinistries([]);
           }
@@ -343,7 +408,7 @@ export function UserForm({
           setLoadingMinistries(false);
         });
     }
-  }, [formData.role]);
+  }, [formData.role, user?.role, user?.ministryId]);
 
   
 
@@ -729,19 +794,11 @@ export function UserForm({
 
     switch (currentUserRole) {
       case "MINISTRY_APPROVER":
-        // Show Minister Approver, MOSPI Reviewer, and State Approver
+        // Ministry Approver can only create/edit Nodal Officers
         return [
           {
-            value: "MINISTRY_APPROVER",
-            label: getRoleDisplayName("MINISTRY_APPROVER"),
-          },
-          {
-            value: "MOSPI_REVIEWER",
-            label: getRoleDisplayName("MOSPI_REVIEWER"),
-          },
-          {
-            value: "STATE_APPROVER",
-            label: getRoleDisplayName("STATE_APPROVER"),
+            value: "NODAL_OFFICER",
+            label: getRoleDisplayName("NODAL_OFFICER"),
           },
         ];
       case "STATE_APPROVER":
@@ -825,7 +882,8 @@ export function UserForm({
         contactNumber: officer.contactNumber || "",
         email: officer.email || "",
         password: "",
-        role: officer.role || "NODAL_OFFICER",
+        // If Ministry Approver is logged in, always set role to NODAL_OFFICER
+        role: user?.role === "MINISTRY_APPROVER" ? "NODAL_OFFICER" : (officer.role || "NODAL_OFFICER"),
         stateId: stateIdValue,
         ministryId: officer.ministryId || "",
         stateUt: uniqueStateNames.join(", "),
@@ -852,7 +910,9 @@ export function UserForm({
         })(),
       });
 
-      if (officer.role === "NODAL_OFFICER" && officer.id) {
+      // Check for NODAL_OFFICER submission - use actual officer role or forced role for Ministry Approver
+      const effectiveRole = user?.role === "MINISTRY_APPROVER" ? "NODAL_OFFICER" : officer.role;
+      if (effectiveRole === "NODAL_OFFICER" && officer.id) {
         fetchAssignedIndicators(officer.id);
         checkNodalOfficerSubmission(officer.id);
       } else {
@@ -888,9 +948,11 @@ export function UserForm({
             defaultRole = "NODAL_OFFICER";
           } else if (user?.role === "MOSPI_APPROVER") {
             defaultRole = "MOSPI_REVIEWER";
-          } else if (user?.role === "ADMIN") {
-            defaultRole = "STATE_APPROVER";
-          }
+        } else if (user?.role === "ADMIN") {
+          // For ADMIN, use the first available role (which is MINISTRY_APPROVER)
+          const availableRoles = getAvailableRoles();
+          defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "MINISTRY_APPROVER";
+        }
           setFormData({
             firstName: "",
             lastName: "",
@@ -911,7 +973,9 @@ export function UserForm({
         } else if (user?.role === "MOSPI_APPROVER") {
           defaultRole = "MOSPI_REVIEWER";
         } else if (user?.role === "ADMIN") {
-          defaultRole = "STATE_APPROVER";
+          // For ADMIN, get the first available role from getAvailableRoles
+          const availableRoles = getAvailableRoles();
+          defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "MINISTRY_APPROVER";
         }
         setFormData({
           firstName: "",
@@ -930,6 +994,23 @@ export function UserForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officer, user?.state, user?.role, states]);
+
+  // Sync formData.role with Select component's displayed value when it doesn't match (for ADMIN users)
+  useEffect(() => {
+    if (!officer && user?.role === "ADMIN") {
+      const availableRoles = getAvailableRoles();
+      if (availableRoles.length > 0) {
+        const selectValue = availableRoles.some(r => r.value === formData.role)
+          ? formData.role
+          : (availableRoles.length > 0 ? availableRoles[0].value : "");
+        
+        // If the Select would show a different value than formData.role, sync them
+        if (selectValue && selectValue !== formData.role) {
+          setFormData(prev => ({ ...prev, role: selectValue }));
+        }
+      }
+    }
+  }, [officer, user?.role, getAvailableRoles, formData.role]);
 
   // Save form data to sessionStorage whenever it changes (only for new users)
   useEffect(() => {
@@ -954,6 +1035,42 @@ export function UserForm({
         try {
           const statesData = await statesService.getStates();
           setStates(statesData);
+          // Auto-select state for STATE_APPROVER users
+          if (user?.role === "STATE_APPROVER" && !officer) {
+            const currentStateId = formData.stateId;
+            // Check if current stateId is already a valid state ID
+            const isStateIdValid = statesData.some((s: State) => s.id === currentStateId);
+            
+            if (!isStateIdValid || !currentStateId) {
+              // Current stateId is not a valid ID or is empty, try to find state by name
+              let foundState: State | undefined;
+              
+              // First, try to find by user's state name
+              const userStateName = user?.state || user?.stateUt || "";
+              if (userStateName) {
+                foundState = statesData.find(
+                  (s: State) => 
+                    s.name?.trim().toLowerCase() === userStateName.trim().toLowerCase() ||
+                    s.code?.trim().toLowerCase() === userStateName.trim().toLowerCase()
+                );
+              }
+              
+              // If not found by user state name, try to find by current stateId as a name
+              if (!foundState && currentStateId) {
+                foundState = statesData.find(
+                  (s: State) => 
+                    s.name?.trim().toLowerCase() === String(currentStateId).trim().toLowerCase() ||
+                    s.code?.trim().toLowerCase() === String(currentStateId).trim().toLowerCase()
+                );
+              }
+              
+              // Set the state ID if found
+              if (foundState) {
+                setFormData(prev => ({ ...prev, stateId: foundState.id }));
+              }
+            }
+          }
+          
           // If we have an officer but no stateId, try to find it by stateUt/state name
           if (
             officer &&
@@ -1803,11 +1920,13 @@ const handleStateChange = (values: string | string[]) => {
             return (
               <Select
                 value={
-                  availableRoles.some(r => r.value === formData.role)
+                  user?.role === "MINISTRY_APPROVER"
+                    ? "NODAL_OFFICER"
+                    : availableRoles.some(r => r.value === formData.role)
                     ? formData.role
                     : (availableRoles.length > 0 ? availableRoles[0].value : "")
                 }
-                disabled={user?.role === "STATE_APPROVER"}
+                disabled={user?.role === "STATE_APPROVER" || user?.role === "MINISTRY_APPROVER"}
                 onValueChange={async (value) => {
                   // Only update if the role is actually changing
                   setFormData(prev => {
@@ -1823,7 +1942,8 @@ const handleStateChange = (values: string | string[]) => {
                     }
                     // Handle ministryId only if switching to/from MINISTRY_APPROVER
                     if (prev.role !== "MINISTRY_APPROVER" && value === "MINISTRY_APPROVER") {
-                      newFormData.ministryId = '';
+                      // Auto-select ministry if logged in as Ministry Approver, otherwise leave empty
+                      newFormData.ministryId = user?.role === "MINISTRY_APPROVER" ? (user?.ministryId || '') : '';
                     } else if (prev.role === "MINISTRY_APPROVER" && value !== "MINISTRY_APPROVER") {
                       newFormData.ministryId = undefined;
                     }
@@ -1840,6 +1960,10 @@ const handleStateChange = (values: string | string[]) => {
                         let data = res?.data?.data || res?.data || res;
                         if (Array.isArray(data)) {
                           setMinistries(data);
+                          // Auto-select ministry if logged in as Ministry Approver
+                          if (user?.role === "MINISTRY_APPROVER" && user?.ministryId) {
+                            setFormData(prev => ({ ...prev, ministryId: user.ministryId || "" }));
+                          }
                         } else {
                           setMinistries([]);
                         }
@@ -1934,7 +2058,7 @@ const handleStateChange = (values: string | string[]) => {
             <Select
               value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
               onValueChange={(value) => handleStateChange(value)}
-              disabled={loadingStates}
+              disabled={loadingStates || user?.role === "STATE_APPROVER"}
             >
               <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
                 <SelectValue placeholder="Please select a state/UT" >
@@ -1981,73 +2105,67 @@ const handleStateChange = (values: string | string[]) => {
           )}
         </div>
       )}
-  {/* Ministry Dropdown - show for MINISTRY_APPROVER login or if assigning MINISTRY_APPROVER/MOSPI_REVIEWER role */}
-  {(formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER") && (
-          <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
-            <Label htmlFor="ministryId" className="flex items-center gap-2">
-              Ministry
-              <span className="text-destructive">*</span>
-            </Label>
-            <Select
-              value={
-            formData.ministryId !== undefined ? String(formData.ministryId) : ""
-              }
-              onValueChange={(value) => {
-                // Always coerce ministryId to string
-                let ministryIdValue = Array.isArray(value) ? (value[0] || '') : value;
-                setFormData(prev => ({ ...prev, ministryId: ministryIdValue }));
-              }}
-          disabled={loadingMinistries}
-            >
-              <SelectTrigger className={ministryError || errors.ministryId ? "border-destructive" : ""}>
-                <SelectValue placeholder={
-                  loadingMinistries
-                    ? "Loading ministries..."
-                    : ministryError
-                      ? "Failed to load ministries"
-                      : ministries.length === 0
-                        ? "No ministries available"
-                        : "Select Ministry"
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingMinistries ? (
-                  <div className="flex items-center justify-center p-2">
-                    Loading ministries...
-                  </div>
-                ) : ministryError ? (
-                  <div className="p-2 text-destructive">{ministryError}</div>
-                ) : ministries.length > 0 ? (
-                  ministries.map((ministry) => {
-                    // getAllAssignedMinistryIds should return an array of ministry IDs (strings or numbers)
-                    // Use assignedMinistryIds from state directly
-                    const assignedIds = assignedMinistryIds || [];
-                    // Try to match both as strings and as numbers for robustness
-                    const ministryIdStr = String(ministry.id);
-                    const isAssigned = assignedIds.some(
-                      (id) => String(id) === ministryIdStr || Number(id) === Number(ministry.id)
-                    );
-                    return (
-                      <SelectItem key={ministry.id} value={ministry.id} disabled={isAssigned}>
-                        {ministry.name}
-                      </SelectItem>
-                    );
-                  })
-                ) : (
-                  <div className="p-2 text-muted-foreground">No ministries available</div>
-                )}
-              </SelectContent>
-            </Select>
-            {ministryError && (
-              <p className="text-sm text-destructive">{ministryError}</p>
-            )}
-            {errors.ministryId && (
-              <p className="text-sm text-destructive">{errors.ministryId}</p>
-            )}
-          </div>
-        )}
+  {/* Ministry Dropdown - show if MINISTRY_APPROVER is selected in role dropdown (for any user including ADMIN), or if logged in as MINISTRY_APPROVER, or if MOSPI_REVIEWER is selected */}
+  {(formData.role === "MINISTRY_APPROVER" || formData.role === "MOSPI_REVIEWER" || user?.role === "MINISTRY_APPROVER") && (
+    <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
+      <Label htmlFor="ministryId" className="flex items-center gap-2">
+        Ministry
+        <span className="text-destructive">*</span>
+      </Label>
+      <Select
+        value={formData.ministryId !== undefined ? String(formData.ministryId) : ""}
+        onValueChange={(value) => {
+          let ministryIdValue = Array.isArray(value) ? (value[0] || '') : value;
+          setFormData(prev => ({ ...prev, ministryId: ministryIdValue }));
+        }}
+        disabled={loadingMinistries || user?.role === "MINISTRY_APPROVER"}
+      >
+        <SelectTrigger className={ministryError || errors.ministryId ? "border-destructive" : ""}>
+          <SelectValue placeholder={
+            loadingMinistries
+              ? "Loading ministries..."
+              : ministryError
+                ? "Failed to load ministries"
+                : ministries.length === 0
+                  ? "No ministries available"
+                  : "Select Ministry"
+          } />
+        </SelectTrigger>
+        <SelectContent>
+          {loadingMinistries ? (
+            <div className="flex items-center justify-center p-2">
+              Loading ministries...
+            </div>
+          ) : ministryError ? (
+            <div className="p-2 text-destructive">{ministryError}</div>
+          ) : ministries.length > 0 ? (
+            ministries.map((ministry) => {
+              const assignedIds = assignedMinistryIds || [];
+              const ministryIdStr = String(ministry.id);
+              const isAssigned = assignedIds.some(
+                (id) => String(id) === ministryIdStr || Number(id) === Number(ministry.id)
+              );
+              return (
+                <SelectItem key={ministry.id} value={ministry.id} disabled={isAssigned}>
+                  {ministry.name}
+                </SelectItem>
+              );
+            })
+          ) : (
+            <div className="p-2 text-muted-foreground">No ministries available</div>
+          )}
+        </SelectContent>
+      </Select>
+      {ministryError && (
+        <p className="text-sm text-destructive">{ministryError}</p>
+      )}
+      {errors.ministryId && (
+        <p className="text-sm text-destructive">{errors.ministryId}</p>
+      )}
+    </div>
+  )}
 
-        {/* Indicator Assignment Section - Only for STATE_APPROVER login */}
+        {/* Indicator Assignment Section - Only visible when logged in as STATE_APPROVER */}
         {user?.role === "STATE_APPROVER" && (
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
@@ -2163,20 +2281,32 @@ const handleStateChange = (values: string | string[]) => {
   )}
 
 
-        {/* Ministry Indicators - Only for MINISTRY_APPROVER login */}
+        {/* Ministry Indicators - Always show for MINISTRY_APPROVER login */}
         {user?.role === "MINISTRY_APPROVER" && (
           <MinistryIndicatorsSection
-            ministryIndicators={ministryIndicators.filter(option => option.value && option.value !== "").map(option =>
-              // Only show indicators for MINISTRY_APPROVER
-              officer && ministryAssignableIndicators && ministryAssignableIndicators.length > 0
-                ? { ...option, disabled: ministryAssignableIndicators.includes(option.value) }
-                : option
-            )}
+            ministryIndicators={ministryIndicators
+              .filter(option => typeof option.value === 'string' && option.value !== "")
+              .map(option => {
+                const labelValue = option.label;
+                let finalLabel: string;
+                if (labelValue == null || labelValue === null) {
+                  finalLabel = String(option.value);
+                } else if (typeof labelValue === 'object') {
+                  finalLabel = (labelValue as any)?.name || (labelValue as any)?.code || String(option.value);
+                } else {
+                  finalLabel = String(labelValue || option.value);
+                }
+                return {
+                  ...option,
+                  label: finalLabel
+                };
+              })}
             effectiveSubmittedIndicators={effectiveSubmittedIndicators}
             loadingMinistryIndicators={loadingMinistryIndicators}
             ministryIndicatorsError={ministryIndicatorsError}
             stateApproverHasSubmission={stateApproverHasSubmission || false}
             officer={officer}
+            role={formData.role}
             nodalHasSubmission={nodalHasSubmission}
             checkingNodalSubmission={checkingNodalSubmission}
             errors={errors}
