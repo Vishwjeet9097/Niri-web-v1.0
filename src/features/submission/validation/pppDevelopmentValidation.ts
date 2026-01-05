@@ -209,9 +209,12 @@ export const validatePPPDevelopment = (
       if (!totalProjectsAwardedStr || totalProjectsAwardedStr.trim() === "") {
         errors["section3_4.totalProjectsAwarded"] =
           "Total Budgeted capital allocation is required.";
-      } else if (!isValidInteger(totalProjectsAwardedStr)) {
+      } else if (
+        !isNonNegativeDecimal(totalProjectsAwardedStr) ||
+        !hasMaxTwoDecimals(totalProjectsAwardedStr)
+      ) {
         errors["section3_4.totalProjectsAwarded"] =
-          "Enter a valid non-negative integer.";
+          "Enter a non-negative number with up to two decimal places.";
       }
 
       // Note: totalProjectCostAwarded is auto-calculated, so we don't validate it here

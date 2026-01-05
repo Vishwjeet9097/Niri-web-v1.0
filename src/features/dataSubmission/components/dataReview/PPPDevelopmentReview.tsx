@@ -5094,11 +5094,12 @@ export const PPPDevelopmentReview = ({
                         type="number"
                         inputMode="numeric"
                         min="0"
+                        step="0.01"
                         value={state?.section3_4?.totalProjectsAwarded || ""}
                         onChange={(e) => {
                           const value = e.target.value;
-                          // Only allow non-negative integers
-                          if (value === "" || /^\d+$/.test(value)) {
+                          // Allow non-negative numbers with decimals (up to 2 decimal places)
+                          if (value === "" || /^\d+(\.\d{1,2})?$/.test(value)) {
                             handleSection3_4FieldUpdate(
                               "totalProjectsAwarded",
                               value
