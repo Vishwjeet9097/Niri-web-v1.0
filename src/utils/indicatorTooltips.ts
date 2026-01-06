@@ -19,9 +19,9 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "1.2": {
     code: "1.2",
-    fieldName: "Actual Capex Utilization",
+    fieldName: "State Capex Utilization",
     tooltip:
-      "Provide the actual capital expenditure incurred and the total budgeted Capex for the assessment year. This shows utilization efficiency. Data must be consistent and will be cross-checked with CGA records.",
+      "Provide the State Capex Utilisation and the Capital Allocation for FY for the assessment year. This shows utilization efficiency. Data must be consistent and will be cross-checked with CGA records.",
   },
   "1.3": {
     code: "1.3",

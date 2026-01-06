@@ -2802,14 +2802,14 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_2"
                     fieldName="actualCapex"
                   >
-                    A₁ - Actual Capex (INR-CRORE)
+                    State Capex Utilisation (INR-CRORE)
                   </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
-                    placeholder="Enter actual capex"
+                    placeholder="Enter state capex utilisation"
                     value={formData.section1_2.actualCapex}
                     onBlur={() => markFieldAsTouched("section1_2.actualCapex")}
                     onChange={(e) => {
@@ -2845,14 +2845,14 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_2"
                     fieldName="stateCapexUtilisation"
                   >
-                    State Capex Utilisation (INR-CRORE)
+                    Capital Allocation for FY (INR-CRORE)
                   </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
-                    placeholder="Enter state capex utilisation"
+                    placeholder="Enter capital allocation for FY"
                     value={formData.section1_2.stateCapexUtilisation}
                     onBlur={() =>
                       markFieldAsTouched("section1_2.stateCapexUtilisation")

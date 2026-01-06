@@ -41,9 +41,10 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "Calculated allocation to GSDP cannot exceed 100%.",
 
   // Section 1.2
-  "section1_2.actualCapex": "Actual Capex must be greater than zero.",
+  "section1_2.actualCapex":
+    "State Capex Utilisation must be greater than zero.",
   "section1_2.stateCapexUtilisation":
-    "State Capex Utilization must be greater than zero.",
+    "Capital Allocation for FY must be greater than zero.",
   "section1_2.capexActualsToGSDP":
     "Calculated capex actuals to GSDP cannot exceed 100%.",
 

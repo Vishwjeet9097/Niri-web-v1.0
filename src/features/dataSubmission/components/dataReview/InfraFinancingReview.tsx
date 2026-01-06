@@ -5102,7 +5102,7 @@ export const InfraFinancingReview = ({
               </div>
               <div>
                 <Label>
-                  A₁ - Actual Capex{" "}
+                  State Capex Utilisation{" "}
                   <span className="text-xs text-muted-foreground">
                     (INR-CRORE)
                   </span>
@@ -5155,7 +5155,7 @@ export const InfraFinancingReview = ({
                       }
                     }
                   )}
-                  placeholder="Enter Actual Capex value"
+                  placeholder="Enter State Capex Utilisation value"
                   readOnly={!isEditable("1.2")}
                   className={cn(
                     isEditable("1.2") ? "bg-white" : "bg-gray-50",
@@ -5173,7 +5173,7 @@ export const InfraFinancingReview = ({
               </div>
               <div>
                 <Label>
-                  State Capex Utilisation{" "}
+                  Capital Allocation for FY{" "}
                   <span className="text-xs text-muted-foreground">
                     (INR-CRORE)
                   </span>
@@ -5231,7 +5231,7 @@ export const InfraFinancingReview = ({
                       }
                     }
                   )}
-                  placeholder="Enter State Capex Utilisation value"
+                  placeholder="Enter Capital Allocation for FY value"
                   readOnly={!isEditable("1.2")}
                   className={cn(
                     isEditable("1.2") ? "bg-white" : "bg-gray-50",
