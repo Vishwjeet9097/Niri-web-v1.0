@@ -430,7 +430,7 @@ export const EditablePPPDevelopment = ({
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <Label>
-                            Total Project Cost (INR - values is in CRORES)*
+                            Total Project Cost (INR-CRORE)*
                           </Label>
                           <Input
                             type="number"

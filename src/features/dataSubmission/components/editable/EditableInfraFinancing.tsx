@@ -210,7 +210,7 @@ export const EditableInfraFinancing = ({
               />
             </div>
             <div>
-              <Label>Capital Allocation for FY (INR)*</Label>
+              <Label>Capital Allocation for FY (INR-CRORE)*</Label>
               <Input
                 placeholder="₹1,50,000 crores"
                 value={formData.section1_1.capitalAllocation}
@@ -226,7 +226,7 @@ export const EditableInfraFinancing = ({
               />
             </div>
             <div>
-              <Label>GSDP for FY (INR)*</Label>
+              <Label>GSDP for FY (INR-CRORE)*</Label>
               <Input
                 placeholder="₹25,00,000 crores"
                 value={formData.section1_1.gsdpForFY}
@@ -294,7 +294,7 @@ export const EditableInfraFinancing = ({
               />
             </div>
             <div>
-              <Label>Actual Capex (INR)*</Label>
+              <Label>Actual Capex (INR-CRORE)*</Label>
               <Input
                 placeholder="₹1,45,000 crores"
                 value={formData.section1_2.actualCapex}
@@ -310,7 +310,7 @@ export const EditableInfraFinancing = ({
               />
             </div>
             <div>
-              <Label>State Capex Utilisation (INR)*</Label>
+              <Label>State Capex Utilisation (INR-CRORE)*</Label>
               <Input
                 placeholder="₹15,40,250 crores"
                 value={formData.section1_2.stateCapexUtilisation}
@@ -551,7 +551,7 @@ export const EditableInfraFinancing = ({
                     />
                   </div>
                   <div>
-                    <Label>Bond Value (INR)*</Label>
+                    <Label>Bond Value (INR-CRORE)*</Label>
                     <Input
                       placeholder="₹200 crores"
                       value={bond.value}
@@ -687,7 +687,7 @@ export const EditableInfraFinancing = ({
                     />
                   </div>
                   <div>
-                    <Label>Total Funding (INR)*</Label>
+                    <Label>Total Funding (INR-CRORE)*</Label>
                     <Input
                       placeholder="₹5000 crores"
                       value={org.totalFunding}

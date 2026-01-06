@@ -2281,7 +2281,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
                     <div>
                       <Label>
-                        Total Project Cost (INR - values is in CRORES)
+                        Total Project Cost (INR-CRORE)
                         <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -2462,7 +2462,7 @@ export const PPPDevelopmentStep = () => {
                           Scheme
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
-                          Total Project Cost (INR - CRORES)
+                          Total Project Cost (INR-CRORE)
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Status of Project
@@ -2679,8 +2679,7 @@ export const PPPDevelopmentStep = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
-                    Total Budgeted capital allocation (INR - values is in
-                    CRORES)
+                    Total Budgeted capital allocation (INR-CRORE)
                     <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -2712,7 +2711,7 @@ export const PPPDevelopmentStep = () => {
                 </div>
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
-                    Total of all TPC of all Projects (INR - values is in CRORES)
+                    Total of all TPC of all Projects (INR-CRORE)
                     <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -2876,7 +2875,7 @@ export const PPPDevelopmentStep = () => {
 
                     <div>
                       <Label>
-                        Total Project Cost (INR - values is in CRORES)
+                        Total Project Cost (INR-CRORE)
                       </Label>
                       <Input
                         type="number"
@@ -2955,7 +2954,7 @@ export const PPPDevelopmentStep = () => {
                             Date of Award
                           </th>
                           <th className="py-2 px-2 text-left text-sm font-normal">
-                            Total Cost (INR - values is in CRORES)
+                            Total Cost (INR-CRORE)
                           </th>
                           <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
                             Action

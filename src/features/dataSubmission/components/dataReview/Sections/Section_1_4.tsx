@@ -303,7 +303,7 @@ export const Section_1_4 = ({
                 Issuing Authority
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
-                Value (INR - values is in CRORES)
+                Value (INR-CRORE)
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Tenor of Bond (in years)
@@ -584,7 +584,7 @@ export const Section_1_4 = ({
               )}
             </div>
             <div>
-              <Label>Value ( INR - values is in CRORES)</Label>
+              <Label>Value (INR-CRORE)</Label>
               <Input
                 type="number"
                 inputMode="decimal"

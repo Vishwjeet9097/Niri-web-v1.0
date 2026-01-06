@@ -3481,7 +3481,7 @@ export const PPPDevelopmentReview = ({
                           {shouldDisableFor3_4_NotAccepted
                             ? "Indicator 1.1 must be accepted before accepting indicator 3.4"
                             : shouldDisableFor3_4_NotMatching
-                            ? `Total Budgeted capital allocation must equal Capital Allocation for FY (${indicator1_1CapitalAllocation} CRORES) from indicator 1.1`
+                            ? `Total Budgeted capital allocation must equal Capital Allocation for FY (${indicator1_1CapitalAllocation} INR-CRORE) from indicator 1.1`
                             : isEditing
                             ? "Please save your changes before accepting"
                             : ""}
@@ -3897,7 +3897,7 @@ export const PPPDevelopmentReview = ({
                         {shouldDisableFor3_4_NotAccepted
                           ? "Indicator 1.1 must be accepted before accepting indicator 3.4"
                           : shouldDisableFor3_4_NotMatching
-                          ? `Total Budgeted capital allocation must equal Capital Allocation for FY (${indicator1_1CapitalAllocation} CRORES) from indicator 1.1`
+                          ? `Total Budgeted capital allocation must equal Capital Allocation for FY (${indicator1_1CapitalAllocation} INR-CRORE) from indicator 1.1`
                           : isEditing
                           ? "Please save your changes before accepting"
                           : ""}
@@ -4287,7 +4287,7 @@ export const PPPDevelopmentReview = ({
                         Scheme
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
-                        Total Project Cost (INR - CRORES)
+                        Total Project Cost (INR-CRORE)
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Status of Project
@@ -4933,7 +4933,7 @@ export const PPPDevelopmentReview = ({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <Label>
-                        Total Project Cost (INR - values is in CRORES)
+                        Total Project Cost (INR-CRORE)
                       </Label>
                       <Input
                         type="number"
@@ -5091,8 +5091,7 @@ export const PPPDevelopmentReview = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <Label>
-                    Total Budgeted capital allocation (INR - values is in
-                    CRORES)
+                    Total Budgeted capital allocation (INR-CRORE)
                   </Label>
                   {shouldBeEditable("3.4") ? (
                     <div>
@@ -5135,9 +5134,9 @@ export const PPPDevelopmentReview = ({
                 </div>
                 <div>
                   <Label>
-                    Total of all TPC of all Projects (INR - values is in CRORES){" "}
+                    Total of all TPC of all Projects (INR-CRORE){" "}
                   </Label>
-                  {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
+                  {/* <p className="text-xs text-muted-foreground mt-1">INR-CRORE </p> */}
                   <Input
                     type="number"
                     inputMode="decimal"

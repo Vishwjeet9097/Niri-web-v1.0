@@ -7137,7 +7137,7 @@ export const InfraDevelopmentReview = ({
                             Status
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Project Size (Cr)
+                            Project Cost (INR-CRORE)
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Type of Investment
@@ -7464,7 +7464,7 @@ export const InfraDevelopmentReview = ({
                         </div>
                         <div>
                           <Label>
-                            Project Size (INR - values is in CRORES){" "}
+                            Project Cost (INR-CRORE){" "}
                             <span className="text-destructive">*</span>
                           </Label>
                           <Input
@@ -7735,7 +7735,7 @@ export const InfraDevelopmentReview = ({
                       Website Link
                     </th>
                     <th className="py-3 px-4 text-left text-sm font-normal">
-                      Estimated Monetization (INR - values is in CRORES)
+                      Estimated Monetization (INR-CRORE)
                     </th>
                     {shouldBeEditable("2.5") && (
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
@@ -8414,7 +8414,7 @@ export const InfraDevelopmentReview = ({
                     )}
                   </div>
                   <div className="md:col-span-2">
-                    <Label>Estimated Monetization</Label>
+                    <Label>Estimated Monetization (INR-CRORE)</Label>
                     <Input
                       value={newEntry2_5.estimatedMonetization}
                       onChange={(e) => {

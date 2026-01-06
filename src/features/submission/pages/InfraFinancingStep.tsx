@@ -2598,7 +2598,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_1"
                     fieldName="capitalAllocation"
                   >
-                    Capital Allocation for FY (INR)
+                    Capital Allocation for FY (INR-CRORE)
                     {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </MandatoryFieldLabel>
                   <Input
@@ -2644,7 +2644,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_1"
                     fieldName="gsdpForFY"
                   >
-                    GSDP for FY (INR)
+                    GSDP for FY (INR-CRORE)
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </MandatoryFieldLabel>
                   <Input
@@ -2802,7 +2802,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_2"
                     fieldName="actualCapex"
                   >
-                    A₁ - Actual Capex (INR)
+                    A₁ - Actual Capex (INR-CRORE)
                   </MandatoryFieldLabel>
                   <Input
                     type="number"
@@ -2845,7 +2845,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_2"
                     fieldName="stateCapexUtilisation"
                   >
-                    State Capex Utilisation (INR)
+                    State Capex Utilisation (INR-CRORE)
                   </MandatoryFieldLabel>
                   <Input
                     type="number"
@@ -3874,7 +3874,7 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
-                        Value (INR - values is in CRORES)
+                        Value (INR-CRORE)
                         <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -4347,7 +4347,7 @@ export const InfraFinancingStep = () => {
 
                         <div>
                           <Label>
-                            Total Funding (INR)
+                            Total Funding (INR-CRORE)
                             <span className="text-red-500">*</span>
                           </Label>
                           <Input
@@ -4478,7 +4478,7 @@ export const InfraFinancingStep = () => {
                                   Year Established
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Total Funding (INR)
+                                  Total Funding (INR-CRORE)
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
                                   Website

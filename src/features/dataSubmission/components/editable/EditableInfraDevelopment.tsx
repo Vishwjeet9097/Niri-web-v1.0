@@ -689,7 +689,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                     </Select>
                   </div>
                   <div>
-                    <Label>Estimated Monetization (INR - values is in CRORES)
+                    <Label>Estimated Monetization (INR-CRORE)
 </Label>
                     <Input
                       placeholder="₹ Crores"

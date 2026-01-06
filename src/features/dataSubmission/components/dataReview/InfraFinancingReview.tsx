@@ -4774,7 +4774,7 @@ export const InfraFinancingReview = ({
                 <Label>
                   Capital Allocation for FY{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR - values is in CRORE)
                   </span>
                 </Label>
                 <Input
@@ -4843,7 +4843,7 @@ export const InfraFinancingReview = ({
                 <Label>
                   GSDP for FY{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -5104,7 +5104,7 @@ export const InfraFinancingReview = ({
                 <Label>
                   A₁ - Actual Capex{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -5175,7 +5175,7 @@ export const InfraFinancingReview = ({
                 <Label>
                   State Capex Utilisation{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -5553,7 +5553,7 @@ export const InfraFinancingReview = ({
                          />
                       </div>
                       <div>
-                        <Label>Value (INR)</Label>
+                        <Label>Value (INR-CRORE)</Label>
                         <Input
                           value={item.value ? `₹ ${item.value} Crores` : ""}
                           readOnly={!isEditable('1.4')}
