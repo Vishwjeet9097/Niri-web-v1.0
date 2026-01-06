@@ -283,7 +283,7 @@ export const validateInfraFinancing = (
           }
           if (!bond.tenorOfBond || bond.tenorOfBond.trim() === "") {
             errors[`${basePath}.tenorOfBond`] =
-              "Tenor of Bond (in years) is required.";
+              "Tenor of Bond (in months) is required.";
           } else if (
             !isNonNegativeDecimal(bond.tenorOfBond) ||
             !hasMaxTwoDecimals(bond.tenorOfBond)

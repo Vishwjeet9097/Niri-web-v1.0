@@ -3913,7 +3913,7 @@ export const InfraFinancingStep = () => {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Label>
-                          Tenor of Bond (in years)
+                          Tenor of Bond (in months)
                           <span className="text-red-500">*</span>
                           <Tooltip>
                             <TooltipTrigger>
@@ -4020,7 +4020,7 @@ export const InfraFinancingStep = () => {
                             Value (INR Cr)
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Tenor of Bond (in years)
+                            Tenor of Bond (in months)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action

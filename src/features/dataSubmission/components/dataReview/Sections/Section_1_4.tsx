@@ -306,7 +306,7 @@ export const Section_1_4 = ({
                 Value (INR-CRORE)
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
-                Tenor of Bond (in years)
+                Tenor of Bond (in months)
               </th>
               {isEditable("1.4") && (
                 <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
@@ -613,7 +613,7 @@ export const Section_1_4 = ({
             </div>
             <div>
               <Label>
-                Tenor of Bond (in years)<span className="text-red-500">*</span>
+                Tenor of Bond (in months)<span className="text-red-500">*</span>
                 <Tooltip>
                   <TooltipTrigger>
                     <Info className="inline w-3 h-3 ml-1" />

@@ -568,7 +568,7 @@ export const EditableInfraFinancing = ({
                     />
                   </div>
                   <div>
-                    <Label>Tenor of Bond (in years)*</Label>
+                    <Label>Tenor of Bond (in months)*</Label>
                     <Input
                       type="number"
                       inputMode="decimal"
