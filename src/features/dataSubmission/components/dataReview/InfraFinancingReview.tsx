@@ -5552,7 +5552,7 @@ export const InfraFinancingReview = ({
                 )}
               </div>
               <div className="">
-                <Label>% Capex Actuals to GSDP</Label>
+                <Label>% Capex Actuals</Label>
                 <Input
                   value={(() => {
                     // Get values from local state if in edit mode, otherwise from formData

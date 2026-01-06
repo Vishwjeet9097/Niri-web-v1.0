@@ -1478,7 +1478,7 @@ export const InfraFinancingStep = () => {
       allocationToGSDP = percentage.toFixed(1) + "%";
     }
 
-    // Calculate % Capex Actuals to GSDP
+    // Calculate % Capex Actuals
     const actualCapex = parseFloat(
       (formData.section1_2.actualCapex || "").toString().replace(/[₹,]/g, "")
     );
@@ -2893,7 +2893,7 @@ export const InfraFinancingStep = () => {
                     fieldName="capexActualsToGSDP"
                     data={formData.section1_2}
                   >
-                    % Capex Actuals to GSDP
+                    % Capex Actuals
                   </MandatoryFieldLabel>
                   <Input
                     placeholder="Auto-calculated"

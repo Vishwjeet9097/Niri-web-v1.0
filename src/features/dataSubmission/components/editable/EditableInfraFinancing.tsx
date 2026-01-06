@@ -326,7 +326,7 @@ export const EditableInfraFinancing = ({
               />
             </div>
             <div>
-              <Label>% Capex Actuals to GSDP*</Label>
+              <Label>% Capex Actuals*</Label>
               <Input
                 placeholder="Auto-calculated"
                 value={(() => {
