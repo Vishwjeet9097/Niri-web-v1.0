@@ -240,7 +240,9 @@ export function useIndicatorAccess() {
                         const sectionData = categoryData[sectionKey];
                         const status = sectionData?.status?.toUpperCase() || "";
                         
-                        if (status && status !== "DRAFT" && status !== "NOT_STARTED") {
+                        // Only filter out indicators with SUBMITTED_TO_STATE status
+                        // SAVE_AS_DRAFT and DRAFT should still be visible on Create Submission page
+                        if (status === "SUBMITTED_TO_STATE") {
                           const indicatorCode = sectionKey
                             .replace("section", "")
                             .replace("_", ".");
@@ -315,8 +317,9 @@ export function useIndicatorAccess() {
                         const sectionData = categoryData[sectionKey];
                         const status = sectionData?.status?.toUpperCase() || "";
                         
-                        // If indicator has been submitted (not DRAFT or empty), exclude it from available
-                        if (status && status !== "DRAFT" && status !== "NOT_STARTED") {
+                        // Only exclude indicators with SUBMITTED_TO_STATE status from available list
+                        // SAVE_AS_DRAFT and DRAFT indicators should still be visible on Create Submission page
+                        if (status === "SUBMITTED_TO_STATE") {
                           // Extract indicator code from section key (e.g., "section4_5" -> "4.5")
                           const indicatorCode = sectionKey
                             .replace("section", "")
