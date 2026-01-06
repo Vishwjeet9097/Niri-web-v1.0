@@ -50,6 +50,7 @@ const hasArrayData = (arr: any[]): boolean => {
 
 /**
  * Check if infra enablers section has data
+ * Excludes SAVE_AS_DRAFT indicators from review (they should not be visible to STATE_APPROVER)
  */
 export const hasInfraEnablersData = (formData: any): boolean => {
   if (!formData?.infraEnablers) return false;
@@ -68,6 +69,12 @@ export const hasInfraEnablersData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = infraEnablers[sectionId];
     if (!section) return false;
+    
+    // Exclude SAVE_AS_DRAFT indicators from review
+    const status = section?.status?.toUpperCase();
+    if (status === "SAVE_AS_DRAFT") {
+      return false;
+    }
 
     switch (sectionId) {
       case "section4_1":
@@ -135,6 +142,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
 
 /**
  * Check if infra financing section has data
+ * Excludes SAVE_AS_DRAFT indicators from review (they should not be visible to STATE_APPROVER)
  */
 export const hasInfraFinancingData = (formData: any): boolean => {
   if (!formData?.infraFinancing) return false;
@@ -153,6 +161,12 @@ export const hasInfraFinancingData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = infraFinancing[sectionId];
     if (!section) return false;
+    
+    // Exclude SAVE_AS_DRAFT indicators from review
+    const status = section?.status?.toUpperCase();
+    if (status === "SAVE_AS_DRAFT") {
+      return false;
+    }
 
     switch (sectionId) {
       case "section1_1":
@@ -215,6 +229,7 @@ export const hasInfraFinancingData = (formData: any): boolean => {
 
 /**
  * Check if infra development section has data
+ * Excludes SAVE_AS_DRAFT indicators from review (they should not be visible to STATE_APPROVER)
  */
 export const hasInfraDevelopmentData = (formData: any): boolean => {
   if (!formData?.infraDevelopment) return false;
@@ -233,6 +248,12 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = infraDevelopment[sectionId];
     if (!section) return false;
+    
+    // Exclude SAVE_AS_DRAFT indicators from review
+    const status = section?.status?.toUpperCase();
+    if (status === "SAVE_AS_DRAFT") {
+      return false;
+    }
 
     switch (sectionId) {
       case "section2_1": {
@@ -434,6 +455,7 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
 
 /**
  * Check if PPP development section has data
+ * Excludes SAVE_AS_DRAFT indicators from review (they should not be visible to STATE_APPROVER)
  */
 export const hasPPPDevelopmentData = (formData: any): boolean => {
   if (!formData?.pppDevelopment) return false;
@@ -446,6 +468,12 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = pppDevelopment[sectionId];
     if (!section) return false;
+    
+    // Exclude SAVE_AS_DRAFT indicators from review
+    const status = section?.status?.toUpperCase();
+    if (status === "SAVE_AS_DRAFT") {
+      return false;
+    }
 
     switch (sectionId) {
       case "section3_1":
@@ -603,6 +631,7 @@ export const getSectionsWithData = (
 
 /**
  * Check if a specific section has data
+ * Excludes SAVE_AS_DRAFT indicators from review
  */
 const hasSectionData = (
   section: any,
@@ -610,6 +639,12 @@ const hasSectionData = (
   category: string
 ): boolean => {
   if (!section) return false;
+  
+  // Exclude SAVE_AS_DRAFT indicators from review
+  const status = section?.status?.toUpperCase();
+  if (status === "SAVE_AS_DRAFT") {
+    return false;
+  }
 
   switch (category) {
     case "infraEnablers":
