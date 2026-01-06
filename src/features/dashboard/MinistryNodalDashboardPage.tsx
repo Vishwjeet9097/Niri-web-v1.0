@@ -72,7 +72,7 @@ export function MinistryNodalDashboardPage() {
         let submissionsData: any[] = [];
 
         // Get KPI data from ministry service (handles dummy/real API automatically)
-        const metrics = await getNodalKpiData(user?.id, user?.ministryId);
+        const metrics = await getNodalKpiData(user?.id);
 
         // Process submissions
         try {

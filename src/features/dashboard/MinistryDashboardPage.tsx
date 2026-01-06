@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { StateApproverKPICard } from "./components/approver/StateApproverKPICard";
 import { MinistryLatestSubmission } from "./MinistryLatestSubmission";
 import { getMinistryDashboardData, getMinistrySubmissions } from "@/services/ministry.service";
@@ -12,22 +13,22 @@ import {
 } from "lucide-react";
 
 // Set to false to use real API when available
-const USE_DUMMY_DATA = true;
-
+ 
 export function MinistryDashboardPage() {
+  const { user } = useAuth();
+  
   // Ministry Dashboard Data - loaded from service
   const [ministryData, setMinistryData] = useState({
     totalIndicators: 0,
-    totalUnassigned: 0,
-    totalAssigned: 0,
-    totalIndicatorsSubmitted: 0,
-    pendingSubmission: 0,
-    acceptedByStateApprover: 0,
-    returnedToNodal: 0,
-    submittedToMoSPI: 0,
-    approvedByMoSPI: 0,
-    returnedFromMoSPI: 0,
-    averageReviewTime: 0,
+    totalIndicatorSubmitted: 0,
+    totalAssignedMinistryApprover: 0,
+    totalIndicatorNodalMinistry: 0,
+    totalAccepted: 0,
+    totalPendingSubmission: 0,
+    totalReturnNodal: 0,
+    submittedToMospi: 0,
+    approvedByMospi: 0,
+    returnedFromMospi: 0,
   });
 
   // Submissions data for MinistryLatestSubmission - loaded from service
@@ -40,30 +41,26 @@ export function MinistryDashboardPage() {
   // Load dashboard data from service
   useEffect(() => {
     const loadDashboardData = async () => {
+      if (!user?.id) return;
+       
       try {
         setLoading(true);
         
-        // Load dashboard data and submissions in parallel
-        const [dashboardData, submissionsData] = await Promise.all([
-          getMinistryDashboardData(USE_DUMMY_DATA),
-          getMinistrySubmissions(USE_DUMMY_DATA),
-        ]);
-        
+        // Load dashboard data
+        const dashboardData = await getMinistryDashboardData(user?.id);
+        console.log("dashboardData", dashboardData);
         setMinistryData({
           totalIndicators: dashboardData.totalIndicators,
-          totalUnassigned: dashboardData.totalUnassigned,
-          totalAssigned: dashboardData.totalAssigned,
-          totalIndicatorsSubmitted: dashboardData.totalIndicatorsSubmitted,
-          pendingSubmission: dashboardData.pendingSubmission,
-          acceptedByStateApprover: dashboardData.acceptedByStateApprover,
-          returnedToNodal: dashboardData.returnedToNodal,
-          submittedToMoSPI: dashboardData.submittedToMoSPI,
-          approvedByMoSPI: dashboardData.approvedByMoSPI,
-          returnedFromMoSPI: dashboardData.returnedFromMoSPI,
-          averageReviewTime: dashboardData.averageReviewTime,
+          totalIndicatorSubmitted: dashboardData.totalIndicatorSubmitted,
+          totalAssignedMinistryApprover: dashboardData.totalAssignedMinistryApprover,
+          totalIndicatorNodalMinistry: dashboardData.totalIndicatorNodalMinistry,
+          totalAccepted: dashboardData.totalAccepted,
+          totalPendingSubmission: dashboardData.totalPendingSubmission,
+          totalReturnNodal: dashboardData.totalReturnNodal,
+          submittedToMospi: dashboardData.submittedToMospi,
+          approvedByMospi: dashboardData.approvedByMospi,
+          returnedFromMospi: dashboardData.returnedFromMospi,
         });
-        
-        setSubmissions(submissionsData || []);
       } catch (error) {
         console.error("Failed to load ministry dashboard data:", error);
         // Keep default dummy data on error
@@ -73,7 +70,25 @@ export function MinistryDashboardPage() {
     };
 
     loadDashboardData();
-  }, []);
+  }, [user?.id]);
+
+  // Load submissions data separately
+  useEffect(() => {
+    const loadSubmissions = async () => {
+      if (!user?.id) return;
+      
+      try {
+        // Load submissions data
+        const submissionsData = await getMinistrySubmissions(user?.id);
+        setSubmissions(submissionsData || []);
+      } catch (error) {
+        console.error("Failed to load ministry submissions:", error);
+        setSubmissions([]);
+      }
+    };
+
+    loadSubmissions();
+  }, [user?.id]);
 
   // Filter submissions based on search query
   const filteredSubmissions = submissions.filter((submission) => {
@@ -104,14 +119,14 @@ export function MinistryDashboardPage() {
   const overviewCards = [
     {
       title: "Total Indicators Assigned to Nodal Officers",
-      value: String(ministryData.totalAssigned),
+      value: String(ministryData.totalIndicatorNodalMinistry),
       subtitle: "Critical Attention Needed",
       icon: User,
       variant: "blue" as const,
     },
     {
       title: "Pending Submission",
-      value: String(ministryData.pendingSubmission),
+      value: String(ministryData.totalPendingSubmission),
       subtitle: "Awaiting your review",
       icon: ClipboardList,
       variant: "orange" as const,
@@ -121,14 +136,14 @@ export function MinistryDashboardPage() {
   const indicatorsReceivedCards = [
     {
       title: "Accepted By Ministry Approver",
-      value: `${ministryData.acceptedByStateApprover}/${ministryData.totalAssigned}`,
+      value: `${ministryData.totalAccepted}/${ministryData.totalAccepted}`,
       subtitle: "This fiscal year",
       icon: CheckCircle,
       variant: "green" as const,
     },
     {
       title: "Returned to Nodal Officer",
-      value: `${ministryData.returnedToNodal}/${ministryData.totalAssigned}`,
+      value: `${ministryData.totalReturnNodal}/${ministryData.totalReturnNodal}`,
       subtitle: "Need Revision",
       icon: ArrowLeft,
       variant: "yellow" as const,
@@ -138,21 +153,21 @@ export function MinistryDashboardPage() {
   const mospiCards = [
     {
       title: "Submitted to MoSPI",
-      value: String(ministryData.submittedToMoSPI),
-      subtitle: `Average review time: ${ministryData.averageReviewTime} days`,
+      value: String(ministryData.submittedToMospi),
+      subtitle: "Submitted to MoSPI",
       icon: FileText,
       variant: "orange" as const,
     },
     {
       title: "Approved by MoSPI",
-      value: String(ministryData.approvedByMoSPI),
+      value: String(ministryData.approvedByMospi),
       subtitle: "This fiscal year",
       icon: CheckCircle,
       variant: "green" as const,
     },
     {
       title: "Returned from MoSPI",
-      value: String(ministryData.returnedFromMoSPI),
+      value: String(ministryData.returnedFromMospi),
       subtitle: "Need Revision",
       icon: RotateCcw,
       variant: "red" as const,
@@ -193,8 +208,8 @@ export function MinistryDashboardPage() {
                 <span className="text-black">{ministryData.totalIndicators}</span>
               </h2>
               <h2 className="text-lg font-semibold text-[#111827]">
-                Total Unassigned / Assigned to State Approver:&nbsp;
-                <span className="text-black">{ministryData.totalUnassigned}</span>
+                Total Assigned to Ministry Approver:&nbsp;
+                <span className="text-black">{ministryData.totalAssignedMinistryApprover}</span>
               </h2>
             </div>
             <div className="grid gap-4 grid-cols-1">
@@ -216,7 +231,7 @@ export function MinistryDashboardPage() {
             <h2 className="text-lg font-semibold text-[#111827]">
               Total Indicators Submitted:&nbsp;
               <span className="text-black">
-                {ministryData.totalIndicatorsSubmitted}/{ministryData.totalIndicators}
+                {ministryData.totalIndicatorSubmitted}/{ministryData.totalIndicators}
               </span>
             </h2>
 
