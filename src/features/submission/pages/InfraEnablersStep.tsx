@@ -244,17 +244,20 @@ export const InfraEnablersStep = () => {
   }
 
   useEffect(() => {
-    if (!user || !user.id || isDataLoaded) return;
+    if (!user || (!user.id && !user._id) || isDataLoaded) return;
 
     (async () => {
       try {
-        const submissionsResp = await apiService.getSubmissions(1, 100);
+        // Include DRAFT submissions by passing includeDraftOnly = true
+        const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+        const userId = user?.id || user?._id;
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
-            sub.status === "DRAFT" ||
+            (sub.status === "DRAFT" ||
             sub.status === "IN_PROGRESS" ||
             sub.status === "RETURNED_FROM_STATE" ||
-            sub.status === "PENDING_STATE_APPROVAL"
+            sub.status === "PENDING_STATE_APPROVAL") &&
+            (sub.submittedBy === userId || sub.user?.id === userId)
         );
 
         // Set submissionId for immediate file uploads
@@ -1111,7 +1114,7 @@ export const InfraEnablersStep = () => {
 
       // Refresh sectionStatus to update completedIndicators from server
       try {
-        const submissionsResp = await apiService.getSubmissions(1, 100);
+        const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
             sub.status === "DRAFT" ||
@@ -1511,7 +1514,7 @@ export const InfraEnablersStep = () => {
       }
 
       // Get current submission to preserve status
-      const submissionsResp = await apiService.getSubmissions(1, 100);
+      const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
       const userSubmission = submissionsResp.submissions.find(
         (sub: any) =>
           sub.status === "DRAFT" ||

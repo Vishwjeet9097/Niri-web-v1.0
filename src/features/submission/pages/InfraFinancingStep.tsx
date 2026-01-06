@@ -144,7 +144,9 @@ export const InfraFinancingStep = () => {
     totalAssigned: 0,
   });
   // Store submission ID to ensure we always use the same submission form
-  const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(null);
+  const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(
+    null
+  );
   const { getStepData, updateFormData, clearFormData } = useFormPersistence();
 
   const {
@@ -602,52 +604,147 @@ export const InfraFinancingStep = () => {
     legacy: any,
     code: string
   ) {
-    // If normalized data for this indicator exists, use it; else fallback to legacy
-    let result;
-    if (
-      normalized &&
-      normalized.byIndicatorCode &&
-      normalized.byIndicatorCode[code]
-    ) {
-      result = normalized.byIndicatorCode[code];
+    // Merge normalized and legacy data, prioritizing normalized but falling back to legacy
+    // This ensures SAVE_AS_DRAFT data is preserved even if normalizedFormData is incomplete
+    const normalizedData = normalized?.byIndicatorCode?.[code];
+    const legacyData = legacy || {};
+
+    console.log(`🔍 [getSectionFromNormalizedOrLegacy] Indicator ${code}:`, {
+      hasNormalized: !!normalizedData,
+      normalizedData,
+      hasLegacy: !!legacyData && Object.keys(legacyData).length > 0,
+      legacyData,
+      legacyKeys: Object.keys(legacyData),
+    });
+
+    if (normalizedData) {
+      // If normalized data exists, merge it with legacy (normalized takes priority)
+      const merged = { ...legacyData, ...normalizedData };
+      console.log(
+        `✅ [getSectionFromNormalizedOrLegacy] Indicator ${code} - Using merged data:`,
+        merged
+      );
+      return merged;
     } else {
-      result = legacy || {};
+      // If no normalized data, use legacy
+      console.log(
+        `✅ [getSectionFromNormalizedOrLegacy] Indicator ${code} - Using legacy data:`,
+        legacyData
+      );
+      return legacyData;
     }
-    return result;
   }
 
   useEffect(() => {
+    console.log("🚀 [InfraFinancingStep] useEffect triggered:", {
+      hasUser: !!user,
+      userId: user?.id || user?._id,
+      isDataLoaded,
+      willRun: !!(user && (user.id || user._id) && !isDataLoaded),
+    });
+
     // Only run if user is logged in and data not yet loaded
-    if (!user || !user.id || isDataLoaded) return;
+    if (!user || (!user.id && !user._id) || isDataLoaded) {
+      console.log("⏸️ [InfraFinancingStep] useEffect skipped:", {
+        reason: !user
+          ? "no user"
+          : !user.id && !user._id
+          ? "no userId"
+          : "already loaded",
+      });
+      return;
+    }
+
+    console.log("▶️ [InfraFinancingStep] Starting data load...");
 
     (async () => {
       try {
+        console.log("📡 [InfraFinancingStep] Fetching submissions from API...");
         // Always fetch from backend DB, not localStorage
-        const submissionsResp = await apiService.getSubmissions(1, 100);
+        // Include DRAFT submissions by passing includeDraftOnly = true
+        const submissionsResp = await apiService.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
+        console.log("📡 [InfraFinancingStep] Submissions response:", {
+          totalSubmissions: submissionsResp?.submissions?.length || 0,
+          submissions: submissionsResp?.submissions?.map((s: any) => ({
+            id: s.id,
+            status: s.status,
+            submittedBy: s.submittedBy,
+            userId: s.user?.id,
+          })),
+        });
+
         // Find user's latest submission (any editable status)
+        const userId = user?.id || user?._id;
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
-            sub.status === "DRAFT" ||
-            sub.status === "IN_PROGRESS" ||
-            sub.status === "RETURNED_FROM_STATE" ||
-            sub.status === "PENDING_STATE_APPROVAL"
+            (sub.status === "DRAFT" ||
+              sub.status === "IN_PROGRESS" ||
+              sub.status === "RETURNED_FROM_STATE" ||
+              sub.status === "PENDING_STATE_APPROVAL") &&
+            (sub.submittedBy === userId || sub.user?.id === userId)
         );
+
+        console.log("🔍 [InfraFinancingStep] Looking for user submission:", {
+          userId,
+          foundSubmission: !!userSubmission,
+          submissionId: userSubmission?.id,
+          submissionStatus: userSubmission?.status,
+        });
 
         let sectionStatusFromDB = undefined;
         if (userSubmission && userSubmission.id) {
+          console.log("📦 [InfraFinancingStep] Found user submission:", {
+            id: userSubmission.id,
+            status: userSubmission.status,
+          });
+
           // Store submission ID to ensure we always use the same submission
           setCurrentSubmissionId(userSubmission.id);
           const fullSubmission = await apiService.getSubmission(
             userSubmission.id
           );
+
+          console.log("📦 [InfraFinancingStep] Full submission loaded:", {
+            id: fullSubmission.id,
+            status: fullSubmission.status,
+            hasFormData: !!fullSubmission.formData,
+            formDataType: typeof fullSubmission.formData,
+          });
+
           let parsedFormData = fullSubmission.formData;
           if (typeof fullSubmission.formData === "string") {
             try {
               parsedFormData = JSON.parse(fullSubmission.formData);
+              console.log(
+                "📦 [InfraFinancingStep] Parsed formData from string"
+              );
             } catch (e) {
+              console.error(
+                "❌ [InfraFinancingStep] Failed to parse formData:",
+                e
+              );
               // ignore parse error
             }
           }
+
+          console.log("📦 [InfraFinancingStep] Parsed formData structure:", {
+            hasNormalizedFormData: !!parsedFormData?.normalizedFormData,
+            hasInfraFinancing: !!parsedFormData?.infraFinancing,
+            infraFinancingKeys: parsedFormData?.infraFinancing
+              ? Object.keys(parsedFormData.infraFinancing)
+              : [],
+            section1_1: parsedFormData?.infraFinancing?.section1_1,
+            section1_1Status:
+              parsedFormData?.infraFinancing?.section1_1?.status,
+            section1_1CapitalAllocation:
+              parsedFormData?.infraFinancing?.section1_1?.capitalAllocation,
+          });
 
           // Restore section_status from DB if present
           sectionStatusFromDB = fullSubmission.section_status;
@@ -663,6 +760,24 @@ export const InfraFinancingStep = () => {
           // Prefer normalized indicator data for all sections, fallback to legacy
           const normalized = parsedFormData?.normalizedFormData;
           const legacy = parsedFormData?.infraFinancing || {};
+
+          console.log("📦 [InfraFinancingStep] Extracted data sources:", {
+            normalized: normalized
+              ? {
+                  hasByIndicatorCode: !!normalized.byIndicatorCode,
+                  indicatorCodes: normalized.byIndicatorCode
+                    ? Object.keys(normalized.byIndicatorCode)
+                    : [],
+                }
+              : null,
+            legacy: {
+              keys: Object.keys(legacy),
+              section1_1: legacy.section1_1,
+              section1_1Keys: legacy.section1_1
+                ? Object.keys(legacy.section1_1)
+                : [],
+            },
+          });
 
           const newFormData: InfraFinancingData = safeInfraFinancingFormData({
             section1_1: {
@@ -887,13 +1002,34 @@ export const InfraFinancingStep = () => {
             },
           });
 
+          console.log("📦 [InfraFinancingStep] Final formData being set:", {
+            section1_1: {
+              status: newFormData.section1_1?.status,
+              capitalAllocation: newFormData.section1_1?.capitalAllocation,
+              year: newFormData.section1_1?.year,
+              keys: Object.keys(newFormData.section1_1 || {}),
+            },
+            section1_2: {
+              status: newFormData.section1_2?.status,
+              keys: Object.keys(newFormData.section1_2 || {}),
+            },
+          });
+
           setFormData(newFormData);
           setIsDataLoaded(true);
           setTimeout(() => forceUpdate({}), 50);
         } else {
           // No submission found in database (submission was deleted), clear localStorage
           console.log(
-            "🧹 No submission found in database - clearing localStorage"
+            "🧹 [InfraFinancingStep] No submission found in database - clearing localStorage",
+            {
+              totalSubmissions: submissionsResp?.submissions?.length || 0,
+              submissions: submissionsResp?.submissions?.map((s: any) => ({
+                id: s.id,
+                status: s.status,
+                userId: s.user?.id,
+              })),
+            }
           );
           clearFormData();
 
@@ -1638,7 +1774,13 @@ export const InfraFinancingStep = () => {
       // Use a small delay to ensure optimistic update is applied first
       setTimeout(async () => {
         try {
-          const submissionsResp = await apiService.getSubmissions(1, 100);
+          const submissionsResp = await apiService.getSubmissions(
+            1,
+            100,
+            undefined,
+            undefined,
+            true
+          );
           const userSubmission = submissionsResp.submissions.find(
             (sub: any) =>
               sub.status === "DRAFT" ||
@@ -2105,7 +2247,13 @@ export const InfraFinancingStep = () => {
       }
 
       // Get current submission to preserve status
-      const submissionsResp = await apiService.getSubmissions(1, 100);
+      const submissionsResp = await apiService.getSubmissions(
+        1,
+        100,
+        undefined,
+        undefined,
+        true
+      );
       const userSubmission = submissionsResp.submissions.find(
         (sub: any) =>
           sub.status === "DRAFT" ||
@@ -2249,12 +2397,16 @@ export const InfraFinancingStep = () => {
       // Use stored submission ID if available, otherwise try to find existing submission
       // This ensures we always use the same submission form, even if it only has SAVE_AS_DRAFT indicators
       let existingSubmissionId: string | null = currentSubmissionId;
-      
+
       // If we don't have a stored ID, try to find existing submission
       if (!existingSubmissionId) {
         try {
           // Try to get submissions with status DRAFT explicitly
-          const submissionsResp = await apiService.getSubmissions(1, 100, "DRAFT");
+          const submissionsResp = await apiService.getSubmissions(
+            1,
+            100,
+            "DRAFT"
+          );
           const userSubmission = submissionsResp.submissions.find(
             (sub: any) =>
               (sub.status === "DRAFT" ||
@@ -2263,19 +2415,28 @@ export const InfraFinancingStep = () => {
                 sub.status === "PENDING_STATE_APPROVAL") &&
               sub.submittedBy === user?.id
           );
-          
+
           if (userSubmission?.id) {
             existingSubmissionId = userSubmission.id;
             setCurrentSubmissionId(userSubmission.id); // Store it for future use
-            console.log("📋 Found existing submission for draft save:", existingSubmissionId);
+            console.log(
+              "📋 Found existing submission for draft save:",
+              existingSubmissionId
+            );
           } else {
             console.log("📋 No existing submission found, will create new one");
           }
         } catch (err) {
-          console.log("⚠️ Error finding existing submission, will let API handle:", err);
+          console.log(
+            "⚠️ Error finding existing submission, will let API handle:",
+            err
+          );
         }
       } else {
-        console.log("📋 Using stored submission ID for draft save:", existingSubmissionId);
+        console.log(
+          "📋 Using stored submission ID for draft save:",
+          existingSubmissionId
+        );
       }
 
       // Sanitize files and remove unwanted keys before saving
@@ -2304,7 +2465,7 @@ export const InfraFinancingStep = () => {
         "infraFinancing",
         [indicatorCode]
       );
-      
+
       // Update stored submission ID if we got a new one from the API
       if (result?.id && !currentSubmissionId) {
         setCurrentSubmissionId(result.id);
