@@ -2661,6 +2661,7 @@ export const PPPDevelopmentStep = () => {
                   <Input
                     type="number"
                     min="0"
+                    step="0.01"
                     placeholder="Enter total budgeted capital allocation"
                     value={formData.section3_4.totalProjectsAwarded || ""}
                     onChange={(e) => {
