@@ -301,7 +301,26 @@ const transformIndicatorsToFormData = (
         }
 
         const formFields: any = { ...indicatorData };
-        delete formFields.status;
+        // DON'T delete status - preserve it if it's a submitted status
+        // Only delete status if it's NOT_STARTED or SAVE_AS_DRAFT
+        const currentStatusValue = formFields.status
+          ? String(formFields.status).trim().toUpperCase()
+          : null;
+        if (
+          currentStatusValue === "NOT_STARTED" ||
+          currentStatusValue === "SAVE_AS_DRAFT"
+        ) {
+          delete formFields.status;
+          console.log(
+            `[Transform] Indicator ${code} - removed ${currentStatusValue} status`
+          );
+        } else if (currentStatusValue) {
+          // Preserve status if it's a meaningful status (ACCEPTED, APPROVED, etc.)
+          // This ensures backend's hasSubmittedIndicators can find it
+          console.log(
+            `[Transform] Indicator ${code} - preserving status: ${currentStatusValue}`
+          );
+        }
         delete formFields.percentage;
         delete formFields.marksObtained;
         // Only remove mospi_status if it's REVERTED - preserve ACCEPTED status
@@ -322,6 +341,14 @@ const transformIndicatorsToFormData = (
             console.log(
               `[Transform] Indicator ${code} - preserving mospi_status: ${mospiStatusValue}`
             );
+            // If mospi_status is ACCEPTED but status is not set, set status to ACCEPTED
+            // This ensures backend's hasSubmittedIndicators can find it
+            if (mospiStatusValue === "ACCEPTED" && !formFields.status) {
+              formFields.status = "ACCEPTED";
+              console.log(
+                `[Transform] Indicator ${code} - set status to ACCEPTED based on mospi_status`
+              );
+            }
           }
         }
 
@@ -1119,6 +1146,85 @@ export const SubmissionListPage = () => {
         console.log(
           "✅ [FinalSubmit] FormData validation passed - has data:",
           hasData
+        );
+
+        // Step 2.5: Ensure all approved indicators have status field set for backend filtering
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🔧 STEP 2.5: Ensuring all approved indicators have status field"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        // Category map for matching indicator categories
+        const categoryMapForStatus: Record<string, string> = {
+          "Infrastructure Financing": "infraFinancing",
+          "Infrastructure Development": "infraDevelopment",
+          "PPP Development": "pppDevelopment",
+          "Infrastructure Enablers": "infraEnablers",
+          infra_financing: "infraFinancing",
+          Infrastructure_Financing: "infraFinancing",
+          infra_development: "infraDevelopment",
+          Infrastructure_Development: "infraDevelopment",
+          ppp_development: "pppDevelopment",
+          PPP_Development: "pppDevelopment",
+          infra_enablers: "infraEnablers",
+          Infrastructure_Enablers: "infraEnablers",
+        };
+        Object.keys(formData).forEach((categoryKey) => {
+          const categoryData = formData[categoryKey];
+          if (categoryData && typeof categoryData === "object") {
+            Object.keys(categoryData).forEach((sectionKey) => {
+              const section = categoryData[sectionKey];
+              if (section && typeof section === "object") {
+                // If section has mospi_status: ACCEPTED but no status, set status to ACCEPTED
+                if (
+                  section.mospi_status &&
+                  String(section.mospi_status).trim().toUpperCase() ===
+                    "ACCEPTED" &&
+                  !section.status
+                ) {
+                  section.status = "ACCEPTED";
+                  console.log(
+                    `[FinalSubmit] Set status=ACCEPTED for ${categoryKey}.${sectionKey} based on mospi_status`
+                  );
+                }
+                // If section has no status and no mospi_status, but it's in the formData,
+                // check if this indicator exists in the indicators data with ACCEPTED/APPROVED status
+                else if (!section.status && !section.mospi_status) {
+                  const indicatorCode = sectionKey
+                    .replace("section", "")
+                    .replace("_", ".");
+                  // Find the category key in indicators
+                  const categoryKeyInIndicators = Object.keys(indicators).find(
+                    (k) => categoryMapForStatus[k] === categoryKey
+                  );
+                  if (categoryKeyInIndicators) {
+                    const categoryIndicators =
+                      indicators[categoryKeyInIndicators] || [];
+                    const indicator = categoryIndicators.find(
+                      (ind: any) => ind.code === indicatorCode
+                    );
+                    if (
+                      indicator &&
+                      (indicator.status === "ACCEPTED" ||
+                        indicator.status === "APPROVED")
+                    ) {
+                      section.status = indicator.status;
+                      console.log(
+                        `[FinalSubmit] Set status=${indicator.status} for ${categoryKey}.${sectionKey} based on indicator status`
+                      );
+                    }
+                  }
+                }
+              }
+            });
+          }
+        });
+        console.log(
+          "✅ [FinalSubmit] Status fields ensured for all approved indicators"
         );
 
         // Step 3: Transform formData for submission
@@ -1984,7 +2090,8 @@ export const SubmissionListPage = () => {
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   // Check if all indicators are accepted (progress is 100%)
                   if (progress === 100) {
-                    nextStep = "Approved by State Approver waiting for Mospi review";
+                    nextStep =
+                      "Approved by State Approver waiting for Mospi review";
                   } else {
                     nextStep = "Waiting for state approval";
                   }
@@ -2137,7 +2244,8 @@ export const SubmissionListPage = () => {
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   // Check if all indicators are accepted (progress is 100%)
                   if (progress === 100) {
-                    nextStep = "Approved by State Approver waiting for Mospi review";
+                    nextStep =
+                      "Approved by State Approver waiting for Mospi review";
                   } else {
                     nextStep = "Waiting for state approval";
                   }
