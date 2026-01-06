@@ -29,17 +29,23 @@ export const Section_1_4 = ({
 }: Section1_4Props) => {
   const getError = (fieldPath: string) => {
     // Check local count errors first, then validation errors
-    return countErrors[fieldPath] || (getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath]);
+    return (
+      countErrors[fieldPath] ||
+      (getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath])
+    );
   };
   const bondList = formData?.section1_4?.bondList || [];
   const totalULBs = formData?.section1_4?.totalULBs || 0;
-  
+
   // Debug: Log component render and editability
   const isSectionEditable = isEditable("1.4");
-  console.log(`[Section_1_4] Component render - isEditable("1.4"):`, isSectionEditable);
+  console.log(
+    `[Section_1_4] Component render - isEditable("1.4"):`,
+    isSectionEditable
+  );
   console.log(`[Section_1_4] bondList length:`, bondList.length);
   console.log(`[Section_1_4] bondList:`, bondList);
-  
+
   // Debug: Log when bondList changes
   useEffect(() => {
     console.log(`[Section_1_4] bondList updated:`, bondList);
@@ -88,7 +94,10 @@ export const Section_1_4 = ({
         const newErrors: { [key: string]: string } = {};
         Object.keys(prev).forEach((key) => {
           // Keep other errors, clear count-related errors
-          if (!key.includes("cannot exceed") && !key.includes("Cannot add more rows")) {
+          if (
+            !key.includes("cannot exceed") &&
+            !key.includes("Cannot add more rows")
+          ) {
             newErrors[key] = prev[key];
           }
         });
@@ -109,11 +118,11 @@ export const Section_1_4 = ({
   const handleTotalULBsChange = (value: number) => {
     const newTotalULBs = value || 0;
     let updatedList = [...bondList];
-    
+
     // If new total is less than current rows, trim the list
     if (newTotalULBs < bondList.length) {
       updatedList = bondList.slice(0, newTotalULBs);
-    } 
+    }
     // If new total is greater than 0 and list is empty, add at least one entry
     else if (newTotalULBs > 0 && bondList.length === 0) {
       updatedList = [
@@ -127,43 +136,60 @@ export const Section_1_4 = ({
         },
       ];
     }
-    
+
     // Clear validation error if totalULBs is now valid
     setCountErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
       Object.keys(prev).forEach((key) => {
         // Keep other errors, clear count-related errors
-        if (!key.includes("Total Number") && !key.includes("cannot exceed") && !key.includes("Cannot add more")) {
+        if (
+          !key.includes("Total Number") &&
+          !key.includes("cannot exceed") &&
+          !key.includes("Cannot add more")
+        ) {
           newErrors[key] = prev[key];
         }
       });
       return newErrors;
     });
-    
+
     if (setSectionState) {
       setSectionState({ totalULBs: newTotalULBs, bondList: updatedList });
     }
   };
 
-  const handleRemoveBond = (idOrIndex: string | number, targetIndex?: number) => {
-    console.log(`[Section_1_4] handleRemoveBond called with idOrIndex:`, idOrIndex, `targetIndex:`, targetIndex);
+  const handleRemoveBond = (
+    idOrIndex: string | number,
+    targetIndex?: number
+  ) => {
+    console.log(
+      `[Section_1_4] handleRemoveBond called with idOrIndex:`,
+      idOrIndex,
+      `targetIndex:`,
+      targetIndex
+    );
     console.log(`[Section_1_4] Current bondList:`, bondList);
-    
+
     // If targetIndex is provided, use index-based deletion (most reliable)
     if (targetIndex !== undefined && targetIndex >= 0) {
-      const updatedBondList = bondList.filter((bond, index) => index !== targetIndex);
-      console.log(`[Section_1_4] Updated bondList (index-based):`, updatedBondList);
+      const updatedBondList = bondList.filter(
+        (bond, index) => index !== targetIndex
+      );
+      console.log(
+        `[Section_1_4] Updated bondList (index-based):`,
+        updatedBondList
+      );
       if (setSectionState) {
         setSectionState({ totalULBs, bondList: updatedBondList });
       }
       return;
     }
-    
+
     // Otherwise, try ID-based deletion
     const targetId = String(idOrIndex);
     const parsedIndex = parseInt(targetId, 10);
     const isIndex = !isNaN(parsedIndex) && parsedIndex >= 0;
-    
+
     const updatedBondList = bondList.filter((bond, index) => {
       // If bond has an id, compare by id AND index to ensure uniqueness
       if (bond.id !== undefined && bond.id !== null) {
@@ -180,16 +206,16 @@ export const Section_1_4 = ({
         }
         return true; // Keep items with different IDs
       }
-      
+
       // If no id and target is a valid index, compare by index
       if (isIndex) {
         return index !== parsedIndex;
       }
-      
+
       // Fallback: keep the bond if we can't match
       return true;
     });
-    
+
     console.log(`[Section_1_4] Updated bondList:`, updatedBondList);
     if (setSectionState) {
       setSectionState({ totalULBs, bondList: updatedBondList });
@@ -207,7 +233,7 @@ export const Section_1_4 = ({
       }));
       return;
     }
-    
+
     // Clear validation error
     setCountErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
@@ -218,7 +244,7 @@ export const Section_1_4 = ({
       });
       return newErrors;
     });
-    
+
     const newEntryWithId = {
       ...newBondEntry,
       id: `bond-${Date.now()}`,
@@ -281,12 +307,27 @@ export const Section_1_4 = ({
             className="bg-gray-50 cursor-not-allowed"
           />
         </div>
+        <div className="max-w-xs">
+          <Label>% of ULBs Issuing Bonds</Label>
+          <Input
+            type="text"
+            value={
+              totalULBs > 0
+                ? ((bondList.length / totalULBs) * 100).toFixed(2) + "%"
+                : "0%"
+            }
+            readOnly
+            className="bg-gray-50 cursor-not-allowed"
+          />
+        </div>
       </div>
 
       {/* Validation error for bondList */}
       {getError("section1_4.bondList") && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-500">{getError("section1_4.bondList")}</p>
+          <p className="text-sm text-red-500">
+            {getError("section1_4.bondList")}
+          </p>
         </div>
       )}
 
@@ -475,11 +516,20 @@ export const Section_1_4 = ({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log(`[Section_1_4] Delete button clicked for item:`, item);
-                          console.log(`[Section_1_4] isEditable("1.4"):`, isEditable("1.4"));
+                          console.log(
+                            `[Section_1_4] Delete button clicked for item:`,
+                            item
+                          );
+                          console.log(
+                            `[Section_1_4] isEditable("1.4"):`,
+                            isEditable("1.4")
+                          );
                           // Always pass the index for reliable deletion
                           // Pass both id and index to ensure correct deletion even if IDs are duplicated
-                          const idOrIndex = item.id !== undefined && item.id !== null ? item.id : index;
+                          const idOrIndex =
+                            item.id !== undefined && item.id !== null
+                              ? item.id
+                              : index;
                           handleRemoveBond(idOrIndex, index);
                         }}
                         className="text-red-500 hover:text-red-700 border-none bg-none"

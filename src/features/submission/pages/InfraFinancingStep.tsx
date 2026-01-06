@@ -3071,6 +3071,23 @@ export const InfraFinancingStep = () => {
                       className="bg-gray-50 cursor-not-allowed"
                     />
                   </div>
+                  <div className="w-1/3">
+                    <Label>% of Credit Rated ULBs</Label>
+                    <Input
+                      type="text"
+                      value={
+                        formData.section1_3.totalULBs > 0
+                          ? (
+                              (formData.section1_3.ulbList.length /
+                                formData.section1_3.totalULBs) *
+                              100
+                            ).toFixed(2) + "%"
+                          : "0%"
+                      }
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
@@ -3700,6 +3717,23 @@ export const InfraFinancingStep = () => {
                     <Input
                       type="number"
                       value={formData.section1_4.bondList.length || 0}
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="w-1/3">
+                    <Label>% of ULBs Issuing Bonds</Label>
+                    <Input
+                      type="text"
+                      value={
+                        formData.section1_4.totalULBs > 0
+                          ? (
+                              (formData.section1_4.bondList.length /
+                                formData.section1_4.totalULBs) *
+                              100
+                            ).toFixed(2) + "%"
+                          : "0%"
+                      }
                       readOnly
                       className="bg-gray-50 cursor-not-allowed"
                     />
