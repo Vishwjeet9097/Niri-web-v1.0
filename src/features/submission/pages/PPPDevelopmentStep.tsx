@@ -1275,6 +1275,21 @@ export const PPPDevelopmentStep = () => {
     return (sectionData as any)?.status;
   };
 
+  // Check if indicator has been sent back from STATE_APPROVER
+  // If sent back, "Save as Draft" should not be available
+  const isIndicatorSentBack = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    // Check for statuses that indicate the indicator was sent back
+    return (
+      upperStatus === "REVERTED" ||
+      upperStatus === "RESUBMITTED" ||
+      upperStatus === "RETURNED_FROM_STATE" ||
+      upperStatus === "RETURNED_FROM_MOSPI"
+    );
+  };
+
   // Check if indicator is submitted or accepted (non-editable)
   // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
   // SAVE_AS_DRAFT indicators remain editable
@@ -1932,19 +1947,21 @@ export const PPPDevelopmentStep = () => {
                 >
                   {getSubmitButtonText("3.1", submittingIndicator)}
                 </Button>
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("3.1")}
-                  disabled={
-                    savingDraftIndicators.has("3.1") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("3.1")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("3.1") ? "Saving..." : "Save as Draft"}
-                </Button>
+                {!isIndicatorSentBack("3.1") && (
+                  <Button
+                    onClick={() => handleSaveAsDraftIndicator("3.1")}
+                    disabled={
+                      savingDraftIndicators.has("3.1") ||
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("3.1")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDraftIndicators.has("3.1") ? "Saving..." : "Save as Draft"}
+                  </Button>
+                )}
               </div>
             </div>
           </SectionCard>
@@ -2113,19 +2130,21 @@ export const PPPDevelopmentStep = () => {
                 >
                   {getSubmitButtonText("3.2", submittingIndicator)}
                 </Button>
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("3.2")}
-                  disabled={
-                    savingDraftIndicators.has("3.2") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("3.2")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("3.2") ? "Saving..." : "Save as Draft"}
-                </Button>
+                {!isIndicatorSentBack("3.2") && (
+                  <Button
+                    onClick={() => handleSaveAsDraftIndicator("3.2")}
+                    disabled={
+                      savingDraftIndicators.has("3.2") ||
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("3.2")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDraftIndicators.has("3.2") ? "Saving..." : "Save as Draft"}
+                  </Button>
+                )}
               </div>
             </div>
           </SectionCard>
@@ -2612,19 +2631,21 @@ export const PPPDevelopmentStep = () => {
                 >
                   {getSubmitButtonText("3.3", submittingIndicator)}
                 </Button>
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("3.3")}
-                  disabled={
-                    savingDraftIndicators.has("3.3") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("3.3")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("3.3") ? "Saving..." : "Save as Draft"}
-                </Button>
+                {!isIndicatorSentBack("3.3") && (
+                  <Button
+                    onClick={() => handleSaveAsDraftIndicator("3.3")}
+                    disabled={
+                      savingDraftIndicators.has("3.3") ||
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("3.3")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDraftIndicators.has("3.3") ? "Saving..." : "Save as Draft"}
+                  </Button>
+                )}
               </div>
             </div>
           </SectionCard>
@@ -3001,19 +3022,21 @@ export const PPPDevelopmentStep = () => {
                   >
                     {getSubmitButtonText("3.4", submittingIndicator)}
                   </Button>
-                  <Button
-                    onClick={() => handleSaveAsDraftIndicator("3.4")}
-                    disabled={
-                      savingDraftIndicators.has("3.4") ||
-                      submittingIndicator !== null ||
-                      isIndicatorSubmitted("3.4")
-                    }
-                    variant="outline"
-                    size="sm"
-                    className="disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingDraftIndicators.has("3.4") ? "Saving..." : "Save as Draft"}
-                  </Button>
+                  {!isIndicatorSentBack("3.4") && (
+                    <Button
+                      onClick={() => handleSaveAsDraftIndicator("3.4")}
+                      disabled={
+                        savingDraftIndicators.has("3.4") ||
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("3.4")
+                      }
+                      variant="outline"
+                      size="sm"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingDraftIndicators.has("3.4") ? "Saving..." : "Save as Draft"}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

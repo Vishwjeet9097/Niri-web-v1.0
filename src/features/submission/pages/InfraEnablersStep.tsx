@@ -249,14 +249,20 @@ export const InfraEnablersStep = () => {
     (async () => {
       try {
         // Include DRAFT submissions by passing includeDraftOnly = true
-        const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+        const submissionsResp = await apiService.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
         const userId = user?.id || user?._id;
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
             (sub.status === "DRAFT" ||
-            sub.status === "IN_PROGRESS" ||
-            sub.status === "RETURNED_FROM_STATE" ||
-            sub.status === "PENDING_STATE_APPROVAL") &&
+              sub.status === "IN_PROGRESS" ||
+              sub.status === "RETURNED_FROM_STATE" ||
+              sub.status === "PENDING_STATE_APPROVAL") &&
             (sub.submittedBy === userId || sub.user?.id === userId)
         );
 
@@ -1114,7 +1120,13 @@ export const InfraEnablersStep = () => {
 
       // Refresh sectionStatus to update completedIndicators from server
       try {
-        const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+        const submissionsResp = await apiService.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
             sub.status === "DRAFT" ||
@@ -1274,6 +1286,21 @@ export const InfraEnablersStep = () => {
     const sectionKey = `section${indicatorCode.replace(".", "_")}`;
     const sectionData = formData[sectionKey];
     return (sectionData as any)?.status;
+  };
+
+  // Check if indicator has been sent back from STATE_APPROVER
+  // If sent back, "Save as Draft" should not be available
+  const isIndicatorSentBack = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    // Check for statuses that indicate the indicator was sent back
+    return (
+      upperStatus === "REVERTED" ||
+      upperStatus === "RESUBMITTED" ||
+      upperStatus === "RETURNED_FROM_STATE" ||
+      upperStatus === "RETURNED_FROM_MOSPI"
+    );
   };
 
   // Check if indicator is submitted or accepted (non-editable)
@@ -1514,7 +1541,13 @@ export const InfraEnablersStep = () => {
       }
 
       // Get current submission to preserve status
-      const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+      const submissionsResp = await apiService.getSubmissions(
+        1,
+        100,
+        undefined,
+        undefined,
+        true
+      );
       const userSubmission = submissionsResp.submissions.find(
         (sub: any) =>
           sub.status === "DRAFT" ||
@@ -1918,21 +1951,23 @@ export const InfraEnablersStep = () => {
               >
                 {getSubmitButtonText("4.1", submittingIndicator)}
               </Button>
-              <Button
-                onClick={() => handleSaveAsDraftIndicator("4.1")}
-                disabled={
-                  savingDraftIndicators.has("4.1") ||
-                  submittingIndicator !== null ||
-                  isIndicatorSubmitted("4.1")
-                }
-                variant="outline"
-                size="sm"
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingDraftIndicators.has("4.1")
-                  ? "Saving..."
-                  : "Save as Draft"}
-              </Button>
+              {!isIndicatorSentBack("4.1") && (
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("4.1")}
+                  disabled={
+                    savingDraftIndicators.has("4.1") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("4.1")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("4.1")
+                    ? "Saving..."
+                    : "Save as Draft"}
+                </Button>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -2353,21 +2388,23 @@ export const InfraEnablersStep = () => {
               >
                 {getSubmitButtonText("4.2", submittingIndicator)}
               </Button>
-              <Button
-                onClick={() => handleSaveAsDraftIndicator("4.2")}
-                disabled={
-                  savingDraftIndicators.has("4.2") ||
-                  submittingIndicator !== null ||
-                  isIndicatorSubmitted("4.2")
-                }
-                variant="outline"
-                size="sm"
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingDraftIndicators.has("4.2")
-                  ? "Saving..."
-                  : "Save as Draft"}
-              </Button>
+              {!isIndicatorSentBack("4.2") && (
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("4.2")}
+                  disabled={
+                    savingDraftIndicators.has("4.2") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("4.2")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("4.2")
+                    ? "Saving..."
+                    : "Save as Draft"}
+                </Button>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -2522,21 +2559,23 @@ export const InfraEnablersStep = () => {
               >
                 {getSubmitButtonText("4.3", submittingIndicator)}
               </Button>
-              <Button
-                onClick={() => handleSaveAsDraftIndicator("4.3")}
-                disabled={
-                  savingDraftIndicators.has("4.3") ||
-                  submittingIndicator !== null ||
-                  isIndicatorSubmitted("4.3")
-                }
-                variant="outline"
-                size="sm"
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingDraftIndicators.has("4.3")
-                  ? "Saving..."
-                  : "Save as Draft"}
-              </Button>
+              {!isIndicatorSentBack("4.3") && (
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("4.3")}
+                  disabled={
+                    savingDraftIndicators.has("4.3") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("4.3")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("4.3")
+                    ? "Saving..."
+                    : "Save as Draft"}
+                </Button>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -2832,21 +2871,23 @@ export const InfraEnablersStep = () => {
               >
                 {getSubmitButtonText("4.4", submittingIndicator)}
               </Button>
-              <Button
-                onClick={() => handleSaveAsDraftIndicator("4.4")}
-                disabled={
-                  savingDraftIndicators.has("4.4") ||
-                  submittingIndicator !== null ||
-                  isIndicatorSubmitted("4.4")
-                }
-                variant="outline"
-                size="sm"
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingDraftIndicators.has("4.4")
-                  ? "Saving..."
-                  : "Save as Draft"}
-              </Button>
+              {!isIndicatorSentBack("4.4") && (
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("4.4")}
+                  disabled={
+                    savingDraftIndicators.has("4.4") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("4.4")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("4.4")
+                    ? "Saving..."
+                    : "Save as Draft"}
+                </Button>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -3337,21 +3378,23 @@ export const InfraEnablersStep = () => {
               >
                 {getSubmitButtonText("4.5", submittingIndicator)}
               </Button>
-              <Button
-                onClick={() => handleSaveAsDraftIndicator("4.5")}
-                disabled={
-                  savingDraftIndicators.has("4.5") ||
-                  submittingIndicator !== null ||
-                  isIndicatorSubmitted("4.5")
-                }
-                variant="outline"
-                size="sm"
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingDraftIndicators.has("4.5")
-                  ? "Saving..."
-                  : "Save as Draft"}
-              </Button>
+              {!isIndicatorSentBack("4.5") && (
+                <Button
+                  onClick={() => handleSaveAsDraftIndicator("4.5")}
+                  disabled={
+                    savingDraftIndicators.has("4.5") ||
+                    submittingIndicator !== null ||
+                    isIndicatorSubmitted("4.5")
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingDraftIndicators.has("4.5")
+                    ? "Saving..."
+                    : "Save as Draft"}
+                </Button>
+              )}
             </div>
           </div>
         </SectionCard>
