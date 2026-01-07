@@ -647,6 +647,7 @@ export const InfraEnablersStep = () => {
                 : Date.now().toString(),
             projectName: "",
             sector: "",
+            statusOfProject: "",
             file: null,
           },
         ],
@@ -668,7 +669,7 @@ export const InfraEnablersStep = () => {
 
   const updateGatiProject = (
     id: string,
-    field: "projectName" | "sector" | "file",
+    field: "projectName" | "sector" | "statusOfProject" | "file",
     value: any
   ) => {
     setFormData((prev) => ({
@@ -2037,6 +2038,7 @@ export const InfraEnablersStep = () => {
                                     id: Date.now().toString(),
                                     projectName: "",
                                     sector: "",
+                                    statusOfProject: "",
                                     file: null,
                                   },
                                 ],
@@ -2078,7 +2080,7 @@ export const InfraEnablersStep = () => {
                 {(formData.section4_2?.projects || []).map((entry, index) => (
                   <div key={entry.id || `entry-${index}`} className="mb-2">
                     {/* Fields row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                       <div>
                         <Label>
                           Project Name{" "}
@@ -2160,6 +2162,37 @@ export const InfraEnablersStep = () => {
                         )}
                       </div>
 
+                      <div>
+                        <Label>Status of Project</Label>
+                        <Select
+                          value={entry.statusOfProject || ""}
+                          onValueChange={(v) => {
+                            showErrorsIfNeeded();
+                            updateGatiProject(entry.id, "statusOfProject", v);
+                          }}
+                          disabled={isIndicatorSubmitted("4.2")}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              isIndicatorSubmitted("4.2") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          >
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Ongoing">Ongoing</SelectItem>
+                            <SelectItem value="Under Implementation">
+                              Under Implementation
+                            </SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                            <SelectItem value="Under Planning">
+                              Under Planning
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="flex items-center gap-2">
                         <Button
                           type="button"
@@ -2234,6 +2267,9 @@ export const InfraEnablersStep = () => {
                         Sector
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
+                        Status of Project
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         Uploaded File
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2259,6 +2295,9 @@ export const InfraEnablersStep = () => {
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.statusOfProject || "N/A"}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 No file uploaded
@@ -2316,6 +2355,9 @@ export const InfraEnablersStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm">
                               {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.statusOfProject || "N/A"}
                             </td>
                             <td className="py-3 px-4 text-sm">{displayName}</td>
                             <td className="py-3 px-4 text-sm">

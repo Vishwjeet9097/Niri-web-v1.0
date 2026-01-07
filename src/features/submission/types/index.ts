@@ -192,6 +192,7 @@ export interface InfraEnablersData {
       id: string;
       projectName: string;
       sector: string;
+      statusOfProject?: string;
       file: FileUpload | null;
     }>;
     adopted: "yes" | "no" | "";

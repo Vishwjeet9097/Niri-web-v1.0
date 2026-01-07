@@ -519,6 +519,7 @@ export const InfraEnablersReview = ({
   const [newProject, setNewProject] = useState({
     projectName: "",
     sector: "",
+    statusOfProject: "",
     file: null as FileUpload | null,
   });
 
@@ -956,6 +957,7 @@ export const InfraEnablersReview = ({
         setNewProject({
           projectName: "",
           sector: "",
+          statusOfProject: "",
           file: null,
         });
       }
@@ -1082,6 +1084,7 @@ export const InfraEnablersReview = ({
         setNewProject({
           projectName: "",
           sector: "",
+          statusOfProject: "",
           file: null,
         });
       }
@@ -1957,10 +1960,21 @@ export const InfraEnablersReview = ({
             mimeType: file.mimeType,
           }));
 
+          const projects4_2 = (formDataState?.section4_2?.projects || []).map(
+            (project: any) => ({
+              id: project.id,
+              projectName: project.projectName ?? null,
+              sector: project.sector ?? null,
+              statusOfProject: project.statusOfProject ?? null,
+              file: project.file ?? null,
+            })
+          );
+
           fields = [
             {
               adopted: formDataState?.section4_2?.adopted ?? null,
               files: files4_2,
+              projects: projects4_2,
               comment: formDataState?.section4_2?.comment ?? null,
             },
           ];
@@ -2818,6 +2832,7 @@ export const InfraEnablersReview = ({
     setNewProject({
       projectName: "",
       sector: "",
+      statusOfProject: "",
       file: null,
     });
     setShowAddProjectForm(false);
@@ -2828,6 +2843,7 @@ export const InfraEnablersReview = ({
     setNewProject({
       projectName: "",
       sector: "",
+      statusOfProject: "",
       file: null,
     });
     setShowAddProjectForm(false);
@@ -4182,6 +4198,9 @@ export const InfraEnablersReview = ({
                             Sector
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
+                            Status of Project
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
                           {shouldBeEditable("4.2") && (
@@ -4203,7 +4222,7 @@ export const InfraEnablersReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={shouldBeEditable("4.2") ? 4 : 3}
+                                  colSpan={shouldBeEditable("4.2") ? 5 : 4}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No projects available
@@ -4277,6 +4296,40 @@ export const InfraEnablersReview = ({
                                     />
                                   ) : (
                                     project.sector || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("4.2") ? (
+                                    <Select
+                                      value={project.statusOfProject || ""}
+                                      onValueChange={(value) =>
+                                        handleProjectFieldUpdate(
+                                          idx,
+                                          "statusOfProject",
+                                          value
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select status" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="Ongoing">
+                                          Ongoing
+                                        </SelectItem>
+                                        <SelectItem value="Under Implementation">
+                                          Under Implementation
+                                        </SelectItem>
+                                        <SelectItem value="Completed">
+                                          Completed
+                                        </SelectItem>
+                                        <SelectItem value="Under Planning">
+                                          Under Planning
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    project.statusOfProject || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
@@ -4512,7 +4565,7 @@ export const InfraEnablersReview = ({
                         </Button>
                       ) : (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                               <Label>
                                 Project Name{" "}
@@ -4552,6 +4605,36 @@ export const InfraEnablersReview = ({
                                       {option}
                                     </SelectItem>
                                   ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Status of Project</Label>
+                              <Select
+                                value={newProject.statusOfProject}
+                                onValueChange={(value) =>
+                                  setNewProject({
+                                    ...newProject,
+                                    statusOfProject: value,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="bg-white">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Ongoing">
+                                    Ongoing
+                                  </SelectItem>
+                                  <SelectItem value="Under Implementation">
+                                    Under Implementation
+                                  </SelectItem>
+                                  <SelectItem value="Completed">
+                                    Completed
+                                  </SelectItem>
+                                  <SelectItem value="Under Planning">
+                                    Under Planning
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
