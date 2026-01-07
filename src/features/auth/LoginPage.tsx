@@ -117,7 +117,7 @@ export function LoginPage() {
         // Navigate to role-specific dashboard
         const getDefaultPath = (role: string) => {
           if (role === "ADMIN") return "/user-management";
-          if (role === "MINISTRY_APPROVER") return "/ministry-dashboard";
+          if (role === "MINISTRY_APPROVER") return "/ministry/dashboard";
           return "/dashboard";
         };
         const defaultPath = getDefaultPath(mockUser.role);
@@ -150,7 +150,7 @@ export function LoginPage() {
         // Redirect based on user role
         const getDefaultPath = (role: string) => {
           if (role === "ADMIN") return "/user-management";
-          if (role === "MINISTRY_APPROVER") return "/ministry-dashboard";
+          if (role === "MINISTRY_APPROVER") return "/ministry/dashboard";
           return "/dashboard";
         };
         const defaultPath = getDefaultPath(result.user.role);

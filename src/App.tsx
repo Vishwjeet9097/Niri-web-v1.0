@@ -37,6 +37,7 @@ import { StateAggregateReviewPage } from "./features/dataSubmission/pages/StateA
 import { MinistrySubmissionWrapper } from "./features/ministry/pages/MinistrySubmissionWrapper";
 import { RoleBasedRedirect } from "./components/RoleBasedRedirect";
 import { MinistryDashboardPage } from "./features/ministry/Dashboard/MinistryDashboardPage";
+import { MinistryNodalDashboardPage } from "./features/ministry/Dashboard/MinistryNodalDashboardPage";
 
 const queryClient = new QueryClient();
 
@@ -110,14 +111,24 @@ const App = () => (
                   path="/data-submission/edit/:id"
                   element={<EditSubmissionPage />}
                 />
-                <Route
-                  path="/ministry-dashboard"
-                  element={
-                    <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
-                      <MinistryDashboardPage />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/ministry">
+                  <Route
+                    path="dashboard"
+                    element={
+                      <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
+                        <MinistryDashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="nodal"
+                    element={
+                      <ProtectedRoute allowedRoles={["NODAL_OFFICER"]}>
+                        <MinistryNodalDashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Route>
                 <Route
                   path="/ministry-submission"
                   element={<MinistrySubmissionWrapper />}

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { NodalKpiCard } from "./components/nodal/NodalKpiCards";
+import { NodalKpiCard } from "../../dashboard/components/nodal/NodalKpiCards";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MinistryNodalLatestSubmission } from "./MinistryNodalLatestSubmission";
 import { apiService } from "@/services/api.service";

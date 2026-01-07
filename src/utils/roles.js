@@ -36,7 +36,7 @@ export const LEGACY_ROLES = {
 export const MENU_CONFIG = [
   {
     label: "Dashboard",
-    path: "/dashboard",
+    path: ["/dashboard", "/ministry/dashboard", "/ministry/nodal"],
     roles: [
       ROLES.NODAL_OFFICER,
       ROLES.MOSPI_REVIEWER,

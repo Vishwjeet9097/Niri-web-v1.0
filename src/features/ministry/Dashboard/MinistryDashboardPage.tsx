@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { MinistryLatestSubmission } from "../../dashboard/MinistryLatestSubmission";
+import { MinistryLatestSubmission } from "./MinistryLatestSubmission";
 import { getMinistryDashboardData, getMinistrySubmissions } from "@/services/ministry.service";
 import {
   FileText,

@@ -45,7 +45,18 @@ export function DashboardLayout() {
     navigate("/auth");
   };
 
-  const isActive = (path: string) => {
+  const isActive = (path: string | string[]) => {
+    // Handle array of paths (like ["/dashboard", "/ministry/dashboard", "/ministry/nodal"])
+    if (Array.isArray(path)) {
+      return path.some((p) => {
+        if (p === "/" || p === "/dashboard" || p === "/reviewer-dashboard") {
+          return location.pathname === p;
+        }
+        return location.pathname.startsWith(p);
+      });
+    }
+
+    // Handle single string path
     if (path === "/" || path === "/dashboard" || path === "/reviewer-dashboard") {
       return location.pathname === path;
     }
@@ -55,7 +66,18 @@ export function DashboardLayout() {
   const role = user?.role;
   const menus = MENU_CONFIG.filter((item) => item.roles.includes(role));
 
-  const getDashboardPath = () => "/dashboard";
+  const getDashboardPath = () => {
+    // MINISTRY_APPROVER should go to /ministry/dashboard
+    if (role === "MINISTRY_APPROVER") {
+      return "/ministry/dashboard";
+    }
+    // NODAL_OFFICER with ministryId should go to /ministry/nodal
+    if (role === "NODAL_OFFICER" && (user as any)?.ministryId && String((user as any).ministryId).trim() !== "") {
+      return "/ministry/nodal";
+    }
+    // Default dashboard path
+    return "/dashboard";
+  };
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -118,11 +140,14 @@ export function DashboardLayout() {
             <div className="flex-1 space-y-1 overflow-y-auto">
               {menus.map((item) => {
                 const Icon = ICON_MAP[item.icon] || LayoutDashboard;
-                let path = item.path;
+                let path: string | string[] = item.path;
                 if (item.label === "Dashboard") {
                   path = getDashboardPath();
+                } else if (Array.isArray(path)) {
+                  // For array paths, use the first one for the Link
+                  path = path[0];
                 }
-                const active = isActive(path);
+                const active = isActive(Array.isArray(item.path) ? item.path : path);
 
                 // Dropdown logic
                 if (item.children && item.children.length > 0) {

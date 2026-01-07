@@ -5,7 +5,6 @@ import { Navigate } from "react-router-dom";
 import ReviewerDashboardPage from "./ReviewerDashboardPage";
 import ApproverDashboardPage from "./ApproverDashboardPage";
 import { NodalDashboardPage } from "./NodalDashboardPage";
-import { MinistryNodalDashboardPage } from "./MinistryNodalDashboardPage";
 import { StateApproverDashboardPage } from "./StateApproverDashboardPage";
 import { MospiApproverDashboardPage } from "./MospiApproverDashboardPage";
 import { MinistryDashboardPage } from "../ministry/Dashboard/MinistryDashboardPage";
@@ -30,9 +29,9 @@ export default function RoleBasedDashboard() {
       return <MospiApproverDashboardPage />;
     
     case "NODAL_OFFICER":
-      // If user has a ministryId (not blank), show MinistryNodalDashboardPage, otherwise show NodalDashboardPage
+      // If user has a ministryId (not blank), redirect to ministry/nodal route, otherwise show NodalDashboardPage
       if (userMinistryId && String(userMinistryId).trim() !== "") {
-        return <MinistryNodalDashboardPage />;
+        return <Navigate to="/ministry/nodal" replace />;
       }
       return <NodalDashboardPage />;
     
@@ -41,7 +40,7 @@ export default function RoleBasedDashboard() {
     
     case "MINISTRY_APPROVER":
       // Redirect ministry approvers to their dedicated dashboard route
-      return <Navigate to="/ministry-dashboard" replace />;
+      return <Navigate to="/ministry/dashboard" replace />;
     
      case "ADMIN": {
       // Always redirect Admin to /dashboard for consistent sidebar/menu
