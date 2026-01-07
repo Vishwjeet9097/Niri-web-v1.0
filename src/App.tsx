@@ -35,8 +35,8 @@ import { UserManagementPage } from "./features/userManagement/UserManagementPage
 import { CheckSubmissionRedirect } from "./features/submission/pages/CheckSubmissionRedirect";
 import { StateAggregateReviewPage } from "./features/dataSubmission/pages/StateAggregateReviewPage";
 import { MinistrySubmissionWrapper } from "./features/ministry/pages/MinistrySubmissionWrapper";
-import { MinistryApproverDashboardPage } from "./features/ministry/Dashboard/MinistryApproverDashboardPage";
 import { RoleBasedRedirect } from "./components/RoleBasedRedirect";
+import { MinistryDashboardPage } from "./features/ministry/Dashboard/MinistryDashboardPage";
 
 const queryClient = new QueryClient();
 
@@ -114,7 +114,7 @@ const App = () => (
                   path="/ministry-dashboard"
                   element={
                     <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
-                      <MinistryApproverDashboardPage />
+                      <MinistryDashboardPage />
                     </ProtectedRoute>
                   }
                 />

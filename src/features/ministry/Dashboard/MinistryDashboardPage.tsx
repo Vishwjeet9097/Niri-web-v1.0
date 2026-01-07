@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { MinistryLatestSubmission } from "./MinistryLatestSubmission";
+import { MinistryLatestSubmission } from "../../dashboard/MinistryLatestSubmission";
 import { getMinistryDashboardData, getMinistrySubmissions } from "@/services/ministry.service";
 import {
   FileText,
@@ -10,7 +10,7 @@ import {
   User,
   ClipboardList,
 } from "lucide-react";
-import { MinistryApproverKPICard } from "./components/approver/MinistryApproverKPICard";
+import { MinistryApproverKPICard } from "../../dashboard/components/approver/MinistryApproverKPICard";
 
 // Set to false to use real API when available
  

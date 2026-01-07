@@ -8,7 +8,7 @@ import { NodalDashboardPage } from "./NodalDashboardPage";
 import { MinistryNodalDashboardPage } from "./MinistryNodalDashboardPage";
 import { StateApproverDashboardPage } from "./StateApproverDashboardPage";
 import { MospiApproverDashboardPage } from "./MospiApproverDashboardPage";
-import { MinistryDashboardPage } from "./MinistryDashboardPage";
+import { MinistryDashboardPage } from "../ministry/Dashboard/MinistryDashboardPage";
 import { DashboardPage } from "./DashboardPage"; // Fallback dashboard
 import AdminDashboardPage from "./AdminDashboardPage";
 
@@ -35,9 +35,6 @@ export default function RoleBasedDashboard() {
         return <MinistryNodalDashboardPage />;
       }
       return <NodalDashboardPage />;
-
-    case "MINISTRY_APPROVER":
-        return <MinistryDashboardPage />;  
     
     case "STATE_APPROVER":
       return <StateApproverDashboardPage />;
