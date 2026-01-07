@@ -878,8 +878,13 @@ export const InfraDevelopmentStep = () => {
       // For section2_2, don't include sector field
       const newEntry =
         section === "section2_2"
-          ? { id: crypto.randomUUID(), files: [] }
-          : { id: crypto.randomUUID(), sector: sectorValue, files: [] };
+          ? { id: crypto.randomUUID(), files: [], noDocumentAvailable: false }
+          : {
+              id: crypto.randomUUID(),
+              sector: sectorValue,
+              files: [],
+              noDocumentAvailable: false,
+            };
 
       return {
         ...prev,
@@ -2641,6 +2646,24 @@ export const InfraDevelopmentStep = () => {
                                   "files",
                                   safeFile ? [safeFile] : []
                                 );
+                                // Clear noDocumentAvailable when file is uploaded
+                                if (safeFile) {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    section2_1: {
+                                      ...prev.section2_1,
+                                      infraActArray:
+                                        prev.section2_1.infraActArray.map((e) =>
+                                          e.id === entry.id
+                                            ? {
+                                                ...e,
+                                                noDocumentAvailable: false,
+                                              }
+                                            : e
+                                        ),
+                                    },
+                                  }));
+                                }
                                 // Ensure sector is always "Overarching"
                                 if (entry.sector !== "Overarching") {
                                   updateEntry(
@@ -2655,6 +2678,29 @@ export const InfraDevelopmentStep = () => {
                               required
                               disabled={isIndicatorSubmitted("2.1")}
                               deferFileDeletion={editingIndicators.has("2.1")}
+                              showNoDocumentOption={true}
+                              noDocumentAvailable={
+                                entry.noDocumentAvailable || false
+                              }
+                              onNoDocumentChange={(noDocument) => {
+                                showErrorsIfNeeded();
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section2_1: {
+                                    ...prev.section2_1,
+                                    infraActArray:
+                                      prev.section2_1.infraActArray.map((e) =>
+                                        e.id === entry.id
+                                          ? {
+                                              ...e,
+                                              noDocumentAvailable: noDocument,
+                                              files: noDocument ? [] : e.files,
+                                            }
+                                          : e
+                                      ),
+                                  },
+                                }));
+                              }}
                               className={getInputValidationClass(
                                 `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
                                   (e) => e.id === entry.id
@@ -2755,11 +2801,49 @@ export const InfraDevelopmentStep = () => {
                                 "files",
                                 safeFile ? [safeFile] : []
                               );
+                              // Clear noDocumentAvailable when file is uploaded
+                              if (safeFile) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section2_1: {
+                                    ...prev.section2_1,
+                                    infraActArray:
+                                      prev.section2_1.infraActArray.map((e) =>
+                                        e.id === entry.id
+                                          ? { ...e, noDocumentAvailable: false }
+                                          : e
+                                      ),
+                                  },
+                                }));
+                              }
                             }}
                             submissionId={submissionId}
                             required
                             disabled={isIndicatorSubmitted("2.1")}
                             deferFileDeletion={editingIndicators.has("2.1")}
+                            showNoDocumentOption={true}
+                            noDocumentAvailable={
+                              entry.noDocumentAvailable || false
+                            }
+                            onNoDocumentChange={(noDocument) => {
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section2_1: {
+                                  ...prev.section2_1,
+                                  infraActArray:
+                                    prev.section2_1.infraActArray.map((e) =>
+                                      e.id === entry.id
+                                        ? {
+                                            ...e,
+                                            noDocumentAvailable: noDocument,
+                                            files: noDocument ? [] : e.files,
+                                          }
+                                        : e
+                                    ),
+                                },
+                              }));
+                            }}
                             className={getInputValidationClass(
                               `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
                                 (e) => e.id === entry.id
@@ -3135,11 +3219,54 @@ export const InfraDevelopmentStep = () => {
                                 "files",
                                 safeFile ? [safeFile] : []
                               );
+                              // Clear noDocumentAvailable when file is uploaded
+                              if (safeFile) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section2_2: {
+                                    ...prev.section2_2,
+                                    specializedEntityArray:
+                                      prev.section2_2.specializedEntityArray.map(
+                                        (e) =>
+                                          e.id === entry.id
+                                            ? {
+                                                ...e,
+                                                noDocumentAvailable: false,
+                                              }
+                                            : e
+                                      ),
+                                  },
+                                }));
+                              }
                             }}
                             submissionId={submissionId}
                             required
                             disabled={isIndicatorSubmitted("2.2")}
                             deferFileDeletion={editingIndicators.has("2.2")}
+                            showNoDocumentOption={true}
+                            noDocumentAvailable={
+                              entry.noDocumentAvailable || false
+                            }
+                            onNoDocumentChange={(noDocument) => {
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section2_2: {
+                                  ...prev.section2_2,
+                                  specializedEntityArray:
+                                    prev.section2_2.specializedEntityArray.map(
+                                      (e) =>
+                                        e.id === entry.id
+                                          ? {
+                                              ...e,
+                                              noDocumentAvailable: noDocument,
+                                              files: noDocument ? [] : e.files,
+                                            }
+                                          : e
+                                    ),
+                                },
+                              }));
+                            }}
                             className={getInputValidationClass(
                               `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
                                 (e) => e.id === entry.id
@@ -3550,11 +3677,54 @@ export const InfraDevelopmentStep = () => {
                                 "files",
                                 file ? [file] : []
                               );
+                              // Clear noDocumentAvailable when file is uploaded
+                              if (file) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section2_3: {
+                                    ...prev.section2_3,
+                                    infraDevelopmentArray:
+                                      prev.section2_3.infraDevelopmentArray.map(
+                                        (e) =>
+                                          e.id === entry.id
+                                            ? {
+                                                ...e,
+                                                noDocumentAvailable: false,
+                                              }
+                                            : e
+                                      ),
+                                  },
+                                }));
+                              }
                             }}
                             submissionId={submissionId}
                             required
                             disabled={isIndicatorSubmitted("2.3")}
                             deferFileDeletion={editingIndicators.has("2.3")}
+                            showNoDocumentOption={true}
+                            noDocumentAvailable={
+                              entry.noDocumentAvailable || false
+                            }
+                            onNoDocumentChange={(noDocument) => {
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section2_3: {
+                                  ...prev.section2_3,
+                                  infraDevelopmentArray:
+                                    prev.section2_3.infraDevelopmentArray.map(
+                                      (e) =>
+                                        e.id === entry.id
+                                          ? {
+                                              ...e,
+                                              noDocumentAvailable: noDocument,
+                                              files: noDocument ? [] : e.files,
+                                            }
+                                          : e
+                                    ),
+                                },
+                              }));
+                            }}
                             className={getInputValidationClass(
                               `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
                                 (e) => e.id === entry.id

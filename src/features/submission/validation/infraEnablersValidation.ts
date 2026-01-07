@@ -84,7 +84,8 @@ export const validateInfraEnablers = (
     } else if (section42.available === "yes") {
       // Check if file or URL is provided (assuming URL might be in comment or a separate field)
       // For now, we'll check if file exists. If URL support is needed, we'll need to check that too
-      if (!hasRequiredFile(section42.file)) {
+      // Skip file validation if "No document available" is selected
+      if (!section42.noDocumentAvailable && !hasRequiredFile(section42.file)) {
         errors["section4_1.file"] = "Upload file is required.";
       }
       // Note: If URL is stored elsewhere, add validation here
@@ -121,7 +122,8 @@ export const validateInfraEnablers = (
             errors[`section4_2.projects.${index}.sector`] =
               "Sector is required.";
           }
-          if (!hasRequiredFile(project.file)) {
+          // Skip file validation if "No document available" is selected
+          if (!project.noDocumentAvailable && !hasRequiredFile(project.file)) {
             errors[`section4_2.projects.${index}.file`] =
               "Upload evidence is required.";
           } else if (
@@ -152,7 +154,8 @@ export const validateInfraEnablers = (
     ) {
       errors["section4_3.adopted"] = "Please select Yes or No.";
     } else if (section44.adopted === "yes") {
-      if (!hasRequiredFile(section44.file)) {
+      // Skip file validation if "No document available" is selected
+      if (!section44.noDocumentAvailable && !hasRequiredFile(section44.file)) {
         errors["section4_3.file"] = "Upload orders is required.";
       } else if (
         section44.file &&
@@ -194,7 +197,11 @@ export const validateInfraEnablers = (
             errors[`section4_4.practices.${index}.impact`] =
               "Impact is required.";
           }
-          if (!hasRequiredFile(practice.file)) {
+          // Skip file validation if "No document available" is selected
+          if (
+            !practice.noDocumentAvailable &&
+            !hasRequiredFile(practice.file)
+          ) {
             errors[`section4_4.practices.${index}.file`] =
               "Upload evidence is required.";
           }

@@ -103,7 +103,8 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_1.available"] = "Please select Yes or No.";
     } else if (section31.available === "yes") {
-      if (!hasRequiredFile(section31.file)) {
+      // Skip file validation if "No document available" is selected
+      if (!section31.noDocumentAvailable && !hasRequiredFile(section31.file)) {
         errors["section3_1.file"] = "Upload file is required.";
       } else if (
         section31.file &&
@@ -130,7 +131,8 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_2.available"] = "Please select Yes or No.";
     } else if (section32.available === "yes") {
-      if (!hasRequiredFile(section32.file)) {
+      // Skip file validation if "No document available" is selected
+      if (!section32.noDocumentAvailable && !hasRequiredFile(section32.file)) {
         errors["section3_2.file"] = "Upload notification is required.";
       } else if (
         section32.file &&

@@ -552,6 +552,7 @@ export const InfraEnablersStep = () => {
               practiceName: "",
               impact: "",
               file: null,
+              noDocumentAvailable: false,
             },
           ],
         },
@@ -650,6 +651,7 @@ export const InfraEnablersStep = () => {
             sector: "",
             statusOfProject: "",
             file: null,
+            noDocumentAvailable: false,
           },
         ],
       },
@@ -701,6 +703,7 @@ export const InfraEnablersStep = () => {
             practiceName: "",
             impact: "",
             file: null,
+            noDocumentAvailable: false,
           },
         ],
       },
@@ -1902,13 +1905,32 @@ export const InfraEnablersStep = () => {
                     showErrorsIfNeeded();
                     setFormData((prev) => ({
                       ...prev,
-                      section4_1: { ...prev.section4_1, file },
+                      section4_1: {
+                        ...prev.section4_1,
+                        file,
+                        noDocumentAvailable: false,
+                      },
                     }));
                   }}
                   submissionId={submissionId}
                   required
                   disabled={isIndicatorSubmitted("4.1")}
                   deferFileDeletion={editingIndicators.has("4.1")}
+                  showNoDocumentOption={true}
+                  noDocumentAvailable={
+                    formData.section4_1.noDocumentAvailable || false
+                  }
+                  onNoDocumentChange={(noDocument) => {
+                    showErrorsIfNeeded();
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_1: {
+                        ...prev.section4_1,
+                        noDocumentAvailable: noDocument,
+                        file: noDocument ? null : prev.section4_1.file,
+                      },
+                    }));
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
               </div>
@@ -2041,6 +2063,7 @@ export const InfraEnablersStep = () => {
                                     sector: "",
                                     statusOfProject: "",
                                     file: null,
+                                    noDocumentAvailable: false,
                                   },
                                 ],
                         },
@@ -2218,11 +2241,45 @@ export const InfraEnablersStep = () => {
                         onChange={(file) => {
                           showErrorsIfNeeded();
                           updateGatiProject(entry.id, "file", file);
+                          // Clear noDocumentAvailable when file is uploaded
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_2: {
+                              ...prev.section4_2,
+                              projects: (prev.section4_2?.projects || []).map(
+                                (p) =>
+                                  p.id === entry.id
+                                    ? { ...p, file, noDocumentAvailable: false }
+                                    : p
+                              ),
+                            },
+                          }));
                         }}
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("4.2")}
                         deferFileDeletion={editingIndicators.has("4.2")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={entry.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_2: {
+                              ...prev.section4_2,
+                              projects: (prev.section4_2?.projects || []).map(
+                                (p) =>
+                                  p.id === entry.id
+                                    ? {
+                                        ...p,
+                                        noDocumentAvailable: noDocument,
+                                        file: noDocument ? null : p.file,
+                                      }
+                                    : p
+                              ),
+                            },
+                          }));
+                        }}
                         className={getInputValidationClass(
                           `section4_2.projects.${
                             formData.section4_2?.projects?.findIndex(
@@ -2549,13 +2606,32 @@ export const InfraEnablersStep = () => {
                     showErrorsIfNeeded();
                     setFormData((prev) => ({
                       ...prev,
-                      section4_3: { ...prev.section4_3, file },
+                      section4_3: {
+                        ...prev.section4_3,
+                        file,
+                        noDocumentAvailable: false,
+                      },
                     }));
                   }}
                   submissionId={submissionId}
                   required
                   disabled={isIndicatorSubmitted("4.3")}
                   deferFileDeletion={editingIndicators.has("4.3")}
+                  showNoDocumentOption={true}
+                  noDocumentAvailable={
+                    formData.section4_3.noDocumentAvailable || false
+                  }
+                  onNoDocumentChange={(noDocument) => {
+                    showErrorsIfNeeded();
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_3: {
+                        ...prev.section4_3,
+                        noDocumentAvailable: noDocument,
+                        file: noDocument ? null : prev.section4_3.file,
+                      },
+                    }));
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Upload ADR orders
@@ -2689,6 +2765,7 @@ export const InfraEnablersStep = () => {
                                     practiceName: "",
                                     impact: "",
                                     file: null,
+                                    noDocumentAvailable: false,
                                   },
                                 ],
                         },
@@ -2835,11 +2912,45 @@ export const InfraEnablersStep = () => {
                         onChange={(file) => {
                           showErrorsIfNeeded();
                           updatePractice(entry.id, "file", file);
+                          // Clear noDocumentAvailable when file is uploaded
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_4: {
+                              ...prev.section4_4,
+                              practices: (prev.section4_4?.practices || []).map(
+                                (p) =>
+                                  p.id === entry.id
+                                    ? { ...p, file, noDocumentAvailable: false }
+                                    : p
+                              ),
+                            },
+                          }));
                         }}
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("4.4")}
                         deferFileDeletion={editingIndicators.has("4.4")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={entry.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_4: {
+                              ...prev.section4_4,
+                              practices: (prev.section4_4?.practices || []).map(
+                                (p) =>
+                                  p.id === entry.id
+                                    ? {
+                                        ...p,
+                                        noDocumentAvailable: noDocument,
+                                        file: noDocument ? null : p.file,
+                                      }
+                                    : p
+                              ),
+                            },
+                          }));
+                        }}
                         className={getInputValidationClass(
                           `section4_4.practices.${
                             formData.section4_4?.practices?.findIndex(

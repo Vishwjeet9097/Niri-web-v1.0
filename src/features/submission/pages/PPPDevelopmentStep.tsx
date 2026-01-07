@@ -59,10 +59,12 @@ const defaultData: PPPDevelopmentData = {
   section3_1: {
     available: "",
     file: null,
+    noDocumentAvailable: false,
   },
   section3_2: {
     available: "",
     file: null,
+    noDocumentAvailable: false,
   },
   section3_3: {
     VGFArray: [
@@ -75,6 +77,7 @@ const defaultData: PPPDevelopmentData = {
         totalProjectCost: "",
         statusOfProject: "",
         file: null,
+        noDocumentAvailable: false,
       },
     ],
   },
@@ -217,9 +220,9 @@ export const PPPDevelopmentStep = () => {
     new Set()
   );
   // Track which indicators are being saved as draft
-  const [savingDraftIndicators, setSavingDraftIndicators] = useState<Set<string>>(
-    new Set()
-  );
+  const [savingDraftIndicators, setSavingDraftIndicators] = useState<
+    Set<string>
+  >(new Set());
   // Store snapshots of original form data when editing starts (for cancel functionality)
   const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
     Record<string, any>
@@ -276,7 +279,13 @@ export const PPPDevelopmentStep = () => {
     const fetchSubmissionId = async () => {
       try {
         // Include DRAFT submissions by passing includeDraftOnly = true
-        const submissions = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+        const submissions = await apiService.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
         const userSubmission = submissions.submissions.find(
           (sub: any) =>
             sub.status === "DRAFT" ||
@@ -306,14 +315,20 @@ export const PPPDevelopmentStep = () => {
     (async () => {
       try {
         // Include DRAFT submissions by passing includeDraftOnly = true
-        const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+        const submissionsResp = await apiService.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
         const userId = user?.id || user?._id;
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
             (sub.status === "DRAFT" ||
-            sub.status === "IN_PROGRESS" ||
-            sub.status === "RETURNED_FROM_STATE" ||
-            sub.status === "PENDING_STATE_APPROVAL") &&
+              sub.status === "IN_PROGRESS" ||
+              sub.status === "RETURNED_FROM_STATE" ||
+              sub.status === "PENDING_STATE_APPROVAL") &&
             (sub.submittedBy === userId || sub.user?.id === userId)
         );
 
@@ -677,6 +692,7 @@ export const PPPDevelopmentStep = () => {
             totalProjectCost: "",
             statusOfProject: "",
             file: null,
+            noDocumentAvailable: false,
           },
         ],
       },
@@ -1134,7 +1150,13 @@ export const PPPDevelopmentStep = () => {
 
       // Refresh sectionStatus to update completedIndicators from server
       try {
-        const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+        const submissionsResp = await apiService.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
         const userSubmission = submissionsResp.submissions.find(
           (sub: any) =>
             sub.status === "DRAFT" ||
@@ -1527,7 +1549,13 @@ export const PPPDevelopmentStep = () => {
       }
 
       // Get current submission to preserve status
-      const submissionsResp = await apiService.getSubmissions(1, 100, undefined, undefined, true);
+      const submissionsResp = await apiService.getSubmissions(
+        1,
+        100,
+        undefined,
+        undefined,
+        true
+      );
       const userSubmission = submissionsResp.submissions.find(
         (sub: any) =>
           sub.status === "DRAFT" ||
@@ -1731,7 +1759,10 @@ export const PPPDevelopmentStep = () => {
         variant: "default",
       });
     } catch (error) {
-      console.error(`Failed to save indicator ${indicatorCode} as draft:`, error);
+      console.error(
+        `Failed to save indicator ${indicatorCode} as draft:`,
+        error
+      );
       toast({
         title: "Save Failed",
         description: `Failed to save indicator ${indicatorCode} as draft. Please try again.`,
@@ -1884,6 +1915,7 @@ export const PPPDevelopmentStep = () => {
                         section3_1: {
                           ...prev.section3_1,
                           file: fileUpload,
+                          noDocumentAvailable: false,
                         },
                       }));
                     }}
@@ -1891,6 +1923,21 @@ export const PPPDevelopmentStep = () => {
                     required
                     disabled={isIndicatorSubmitted("3.1")}
                     deferFileDeletion={editingIndicators.has("3.1")}
+                    showNoDocumentOption={true}
+                    noDocumentAvailable={
+                      formData.section3_1.noDocumentAvailable || false
+                    }
+                    onNoDocumentChange={(noDocument) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section3_1: {
+                          ...prev.section3_1,
+                          noDocumentAvailable: noDocument,
+                          file: noDocument ? null : prev.section3_1.file,
+                        },
+                      }));
+                    }}
                     className={getInputValidationClass("section3_1.file")}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -1959,7 +2006,9 @@ export const PPPDevelopmentStep = () => {
                     size="sm"
                     className="disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {savingDraftIndicators.has("3.1") ? "Saving..." : "Save as Draft"}
+                    {savingDraftIndicators.has("3.1")
+                      ? "Saving..."
+                      : "Save as Draft"}
                   </Button>
                 )}
               </div>
@@ -2067,6 +2116,7 @@ export const PPPDevelopmentStep = () => {
                         section3_2: {
                           ...prev.section3_2,
                           file: fileUpload,
+                          noDocumentAvailable: false,
                         },
                       }));
                     }}
@@ -2074,6 +2124,21 @@ export const PPPDevelopmentStep = () => {
                     required
                     disabled={isIndicatorSubmitted("3.2")}
                     deferFileDeletion={editingIndicators.has("3.2")}
+                    showNoDocumentOption={true}
+                    noDocumentAvailable={
+                      formData.section3_2.noDocumentAvailable || false
+                    }
+                    onNoDocumentChange={(noDocument) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section3_2: {
+                          ...prev.section3_2,
+                          noDocumentAvailable: noDocument,
+                          file: noDocument ? null : prev.section3_2.file,
+                        },
+                      }));
+                    }}
                     className={getInputValidationClass("section3_2.file")}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -2142,7 +2207,9 @@ export const PPPDevelopmentStep = () => {
                     size="sm"
                     className="disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {savingDraftIndicators.has("3.2") ? "Saving..." : "Save as Draft"}
+                    {savingDraftIndicators.has("3.2")
+                      ? "Saving..."
+                      : "Save as Draft"}
                   </Button>
                 )}
               </div>
@@ -2408,10 +2475,48 @@ export const PPPDevelopmentStep = () => {
                         onChange={(fileUpload) => {
                           showErrorsIfNeeded();
                           updateProject(entry.id, "file", fileUpload);
+                          // Clear noDocumentAvailable when file is uploaded
+                          if (fileUpload) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_3: {
+                                ...prev.section3_3,
+                                VGFArray: prev.section3_3.VGFArray.map((e) =>
+                                  e.id === entry.id
+                                    ? {
+                                        ...e,
+                                        file: fileUpload,
+                                        noDocumentAvailable: false,
+                                      }
+                                    : e
+                                ),
+                              },
+                            }));
+                          }
                         }}
                         submissionId={submissionId}
                         disabled={isIndicatorSubmitted("3.3")}
                         deferFileDeletion={editingIndicators.has("3.3")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={entry.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section3_3: {
+                              ...prev.section3_3,
+                              VGFArray: prev.section3_3.VGFArray.map((e) =>
+                                e.id === entry.id
+                                  ? {
+                                      ...e,
+                                      noDocumentAvailable: noDocument,
+                                      file: noDocument ? null : e.file,
+                                    }
+                                  : e
+                              ),
+                            },
+                          }));
+                        }}
                         // Note: Upload file is NON-mandatory in section 3.3, so no required prop
                       />
                     </div>
@@ -2643,7 +2748,9 @@ export const PPPDevelopmentStep = () => {
                     size="sm"
                     className="disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {savingDraftIndicators.has("3.3") ? "Saving..." : "Save as Draft"}
+                    {savingDraftIndicators.has("3.3")
+                      ? "Saving..."
+                      : "Save as Draft"}
                   </Button>
                 )}
               </div>
@@ -2711,7 +2818,7 @@ export const PPPDevelopmentStep = () => {
                 </div>
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
-                  Total of TPC of PPP Projects (INR-CRORE)
+                    Total of TPC of PPP Projects (INR-CRORE)
                     <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -2741,9 +2848,7 @@ export const PPPDevelopmentStep = () => {
                 <div key={project.id || `project-${index}`} className="mb-2">
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
                     <div>
-                      <Label>
-                      Name of Awarded PPP Projects
-                      </Label>
+                      <Label>Name of Awarded PPP Projects</Label>
                       <Input
                         type="text"
                         placeholder="Enter project name"
@@ -2874,9 +2979,7 @@ export const PPPDevelopmentStep = () => {
                     </div>
 
                     <div>
-                      <Label>
-                        Total Project Cost (INR-CRORE)
-                      </Label>
+                      <Label>Total Project Cost (INR-CRORE)</Label>
                       <Input
                         type="number"
                         min="0"
@@ -3033,7 +3136,9 @@ export const PPPDevelopmentStep = () => {
                       size="sm"
                       className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {savingDraftIndicators.has("3.4") ? "Saving..." : "Save as Draft"}
+                      {savingDraftIndicators.has("3.4")
+                        ? "Saving..."
+                        : "Save as Draft"}
                     </Button>
                   )}
                 </div>

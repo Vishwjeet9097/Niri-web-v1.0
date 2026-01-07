@@ -88,6 +88,7 @@ export interface InfraDevelopmentData {
       id: string;
       sector: string;
       files: FileUpload[];
+      noDocumentAvailable?: boolean;
     }>;
     hasOverarchingPolicy?: string;
   };
@@ -95,6 +96,7 @@ export interface InfraDevelopmentData {
     specializedEntityArray: Array<{
       id: string;
       files: FileUpload[];
+      noDocumentAvailable?: boolean;
     }>;
     hasSpecializedEntity?: string;
     comment?: string;
@@ -105,6 +107,7 @@ export interface InfraDevelopmentData {
       sector: string;
       files: FileUpload[];
       comment?: string;
+      noDocumentAvailable?: boolean;
     }>;
     hasInfraDevelopmentPlan?: string;
     comment?: string;
@@ -142,11 +145,13 @@ export interface PPPDevelopmentData {
     available: "yes" | "no" | "";
     file: FileUpload | null;
     comment?: string;
+    noDocumentAvailable?: boolean;
   };
   section3_2: {
     available: "yes" | "no" | "";
     file: FileUpload | null;
     comment?: string;
+    noDocumentAvailable?: boolean;
   };
   section3_3: {
     VGFArray: Array<{
@@ -159,6 +164,7 @@ export interface PPPDevelopmentData {
       statusOfProject?: string;
       file: FileUpload | null;
       marksObtained?: number;
+      noDocumentAvailable?: boolean;
     }>;
   };
   section3_4: {
@@ -186,6 +192,7 @@ export interface InfraEnablersData {
     file: FileUpload | null;
     websiteLink?: string;
     comment?: string;
+    noDocumentAvailable?: boolean;
   };
   section4_2: {
     projects: Array<{
@@ -194,6 +201,7 @@ export interface InfraEnablersData {
       sector: string;
       statusOfProject?: string;
       file: FileUpload | null;
+      noDocumentAvailable?: boolean;
     }>;
     adopted: "yes" | "no" | "";
     comment?: string;
@@ -204,7 +212,7 @@ export interface InfraEnablersData {
   section4_3: {
     adopted: "yes" | "no" | "";
     file: FileUpload | null;
-
+    noDocumentAvailable?: boolean;
     // Calculation fields
     marksObtained?: number;
     comment?: string;
@@ -216,6 +224,7 @@ export interface InfraEnablersData {
       practiceName: string;
       impact: string;
       file: FileUpload | null;
+      noDocumentAvailable?: boolean;
     }>;
     comment?: string;
   };
