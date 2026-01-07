@@ -876,14 +876,17 @@ export const InfraDevelopmentStep = () => {
           ? "Overarching"
           : "";
 
+      // For section2_2, don't include sector field
+      const newEntry =
+        section === "section2_2"
+          ? { id: crypto.randomUUID(), files: [] }
+          : { id: crypto.randomUUID(), sector: sectorValue, files: [] };
+
       return {
         ...prev,
         [section]: {
           ...(prev as any)[section],
-          [arrKey]: [
-            ...((prev as any)[section]?.[arrKey] || []),
-            { id: crypto.randomUUID(), sector: sectorValue, files: [] },
-          ],
+          [arrKey]: [...((prev as any)[section]?.[arrKey] || []), newEntry],
         },
       } as any;
     });
@@ -911,6 +914,8 @@ export const InfraDevelopmentStep = () => {
       const newArr =
         section === "section2_1" && arr.length === 0
           ? [{ id: crypto.randomUUID(), sector: "", files: [] }]
+          : section === "section2_2" && arr.length === 0
+          ? [{ id: crypto.randomUUID(), files: [] }]
           : arr;
       return {
         ...prev,
@@ -928,6 +933,10 @@ export const InfraDevelopmentStep = () => {
     field: "sector" | "files",
     value: any
   ) => {
+    // Don't allow sector updates for section2_2
+    if (section === "section2_2" && field === "sector") {
+      return;
+    }
     const arrKey = sectionArrayKeyMap[section];
     setFormData((prev) => {
       let newValue = value;
@@ -2026,8 +2035,7 @@ export const InfraDevelopmentStep = () => {
             formData.section2_2.specializedEntityArray.forEach(
               (_: any, index: number) => {
                 allIndicatorFields.push(
-                  `${sectionPrefix}.specializedEntityArray.${index}.entityName`,
-                  `${sectionPrefix}.specializedEntityArray.${index}.file`
+                  `${sectionPrefix}.specializedEntityArray.${index}.files`
                 );
               }
             );
@@ -3105,50 +3113,6 @@ export const InfraDevelopmentStep = () => {
                     <div key={entry.id} className="mb-2 relative">
                       <div className="flex flex-col gap-4 max-w-[70%]">
                         <div className="flex-1 w-full">
-                          <Label>
-                            Select Sector{" "}
-                            <span className="text-destructive">*</span>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>Select the sector</TooltipContent>
-                            </Tooltip>
-                          </Label>
-                          <Select
-                            value={entry.sector}
-                            onValueChange={(value) => {
-                              showErrorsIfNeeded();
-                              updateEntry(
-                                "section2_2",
-                                entry.id,
-                                "sector",
-                                value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("2.2")}
-                          >
-                            <SelectTrigger
-                              className={cn(
-                                getInputValidationClass(
-                                  `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
-                                    (e) => e.id === entry.id
-                                  )}.sector`
-                                )
-                              )}
-                            >
-                              <SelectValue placeholder="Select an option" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SECTOR_OPTIONS.map((sector) => (
-                                <SelectItem key={sector} value={sector}>
-                                  {sector}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex-1 w-full">
                           <FileUploadSection
                             label="Upload File"
                             value={entry.files?.[0] || null}
@@ -3260,9 +3224,6 @@ export const InfraDevelopmentStep = () => {
                       <thead>
                         <tr className="bg-[#DDE3F9]">
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Sector
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3284,9 +3245,6 @@ export const InfraDevelopmentStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {entry.sector}
-                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   No file uploaded
                                 </td>
@@ -3342,9 +3300,6 @@ export const InfraDevelopmentStep = () => {
 
                           return (
                             <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
                               <td className="py-3 px-4 text-sm font-normal">
                                 {displayName}
                               </td>

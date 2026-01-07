@@ -25,7 +25,10 @@ import {
   OWNERSHIP_OPTIONS,
   MONETIZATION_STATUS_OPTIONS,
 } from "@/features/submission/constants/steps";
-import type { InfraDevelopmentData, FileUpload } from "@/features/submission/types";
+import type {
+  InfraDevelopmentData,
+  FileUpload,
+} from "@/features/submission/types";
 
 interface EditableInfraDevelopmentProps {
   submissionId: string;
@@ -37,58 +40,71 @@ const defaultData: InfraDevelopmentData = {
   section2_2: { specializedEntityArray: [] },
   section2_3: { infraDevelopmentArray: [] },
   section2_4: { investmentReadyArray: [] },
-  section2_5: { 
+  section2_5: {
     assetMonetizationArray: [],
     hasAssetMonetization: "",
     comment: "",
   },
 };
 
-export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
-  const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+export const EditableInfraDevelopment = ({
+  submissionId,
+  submission,
+}: EditableInfraDevelopmentProps) => {
+  const { getStepData, updateFormData } =
+    useReviewFormPersistence(submissionId);
 
   // Get data from persistence hook (this will be the source of truth)
-  const persistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
-    // Debug logging removed for performance
+  const persistedData =
+    (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+  // Debug logging removed for performance
 
   // Create form data by merging persisted data with defaults
-  const createFormData = (data: Partial<InfraDevelopmentData>): InfraDevelopmentData => ({
+  const createFormData = (
+    data: Partial<InfraDevelopmentData>
+  ): InfraDevelopmentData => ({
     ...defaultData,
     ...data,
-    section2_1: data.section2_1 && Array.isArray(data.section2_1.infraActArray)
-      ? { infraActArray: data.section2_1.infraActArray }
-      : { infraActArray: [] },
-    section2_2: data.section2_2 && Array.isArray(data.section2_2.specializedEntityArray)
-      ? { specializedEntityArray: data.section2_2.specializedEntityArray }
-      : { specializedEntityArray: [] },
-    section2_3: data.section2_3 && Array.isArray(data.section2_3.infraDevelopmentArray)
-      ? { infraDevelopmentArray: data.section2_3.infraDevelopmentArray }
-      : { infraDevelopmentArray: [] },
-    section2_4: data.section2_4 && Array.isArray(data.section2_4.investmentReadyArray)
-      ? { investmentReadyArray: data.section2_4.investmentReadyArray }
-      : { investmentReadyArray: [] },
-    section2_5: data.section2_5 && Array.isArray(data.section2_5.assetMonetizationArray)
-      ? { 
-          assetMonetizationArray: data.section2_5.assetMonetizationArray,
-          hasAssetMonetization: data.section2_5.hasAssetMonetization || "",
-          comment: data.section2_5.comment || "",
-        }
-      : { 
-          assetMonetizationArray: [],
-          hasAssetMonetization: "",
-          comment: "",
-        },
+    section2_1:
+      data.section2_1 && Array.isArray(data.section2_1.infraActArray)
+        ? { infraActArray: data.section2_1.infraActArray }
+        : { infraActArray: [] },
+    section2_2:
+      data.section2_2 && Array.isArray(data.section2_2.specializedEntityArray)
+        ? { specializedEntityArray: data.section2_2.specializedEntityArray }
+        : { specializedEntityArray: [] },
+    section2_3:
+      data.section2_3 && Array.isArray(data.section2_3.infraDevelopmentArray)
+        ? { infraDevelopmentArray: data.section2_3.infraDevelopmentArray }
+        : { infraDevelopmentArray: [] },
+    section2_4:
+      data.section2_4 && Array.isArray(data.section2_4.investmentReadyArray)
+        ? { investmentReadyArray: data.section2_4.investmentReadyArray }
+        : { investmentReadyArray: [] },
+    section2_5:
+      data.section2_5 && Array.isArray(data.section2_5.assetMonetizationArray)
+        ? {
+            assetMonetizationArray: data.section2_5.assetMonetizationArray,
+            hasAssetMonetization: data.section2_5.hasAssetMonetization || "",
+            comment: data.section2_5.comment || "",
+          }
+        : {
+            assetMonetizationArray: [],
+            hasAssetMonetization: "",
+            comment: "",
+          },
   });
 
-  const [formData, setFormData] = useState<InfraDevelopmentData>(() => 
+  const [formData, setFormData] = useState<InfraDevelopmentData>(() =>
     createFormData(persistedData)
   );
 
   // Sync with persisted data when it changes
   useEffect(() => {
-    const currentPersistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+    const currentPersistedData =
+      (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
     const newFormData = createFormData(currentPersistedData);
-    
+
     // Only update if data has actually changed
     if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
       console.log("🔄 Syncing form data with persisted data:", newFormData);
@@ -103,11 +119,12 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
 
   // Section 2.1, 2.2, 2.3 handlers
   const addEntry = (section: "section2_1" | "section2_2" | "section2_3") => {
-    const arrayKey = section === "section2_1"
-      ? "infraActArray"
-      : section === "section2_2"
-      ? "specializedEntityArray"
-      : "infraDevelopmentArray";
+    const arrayKey =
+      section === "section2_1"
+        ? "infraActArray"
+        : section === "section2_2"
+        ? "specializedEntityArray"
+        : "infraDevelopmentArray";
     setFormData((prev) => ({
       ...prev,
       [section]: {
@@ -123,15 +140,18 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     section: "section2_1" | "section2_2" | "section2_3",
     id: string
   ) => {
-    const arrayKey = section === "section2_1"
-      ? "infraActArray"
-      : section === "section2_2"
-      ? "specializedEntityArray"
-      : "infraDevelopmentArray";
+    const arrayKey =
+      section === "section2_1"
+        ? "infraActArray"
+        : section === "section2_2"
+        ? "specializedEntityArray"
+        : "infraDevelopmentArray";
     setFormData((prev) => ({
       ...prev,
       [section]: {
-        [arrayKey]: (prev[section]?.[arrayKey] || []).filter((entry) => entry.id !== id),
+        [arrayKey]: (prev[section]?.[arrayKey] || []).filter(
+          (entry) => entry.id !== id
+        ),
       },
     }));
   };
@@ -142,11 +162,12 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     field: "sector" | "files",
     value: any
   ) => {
-    const arrayKey = section === "section2_1"
-      ? "infraActArray"
-      : section === "section2_2"
-      ? "specializedEntityArray"
-      : "infraDevelopmentArray";
+    const arrayKey =
+      section === "section2_1"
+        ? "infraActArray"
+        : section === "section2_2"
+        ? "specializedEntityArray"
+        : "infraDevelopmentArray";
     setFormData((prev) => ({
       ...prev,
       [section]: {
@@ -177,7 +198,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
             sector: "",
             status: "",
             projectSize: "",
-            investmentType: ""
+            investmentType: "",
           },
         ],
       },
@@ -188,7 +209,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     setFormData((prev) => ({
       ...prev,
       section2_4: {
-        investmentReadyArray: (prev.section2_4?.investmentReadyArray || []).filter((entry) => entry.id !== id),
+        investmentReadyArray: (
+          prev.section2_4?.investmentReadyArray || []
+        ).filter((entry) => entry.id !== id),
       },
     }));
   };
@@ -201,8 +224,8 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     setFormData((prev) => ({
       ...prev,
       section2_4: {
-        investmentReadyArray: (prev.section2_4?.investmentReadyArray || []).map((entry) =>
-          entry.id === id ? { ...entry, [field]: value } : entry
+        investmentReadyArray: (prev.section2_4?.investmentReadyArray || []).map(
+          (entry) => (entry.id === id ? { ...entry, [field]: value } : entry)
         ),
       },
     }));
@@ -239,7 +262,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     setFormData((prev) => ({
       ...prev,
       section2_5: {
-        assetMonetizationArray: (prev.section2_5?.assetMonetizationArray || []).filter((entry) => entry.id !== id),
+        assetMonetizationArray: (
+          prev.section2_5?.assetMonetizationArray || []
+        ).filter((entry) => entry.id !== id),
       },
     }));
   };
@@ -257,7 +282,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     setFormData((prev) => ({
       ...prev,
       section2_5: {
-        assetMonetizationArray: (prev.section2_5?.assetMonetizationArray || []).map((entry) =>
+        assetMonetizationArray: (
+          prev.section2_5?.assetMonetizationArray || []
+        ).map((entry) =>
           entry.id === id ? { ...entry, [field]: value } : entry
         ),
       },
@@ -335,7 +362,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
               <Plus className="w-4 h-4" />
               Add More Entry
             </Button>
-            <p className="text-xs text-muted-foreground">Upload copy of Act/Policy</p>
+            <p className="text-xs text-muted-foreground">
+              Upload copy of Act/Policy
+            </p>
           </div>
         </SectionCard>
 
@@ -348,28 +377,6 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
             {formData.section2_2.specializedEntityArray.map((entry, idx) => (
               <div key={entry.id} className="border rounded-lg p-4 bg-card">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
-                  <div className="flex-1 w-full">
-                    <Label>
-                      Select Sector <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={entry.sector}
-                      onValueChange={(value) =>
-                        updateEntry("section2_2", entry.id, "sector", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECTOR_OPTIONS.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
-                            {sector}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="flex-1 w-full">
                     <FileUploadSection
                       label="Upload File"
@@ -479,7 +486,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
               <Plus className="w-4 h-4" />
               Add More Entry
             </Button>
-            <p className="text-xs text-muted-foreground">Upload development plan</p>
+            <p className="text-xs text-muted-foreground">
+              Upload development plan
+            </p>
           </div>
         </SectionCard>
 
@@ -489,45 +498,57 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per project)"
         >
           <div className="space-y-4">
-            {formData.section2_4.investmentReadyArray.map((rawProject, index) => {
-              const project = {
-                dprFile: null,
-                ...rawProject
-              };
-              return (
-                <div key={project.id} className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-medium">Project {index + 1}</h4>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeProject(project.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Project Name*</Label>
-                      <Input
-                        placeholder="Enter project name"
-                        value={project.projectName}
-                        onChange={(e) =>
-                          updateProject(project.id, "projectName", e.target.value)
+            {formData.section2_4.investmentReadyArray.map(
+              (rawProject, index) => {
+                const project = {
+                  dprFile: null,
+                  ...rawProject,
+                };
+                return (
+                  <div key={project.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-medium">Project {index + 1}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeProject(project.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Project Name*</Label>
+                        <Input
+                          placeholder="Enter project name"
+                          value={project.projectName}
+                          onChange={(e) =>
+                            updateProject(
+                              project.id,
+                              "projectName",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                      <FileUploadSection
+                        label="Upload DPR/Feasibility Report"
+                        value={project.dprFile}
+                        onChange={(file) =>
+                          updateProject(project.id, "dprFile", file)
                         }
+                        required
                       />
                     </div>
-                    <FileUploadSection
-                      label="Upload DPR/Feasibility Report"
-                      value={project.dprFile}
-                      onChange={(file) => updateProject(project.id, "dprFile", file)}
-                      required
-                    />
                   </div>
-                </div>
-              );
-            })}
-            <Button onClick={addProject} variant="outline" className="w-full gap-2">
+                );
+              }
+            )}
+            <Button
+              onClick={addProject}
+              variant="outline"
+              className="w-full gap-2"
+            >
               <Plus className="w-4 h-4" />
               Add More Project
             </Button>
@@ -607,109 +628,123 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
             {/* If Yes → show fields */}
             {formData.section2_5.hasAssetMonetization === "yes" && (
               <>
-            {formData.section2_5.assetMonetizationArray.map((asset, index) => (
-              <div key={asset.id} className="p-4 border rounded-lg space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Asset {index + 1}</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeAsset(asset.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Project Name*</Label>
-                    <Input
-                      placeholder="Enter project name"
-                      value={asset.projectName}
-                      onChange={(e) =>
-                        updateAsset(asset.id, "projectName", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Sector*</Label>
-                    <Select
-                      value={asset.sector}
-                      onValueChange={(value) =>
-                        updateAsset(asset.id, "sector", value)
-                      }
+                {formData.section2_5.assetMonetizationArray.map(
+                  (asset, index) => (
+                    <div
+                      key={asset.id}
+                      className="p-4 border rounded-lg space-y-4"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECTOR_OPTIONS.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
-                            {sector}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Type*</Label>
-                    <Select
-                      value={asset.type}
-                      onValueChange={(value) => updateAsset(asset.id, "type", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MONETIZATION_STATUS_OPTIONS.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Ownership*</Label>
-                    <Select
-                      value={asset.ownership}
-                      onValueChange={(value) =>
-                        updateAsset(asset.id, "ownership", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ownership" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {OWNERSHIP_OPTIONS.map((ownership) => (
-                          <SelectItem key={ownership} value={ownership}>
-                            {ownership}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Estimated Monetization (INR-CRORE)
-</Label>
-                    <Input
-                      placeholder="₹ Crores"
-                      value={asset.estimatedMonetization}
-                      onChange={(e) =>
-                        updateAsset(
-                          asset.id,
-                          "estimatedMonetization",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-            <Button onClick={addAsset} variant="outline" className="w-full gap-2">
-              <Plus className="w-4 h-4" />
-              Add Asset
-            </Button>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Asset {index + 1}</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeAsset(asset.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Project Name*</Label>
+                          <Input
+                            placeholder="Enter project name"
+                            value={asset.projectName}
+                            onChange={(e) =>
+                              updateAsset(
+                                asset.id,
+                                "projectName",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Sector*</Label>
+                          <Select
+                            value={asset.sector}
+                            onValueChange={(value) =>
+                              updateAsset(asset.id, "sector", value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Type*</Label>
+                          <Select
+                            value={asset.type}
+                            onValueChange={(value) =>
+                              updateAsset(asset.id, "type", value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MONETIZATION_STATUS_OPTIONS.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Ownership*</Label>
+                          <Select
+                            value={asset.ownership}
+                            onValueChange={(value) =>
+                              updateAsset(asset.id, "ownership", value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select ownership" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OWNERSHIP_OPTIONS.map((ownership) => (
+                                <SelectItem key={ownership} value={ownership}>
+                                  {ownership}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Estimated Monetization (INR-CRORE)</Label>
+                          <Input
+                            placeholder="₹ Crores"
+                            value={asset.estimatedMonetization}
+                            onChange={(e) =>
+                              updateAsset(
+                                asset.id,
+                                "estimatedMonetization",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+                <Button
+                  onClick={addAsset}
+                  variant="outline"
+                  className="w-full gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Asset
+                </Button>
               </>
             )}
 

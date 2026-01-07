@@ -94,7 +94,6 @@ export interface InfraDevelopmentData {
   section2_2: {
     specializedEntityArray: Array<{
       id: string;
-      sector: string;
       files: FileUpload[];
     }>;
     hasSpecializedEntity?: string;
