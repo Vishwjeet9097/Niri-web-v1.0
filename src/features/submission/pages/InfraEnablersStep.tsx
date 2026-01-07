@@ -44,6 +44,7 @@ import {
   type InfraEnablersValidationResult,
 } from "../validation/infraEnablersValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
+import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -3238,22 +3239,28 @@ export const InfraEnablersStep = () => {
                         </div>
                         <div>
                           <Label>
-                            Training Period (MMYY){" "}
+                            Conducted during (MM/YY){" "}
                             <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            type="text"
-                            placeholder="MMYY (e.g., 1224)"
-                            value={entry.trainingPeriod || ""}
-                            onChange={(e) => {
+                          <MonthYearPicker
+                            value={
+                              entry.trainingPeriod
+                                ? entry.trainingPeriod.includes("/")
+                                  ? entry.trainingPeriod
+                                  : entry.trainingPeriod.length === 4
+                                  ? `${entry.trainingPeriod.slice(
+                                      0,
+                                      2
+                                    )}/${entry.trainingPeriod.slice(2)}`
+                                  : entry.trainingPeriod
+                                : ""
+                            }
+                            onChange={(value) => {
                               showErrorsIfNeeded();
-                              // Only allow numbers and limit to 4 characters
-                              const value = e.target.value
-                                .replace(/\D/g, "")
-                                .slice(0, 4);
                               updateTraining(entry.id, "trainingPeriod", value);
                             }}
                             disabled={isIndicatorSubmitted("4.5")}
+                            placeholder="Select month/year"
                             className={cn(
                               getInputValidationClass(
                                 `section4_5.capacityArray.${
@@ -3265,7 +3272,6 @@ export const InfraEnablersStep = () => {
                               isIndicatorSubmitted("4.5") &&
                                 "bg-gray-50 cursor-not-allowed"
                             )}
-                            maxLength={4}
                           />
                           {renderFieldError(
                             `section4_5.capacityArray.${
@@ -3328,7 +3334,7 @@ export const InfraEnablersStep = () => {
                         Type
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
-                        Training Period (MMYY)
+                        Conducted during (MM/YY)
                       </th>
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                         Action
@@ -3358,7 +3364,16 @@ export const InfraEnablersStep = () => {
                             {entry.trainingType}
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {entry.trainingPeriod || "-"}
+                            {entry.trainingPeriod
+                              ? entry.trainingPeriod.includes("/")
+                                ? entry.trainingPeriod
+                                : entry.trainingPeriod.length === 4
+                                ? `${entry.trainingPeriod.slice(
+                                    0,
+                                    2
+                                  )}/${entry.trainingPeriod.slice(2)}`
+                                : entry.trainingPeriod
+                              : "-"}
                           </td>
                           <td className="py-3 px-4">
                             <button

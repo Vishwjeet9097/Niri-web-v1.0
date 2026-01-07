@@ -59,6 +59,7 @@ import {
   computeStepProgress,
   STEP_SECTIONS,
 } from "@/features/submission/utils/progress";
+import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
@@ -5398,7 +5399,7 @@ export const InfraEnablersReview = ({
                           Organiser
                         </th>
                         <th className="py-2 px-2 text-left text-sm font-normal">
-                          Training Period (MMYY)
+                          Conducted during (MM/YY)
                         </th>
                         {shouldBeEditable("4.5") && (
                           <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
@@ -5531,25 +5532,42 @@ export const InfraEnablersReview = ({
                             </td>
                             <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
-                                <Input
-                                  value={item.trainingPeriod || ""}
-                                  onChange={(e) => {
-                                    // Only allow numbers and limit to 4 characters
-                                    const value = e.target.value
-                                      .replace(/\D/g, "")
-                                      .slice(0, 4);
+                                <MonthYearPicker
+                                  value={
+                                    item.trainingPeriod
+                                      ? item.trainingPeriod.includes("/")
+                                        ? item.trainingPeriod
+                                        : item.trainingPeriod.length === 4
+                                        ? `${item.trainingPeriod.slice(
+                                            0,
+                                            2
+                                          )}/${item.trainingPeriod.slice(2)}`
+                                        : item.trainingPeriod
+                                      : ""
+                                  }
+                                  onChange={(value) => {
                                     handleTableFieldUpdate(
                                       idx,
                                       "trainingPeriod",
                                       value
                                     );
                                   }}
-                                  className="w-full h-8 text-sm"
-                                  placeholder="MMYY"
-                                  maxLength={4}
+                                  placeholder="Select month/year"
+                                  className="h-8 text-sm"
                                 />
+                              ) : item.trainingPeriod ? (
+                                item.trainingPeriod.includes("/") ? (
+                                  item.trainingPeriod
+                                ) : item.trainingPeriod.length === 4 ? (
+                                  `${item.trainingPeriod.slice(
+                                    0,
+                                    2
+                                  )}/${item.trainingPeriod.slice(2)}`
+                                ) : (
+                                  item.trainingPeriod
+                                )
                               ) : (
-                                item.trainingPeriod || "N/A"
+                                "N/A"
                               )}
                             </td>
                             {shouldBeEditable("4.5") && (
@@ -5690,22 +5708,28 @@ export const InfraEnablersReview = ({
                       />
                     </div>
                     <div>
-                      <Label>Training Period (MMYY)</Label>
-                      <Input
-                        value={newCapacityEntry.trainingPeriod}
-                        onChange={(e) => {
-                          // Only allow numbers and limit to 4 characters
-                          const value = e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, 4);
+                      <Label>Conducted during (MM/YY)</Label>
+                      <MonthYearPicker
+                        value={
+                          newCapacityEntry.trainingPeriod
+                            ? newCapacityEntry.trainingPeriod.includes("/")
+                              ? newCapacityEntry.trainingPeriod
+                              : newCapacityEntry.trainingPeriod.length === 4
+                              ? `${newCapacityEntry.trainingPeriod.slice(
+                                  0,
+                                  2
+                                )}/${newCapacityEntry.trainingPeriod.slice(2)}`
+                              : newCapacityEntry.trainingPeriod
+                            : ""
+                        }
+                        onChange={(value) => {
                           setNewCapacityEntry({
                             ...newCapacityEntry,
                             trainingPeriod: value,
                           });
                         }}
+                        placeholder="Select month/year"
                         className="bg-white"
-                        placeholder="MMYY (e.g., 1224)"
-                        maxLength={4}
                       />
                     </div>
                   </div>

@@ -260,21 +260,51 @@ export const validateInfraEnablers = (
           }
           if (!entry.trainingPeriod || entry.trainingPeriod.trim() === "") {
             errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-              "Training Period (MMYY) is required.";
-          } else if (!/^\d{4}$/.test(entry.trainingPeriod)) {
-            errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-              "Training Period must be in MMYY format (e.g., 1224).";
+              "Conducted during (MM/YY) is required.";
           } else {
-            // Validate month (01-12) and year (reasonable range)
-            const month = parseInt(entry.trainingPeriod.substring(0, 2), 10);
-            const year = parseInt(entry.trainingPeriod.substring(2, 4), 10);
-            if (month < 1 || month > 12) {
-              errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-                "Month must be between 01 and 12.";
+            // Handle both MM/YY and MMYY formats for backward compatibility
+            let monthStr: string;
+            let yearStr: string;
+            let formatValid = false;
+
+            if (
+              entry.trainingPeriod.includes("/") &&
+              entry.trainingPeriod.length === 5
+            ) {
+              // MM/YY format (e.g., "07/26")
+              const parts = entry.trainingPeriod.split("/");
+              if (
+                parts.length === 2 &&
+                parts[0].length === 2 &&
+                parts[1].length === 2
+              ) {
+                monthStr = parts[0];
+                yearStr = parts[1];
+                formatValid = true;
+              }
+            } else if (/^\d{4}$/.test(entry.trainingPeriod)) {
+              // MMYY format (e.g., "0726") - backward compatibility
+              monthStr = entry.trainingPeriod.substring(0, 2);
+              yearStr = entry.trainingPeriod.substring(2, 4);
+              formatValid = true;
             }
-            if (year < 0 || year > 99) {
+
+            if (!formatValid) {
               errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-                "Year must be between 00 and 99.";
+                "Conducted during must be in MM/YY format (e.g., 07/26).";
+            } else {
+              // Validate month (01-12) and year (00-99)
+              const month = parseInt(monthStr, 10);
+              const year = parseInt(yearStr, 10);
+
+              if (isNaN(month) || month < 1 || month > 12) {
+                errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+                  "Month must be between 01 and 12.";
+              }
+              if (isNaN(year) || year < 0 || year > 99) {
+                errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+                  "Year must be between 00 and 99.";
+              }
             }
           }
         });
