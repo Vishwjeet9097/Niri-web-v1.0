@@ -543,7 +543,7 @@ export const EditableInfraDevelopment = ({
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <Label>Project Name*</Label>
+                        <Label>Project Name</Label>
                         <Input
                           placeholder="Enter project name"
                           value={project.projectName}
@@ -691,7 +691,7 @@ export const EditableInfraDevelopment = ({
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Project Name*</Label>
+                          <Label>Project Name</Label>
                           <Input
                             placeholder="Enter project name"
                             value={asset.projectName}
@@ -705,7 +705,7 @@ export const EditableInfraDevelopment = ({
                           />
                         </div>
                         <div>
-                          <Label>Sector*</Label>
+                          <Label>Sector</Label>
                           <Select
                             value={asset.sector}
                             onValueChange={(value) =>
@@ -725,7 +725,7 @@ export const EditableInfraDevelopment = ({
                           </Select>
                         </div>
                         <div>
-                          <Label>Type*</Label>
+                          <Label>Type</Label>
                           <Select
                             value={asset.type}
                             onValueChange={(value) =>
@@ -745,7 +745,7 @@ export const EditableInfraDevelopment = ({
                           </Select>
                         </div>
                         <div>
-                          <Label>Ownership*</Label>
+                          <Label>Ownership</Label>
                           <Select
                             value={asset.ownership}
                             onValueChange={(value) =>

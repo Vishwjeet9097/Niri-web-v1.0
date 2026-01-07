@@ -1355,20 +1355,15 @@ class ApiService implements HttpClient {
         if (conditionalValue === "yes") {
           // For "yes", check for required fields based on common patterns
 
-          // Pattern 1a: Yes requires websiteLink + array (section2_4)
-          if (fieldName === "hasInvestmentReady" && sectionData.websiteLink) {
-            if (
-              isMeaningful(sectionData.websiteLink) &&
-              hasMeaningfulArrayItems(sectionData.investmentReadyArray || [])
-            ) {
-              console.log(
-                `  ✓ ${sectionKey}: Yes with websiteLink and investmentReadyArray`
-              );
+          // Pattern 1a: Yes requires websiteLink only (section2_4)
+          if (fieldName === "hasInvestmentReady") {
+            if (isMeaningful(sectionData.websiteLink)) {
+              console.log(`  ✓ ${sectionKey}: Yes with websiteLink`);
               return true;
             }
-            // If websiteLink exists but array is empty, return false
+            // If websiteLink doesn't exist or is empty, return false
             console.log(
-              `  ⚠️ ${sectionKey}: Yes with websiteLink but no array data`
+              `  ⚠️ ${sectionKey}: Yes but websiteLink is missing or empty`
             );
             return false;
           }
@@ -1657,7 +1652,13 @@ class ApiService implements HttpClient {
 
       try {
         // Try to get user's existing draft/in-progress submissions
-        const submissions = await this.getSubmissions(1, 100, undefined, undefined, true);
+        const submissions = await this.getSubmissions(
+          1,
+          100,
+          undefined,
+          undefined,
+          true
+        );
 
         // For STATE_APPROVER: only find submissions that belong to STATE_APPROVER
         // For NODAL_OFFICER: find submissions that belong to NODAL_OFFICER

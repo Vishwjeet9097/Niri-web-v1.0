@@ -286,39 +286,26 @@ export const validateInfraDevelopment = (
           errors["section2_4.websiteLink"] = "Enter a valid website URL.";
         }
         if (
-          !section24.investmentReadyArray ||
-          section24.investmentReadyArray.length === 0
+          section24.investmentReadyArray &&
+          section24.investmentReadyArray.length > 0
         ) {
-          errors["section2_4.investmentReadyArray"] =
-            "At least one project is required.";
-        } else {
           section24.investmentReadyArray.forEach((entry, index) => {
-            if (!entry.projectName || entry.projectName.trim() === "") {
-              errors[`section2_4.investmentReadyArray.${index}.projectName`] =
-                "Project name is required.";
-            } else if (!isAlphabetsOnly(entry.projectName)) {
-              errors[`section2_4.investmentReadyArray.${index}.projectName`] =
-                "Project name should contain only letters, spaces, hyphens, and apostrophes.";
-            }
-            if (!entry.sector || entry.sector.trim() === "") {
-              errors[`section2_4.investmentReadyArray.${index}.sector`] =
-                "Sector is required.";
-            }
-            if (!entry.status || entry.status.trim() === "") {
-              errors[`section2_4.investmentReadyArray.${index}.status`] =
-                "Status is required.";
+            if (entry.projectName && entry.projectName.trim() !== "") {
+              if (!isAlphabetsOnly(entry.projectName)) {
+                errors[`section2_4.investmentReadyArray.${index}.projectName`] =
+                  "Project name should contain only letters, spaces, hyphens, and apostrophes.";
+              }
             }
             const projectSizeStr =
               entry.projectSize != null ? String(entry.projectSize) : "";
-            if (!projectSizeStr || projectSizeStr.trim() === "") {
-              errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
-                "Project size is required.";
-            } else if (
-              !isNonNegativeDecimal(projectSizeStr) ||
-              !hasMaxTwoDecimals(projectSizeStr)
-            ) {
-              errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
-                "Enter a non-negative amount with up to two decimal places.";
+            if (projectSizeStr && projectSizeStr.trim() !== "") {
+              if (
+                !isNonNegativeDecimal(projectSizeStr) ||
+                !hasMaxTwoDecimals(projectSizeStr)
+              ) {
+                errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
+                  "Enter a non-negative amount with up to two decimal places.";
+              }
             }
           });
         }
@@ -351,34 +338,23 @@ export const validateInfraDevelopment = (
           errors["section2_5.websiteLink"] = "Enter a valid website URL.";
         }
         if (
-          !section25.assetMonetizationArray ||
-          section25.assetMonetizationArray.length === 0
+          section25.assetMonetizationArray &&
+          section25.assetMonetizationArray.length > 0
         ) {
-          errors["section2_5.assetMonetizationArray"] =
-            "At least one asset entry is required.";
-        } else {
           section25.assetMonetizationArray.forEach((entry, index) => {
-            if (!entry.projectName || entry.projectName.trim() === "") {
-              errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
-                "Asset/Project name is required.";
-            } else if (!isAlphabetsOnly(entry.projectName)) {
-              errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
-                "Project name should contain only letters, spaces, hyphens, and apostrophes.";
+            if (entry.projectName && entry.projectName.trim() !== "") {
+              if (!isAlphabetsOnly(entry.projectName)) {
+                errors[
+                  `section2_5.assetMonetizationArray.${index}.projectName`
+                ] =
+                  "Project name should contain only letters, spaces, hyphens, and apostrophes.";
+              }
             }
-            if (!entry.type || entry.type.trim() === "") {
-              errors[`section2_5.assetMonetizationArray.${index}.type`] =
-                "Type is required.";
-            }
-            if (!entry.sector || entry.sector.trim() === "") {
-              errors[`section2_5.assetMonetizationArray.${index}.sector`] =
-                "Sector is required.";
-            }
-            if (!entry.location || entry.location.trim() === "") {
-              errors[`section2_5.assetMonetizationArray.${index}.location`] =
-                "Location is required.";
-            } else if (!isAlphabetsOnly(entry.location)) {
-              errors[`section2_5.assetMonetizationArray.${index}.location`] =
-                "Location should contain only letters, spaces, hyphens, and apostrophes.";
+            if (entry.location && entry.location.trim() !== "") {
+              if (!isAlphabetsOnly(entry.location)) {
+                errors[`section2_5.assetMonetizationArray.${index}.location`] =
+                  "Location should contain only letters, spaces, hyphens, and apostrophes.";
+              }
             }
             if (entry.ownership && entry.ownership.length > 100) {
               errors[`section2_5.assetMonetizationArray.${index}.ownership`] =

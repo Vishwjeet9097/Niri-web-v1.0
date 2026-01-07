@@ -2435,19 +2435,7 @@ export const InfraDevelopmentStep = () => {
             const hasWebsiteLink =
               section2_4Data?.websiteLink &&
               section2_4Data.websiteLink.trim() !== "";
-            const hasArray =
-              Array.isArray(section2_4Data?.investmentReadyArray) &&
-              section2_4Data.investmentReadyArray.length > 0 &&
-              section2_4Data.investmentReadyArray.some(
-                (entry: any) =>
-                  entry?.projectName &&
-                  entry.projectName.trim() !== "" &&
-                  entry?.sector &&
-                  entry.sector.trim() !== "" &&
-                  entry?.status &&
-                  entry.status.trim() !== ""
-              );
-            return hasWebsiteLink && hasArray;
+            return hasWebsiteLink;
           }
 
           if (hasInvestmentReady === "no") {
@@ -3859,6 +3847,7 @@ export const InfraDevelopmentStep = () => {
                               ...prev.section2_4,
                               hasInvestmentReady: "yes",
                               comment: "",
+                              websiteLink: prev.section2_4?.websiteLink || "",
                               // Initialize with 1 entry if empty
                               investmentReadyArray:
                                 prev.section2_4?.investmentReadyArray &&
@@ -3963,10 +3952,7 @@ export const InfraDevelopmentStep = () => {
                     <div key={entry.id} className="mb-2">
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                         <div>
-                          <Label>
-                            Project Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Name</Label>
                           <Input
                             type="text"
                             placeholder="Enter project name"
@@ -3998,9 +3984,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>
-                            Sector <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Sector</Label>
                           <Select
                             value={entry.sector}
                             onValueChange={(value) => {
@@ -4036,9 +4020,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>
-                            Status <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Status</Label>
                           <Select
                             value={entry.status}
                             onValueChange={(value) => {
@@ -4074,10 +4056,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>
-                            Project Cost (INR-CRORE){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Cost (INR-CRORE)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -4422,10 +4401,7 @@ export const InfraDevelopmentStep = () => {
                     <div key={entry.id} className="mb-2">
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                         <div>
-                          <Label>
-                            Project/Asset Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project/Asset Name</Label>
                           <Input
                             type="text"
                             placeholder="Enter project/asset name"
@@ -4457,8 +4433,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
                         <div>
                           <Label>
-                            Select Sector{" "}
-                            <span className="text-destructive">*</span>
+                            Select Sector
                             <Tooltip>
                               <TooltipTrigger>
                                 <Info className="inline w-3 h-3 ml-1" />
@@ -4500,10 +4475,7 @@ export const InfraDevelopmentStep = () => {
                           )}
                         </div>
                         <div>
-                          <Label>
-                            Asset Type{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Asset Type</Label>
                           <Select
                             value={entry.type}
                             onValueChange={(value) => {
@@ -4538,10 +4510,7 @@ export const InfraDevelopmentStep = () => {
                           )}
                         </div>
                         <div>
-                          <Label>
-                            Asset Ownership{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Asset Ownership</Label>
                           <Select
                             value={entry.ownership}
                             onValueChange={(value) => {
@@ -4576,10 +4545,7 @@ export const InfraDevelopmentStep = () => {
                           )}
                         </div>
                         <div>
-                          <Label>
-                            Location (City/Cities){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Location (City/Cities)</Label>
                           <Input
                             type="text"
                             placeholder="Enter location"

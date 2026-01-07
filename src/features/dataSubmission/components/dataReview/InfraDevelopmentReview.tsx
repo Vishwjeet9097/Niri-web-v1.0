@@ -7438,10 +7438,7 @@ export const InfraDevelopmentReview = ({
                       </h4>
                       <div className="space-y-4">
                         <div>
-                          <Label>
-                            Project Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Name</Label>
                           <Input
                             value={newEntry2_4.projectName}
                             onChange={(e) =>
@@ -7455,9 +7452,7 @@ export const InfraDevelopmentReview = ({
                           />
                         </div>
                         <div>
-                          <Label>
-                            Sector <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Sector</Label>
                           <Dropdown
                             options={dropdownValues.sector.map((opt) => ({
                               label: opt,
@@ -7475,9 +7470,7 @@ export const InfraDevelopmentReview = ({
                           />
                         </div>
                         <div>
-                          <Label>
-                            Status <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Status</Label>
                           <Dropdown
                             options={INVESTMENT_READY_STATUS_OPTIONS.map(
                               (opt) => ({ label: opt, value: opt })
@@ -7494,10 +7487,7 @@ export const InfraDevelopmentReview = ({
                           />
                         </div>
                         <div>
-                          <Label>
-                            Project Cost (INR-CRORE){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Cost (INR-CRORE)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -8324,9 +8314,7 @@ export const InfraDevelopmentReview = ({
                         )}
                       </div>
                       <div>
-                        <Label>
-                          Location <span className="text-destructive">*</span>
-                        </Label>
+                        <Label>Location</Label>
                         <Input
                           value={newEntry2_5.location}
                           onChange={(e) => {
