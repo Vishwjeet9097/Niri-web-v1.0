@@ -308,11 +308,6 @@ export const validateInfraDevelopment = (
               errors[`section2_4.investmentReadyArray.${index}.status`] =
                 "Status is required.";
             }
-            if (!entry.investmentType || entry.investmentType.trim() === "") {
-              errors[
-                `section2_4.investmentReadyArray.${index}.investmentType`
-              ] = "Type of investment is required.";
-            }
             const projectSizeStr =
               entry.projectSize != null ? String(entry.projectSize) : "";
             if (!projectSizeStr || projectSizeStr.trim() === "") {

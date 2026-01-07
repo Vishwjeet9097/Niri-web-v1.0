@@ -116,7 +116,6 @@ export interface InfraDevelopmentData {
       sector?: string;
       status?: string;
       projectSize?: string;
-      investmentType?: string;
     }>;
     hasInvestmentReady?: string;
     comment?: string;

@@ -166,8 +166,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         (r) =>
           hasMeaningfulValue(r.projectName) &&
           hasMeaningfulValue(r.sector) &&
-          hasMeaningfulValue(r.status) &&
-          hasMeaningfulValue(r.investmentType)
+          hasMeaningfulValue(r.status)
       );
     }
 

@@ -457,8 +457,6 @@ export const InfraDevelopmentReview = ({
     sector: "",
     status: "",
     projectSize: "",
-    investmentType: "",
-    dprFile: null as FileUpload | null,
   });
   const [newEntry2_5, setNewEntry2_5] = useState<{
     projectName: string;
@@ -945,8 +943,6 @@ export const InfraDevelopmentReview = ({
         sector: "",
         status: "",
         projectSize: "",
-        investmentType: "",
-        dprFile: null,
       });
     } else if (sectionId === "2.5") {
       setShowAddForm2_5(false);
@@ -1216,8 +1212,6 @@ export const InfraDevelopmentReview = ({
         sector: "",
         status: "",
         projectSize: "",
-        investmentType: "",
-        dprFile: null,
       });
       // Clear investmentReadyArray, websiteLink, and comment when switching to "no"
       // Note: Section 2.4 doesn't have a top-level file field - files are in investmentReadyArray items as dprFile
@@ -1713,8 +1707,6 @@ export const InfraDevelopmentReview = ({
       sector: newEntry2_4.sector,
       status: newEntry2_4.status,
       projectSize: newEntry2_4.projectSize,
-      investmentType: newEntry2_4.investmentType,
-      dprFile: newEntry2_4.dprFile,
     };
 
     const updatedSection = {
@@ -1736,8 +1728,6 @@ export const InfraDevelopmentReview = ({
       sector: "",
       status: "",
       projectSize: "",
-      investmentType: "",
-      dprFile: null,
     });
     setShowAddForm2_4(false);
   };
@@ -2845,7 +2835,6 @@ export const InfraDevelopmentReview = ({
               sector: item?.sector ?? null,
               status: item?.status ?? null,
               projectSize: item?.projectSize ?? null,
-              investmentType: item?.investmentType ?? null,
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -7222,9 +7211,6 @@ export const InfraDevelopmentReview = ({
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Project Cost (INR-CRORE)
                           </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Type of Investment
-                          </th>
                           {shouldBeEditable("2.4") && (
                             <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                               Action
@@ -7408,44 +7394,6 @@ export const InfraDevelopmentReview = ({
                                     item.projectSize || "N/A"
                                   )}
                                 </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("2.4") ? (
-                                    <div>
-                                      <Dropdown
-                                        options={[
-                                          "Partner",
-                                          "Investor",
-                                          "Other",
-                                        ].map((opt) => ({
-                                          label: opt,
-                                          value: opt,
-                                        }))}
-                                        value={item.investmentType || ""}
-                                        onChange={(value) =>
-                                          handleArrayFieldUpdate(
-                                            "2.4",
-                                            index,
-                                            "investmentType",
-                                            value
-                                          )
-                                        }
-                                        placeholder="Select Type"
-                                        isEditable={true}
-                                      />
-                                      {getFieldError(
-                                        `section2_4.investmentReadyArray.${index}.investmentType`
-                                      ) && (
-                                        <p className="text-sm text-red-500 mt-1">
-                                          {getFieldError(
-                                            `section2_4.investmentReadyArray.${index}.investmentType`
-                                          )}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    item.investmentType || "N/A"
-                                  )}
-                                </td>
                                 {shouldBeEditable("2.4") && (
                                   <td className="py-3 px-4 text-sm font-normal">
                                     <Button
@@ -7565,42 +7513,6 @@ export const InfraDevelopmentReview = ({
                             placeholder="Enter project size"
                           />
                         </div>
-                        <div>
-                          <Label>
-                            Type of Investment{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Dropdown
-                            options={["Partner", "Investor", "Other"].map(
-                              (opt) => ({ label: opt, value: opt })
-                            )}
-                            value={newEntry2_4.investmentType}
-                            onChange={(value) =>
-                              setNewEntry2_4({
-                                ...newEntry2_4,
-                                investmentType: value,
-                              })
-                            }
-                            placeholder="Select Type"
-                            isEditable={true}
-                          />
-                        </div>
-                        <div>
-                          <Label>Upload DPR/Feasibility Report</Label>
-                          <EditableFileDisplay
-                            files={newEntry2_4.dprFile}
-                            isEditable={true}
-                            submissionId={submissionId}
-                            onFilesChange={(updatedFile) =>
-                              setNewEntry2_4({
-                                ...newEntry2_4,
-                                dprFile: toSingleFile(updatedFile),
-                              })
-                            }
-                            label=""
-                            multiple={false}
-                          />
-                        </div>
                       </div>
                       <div className="flex gap-2 mt-4">
                         <Button
@@ -7622,8 +7534,6 @@ export const InfraDevelopmentReview = ({
                               sector: "",
                               status: "",
                               projectSize: "",
-                              investmentType: "",
-                              dprFile: null,
                             });
                           }}
                           className="flex items-center gap-2"

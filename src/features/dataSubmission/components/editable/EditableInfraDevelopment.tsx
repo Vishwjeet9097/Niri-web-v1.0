@@ -201,7 +201,6 @@ export const EditableInfraDevelopment = ({
             sector: "",
             status: "",
             projectSize: "",
-            investmentType: "",
           },
         ],
       },

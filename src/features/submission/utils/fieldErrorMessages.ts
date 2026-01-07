@@ -88,8 +88,6 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section2_4.investmentReadyArray.projectName": "Project name is required.",
   "section2_4.investmentReadyArray.sector": "Sector is required.",
   "section2_4.investmentReadyArray.status": "Status is required.",
-  "section2_4.investmentReadyArray.investmentType":
-    "Type of investment is required.",
   "section2_4.investmentReadyArray.projectSize": "Project size is required.",
   "section2_4.comment": "Comment (reason) is required.",
 

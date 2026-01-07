@@ -780,7 +780,6 @@ export const InfraDevelopmentStep = () => {
               projectName: "",
               sector: "",
               status: "",
-              investmentType: "",
               projectSize: "",
             },
           ],
@@ -1076,13 +1075,7 @@ export const InfraDevelopmentStep = () => {
 
   const updateProject = (
     id: string,
-    field:
-      | "projectName"
-      | "sector"
-      | "status"
-      | "projectSize"
-      | "investmentType"
-      | "dprFile",
+    field: "projectName" | "sector" | "status" | "projectSize" | "dprFile",
     value: any
   ) => {
     const arrKey = sectionArrayKeyMap["section2_4"];
@@ -2452,9 +2445,7 @@ export const InfraDevelopmentStep = () => {
                   entry?.sector &&
                   entry.sector.trim() !== "" &&
                   entry?.status &&
-                  entry.status.trim() !== "" &&
-                  entry?.investmentType &&
-                  entry.investmentType.trim() !== ""
+                  entry.status.trim() !== ""
               );
             return hasWebsiteLink && hasArray;
           }
@@ -3879,7 +3870,6 @@ export const InfraDevelopmentStep = () => {
                                         projectName: "",
                                         sector: "",
                                         status: "",
-                                        investmentType: "",
                                         projectSize: "",
                                       },
                                     ],
@@ -4131,49 +4121,6 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <Label>
-                              Type of Investment{" "}
-                              <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                              value={entry.investmentType}
-                              onValueChange={(value) => {
-                                showErrorsIfNeeded();
-                                updateProject(
-                                  entry.id,
-                                  "investmentType",
-                                  value
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("2.4")}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                      (e) => e.id === entry.id
-                                    )}.investmentType`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {["Partner", "Investor", "Other"].map((t) => (
-                                  <SelectItem key={t} value={t}>
-                                    {t}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {renderFieldError(
-                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.investmentType`
-                            )}
-                          </div>
-
                           <Button
                             type="button"
                             variant="ghost"
@@ -4226,9 +4173,6 @@ export const InfraDevelopmentStep = () => {
                               <th className="py-3 px-4 text-left text-sm font-normal">
                                 Project Cost (INR-CRORE)
                               </th>
-                              <th className="py-3 px-4 text-left text-sm font-normal">
-                                Type of Investment
-                              </th>
                               <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                                 Action
                               </th>
@@ -4253,9 +4197,6 @@ export const InfraDevelopmentStep = () => {
                                 </td>
                                 <td className="py-3 px-4 text-sm">
                                   {entry.projectSize}
-                                </td>
-                                <td className="py-3 px-4 text-sm">
-                                  {entry.investmentType}
                                 </td>
                                 <td className="py-3 px-4">
                                   <button
