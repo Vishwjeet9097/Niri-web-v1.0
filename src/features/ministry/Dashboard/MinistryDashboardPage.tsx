@@ -175,7 +175,7 @@ export function MinistryDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <h1 className="text-xl font-semibold text-[#1E40AF]">
@@ -192,14 +192,14 @@ export function MinistryDashboardPage() {
       </div>
 
       {/* Page Background */}
-      <div className="space-y-6 bg-[#F9FAFB] p-0 rounded-lg">
+      <div className="bg-[#F9FAFB] p-0 rounded-lg">
         {/* --- Overview Section Header --- */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-[#111827]">Overview</h2>
+        <div className="bg-white rounded-lg shadow-sm py-0.5 px-4 -mb-0.5">
+          <h2 className="text-base font-semibold text-[#111827]">Overview</h2>
         </div>
 
         {/* --- Total Indicators + Total Indicators Received Section (Side-by-Side) --- */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 -mt-0.5">
           {/* --- Total Indicators Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
