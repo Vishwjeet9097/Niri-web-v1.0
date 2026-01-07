@@ -350,6 +350,11 @@ export const validateInfraDevelopment = (
       ) {
         errors["section2_5.hasAssetMonetization"] = "Please select Yes or No.";
       } else if (section25.hasAssetMonetization === "yes") {
+        if (!section25.websiteLink || section25.websiteLink.trim() === "") {
+          errors["section2_5.websiteLink"] = "Website link is required.";
+        } else if (!isValidUrl(section25.websiteLink)) {
+          errors["section2_5.websiteLink"] = "Enter a valid website URL.";
+        }
         if (
           !section25.assetMonetizationArray ||
           section25.assetMonetizationArray.length === 0
@@ -379,15 +384,6 @@ export const validateInfraDevelopment = (
             } else if (!isAlphabetsOnly(entry.location)) {
               errors[`section2_5.assetMonetizationArray.${index}.location`] =
                 "Location should contain only letters, spaces, hyphens, and apostrophes.";
-            }
-            // Validate website link (mandatory)
-            const websiteLinkValue = entry.websiteLink?.trim() || "";
-            if (!websiteLinkValue) {
-              errors[`section2_5.assetMonetizationArray.${index}.websiteLink`] =
-                "Website link is required.";
-            } else if (!isValidUrl(websiteLinkValue)) {
-              errors[`section2_5.assetMonetizationArray.${index}.websiteLink`] =
-                "Enter a valid website URL (must start with http:// or https://).";
             }
             if (entry.ownership && entry.ownership.length > 100) {
               errors[`section2_5.assetMonetizationArray.${index}.ownership`] =

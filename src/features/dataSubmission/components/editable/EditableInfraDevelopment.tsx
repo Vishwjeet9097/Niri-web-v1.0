@@ -44,6 +44,7 @@ const defaultData: InfraDevelopmentData = {
     assetMonetizationArray: [],
     hasAssetMonetization: "",
     comment: "",
+    websiteLink: "",
   },
 };
 
@@ -87,11 +88,13 @@ export const EditableInfraDevelopment = ({
             assetMonetizationArray: data.section2_5.assetMonetizationArray,
             hasAssetMonetization: data.section2_5.hasAssetMonetization || "",
             comment: data.section2_5.comment || "",
+            websiteLink: data.section2_5.websiteLink || "",
           }
         : {
             assetMonetizationArray: [],
             hasAssetMonetization: "",
             comment: "",
+            websiteLink: "",
           },
   });
 
@@ -616,7 +619,6 @@ export const EditableInfraDevelopment = ({
                                     type: "",
                                     ownership: "",
                                     location: "",
-                                    websiteLink: "",
                                     estimatedMonetization: "",
                                   },
                                 ],
@@ -651,6 +653,27 @@ export const EditableInfraDevelopment = ({
             {/* If Yes → show fields */}
             {formData.section2_5.hasAssetMonetization === "yes" && (
               <>
+                {/* Website Link - Section Level */}
+                <div>
+                  <Label>
+                    Website Link <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="url"
+                    placeholder="Enter website URL (e.g., https://example.com)"
+                    value={formData.section2_5.websiteLink || ""}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_5: {
+                          ...prev.section2_5,
+                          websiteLink: e.target.value,
+                        },
+                      }));
+                    }}
+                  />
+                </div>
+
                 {formData.section2_5.assetMonetizationArray.map(
                   (asset, index) => (
                     <div

@@ -460,13 +460,19 @@ export const InfraDevelopmentReview = ({
     investmentType: "",
     dprFile: null as FileUpload | null,
   });
-  const [newEntry2_5, setNewEntry2_5] = useState({
+  const [newEntry2_5, setNewEntry2_5] = useState<{
+    projectName: string;
+    sector: string;
+    type: string;
+    ownership: string;
+    location: string;
+    estimatedMonetization: string;
+  }>({
     projectName: "",
     sector: "",
     type: "",
     ownership: "",
     location: "",
-    websiteLink: "",
     estimatedMonetization: "",
   });
 
@@ -950,7 +956,6 @@ export const InfraDevelopmentReview = ({
         type: "",
         ownership: "",
         location: "",
-        websiteLink: "",
         estimatedMonetization: "",
       });
     }
@@ -1279,7 +1284,6 @@ export const InfraDevelopmentReview = ({
         type: "",
         ownership: "",
         location: "",
-        websiteLink: "",
         estimatedMonetization: "",
       });
       // Clear assetMonetizationArray when switching to "no"
@@ -1756,7 +1760,6 @@ export const InfraDevelopmentReview = ({
       type: newEntry2_5.type,
       ownership: newEntry2_5.ownership,
       location: newEntry2_5.location,
-      websiteLink: newEntry2_5.websiteLink,
       estimatedMonetization: newEntry2_5.estimatedMonetization,
     };
 
@@ -7740,7 +7743,6 @@ export const InfraDevelopmentReview = ({
                             type: "",
                             ownership: "",
                             location: "",
-                            websiteLink: "",
                             estimatedMonetization: "",
                           };
                           handleSectionFieldUpdate(
@@ -7792,6 +7794,52 @@ export const InfraDevelopmentReview = ({
             {/* Show table and fields if hasAssetMonetization is "yes" */}
             {state?.section2_5?.hasAssetMonetization === "yes" && (
               <>
+                {/* Website Link - Section Level */}
+                <div className="mb-4">
+                  <Label className="mb-2 block">
+                    Website Link <span className="text-destructive">*</span>
+                  </Label>
+                  {shouldBeEditable("2.5") ? (
+                    <div>
+                      <Input
+                        type="url"
+                        value={state?.section2_5?.websiteLink || ""}
+                        onChange={(e) => {
+                          handleSectionFieldUpdate(
+                            "2.5",
+                            "websiteLink",
+                            e.target.value
+                          );
+                          // Clear validation error when user types
+                          if (getFieldError("section2_5.websiteLink")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section2_5.websiteLink"];
+                              return updated;
+                            });
+                          }
+                        }}
+                        placeholder="Enter website URL (e.g., https://example.com)"
+                        className={
+                          getFieldError("section2_5.websiteLink")
+                            ? "w-full border-red-500"
+                            : "w-full"
+                        }
+                      />
+                      {getFieldError("section2_5.websiteLink") && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {getFieldError("section2_5.websiteLink")}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section2_5?.websiteLink ||
+                        "No website link provided"}
+                    </div>
+                  )}
+                </div>
+
                 <div className="overflow-x-auto rounded-xl">
                   <table className="w-full text-sm">
                     <thead>
@@ -7810,9 +7858,6 @@ export const InfraDevelopmentReview = ({
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Location
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          Website Link
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Estimated Monetization (INR-CRORE)
@@ -7836,7 +7881,7 @@ export const InfraDevelopmentReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("2.5") ? 8 : 7}
+                                colSpan={shouldBeEditable("2.5") ? 7 : 6}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No asset monetization pipeline data available
@@ -8102,59 +8147,6 @@ export const InfraDevelopmentReview = ({
                                   </div>
                                 ) : (
                                   item.location || ""
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("2.5") ? (
-                                  <div>
-                                    <Input
-                                      type="url"
-                                      value={item.websiteLink || ""}
-                                      onChange={(e) => {
-                                        handleArrayFieldUpdate(
-                                          "2.5",
-                                          index,
-                                          "websiteLink",
-                                          e.target.value
-                                        );
-                                        // Clear validation error when user types
-                                        if (
-                                          getFieldError(
-                                            `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                          )
-                                        ) {
-                                          setIndicatorValidationErrors(
-                                            (prev) => {
-                                              const updated = { ...prev };
-                                              delete updated[
-                                                `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                              ];
-                                              return updated;
-                                            }
-                                          );
-                                        }
-                                      }}
-                                      className={
-                                        getFieldError(
-                                          `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                        )
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
-                                      placeholder="Enter website URL"
-                                    />
-                                    {getFieldError(
-                                      `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                    ) && (
-                                      <p className="text-xs text-red-500 mt-1">
-                                        {getFieldError(
-                                          `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                        )}
-                                      </p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  item.websiteLink || ""
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
@@ -8466,53 +8458,6 @@ export const InfraDevelopmentReview = ({
                           </p>
                         )}
                       </div>
-                      <div>
-                        <Label>
-                          Website Link{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          type="url"
-                          value={newEntry2_5.websiteLink}
-                          onChange={(e) => {
-                            setNewEntry2_5({
-                              ...newEntry2_5,
-                              websiteLink: e.target.value,
-                            });
-                            // Clear validation error when user types
-                            if (
-                              getFieldError(
-                                "section2_5.assetMonetizationArray.new.websiteLink"
-                              )
-                            ) {
-                              setIndicatorValidationErrors((prev) => {
-                                const updated = { ...prev };
-                                delete updated[
-                                  "section2_5.assetMonetizationArray.new.websiteLink"
-                                ];
-                                return updated;
-                              });
-                            }
-                          }}
-                          className={
-                            getFieldError(
-                              "section2_5.assetMonetizationArray.new.websiteLink"
-                            )
-                              ? "bg-white border-red-500"
-                              : "bg-white"
-                          }
-                          placeholder="Enter website URL"
-                        />
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.websiteLink"
-                        ) && (
-                          <p className="text-sm text-red-500 mt-1">
-                            {getFieldError(
-                              "section2_5.assetMonetizationArray.new.websiteLink"
-                            )}
-                          </p>
-                        )}
-                      </div>
                       <div className="md:col-span-2">
                         <Label>Estimated Monetization (INR-CRORE)</Label>
                         <Input
@@ -8578,7 +8523,6 @@ export const InfraDevelopmentReview = ({
                             type: "",
                             ownership: "",
                             location: "",
-                            websiteLink: "",
                             estimatedMonetization: "",
                           });
                         }}

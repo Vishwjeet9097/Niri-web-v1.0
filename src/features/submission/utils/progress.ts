@@ -184,8 +184,9 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     const hasAssetMonetization = data?.hasAssetMonetization;
     if (!hasMeaningfulValue(hasAssetMonetization)) return false;
 
-    // If "yes", check for assetMonetizationArray with valid entries
+    // If "yes", check for websiteLink and assetMonetizationArray with valid entries
     if (hasAssetMonetization === "yes") {
+      if (!hasMeaningfulValue(data?.websiteLink)) return false;
       return anyValid(
         data?.assetMonetizationArray,
         (r) =>
@@ -193,8 +194,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
           hasMeaningfulValue(r.sector) &&
           hasMeaningfulValue(r.type) &&
           hasMeaningfulValue(r.ownership) &&
-          hasMeaningfulValue(r.location) &&
-          hasMeaningfulValue(r.websiteLink)
+          hasMeaningfulValue(r.location)
       );
     }
 

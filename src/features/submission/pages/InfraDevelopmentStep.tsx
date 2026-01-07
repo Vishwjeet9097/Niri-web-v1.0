@@ -114,13 +114,13 @@ const defaultData: InfraDevelopmentData = {
         type: "",
         sector: "",
         location: "",
-        websiteLink: "",
         ownership: "",
         estimatedMonetization: "",
       },
     ],
     hasAssetMonetization: "",
     comment: "",
+    websiteLink: "",
   },
 };
 
@@ -1121,7 +1121,6 @@ export const InfraDevelopmentStep = () => {
                 type: "",
                 ownership: "Asset ownership",
                 location: "",
-                websiteLink: "",
                 estimatedMonetization: "",
               },
             ],
@@ -2116,7 +2115,7 @@ export const InfraDevelopmentStep = () => {
                   `${sectionPrefix}.assetMonetizationArray.${index}.type`,
                   `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
                   `${sectionPrefix}.assetMonetizationArray.${index}.location`,
-                  `${sectionPrefix}.assetMonetizationArray.${index}.websiteLink`,
+                  `${sectionPrefix}.websiteLink`,
                   `${sectionPrefix}.assetMonetizationArray.${index}.estimatedMonetization`
                 );
               }
@@ -3944,7 +3943,7 @@ export const InfraDevelopmentStep = () => {
                     </Label>
                     <Input
                       type="url"
-                      placeholder="Enter website URL"
+                      placeholder="Enter website URL (e.g., https://example.com)"
                       value={formData.section2_4.websiteLink || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
@@ -4404,7 +4403,6 @@ export const InfraDevelopmentStep = () => {
                                       type: "",
                                       ownership: "",
                                       location: "",
-                                      websiteLink: "",
                                       estimatedMonetization: "",
                                     },
                                   ],
@@ -4446,12 +4444,42 @@ export const InfraDevelopmentStep = () => {
               {/* If Yes → show fields */}
               {formData.section2_5.hasAssetMonetization === "yes" && (
                 <>
+                  {/* Website Link - Section Level */}
+                  <div className="max-w-[60%]">
+                    <Label>
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="url"
+                      placeholder="Enter website URL (e.g., https://example.com)"
+                      value={formData.section2_5.websiteLink || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_5: {
+                            ...prev.section2_5,
+                            websiteLink: e.target.value,
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.5")}
+                      className={cn(
+                        getInputValidationClass("section2_5.websiteLink"),
+                        isIndicatorSubmitted("2.5") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                    />
+                    {renderFieldError("section2_5.websiteLink")}
+                  </div>
+
+                  {/* Add Assets Section */}
                   {(Array.isArray(formData.section2_5?.assetMonetizationArray)
                     ? formData.section2_5.assetMonetizationArray
                     : []
                   ).map((entry) => (
                     <div key={entry.id} className="mb-2">
-                      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                         <div>
                           <Label>
                             Project/Asset Name{" "}
@@ -4636,45 +4664,6 @@ export const InfraDevelopmentStep = () => {
                             )}.location`
                           )}
                         </div>
-                        <div>
-                          <Label>
-                            Website Link{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="url"
-                            placeholder="Enter website URL (e.g., https://example.com)"
-                            value={entry.websiteLink || ""}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateAsset(
-                                entry.id,
-                                "websiteLink",
-                                e.target.value
-                              );
-                            }}
-                            onBlur={createOnBlurHandler(
-                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.websiteLink`
-                            )}
-                            disabled={isIndicatorSubmitted("2.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.websiteLink`
-                              ),
-                              isIndicatorSubmitted("2.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                              (e) => e.id === entry.id
-                            )}.websiteLink`
-                          )}
-                        </div>
                         <div className="flex items-center gap-2">
                           <div>
                             <Label>Estimated Monetization(INR-CRORE)</Label>
@@ -4761,9 +4750,6 @@ export const InfraDevelopmentStep = () => {
                                 Location
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
-                                Website Link
-                              </th>
-                              <th className="py-3 px-4 text-left text-sm font-normal">
                                 Estimated Monetization (INR-CRORE)
                               </th>
                               <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
@@ -4793,9 +4779,6 @@ export const InfraDevelopmentStep = () => {
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {entry.location || "N/A"}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {entry.websiteLink || "N/A"}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {entry.estimatedMonetization}

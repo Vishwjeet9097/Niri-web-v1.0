@@ -130,11 +130,11 @@ export interface InfraDevelopmentData {
       type?: string;
       ownership?: string;
       location?: string;
-      websiteLink?: string;
       estimatedMonetization?: string;
     }>;
     hasAssetMonetization?: string;
     comment?: string;
+    websiteLink?: string;
   };
 }
 
