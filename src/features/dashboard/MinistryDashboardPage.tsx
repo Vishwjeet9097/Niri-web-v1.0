@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { StateApproverKPICard } from "./components/approver/StateApproverKPICard";
 import { MinistryLatestSubmission } from "./MinistryLatestSubmission";
 import { getMinistryDashboardData, getMinistrySubmissions } from "@/services/ministry.service";
 import {
@@ -11,6 +10,7 @@ import {
   User,
   ClipboardList,
 } from "lucide-react";
+import { MinistryApproverKPICard } from "./components/approver/MinistryApproverKPICard";
 
 // Set to false to use real API when available
  
@@ -214,7 +214,7 @@ export function MinistryDashboardPage() {
             </div>
             <div className="grid gap-4 grid-cols-1">
               {overviewCards.map((card, i) => (
-                <StateApproverKPICard
+                <MinistryApproverKPICard
                   key={`overview-${i}`}
                   title={card.title}
                   value={card.value}
@@ -237,7 +237,7 @@ export function MinistryDashboardPage() {
 
             <div className="grid gap-4 grid-cols-1">
               {indicatorsReceivedCards.map((card, i) => (
-                <StateApproverKPICard
+                <MinistryApproverKPICard
                   key={`ind-${i}`}
                   title={card.title}
                   value={card.value}
@@ -255,7 +255,7 @@ export function MinistryDashboardPage() {
           <h2 className="text-lg font-semibold text-[#111827]">MoSPI</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {mospiCards.map((card, i) => (
-              <StateApproverKPICard
+              <MinistryApproverKPICard
                 key={`mospi-${i}`}
                 title={card.title}
                 value={card.value}
