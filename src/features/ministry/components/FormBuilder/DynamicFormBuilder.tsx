@@ -3,7 +3,7 @@ import { MinistrySectionCard } from '../MinistrySectionCard';
 import { FieldRenderer } from './FieldRenderer';
 import { MinistrySubsectionForm } from './MinistrySubsectionForm';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DynamicFormBuilderProps } from './types';
 
@@ -378,16 +378,21 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   })()}
                   
                   {/* Submit button at the bottom of each indicator */}
-                  {onSectionSubmit && !isSubmitted && (
+                  {onSectionSubmit && (
                     <div className="mt-6 flex justify-start">
                       <Button
                         type="button"
                         variant="default"
-                        onClick={() => onSectionSubmit(indicatorId)}
-                        disabled={submittingIndicator === indicatorId || disabled}
+                        onClick={() => !isSubmitted && onSectionSubmit(indicatorId)}
+                        disabled={isSubmitted || submittingIndicator === indicatorId || disabled}
                         className="flex items-center gap-2"
                       >
-                        {submittingIndicator === indicatorId ? (
+                        {isSubmitted ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            Submitted
+                          </>
+                        ) : submittingIndicator === indicatorId ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
                             Submitting...

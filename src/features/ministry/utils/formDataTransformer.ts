@@ -1,12 +1,37 @@
 /**
+ * Extract the actual value from submittedData based on data type
+ */
+function extractValueFromSubmittedData(submittedData: any, dataType: string): any {
+  if (!submittedData) return null;
+  
+  // Return the appropriate value based on data type
+  if (submittedData.valueText !== null && submittedData.valueText !== undefined) {
+    return submittedData.valueText;
+  }
+  if (submittedData.valueNumber !== null && submittedData.valueNumber !== undefined) {
+    return submittedData.valueNumber;
+  }
+  if (submittedData.valueDate !== null && submittedData.valueDate !== undefined) {
+    return submittedData.valueDate;
+  }
+  if (submittedData.valueJson !== null && submittedData.valueJson !== undefined) {
+    return submittedData.valueJson;
+  }
+  
+  return null;
+}
+
+/**
  * Transforms API response structure to form data structure
- * This ensures backward compatibility with existing form data format
+ * Handles both old format (submittedValue) and new format (submittedData)
  */
 export function transformApiResponseToFormData(
   apiResponse: any[],
   existingFormData?: Record<string, any>
 ): Record<string, any> {
   const formData: Record<string, any> = existingFormData || {};
+  
+  console.log("🔄 Transforming API response to form data:", apiResponse);
 
   apiResponse.forEach((indicatorObj) => {
     Object.entries(indicatorObj).forEach(([indicatorName, sections]: [string, any]) => {
@@ -22,8 +47,22 @@ export function transformApiResponseToFormData(
             // Transform direct inputs
             if (Array.isArray(section.inputs)) {
               section.inputs.forEach((input: any) => {
-                // Only set if not already exists (preserve user input)
-                if (formData[sectionKey][input.id] === undefined) {
+                let submittedValue = null;
+                
+                // Handle new API format (submittedData object)
+                if (input.submittedData) {
+                  submittedValue = extractValueFromSubmittedData(input.submittedData, input.dataType);
+                }
+                // Handle old API format (submittedValue directly)
+                else if (input.submittedValue !== null && input.submittedValue !== undefined) {
+                  submittedValue = input.submittedValue;
+                }
+                
+                // Set the value if we have it
+                if (submittedValue !== null && submittedValue !== undefined) {
+                  formData[sectionKey][input.id] = submittedValue;
+                  console.log(`📝 Loaded ${sectionKey}.${input.id} =`, submittedValue);
+                } else if (formData[sectionKey][input.id] === undefined) {
                   formData[sectionKey][input.id] = '';
                 }
               });
@@ -33,12 +72,12 @@ export function transformApiResponseToFormData(
             if (Array.isArray(section.subsection)) {
               section.subsection.forEach((subsection: any) => {
                 Object.entries(subsection).forEach(([subsectionName, subsectionData]: [string, any]) => {
-                  // CRITICAL: Only initialize if not exists - preserve existing data including empty arrays
-                  // This allows deletions to persist (empty array means user deleted all items)
-                  // If persisted data has an empty array [], it means user deleted all items - preserve it!
-                  // If persisted data has items, preserve those items
-                  // Only initialize with [] if it's truly undefined (first time, no persisted data)
-                  if (formData[sectionKey][subsectionName] === undefined) {
+                  // Use submittedItems if available (backend now provides this)
+                  if (subsectionData.submittedItems && Array.isArray(subsectionData.submittedItems) && subsectionData.submittedItems.length > 0) {
+                    formData[sectionKey][subsectionName] = subsectionData.submittedItems;
+                    console.log(`📝 Loaded ${sectionKey}.${subsectionName} with ${subsectionData.submittedItems.length} submitted items`);
+                  } else if (formData[sectionKey][subsectionName] === undefined) {
+                    // Only initialize if not exists - preserve existing data including empty arrays
                     formData[sectionKey][subsectionName] = [];
                     console.log(`📝 Initialized ${sectionKey}.${subsectionName} with empty array (no persisted data)`);
                   } else {

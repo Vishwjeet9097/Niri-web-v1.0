@@ -1,0 +1,52 @@
+{
+  "SECTOR_OPTIONS": [
+"Roads & Bridges",
+"Ports",
+"Shipyards",
+"Inland Waterways",
+"Airports",
+"Railway Tracks (including electrification, signalling, tunnels, viaducts & bridges)",
+"Railway Rolling Stock (including workshops & maintenance facilities)",
+"Railway Terminal Infrastructure (stations & adjoining commercial infrastructure)",
+"Urban Public Transport (excluding road transport rolling stock)",
+"Logistics Infrastructure",
+"Bulk Material Transportation Pipelines",
+"Electricity Generation ",
+"Electricity Transmission",
+"Electricity Distribution",
+"Oil / Gas / LNG Storage Facilities",
+"Energy Storage Systems (ESS)",
+"Solid Waste Management",
+"Water Treatment Plants",
+"Sewage Collection, Treatment & Disposal Systems",
+"Irrigation Infrastructure (dams, canals, embankments, etc.)",
+"Storm Water Drainage Systems",
+"Telecommunication (Fixed Network)",
+"Telecommunication Towers",
+"Telecom Services",
+"Data Centres",
+"Educational Institutions (Capital Stock)",
+"Sports Infrastructure",
+"Hospitals (Capital Stock)",
+"Tourism Infrastructure (3-Star & Above Hotels outside cities > 1 million population; Ropeways & Cable Cars)",
+"Industrial Park Infrastructure (Industrial Parks, Food Parks, Textile Parks, SEZs, Tourism Facilities, Agricultural Markets)",
+"Post-Harvest Storage Infrastructure (Agriculture & Horticulture, including Cold Storage)",
+"Terminal Markets",
+"Soil Testing Laboratories",
+"Cold Chain Infrastructure",
+"Affordable Housing",
+"Affordable Rental Housing Complexes",
+"Exhibition-cum-Convention Centres"
+],
+  "ASSET_TYPE_OPTIONS": ["Core", "Non-Core", "Other"],
+  "PROJECT_STATUS_OPTIONS": ["Tender Done", "Under Bidding"],
+
+  "SCHEME_NAME_OPTIONS": ["VGF", "IIPDF"],
+
+  "TRAINING_MODE_OPTIONS": ["Online", "Offline"],
+
+  "STATUS_OF_PROPOSAL": ["Approved", "Pending", "Rejected"],
+  "ENVISAGED_IMPACT" : ["Rollout", "Viability", "Technology", "Adoption", "Monitoring", "Capacity Building", "Other"]
+
+}
+

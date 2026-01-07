@@ -170,6 +170,58 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
       );
     }
 
+    // Fields that should be text inputs even if marked as Dropdown in backend
+    const textFieldExclusions = [
+      'type of mechanism',
+      'financing mechanism name',
+      'intended benefit',
+    ];
+    const shouldExcludeFromDropdown = textFieldExclusions.some(exclusion => 
+      field.label?.toLowerCase().includes(exclusion)
+    );
+
+    // Check if this is a dropdown field - ONLY if explicitly marked as Dropdown in UI Component
+    // We ONLY check uiComponent and dataType - NOT validationRules.options or getDropdownOptions result
+    // because those might exist for text fields that shouldn't be dropdowns
+    // Also exclude specific fields that should be text inputs
+    const isDropdownField = !shouldExcludeFromDropdown && (
+                           field.dataType === 'dropdown' || 
+                           field.uiComponent === 'Dropdown' ||
+                           field.uiComponent === 'dropdown');
+
+    // Render dropdown fields first, before the switch statement
+    if (isDropdownField) {
+      const options = getDropdownOptions?.(field.id, field.sectionId, field.label) ||
+        (field.validationRules?.options?.map((opt: string) => ({ value: opt, label: opt })) || []);
+
+      if (options.length === 0) {
+        console.warn(`⚠️ Dropdown field "${field.label}" (${field.id}) in subsection has no options. Field type: ${field.dataType}, UI Component: ${field.uiComponent}`);
+      }
+
+      return (
+        <div className="space-y-2" data-field-path={fieldPath}>
+          <Label>
+            {field.label} {isRequired && <span className="text-destructive">*</span>}
+          </Label>
+          <Dropdown
+            options={options}
+            value={fieldValue || ''}
+            onChange={(value) => {
+              onChange(index, field.id, value);
+              
+              // Always validate on change - this will clear errors if field is valid
+              if (onValidateField && field) {
+                onValidateField(fieldPath, value, field);
+              }
+            }}
+            placeholder={`Select ${field.label}`}
+            isEditable={!disabled}
+          />
+          {error && <p className="text-sm text-destructive mt-1">{error}</p>}
+        </div>
+      );
+    }
+
     switch (field.dataType) {
       case 'string':
         return (
@@ -235,32 +287,6 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
           </div>
         );
 
-      case 'dropdown':
-        const options = getDropdownOptions?.(field.id, field.sectionId, field.label) ||
-          (field.validationRules?.options?.map((opt: string) => ({ value: opt, label: opt })) || []);
-
-        return (
-          <div className="space-y-2" data-field-path={fieldPath}>
-            <Label>
-              {field.label} {isRequired && <span className="text-destructive">*</span>}
-            </Label>
-            <Dropdown
-              options={options}
-              value={fieldValue || ''}
-              onChange={(value) => {
-                onChange(index, field.id, value);
-                
-                // Always validate on change - this will clear errors if field is valid
-                if (onValidateField && field) {
-                  onValidateField(fieldPath, value, field);
-                }
-              }}
-              placeholder={`Select ${field.label}`}
-              isEditable={!disabled}
-            />
-            {error && <p className="text-sm text-destructive mt-1">{error}</p>}
-          </div>
-        );
 
       case 'file':
         return (

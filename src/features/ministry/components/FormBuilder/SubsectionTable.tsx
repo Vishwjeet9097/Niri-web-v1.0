@@ -313,6 +313,45 @@ const CompactFieldRenderer: React.FC<{
     );
   }
 
+  // Fields that should be text inputs even if marked as Dropdown in backend
+  const textFieldExclusions = [
+    'type of mechanism',
+    'financing mechanism name',
+    'intended benefit',
+  ];
+  const shouldExcludeFromDropdown = textFieldExclusions.some(exclusion => 
+    field.label?.toLowerCase().includes(exclusion)
+  );
+
+  // Check if this is a dropdown field - ONLY if explicitly marked as Dropdown in UI Component
+  // We ONLY check uiComponent and dataType - NOT validationRules.options or dropdownOptions
+  // because those might exist for text fields that shouldn't be dropdowns
+  // Also exclude specific fields that should be text inputs
+  const isDropdownField = !shouldExcludeFromDropdown && (
+                         field.dataType === 'dropdown' || 
+                         field.uiComponent === 'Dropdown' ||
+                         field.uiComponent === 'dropdown');
+
+  // Render dropdown fields first, before the switch statement
+  if (isDropdownField) {
+    const options = dropdownOptions ||
+      (field.validationRules?.options?.map(opt => ({ value: opt, label: opt })) || []);
+
+    if (options.length === 0) {
+      console.warn(`⚠️ Dropdown field "${field.label}" (${field.id}) in table has no options. Field type: ${field.dataType}, UI Component: ${field.uiComponent}`);
+    }
+
+    return (
+      <Dropdown
+        options={options}
+        value={value || ''}
+        onChange={onChange}
+        placeholder={`Select ${field.label}`}
+        isEditable={!disabled}
+      />
+    );
+  }
+
   switch (field.dataType) {
     case 'string':
       // Check if this string field should be a textarea
@@ -361,19 +400,6 @@ const CompactFieldRenderer: React.FC<{
         />
       );
 
-    case 'dropdown':
-      const options = dropdownOptions ||
-        (field.validationRules?.options?.map(opt => ({ value: opt, label: opt })) || []);
-
-      return (
-        <Dropdown
-          options={options}
-          value={value || ''}
-          onChange={onChange}
-          placeholder={`Select ${field.label}`}
-          isEditable={!disabled}
-        />
-      );
 
     case 'file':
       // For table cells, render a compact file upload button matching State Approver style

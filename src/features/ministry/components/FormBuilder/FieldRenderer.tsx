@@ -77,52 +77,117 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   const isCalculationInputField = field.label?.toLowerCase().includes('capital expenditure allocation') ||
                                   field.label?.toLowerCase().includes('capital expenditure actuals');
 
+  // Render Yes/No fields as radio buttons FIRST (before dropdown check)
+  // Yes/No fields are stored as one field in backend but displayed as radio buttons in UI
+  if (isYesNoField) {
+    const normalizedValue = normalizeYesNoValue(value);
+    const fieldPath = `${field.sectionId}.${field.id}`;
+    // Format label: "{indicatorName}?"
+    const displayLabel = indicatorName 
+      ? `${indicatorName}?`
+      : `${getDisplayLabel(field.label)}?`;
+    
+    return (
+      <div className="space-y-2" data-field-path={fieldPath}>
+        <Label>
+          {displayLabel} {isRequired && <span className="text-destructive">*</span>}
+        </Label>
+        {mode === 'edit' ? (
+          <RadioGroup
+            value={normalizedValue}
+            onValueChange={(newValue) => {
+              // Store as "yes" or "no" internally (normalized to lowercase)
+              onChange(newValue);
+              // Validate on change
+              if (onValidate && field) {
+                onValidate(fieldPath, newValue, field);
+              }
+            }}
+            className="flex flex-row gap-6"
+            disabled={disabled}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="yes" id={`${field.id}-yes`} disabled={disabled} />
+              <Label htmlFor={`${field.id}-yes`} className="cursor-pointer font-normal">
+                Yes
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="no" id={`${field.id}-no`} disabled={disabled} />
+              <Label htmlFor={`${field.id}-no`} className="cursor-pointer font-normal">
+                No
+              </Label>
+            </div>
+          </RadioGroup>
+        ) : (
+          <p className="text-sm">{denormalizeYesNoValue(value) || 'N/A'}</p>
+        )}
+        {error && <p className="text-sm text-destructive mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  // Fields that should be text inputs even if marked as Dropdown in backend
+  const textFieldExclusions = [
+    'type of mechanism',
+    'financing mechanism name',
+    'intended benefit',
+  ];
+  const shouldExcludeFromDropdown = textFieldExclusions.some(exclusion => 
+    field.label?.toLowerCase().includes(exclusion)
+  );
+
+  // Check if this is a dropdown field - ONLY if explicitly marked as Dropdown in UI Component
+  // Note: Yes/No fields are handled above, so they won't be treated as dropdowns
+  // We ONLY check uiComponent and dataType - NOT validationRules.options or getDropdownOptions result
+  // because those might exist for text fields that shouldn't be dropdowns
+  // Also exclude specific fields that should be text inputs
+  const isDropdownField = !shouldExcludeFromDropdown && (
+                         field.dataType === 'dropdown' || 
+                         field.uiComponent === 'Dropdown' ||
+                         field.uiComponent === 'dropdown');
+
+  // Render dropdown fields before the switch statement
+  if (isDropdownField) {
+    const dropdownFieldPath = `${field.sectionId}.${field.id}`;
+    const options = dropdownOptions || 
+      (field.validationRules?.options?.map(opt => ({ value: opt, label: opt })) || []);
+    
+    // Debug log to help identify dropdown issues
+    if (options.length === 0) {
+      console.warn(`⚠️ Dropdown field "${field.label}" (${field.id}) has no options. Field type: ${field.dataType}, UI Component: ${field.uiComponent}, Label: ${field.label}`);
+    }
+    
+    return (
+      <div className="space-y-2" data-field-path={dropdownFieldPath}>
+        <Label>
+          {field.label} {isRequired && <span className="text-destructive">*</span>}
+        </Label>
+        {mode === 'edit' ? (
+          <Dropdown
+            options={options}
+            value={value || ''}
+            onChange={(newValue) => {
+              onChange(newValue);
+              // Validate on change
+              if (onValidate && field) {
+                onValidate(dropdownFieldPath, newValue, field);
+              }
+            }}
+            placeholder={`Select ${field.label}`}
+            isEditable={!disabled}
+          />
+        ) : (
+          <p className="text-sm">{value || 'N/A'}</p>
+        )}
+        {error && <p className="text-sm text-destructive mt-1">{error}</p>}
+      </div>
+    );
+  }
+
   switch (field.dataType) {
     case 'string':
-      // Render Yes/No fields as radio buttons
-      if (isYesNoField) {
-        const normalizedValue = normalizeYesNoValue(value);
-        const fieldPath = `${field.sectionId}.${field.id}`;
-        // Format label: "{indicatorName}?"
-        const displayLabel = indicatorName 
-          ? `${indicatorName}?`
-          : `${getDisplayLabel(field.label)}?`;
-        
-        return (
-          <div className="space-y-2" data-field-path={fieldPath}>
-            <Label>
-              {displayLabel} {isRequired && <span className="text-destructive">*</span>}
-            </Label>
-            {mode === 'edit' ? (
-              <RadioGroup
-                value={normalizedValue}
-                onValueChange={(newValue) => {
-                  // Store as "yes" or "no" internally
-                  onChange(newValue);
-                }}
-                className="flex flex-row gap-6"
-                disabled={disabled}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id={`${field.id}-yes`} disabled={disabled} />
-                  <Label htmlFor={`${field.id}-yes`} className="cursor-pointer font-normal">
-                    Yes
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id={`${field.id}-no`} disabled={disabled} />
-                  <Label htmlFor={`${field.id}-no`} className="cursor-pointer font-normal">
-                    No
-                  </Label>
-                </div>
-              </RadioGroup>
-            ) : (
-              <p className="text-sm">{denormalizeYesNoValue(value) || 'N/A'}</p>
-            )}
-            {error && <p className="text-sm text-destructive mt-1">{error}</p>}
-          </div>
-        );
-      }
+      // Yes/No fields are already handled above, so we skip them here
       
       // Check if this is a Comment field (TextArea)
       const isCommentField = field.label?.toLowerCase().includes('comment') || 
@@ -242,31 +307,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             />
           ) : (
             <p className="text-sm">{value ?? 'N/A'}</p>
-          )}
-          {error && <p className="text-sm text-destructive mt-1">{error}</p>}
-        </div>
-      );
-
-    case 'dropdown':
-      const dropdownFieldPath = `${field.sectionId}.${field.id}`;
-      const options = dropdownOptions || 
-        (field.validationRules?.options?.map(opt => ({ value: opt, label: opt })) || []);
-      
-      return (
-        <div className="space-y-2" data-field-path={dropdownFieldPath}>
-          <Label>
-            {field.label} {isRequired && <span className="text-destructive">*</span>}
-          </Label>
-          {mode === 'edit' ? (
-            <Dropdown
-              options={options}
-              value={value || ''}
-              onChange={onChange}
-              placeholder={`Select ${field.label}`}
-              isEditable={!disabled}
-            />
-          ) : (
-            <p className="text-sm">{value || 'N/A'}</p>
           )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>

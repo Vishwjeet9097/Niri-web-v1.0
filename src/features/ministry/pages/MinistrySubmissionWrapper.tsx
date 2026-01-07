@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
-import { getMinistrySubmissionDetails, submitIndicatorToMinistryApprover } from "@/services/ministry.service";
+import { getMinistrySubmissionDetails, submitIndicatorToMinistryApprover, minstryRegistrationForm } from "@/services/ministry.service";
 import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
 import type { MinistryStep } from "../types";
 import { FormActions } from "@/features/submission/components/FormActions";
 import { MinistryReviewSubmitStep } from "./MinistryReviewSubmitStep";
+import { MinistryEmptyState } from "../components/MinistryEmptyState";
 
 export function MinistrySubmissionWrapper() {
   const { user } = useAuth();
@@ -31,6 +32,8 @@ export function MinistrySubmissionWrapper() {
   const [submittedIndicators, setSubmittedIndicators] = useState<Set<string>>(new Set());
   const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<string | null>(submissionIdFromParams || null);
+  const [noSubmissionFound, setNoSubmissionFound] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   
   const {
     formData: persistedFormData,
@@ -40,161 +43,365 @@ export function MinistrySubmissionWrapper() {
   const { getFieldError } = useFieldValidation();
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1); // For stepper visual indication
+  
+  // Refs to prevent duplicate API calls and infinite loops
+  const hasCheckedSubmissionRef = useRef(false);
+  const hasFetchedFormRef = useRef(false);
 
   // Check for existing submission (only if no submission ID from params)
   useEffect(() => {
+    // Prevent duplicate calls
+    if (hasCheckedSubmissionRef.current) return;
+    
     const checkExistingSubmission = async () => {
-      // TEMPORARY: Hardcoded submission ID for testing form builder
-      // TODO: Uncomment user validation logic below when ready
-      const HARDCODED_SUBMISSION_ID = "f07697a6-5595-4f73-baf5-1e0c48a351a2"; // Replace with your test submission ID
-      
       // If we have submission ID from params, skip this check
       if (submissionIdFromParams) {
         setSubmissionId(submissionIdFromParams);
         setChecking(false);
+        setNoSubmissionFound(false);
+        setSubmissionError(null);
+        hasCheckedSubmissionRef.current = true;
         return;
       }
 
-      // TEMPORARY: Use hardcoded submission ID for testing
-      setSubmissionId(HARDCODED_SUBMISSION_ID);
-      setChecking(false);
-      return;
-
-      // ============================================
-      // COMMENTED OUT: User validation logic
-      // Uncomment this section when ready to enable user validation
-      // ============================================
-      /*
       try {
-        if (!user?.id) return;
-        
-        console.log("🔍 Checking existing submission for Ministry Approver:", user?.id);
-        const res = await apiService.get(`/submission/user/${user.id}`);
-        const submission = res?.data?.data || res?.data;
-
-        if (submission && submission.id) {
-          console.log("✅ Found existing submission:", submission.id);
-          // Use the retrieve API to load the submission
-          setSubmissionId(submission.id);
+        if (!user?.id) {
+          console.log("⚠️ No user ID found");
           setChecking(false);
+          setNoSubmissionFound(true);
+          setSubmissionError("User not authenticated. Please log in.");
+          hasCheckedSubmissionRef.current = true;
           return;
-        } else {
-          console.log("🆕 No previous submission, proceeding to form");
-          setChecking(false);
         }
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          console.log("🆕 No submission found, proceeding to form");
+
+        // Only check for MINISTRY_APPROVER role
+        if (user?.role !== "MINISTRY_APPROVER") {
+          console.log("⚠️ User is not a Ministry Approver");
           setChecking(false);
-        } else {
-          console.warn("⚠️ Error checking submission:", err);
-          setChecking(false);
+          setNoSubmissionFound(true);
+          setSubmissionError("You don't have permission to access ministry submissions.");
+          hasCheckedSubmissionRef.current = true;
+          return;
         }
-      }
-      */
-    };
-
-    // TEMPORARY: Skip user role check for testing
-    // TODO: Uncomment when ready: if (user?.id && user?.role === "MINISTRY_APPROVER") {
-    checkExistingSubmission();
-    // TODO: Uncomment when ready: }
-  }, [user?.id, user?.role, navigate, submissionIdFromParams]);
-
-  // Fetch form structure using retrieve API only
-  useEffect(() => {
-    const fetchFormStructure = async () => {
-      if (checking) return;
-      
-      // For Ministry Approver, we only use retrieve API
-      // Two scenarios:
-      // 1. Submission ID from URL params
-      // 2. Submission ID from existing submission check
-      if (!submissionId) {
-        console.log("⚠️ No submission ID found. Cannot load form without submission.");
-        toast({
-          title: "No Submission Found",
-          description: "No submission found. Please create a submission first.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-      
-      try {
+        
+        hasCheckedSubmissionRef.current = true;
+        console.log("🔍 Checking existing submission for Ministry Approver using ministry API:", user?.id);
+        // Use the ministry API endpoint directly with userId
+        // This will also load the form data, so we don't need a separate fetchFormStructure call
         setLoading(true);
-        console.log("📋 Fetching submission details using retrieve API:", submissionId);
-        
-        const response = await getMinistrySubmissionDetails(submissionId);
-        
-        console.log("🔍 Raw API Response:", response);
-        console.log("🔍 Response Status:", response?.status);
-        console.log("🔍 Response Data:", response?.data);
-        console.log("🔍 Is Array:", Array.isArray(response?.data));
-        console.log("🔍 Data Length:", response?.data?.length);
-        
+        const response = await getMinistrySubmissionDetails(user.id);
+
         if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
-          console.log("✅ Setting assignedIndicators with:", response.data);
+          console.log("✅ Found existing submission with indicators:", response.data.length);
+          // Submission exists - load the form data directly here
           setAssignedIndicators(response.data);
-          console.log("✅ Loaded submission form structure:", response.data);
           
-          // Transform API response to form data structure
-          // Use persistedFormData only for initial merge (preserves user's previous work)
-          // After initial load, formData state is the source of truth
-          console.log("📦 Loading persistedFormData:", persistedFormData);
+          // Transform API response to form data structure (includes submitted values)
           const initialFormData = transformApiResponseToFormData(response.data, persistedFormData);
-          console.log("✅ Transformed Form Data:", initialFormData);
-          
-          // Log empty arrays to verify deletions are preserved
-          Object.keys(initialFormData).forEach((key) => {
-            if (key.startsWith('section')) {
-              const section = initialFormData[key];
-              Object.keys(section).forEach((subsectionName) => {
-                if (Array.isArray(section[subsectionName]) && section[subsectionName].length === 0) {
-                  console.log(`✅ Preserved empty array: ${key}.${subsectionName} (deletion persisted)`);
-                }
-              });
-            }
-          });
-          
           setFormData(initialFormData);
           
-          // Mark as initial load and update ref to prevent sync effect from triggering
+          // Mark submitted indicators based on status from API
+          const submittedIndicatorsSet = new Set<string>();
+          response.data.forEach((indicatorObj: any) => {
+            Object.entries(indicatorObj).forEach(([categoryName, sections]: [string, any]) => {
+              if (Array.isArray(sections)) {
+                sections.forEach((sectionObj: any) => {
+                  Object.entries(sectionObj).forEach(([sectionName, section]: [string, any]) => {
+                    // If status is DRAFT or any submitted status, mark as submitted
+                    if (section.status && section.status !== null) {
+                      submittedIndicatorsSet.add(section.sNo);
+                    }
+                  });
+                });
+              }
+            });
+          });
+          setSubmittedIndicators(submittedIndicatorsSet);
+          
+          // Mark as initial load
           isInitialLoadRef.current = true;
           prevFormDataRef.current = { ...initialFormData };
-        } else {
-          console.error("❌ Invalid response structure:", {
-            status: response?.status,
-            hasData: !!response?.data,
-            isArray: Array.isArray(response?.data),
-            length: response?.data?.length
+          
+          // Use actual submissionId from API response (same as state submissions)
+          // Try to extract submissionId from response
+          let actualSubmissionId = response.submissionId || null;
+          
+          console.log("🔍 Checking for submissionId in response:", {
+            hasSubmissionId: !!response.submissionId,
+            submissionId: response.submissionId,
+            responseKeys: Object.keys(response || {}),
+            fullResponse: response,
+            responseType: typeof response,
+            responseConstructor: response?.constructor?.name,
+            // Also log the service response to see what getMinistrySubmissionDetails returned
+            serviceResponse: response
           });
+          
+          // CRITICAL: Log what getMinistrySubmissionDetails actually returned
+          console.log("🔍 Full getMinistrySubmissionDetails response:", JSON.stringify(response, null, 2));
+          
+          // IMPORTANT: Also check if submissionId is in the response object itself
+          // Sometimes the API might wrap it differently
+          if (!actualSubmissionId && response && typeof response === 'object') {
+            // Try to find submissionId in any nested structure
+            const searchForSubmissionId = (obj: any, depth = 0): string | null => {
+              if (depth > 5) return null; // Prevent infinite recursion
+              if (!obj || typeof obj !== 'object') return null;
+              
+              if (obj.submissionId && typeof obj.submissionId === 'string') {
+                return obj.submissionId;
+              }
+              
+              for (const value of Object.values(obj)) {
+                if (typeof value === 'object' && value !== null) {
+                  const found = searchForSubmissionId(value, depth + 1);
+                  if (found) return found;
+                }
+              }
+              
+              return null;
+            };
+            
+            actualSubmissionId = searchForSubmissionId(response);
+            if (actualSubmissionId) {
+              console.log("✅ Found submissionId in nested structure:", actualSubmissionId);
+            }
+          }
+          
+          if (actualSubmissionId) {
+            console.log("📋 Using actual submission ID for file uploads:", actualSubmissionId);
+            setSubmissionId(actualSubmissionId);
+          } else {
+            // If still no submissionId, try to extract it from the data structure
+            // The submissionId might be in the first indicator's submissionIndicatorId's parent submission
+            // OR we can fetch it from the simpler endpoint
+            console.warn("⚠️ No submissionId in API response, trying to extract from data or fetch from endpoint...");
+            
+            // First, try to get it from the simpler endpoint
+            try {
+              const submissionResponse = await apiService.get(
+                `/ministry/form/retrieve/submission/${user.id}`,
+                { withCredentials: true }
+              );
+              const submissionData = submissionResponse.data;
+              
+              console.log("🔍 Submission endpoint response structure:", {
+                isArray: Array.isArray(submissionData),
+                type: typeof submissionData,
+                hasSubmissionId: !!submissionData?.submissionId,
+                submissionId: submissionData?.submissionId,
+                responseKeys: submissionData && typeof submissionData === 'object' && !Array.isArray(submissionData) ? Object.keys(submissionData) : 'N/A',
+                fullResponse: submissionData
+              });
+              
+              // Try to get submissionId from response (check multiple possible structures)
+              let fetchedSubmissionId = null;
+              
+              // Case 1: Direct property
+              if (submissionData?.submissionId) {
+                fetchedSubmissionId = submissionData.submissionId;
+              }
+              // Case 2: Nested in submission object
+              else if (submissionData?.submission?.id) {
+                fetchedSubmissionId = submissionData.submission.id;
+              }
+              // Case 3: Top-level id
+              else if (submissionData?.id) {
+                fetchedSubmissionId = submissionData.id;
+              }
+              // Case 4: Nested in data object
+              else if (submissionData?.data?.submissionId) {
+                fetchedSubmissionId = submissionData.data.submissionId;
+              }
+              else if (submissionData?.data?.id) {
+                fetchedSubmissionId = submissionData.data.id;
+              }
+              else if (submissionData?.data?.submission?.id) {
+                fetchedSubmissionId = submissionData.data.submission.id;
+              }
+              
+              if (fetchedSubmissionId) {
+                console.log("✅ Fetched submission ID from submission endpoint:", fetchedSubmissionId);
+                setSubmissionId(fetchedSubmissionId);
+              } else {
+                // Last resort: Extract submissionId from submissionIndicatorId by querying the database
+                // Each indicator has a submissionIndicatorId, and we can use that to get the parent submissionId
+                console.warn("⚠️ No submissionId in API response. Extracting from submissionIndicatorId...");
+                try {
+                  // Find the first submissionIndicatorId in the response data
+                  const findFirstSubmissionIndicatorId = (data: any): string | null => {
+                    if (!data || typeof data !== 'object') return null;
+                    
+                    // Check if it's an array
+                    if (Array.isArray(data)) {
+                      for (const item of data) {
+                        const found = findFirstSubmissionIndicatorId(item);
+                        if (found) return found;
+                      }
+                    } else {
+                      // Check if this object has submissionIndicatorId
+                      if (data.submissionIndicatorId && typeof data.submissionIndicatorId === 'string') {
+                        return data.submissionIndicatorId;
+                      }
+                      
+                      // Recursively search in nested objects
+                      for (const value of Object.values(data)) {
+                        if (typeof value === 'object' && value !== null) {
+                          const found = findFirstSubmissionIndicatorId(value);
+                          if (found) return found;
+                        }
+                      }
+                    }
+                    
+                    return null;
+                  };
+                  
+                  const firstSubmissionIndicatorId = findFirstSubmissionIndicatorId(response.data);
+                  
+                  if (firstSubmissionIndicatorId) {
+                    console.log("✅ Found submissionIndicatorId:", firstSubmissionIndicatorId);
+                    console.log("🔍 Querying backend to get submissionId from submissionIndicatorId...");
+                    
+                    // Query the backend to get submissionId from submissionIndicatorId
+                    try {
+                      // Use the new endpoint to get submissionId from submissionIndicatorId
+                      const submissionIdResponse = await apiService.get(
+                        `/ministry/form/retrieve/submission-id-from-indicator/${firstSubmissionIndicatorId}`,
+                        { withCredentials: true }
+                      );
+                      
+                      const submissionIdData = submissionIdResponse.data;
+                      console.log("🔍 SubmissionId from indicator response:", submissionIdData);
+                      
+                      if (submissionIdData?.submissionId) {
+                        console.log("✅ Successfully extracted submissionId from submissionIndicatorId:", submissionIdData.submissionId);
+                        setSubmissionId(submissionIdData.submissionId);
+                        // Clear loading states before returning
+                        setChecking(false);
+                        setLoading(false);
+                        setNoSubmissionFound(false);
+                        setSubmissionError(null);
+                        return; // Exit early if we found it
+                      } else {
+                        console.error("❌ submissionId not found in response from indicator endpoint");
+                        setSubmissionId(null);
+                        setSubmissionError("Could not extract submissionId from submissionIndicatorId.");
+                        // Clear loading states even on error
+                        setChecking(false);
+                        setLoading(false);
+                      }
+                    } catch (queryError: any) {
+                      console.error("❌ Error querying submissionId from indicator:", queryError);
+                      console.error("❌ Error details:", {
+                        message: queryError?.message,
+                        response: queryError?.response?.data,
+                        status: queryError?.response?.status
+                      });
+                      
+                      // Fallback: Show error about backend not returning submissionId
+                      console.error("❌ Backend is not returning submissionId in the API response!");
+                      console.error("❌ The backend code at line 480 should return: { status, data, message, submissionId }");
+                      console.error("❌ But the actual API response is: { status, data, message }");
+                      console.error("❌ Please check the backend console logs to see if the service method is logging submissionId.");
+                      console.error("❌ If the backend logs show submissionId but the API response doesn't, there may be a response interceptor stripping it.");
+                      
+                      toast({
+                        title: "Backend Configuration Issue",
+                        description: "Unable to retrieve submission ID. Please check the backend console logs and verify the service method is returning submissionId. The backend may need to be restarted or there may be a response interceptor issue.",
+                        variant: "destructive",
+                      });
+                      setSubmissionId(null);
+                      setSubmissionError("Backend not returning submissionId. Check backend logs.");
+                      // Clear loading states on error
+                      setChecking(false);
+                      setLoading(false);
+                    }
+                  } else {
+                    console.error("❌ Could not find submissionIndicatorId in response data");
+                    setSubmissionId(null);
+                    setSubmissionError("Could not extract submissionId from response.");
+                    // Clear loading states on error
+                    setChecking(false);
+                    setLoading(false);
+                  }
+                } catch (extractionError: any) {
+                  console.error("❌ Error in extraction fallback:", extractionError);
+                  setSubmissionId(null);
+                  setSubmissionError("Failed to retrieve submission ID.");
+                  // Clear loading states on error
+                  setChecking(false);
+                  setLoading(false);
+                }
+              }
+            } catch (fetchError: any) {
+              console.error("❌ Error fetching submission ID:", fetchError);
+              console.error("❌ Error details:", {
+                message: fetchError?.message,
+                response: fetchError?.response?.data,
+                status: fetchError?.response?.status,
+                stack: fetchError?.stack
+              });
+              toast({
+                title: "Error",
+                description: "Failed to retrieve submission ID. The backend may need to be restarted. Please contact support.",
+                variant: "destructive",
+              });
+              // Don't use "exists" - leave it null
+              setSubmissionId(null);
+              setSubmissionError("Failed to retrieve submission ID. Backend may need restart.");
+            }
+          }
+          setChecking(false);
+          setLoading(false);
+          setNoSubmissionFound(false);
+          setSubmissionError(null);
+          return;
+        } else {
+          console.log("🆕 No previous submission found for user - no data returned");
+          setChecking(false);
+          setLoading(false);
+          setNoSubmissionFound(true);
+          setSubmissionError(null);
+        }
+      } catch (err: any) {
+        setLoading(false);
+        if (err?.response?.status === 404) {
+          console.log("🆕 No submission found (404), showing empty state");
+          setChecking(false);
+          setNoSubmissionFound(true);
+          setSubmissionError(null);
+        } else {
+          console.error("⚠️ Error checking submission:", err);
+          setChecking(false);
+          setNoSubmissionFound(true);
+          setSubmissionError(
+            err?.response?.data?.message ||
+            err?.message ||
+            "Failed to check for existing submission. Please try again."
+          );
           toast({
-            title: "No Data",
-            description: response?.message || "No form structure found for this submission.",
+            title: "Error",
+            description: "Failed to check for existing submission. Please try again.",
             variant: "destructive",
           });
         }
-      } catch (error: any) {
-        console.error("❌ Error fetching submission details:", error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load submission details",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
       }
     };
 
-    // TEMPORARY: Skip user role check for testing
-    // TODO: Uncomment when ready: if (!checking && user?.role === "MINISTRY_APPROVER") {
-    if (!checking) {
-      fetchFormStructure();
+    if (user?.id && user?.role === "MINISTRY_APPROVER") {
+      checkExistingSubmission();
+    } else if (!user?.id) {
+      setChecking(false);
+      setNoSubmissionFound(true);
+      setSubmissionError("Please log in to access ministry submissions.");
+      hasCheckedSubmissionRef.current = true;
+    } else {
+      setChecking(false);
+      setNoSubmissionFound(true);
+      setSubmissionError("You don't have permission to access ministry submissions.");
+      hasCheckedSubmissionRef.current = true;
     }
-    // TODO: Uncomment when ready: }
-    // NOTE: Removed persistedFormData from dependencies to prevent re-loading when we sync deletions
-    // persistedFormData is only used for initial merge, not as a trigger for re-fetching
-  }, [checking, user?.role, toast, submissionId]); // Removed persistedFormData
+  }, [user?.id, user?.role, submissionIdFromParams, toast]);
 
   // Handle field changes - optimized to prevent full re-renders
   // Real-time validation on field change
@@ -901,6 +1108,7 @@ export function MinistrySubmissionWrapper() {
       const indicatorName = Object.keys(currentIndicator)[0];
       const sections = currentIndicator[indicatorName];
       let currentSection = null;
+      let submissionIndicatorId: string | null = null;
       
       if (Array.isArray(sections)) {
         sections.forEach((sectionObj: any) => {
@@ -908,6 +1116,7 @@ export function MinistrySubmissionWrapper() {
           const section = sectionObj[sectionName];
           if (section.sNo === indicatorCode) {
             currentSection = section;
+            submissionIndicatorId = section.submissionIndicatorId || null;
           }
         });
       }
@@ -916,6 +1125,16 @@ export function MinistrySubmissionWrapper() {
         toast({
           title: "Error",
           description: `Could not find section ${indicatorCode} in form structure.`,
+          variant: "destructive",
+        });
+        setSubmittingIndicator(null);
+        return;
+      }
+
+      if (!submissionIndicatorId) {
+        toast({
+          title: "Error",
+          description: `Could not find submission indicator ID for ${indicatorCode}.`,
           variant: "destructive",
         });
         setSubmittingIndicator(null);
@@ -1054,15 +1273,40 @@ export function MinistrySubmissionWrapper() {
         return;
       }
 
-      if (!submissionId) {
+      // Debug log before submission check
+      console.log("🔍 Pre-submission check - submissionId state:", {
+        submissionId,
+        submissionIdType: typeof submissionId,
+        isNull: submissionId === null,
+        isEmpty: submissionId === "",
+        isExists: submissionId === "exists",
+        submissionIdLength: submissionId?.length,
+        currentIndicator: indicatorCode,
+        sectionKey: sectionKey
+      });
+
+      if (!submissionId || submissionId === "exists") {
+        console.error("❌ Submission blocked - Invalid submissionId:", {
+          submissionId,
+          reason: submissionId === "exists" ? "Using 'exists' placeholder" : "submissionId is null or empty",
+          timestamp: new Date().toISOString()
+        });
         toast({
           title: "Error",
-          description: "No submission ID available.",
+          description: submissionId === "exists" 
+            ? "Invalid submission ID. Please refresh the page to get the correct submission ID."
+            : "No submission ID available. Please refresh the page.",
           variant: "destructive",
         });
         setSubmittingIndicator(null);
         return;
       }
+      
+      console.log("✅ SubmissionId validated - proceeding with submission:", {
+        submissionId,
+        indicatorCode,
+        sectionKey
+      });
 
       // Prepare the form data for this specific indicator
       // Only include the section data for this indicator
@@ -1079,27 +1323,25 @@ export function MinistrySubmissionWrapper() {
       console.log("📋 Section Data:", JSON.stringify(sectionData, null, 2));
       console.log("📋 Category:", category);
       console.log("📋 Indicator Code:", indicatorCode);
-      console.log("📋 Submission ID:", submissionId);
+      console.log("📋 Submission Indicator ID:", submissionIndicatorId);
       console.log("==========================================");
 
-      // TODO: Uncomment when API is ready
-      // await submitIndicatorToMinistryApprover(
-      //   indicatorFormData,
-      //   category,
-      //   indicatorCode,
-      //   submissionId
-      // );
+      // Call the API to submit indicator data
+      const response = await submitIndicatorToMinistryApprover(
+        submissionIndicatorId,
+        sectionData,
+        currentSection,
+        submissionId || undefined // Pass submissionId for file uploads
+      );
 
-      // For now, just log
-      console.log("✅ Would submit indicator:", {
-        submissionId,
-        category,
-        indicatorCode,
-        sectionData: indicatorFormData,
+      console.log("✅ Indicator submission response:", response);
+
+      // Mark indicator as submitted immediately after successful submission
+      setSubmittedIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(indicatorCode);
+        return newSet;
       });
-
-      // Mark indicator as submitted
-      setSubmittedIndicators((prev) => new Set(prev).add(indicatorCode));
 
       toast({
         title: "Success",
@@ -1126,12 +1368,74 @@ export function MinistrySubmissionWrapper() {
     return submittedIndicators.has(indicatorCode);
   }, [submittedIndicators]);
 
+  // Handle creating a new submission
+  const handleCreateSubmission = useCallback(async () => {
+    if (!user?.id || !user?.ministryId) {
+      toast({
+        title: "Error",
+        description: "User information is incomplete. Please contact your administrator.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log("🆕 Creating new ministry submission for user:", user.id);
+      
+      const newSubmission = await minstryRegistrationForm(
+        user.id,
+        user.role,
+        user.ministryId
+      );
+      
+      if (newSubmission?.id || newSubmission?.submissionId) {
+        const createdSubmissionId = newSubmission.id || newSubmission.submissionId;
+        console.log("✅ Created new submission:", createdSubmissionId);
+        setSubmissionId(createdSubmissionId);
+        setNoSubmissionFound(false);
+        setSubmissionError(null);
+        toast({
+          title: "Success",
+          description: "Submission created successfully.",
+          variant: "default",
+        });
+      } else {
+        throw new Error("Submission creation failed - no ID returned");
+      }
+    } catch (error: any) {
+      console.error("❌ Error creating submission:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to create submission. Please try again.",
+        variant: "destructive",
+      });
+      setSubmissionError(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to create submission. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, user?.role, user?.ministryId, toast]);
+
   if (checking) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <RefreshCw className="w-6 h-6 animate-spin mb-2" />
         <p>Checking your submission status...</p>
       </div>
+    );
+  }
+
+  // Show empty state if no submission found
+  if (noSubmissionFound && !submissionId) {
+    return (
+      <MinistryEmptyState
+        onCreateSubmission={handleCreateSubmission}
+        error={submissionError || undefined}
+      />
     );
   }
 
