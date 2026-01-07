@@ -1139,6 +1139,22 @@ export const InfraDevelopmentReview = ({
       ? currentSection.infraDevelopmentArray
       : [];
 
+    // Check for duplicate sectors using state for current data
+    const isDuplicate = existingArray.some(
+      (e: any) =>
+        e.sector === newEntry2_3.sector && newEntry2_3.sector.trim() !== ""
+    );
+
+    if (isDuplicate) {
+      // Show error message
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section2_3.infraDevelopmentArray.new.sector":
+          "This sector has already been selected. Please choose a different sector.",
+      }));
+      return; // Don't add the entry if duplicate
+    }
+
     const newEntry = {
       id: `infra-development-${Date.now()}`,
       sector: newEntry2_3.sector,
@@ -1157,6 +1173,13 @@ export const InfraDevelopmentReview = ({
       ...prev,
       [sectionKey]: updatedSection,
     }));
+
+    // Clear any validation errors
+    setIndicatorValidationErrors((prev) => {
+      const updated = { ...prev };
+      delete updated["section2_3.infraDevelopmentArray.new.sector"];
+      return updated;
+    });
 
     // Reset form
     setNewEntry2_3({ sector: "", files: [] });
@@ -6540,17 +6563,77 @@ export const InfraDevelopmentReview = ({
                                     <div>
                                       <Dropdown
                                         options={dropdownValues.sector.map(
-                                          (opt) => ({ label: opt, value: opt })
+                                          (opt) => {
+                                            // Check if this sector is already selected by another entry
+                                            // Use state to get the most current data during editing
+                                            const infraDevelopmentArray =
+                                              Array.isArray(
+                                                state?.section2_3
+                                                  ?.infraDevelopmentArray
+                                              )
+                                                ? state.section2_3
+                                                    .infraDevelopmentArray
+                                                : [];
+                                            const isAlreadySelected =
+                                              infraDevelopmentArray.some(
+                                                (e: any, idx: number) =>
+                                                  idx !== index &&
+                                                  e.sector === opt &&
+                                                  opt.trim() !== ""
+                                              );
+                                            return {
+                                              label: opt,
+                                              value: opt,
+                                              disabled: isAlreadySelected,
+                                            };
+                                          }
                                         )}
                                         value={item.sector || ""}
-                                        onChange={(value) =>
+                                        onChange={(value) => {
+                                          // Check for duplicate sectors using state for current data
+                                          const infraDevelopmentArray =
+                                            Array.isArray(
+                                              state?.section2_3
+                                                ?.infraDevelopmentArray
+                                            )
+                                              ? state.section2_3
+                                                  .infraDevelopmentArray
+                                              : [];
+                                          const isDuplicate =
+                                            infraDevelopmentArray.some(
+                                              (e: any, idx: number) =>
+                                                idx !== index &&
+                                                e.sector === value &&
+                                                value.trim() !== ""
+                                            );
+                                          if (isDuplicate) {
+                                            // Show error message
+                                            setIndicatorValidationErrors(
+                                              (prev) => ({
+                                                ...prev,
+                                                [`section2_3.infraDevelopmentArray.${index}.sector`]:
+                                                  "This sector has already been selected. Please choose a different sector.",
+                                              })
+                                            );
+                                            return;
+                                          }
+                                          // Clear any previous error
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_3.infraDevelopmentArray.${index}.sector`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
                                           handleArrayFieldUpdate(
                                             "2.3",
                                             index,
                                             "sector",
                                             value
-                                          )
-                                        }
+                                          );
+                                        }}
                                         placeholder="Select Sector"
                                         isEditable={true}
                                         resetKey={selectResetKey}
@@ -6830,17 +6913,68 @@ export const InfraDevelopmentReview = ({
                         <div>
                           <Label>Sector</Label>
                           <Dropdown
-                            options={dropdownValues.sector.map((opt) => ({
-                              label: opt,
-                              value: opt,
-                            }))}
+                            options={dropdownValues.sector.map((opt) => {
+                              // Check if this sector is already selected by an existing entry
+                              // Use state to get the most current data during editing
+                              const infraDevelopmentArray = Array.isArray(
+                                state?.section2_3?.infraDevelopmentArray
+                              )
+                                ? state.section2_3.infraDevelopmentArray
+                                : [];
+                              const isAlreadySelected =
+                                infraDevelopmentArray.some(
+                                  (e: any) =>
+                                    e.sector === opt && opt.trim() !== ""
+                                );
+                              return {
+                                label: opt,
+                                value: opt,
+                                disabled: isAlreadySelected,
+                              };
+                            })}
                             value={newEntry2_3.sector}
-                            onChange={(value) =>
-                              setNewEntry2_3({ ...newEntry2_3, sector: value })
-                            }
+                            onChange={(value) => {
+                              // Check for duplicate sectors using state for current data
+                              const infraDevelopmentArray = Array.isArray(
+                                state?.section2_3?.infraDevelopmentArray
+                              )
+                                ? state.section2_3.infraDevelopmentArray
+                                : [];
+                              const isDuplicate = infraDevelopmentArray.some(
+                                (e: any) =>
+                                  e.sector === value && value.trim() !== ""
+                              );
+                              if (isDuplicate) {
+                                // Show error message
+                                setIndicatorValidationErrors((prev) => ({
+                                  ...prev,
+                                  "section2_3.infraDevelopmentArray.new.sector":
+                                    "This sector has already been selected. Please choose a different sector.",
+                                }));
+                                return;
+                              }
+                              // Clear any previous error
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_3.infraDevelopmentArray.new.sector"
+                                ];
+                                return updated;
+                              });
+                              setNewEntry2_3({ ...newEntry2_3, sector: value });
+                            }}
                             placeholder="Select Sector"
                             isEditable={true}
                           />
+                          {getFieldError(
+                            "section2_3.infraDevelopmentArray.new.sector"
+                          ) && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {getFieldError(
+                                "section2_3.infraDevelopmentArray.new.sector"
+                              )}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <Label>Upload Files</Label>

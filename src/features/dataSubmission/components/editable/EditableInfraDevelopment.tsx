@@ -433,19 +433,42 @@ export const EditableInfraDevelopment = ({
                     </Label>
                     <Select
                       value={entry.sector}
-                      onValueChange={(value) =>
-                        updateEntry("section2_3", entry.id, "sector", value)
-                      }
+                      onValueChange={(value) => {
+                        // Check for duplicate sectors
+                        const isDuplicate =
+                          formData.section2_3.infraDevelopmentArray.some(
+                            (e) =>
+                              e.id !== entry.id &&
+                              e.sector === value &&
+                              value.trim() !== ""
+                          );
+                        if (isDuplicate) {
+                          // You can add a toast notification here if needed
+                          return;
+                        }
+                        updateEntry("section2_3", entry.id, "sector", value);
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a sector" />
                       </SelectTrigger>
                       <SelectContent>
-                        {SECTOR_OPTIONS.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
-                            {sector}
-                          </SelectItem>
-                        ))}
+                        {SECTOR_OPTIONS.map((sector) => {
+                          // Check if this sector is already selected by another entry
+                          const isAlreadySelected =
+                            formData.section2_3.infraDevelopmentArray.some(
+                              (e) => e.id !== entry.id && e.sector === sector
+                            );
+                          return (
+                            <SelectItem
+                              key={sector}
+                              value={sector}
+                              disabled={isAlreadySelected}
+                            >
+                              {sector}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>

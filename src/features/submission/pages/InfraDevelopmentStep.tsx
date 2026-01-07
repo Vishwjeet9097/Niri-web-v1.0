@@ -937,6 +937,31 @@ export const InfraDevelopmentStep = () => {
     if (section === "section2_2" && field === "sector") {
       return;
     }
+
+    // For section2_3, check for duplicate sectors when updating sector field
+    if (section === "section2_3" && field === "sector") {
+      const arrKey = sectionArrayKeyMap[section];
+      const currentArray = Array.isArray((formData as any)[section]?.[arrKey])
+        ? (formData as any)[section][arrKey]
+        : [];
+
+      // Check if the selected sector is already used by another entry
+      const isDuplicate = currentArray.some(
+        (entry: any) =>
+          entry.id !== id && entry.sector === value && value.trim() !== ""
+      );
+
+      if (isDuplicate) {
+        toast({
+          title: "Duplicate Sector",
+          description:
+            "This sector has already been selected. Please choose a different sector.",
+          variant: "destructive",
+        });
+        return; // Don't update if duplicate
+      }
+    }
+
     const arrKey = sectionArrayKeyMap[section];
     setFormData((prev) => {
       let newValue = value;
@@ -3514,11 +3539,23 @@ export const InfraDevelopmentStep = () => {
                               <SelectValue placeholder="Select an option" />
                             </SelectTrigger>
                             <SelectContent>
-                              {SECTOR_OPTIONS.map((sector) => (
-                                <SelectItem key={sector} value={sector}>
-                                  {sector}
-                                </SelectItem>
-                              ))}
+                              {SECTOR_OPTIONS.map((sector) => {
+                                // Check if this sector is already selected by another entry
+                                const isAlreadySelected =
+                                  formData.section2_3.infraDevelopmentArray.some(
+                                    (e) =>
+                                      e.id !== entry.id && e.sector === sector
+                                  );
+                                return (
+                                  <SelectItem
+                                    key={sector}
+                                    value={sector}
+                                    disabled={isAlreadySelected}
+                                  >
+                                    {sector}
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
