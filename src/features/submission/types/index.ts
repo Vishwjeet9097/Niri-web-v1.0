@@ -94,7 +94,6 @@ export interface InfraDevelopmentData {
   section2_2: {
     specializedEntityArray: Array<{
       id: string;
-      sector: string;
       files: FileUpload[];
     }>;
     hasSpecializedEntity?: string;
@@ -117,7 +116,6 @@ export interface InfraDevelopmentData {
       sector?: string;
       status?: string;
       projectSize?: string;
-      investmentType?: string;
     }>;
     hasInvestmentReady?: string;
     comment?: string;
@@ -131,11 +129,11 @@ export interface InfraDevelopmentData {
       type?: string;
       ownership?: string;
       location?: string;
-      websiteLink?: string;
       estimatedMonetization?: string;
     }>;
     hasAssetMonetization?: string;
     comment?: string;
+    websiteLink?: string;
   };
 }
 
@@ -166,7 +164,7 @@ export interface PPPDevelopmentData {
   section3_4: {
     projects: Array<{
       id: string;
-      nameOfProject: string; // Name of PPP/Bankable Projects
+      nameOfProject: string; // Name of Awarded PPP Projects
       infrastructureSector: string; // Infrastructure Sector
       dateOfAward: string; // Date of Award
       totalProjectCost: string; // Total Project Cost (in crore)

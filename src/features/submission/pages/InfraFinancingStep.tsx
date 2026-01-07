@@ -1478,7 +1478,7 @@ export const InfraFinancingStep = () => {
       allocationToGSDP = percentage.toFixed(1) + "%";
     }
 
-    // Calculate % Capex Actuals to GSDP
+    // Calculate % Capex Actuals
     const actualCapex = parseFloat(
       (formData.section1_2.actualCapex || "").toString().replace(/[₹,]/g, "")
     );
@@ -2598,7 +2598,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_1"
                     fieldName="capitalAllocation"
                   >
-                    Capital Allocation for FY (INR)
+                    Capital Allocation for FY (INR-CRORE)
                     {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </MandatoryFieldLabel>
                   <Input
@@ -2644,7 +2644,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_1"
                     fieldName="gsdpForFY"
                   >
-                    GSDP for FY (INR)
+                    GSDP for FY (INR-CRORE)
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </MandatoryFieldLabel>
                   <Input
@@ -2802,14 +2802,14 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_2"
                     fieldName="actualCapex"
                   >
-                    A₁ - Actual Capex (INR)
+                    State Capex Utilisation (INR-CRORE)
                   </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
-                    placeholder="Enter actual capex"
+                    placeholder="Enter state capex utilisation"
                     value={formData.section1_2.actualCapex}
                     onBlur={() => markFieldAsTouched("section1_2.actualCapex")}
                     onChange={(e) => {
@@ -2845,14 +2845,14 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_2"
                     fieldName="stateCapexUtilisation"
                   >
-                    State Capex Utilisation (INR)
+                    Capital Allocation for FY (INR-CRORE)
                   </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
-                    placeholder="Enter state capex utilisation"
+                    placeholder="Enter capital allocation for FY"
                     value={formData.section1_2.stateCapexUtilisation}
                     onBlur={() =>
                       markFieldAsTouched("section1_2.stateCapexUtilisation")
@@ -2893,7 +2893,7 @@ export const InfraFinancingStep = () => {
                     fieldName="capexActualsToGSDP"
                     data={formData.section1_2}
                   >
-                    % Capex Actuals to GSDP
+                    % Capex Actuals
                   </MandatoryFieldLabel>
                   <Input
                     placeholder="Auto-calculated"
@@ -3067,6 +3067,23 @@ export const InfraFinancingStep = () => {
                     <Input
                       type="number"
                       value={formData.section1_3.ulbList.length || 0}
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="w-1/3">
+                    <Label>% of Credit Rated ULBs</Label>
+                    <Input
+                      type="text"
+                      value={
+                        formData.section1_3.totalULBs > 0
+                          ? (
+                              (formData.section1_3.ulbList.length /
+                                formData.section1_3.totalULBs) *
+                              100
+                            ).toFixed(2) + "%"
+                          : "0%"
+                      }
                       readOnly
                       className="bg-gray-50 cursor-not-allowed"
                     />
@@ -3704,6 +3721,23 @@ export const InfraFinancingStep = () => {
                       className="bg-gray-50 cursor-not-allowed"
                     />
                   </div>
+                  <div className="w-1/3">
+                    <Label>% of ULBs Issuing Bonds</Label>
+                    <Input
+                      type="text"
+                      value={
+                        formData.section1_4.totalULBs > 0
+                          ? (
+                              (formData.section1_4.bondList.length /
+                                formData.section1_4.totalULBs) *
+                              100
+                            ).toFixed(2) + "%"
+                          : "0%"
+                      }
+                      readOnly
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                  </div>
                 </div>
 
                 {formData.section1_4.bondList.map((bond, index) => (
@@ -3874,7 +3908,7 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
-                        Value (INR - values is in CRORES)
+                        Value (INR-CRORE)
                         <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -3913,7 +3947,7 @@ export const InfraFinancingStep = () => {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Label>
-                          Tenor of Bond (in years)
+                          Tenor of Bond (in months)
                           <span className="text-red-500">*</span>
                           <Tooltip>
                             <TooltipTrigger>
@@ -4020,7 +4054,7 @@ export const InfraFinancingStep = () => {
                             Value (INR Cr)
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Tenor of Bond (in years)
+                            Tenor of Bond (in months)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action
@@ -4347,7 +4381,7 @@ export const InfraFinancingStep = () => {
 
                         <div>
                           <Label>
-                            Total Funding (INR)
+                            Total Funding (INR-CRORE)
                             <span className="text-red-500">*</span>
                           </Label>
                           <Input
@@ -4478,7 +4512,7 @@ export const InfraFinancingStep = () => {
                                   Year Established
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Total Funding (INR)
+                                  Total Funding (INR-CRORE)
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
                                   Website

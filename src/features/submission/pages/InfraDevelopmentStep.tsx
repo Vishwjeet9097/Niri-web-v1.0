@@ -114,13 +114,13 @@ const defaultData: InfraDevelopmentData = {
         type: "",
         sector: "",
         location: "",
-        websiteLink: "",
         ownership: "",
         estimatedMonetization: "",
       },
     ],
     hasAssetMonetization: "",
     comment: "",
+    websiteLink: "",
   },
 };
 
@@ -780,7 +780,6 @@ export const InfraDevelopmentStep = () => {
               projectName: "",
               sector: "",
               status: "",
-              investmentType: "",
               projectSize: "",
             },
           ],
@@ -876,14 +875,17 @@ export const InfraDevelopmentStep = () => {
           ? "Overarching"
           : "";
 
+      // For section2_2, don't include sector field
+      const newEntry =
+        section === "section2_2"
+          ? { id: crypto.randomUUID(), files: [] }
+          : { id: crypto.randomUUID(), sector: sectorValue, files: [] };
+
       return {
         ...prev,
         [section]: {
           ...(prev as any)[section],
-          [arrKey]: [
-            ...((prev as any)[section]?.[arrKey] || []),
-            { id: crypto.randomUUID(), sector: sectorValue, files: [] },
-          ],
+          [arrKey]: [...((prev as any)[section]?.[arrKey] || []), newEntry],
         },
       } as any;
     });
@@ -911,6 +913,8 @@ export const InfraDevelopmentStep = () => {
       const newArr =
         section === "section2_1" && arr.length === 0
           ? [{ id: crypto.randomUUID(), sector: "", files: [] }]
+          : section === "section2_2" && arr.length === 0
+          ? [{ id: crypto.randomUUID(), files: [] }]
           : arr;
       return {
         ...prev,
@@ -928,6 +932,35 @@ export const InfraDevelopmentStep = () => {
     field: "sector" | "files",
     value: any
   ) => {
+    // Don't allow sector updates for section2_2
+    if (section === "section2_2" && field === "sector") {
+      return;
+    }
+
+    // For section2_3, check for duplicate sectors when updating sector field
+    if (section === "section2_3" && field === "sector") {
+      const arrKey = sectionArrayKeyMap[section];
+      const currentArray = Array.isArray((formData as any)[section]?.[arrKey])
+        ? (formData as any)[section][arrKey]
+        : [];
+
+      // Check if the selected sector is already used by another entry
+      const isDuplicate = currentArray.some(
+        (entry: any) =>
+          entry.id !== id && entry.sector === value && value.trim() !== ""
+      );
+
+      if (isDuplicate) {
+        toast({
+          title: "Duplicate Sector",
+          description:
+            "This sector has already been selected. Please choose a different sector.",
+          variant: "destructive",
+        });
+        return; // Don't update if duplicate
+      }
+    }
+
     const arrKey = sectionArrayKeyMap[section];
     setFormData((prev) => {
       let newValue = value;
@@ -1042,13 +1075,7 @@ export const InfraDevelopmentStep = () => {
 
   const updateProject = (
     id: string,
-    field:
-      | "projectName"
-      | "sector"
-      | "status"
-      | "projectSize"
-      | "investmentType"
-      | "dprFile",
+    field: "projectName" | "sector" | "status" | "projectSize" | "dprFile",
     value: any
   ) => {
     const arrKey = sectionArrayKeyMap["section2_4"];
@@ -1087,7 +1114,6 @@ export const InfraDevelopmentStep = () => {
                 type: "",
                 ownership: "Asset ownership",
                 location: "",
-                websiteLink: "",
                 estimatedMonetization: "",
               },
             ],
@@ -2026,8 +2052,7 @@ export const InfraDevelopmentStep = () => {
             formData.section2_2.specializedEntityArray.forEach(
               (_: any, index: number) => {
                 allIndicatorFields.push(
-                  `${sectionPrefix}.specializedEntityArray.${index}.entityName`,
-                  `${sectionPrefix}.specializedEntityArray.${index}.file`
+                  `${sectionPrefix}.specializedEntityArray.${index}.files`
                 );
               }
             );
@@ -2083,7 +2108,7 @@ export const InfraDevelopmentStep = () => {
                   `${sectionPrefix}.assetMonetizationArray.${index}.type`,
                   `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
                   `${sectionPrefix}.assetMonetizationArray.${index}.location`,
-                  `${sectionPrefix}.assetMonetizationArray.${index}.websiteLink`,
+                  `${sectionPrefix}.websiteLink`,
                   `${sectionPrefix}.assetMonetizationArray.${index}.estimatedMonetization`
                 );
               }
@@ -2410,21 +2435,7 @@ export const InfraDevelopmentStep = () => {
             const hasWebsiteLink =
               section2_4Data?.websiteLink &&
               section2_4Data.websiteLink.trim() !== "";
-            const hasArray =
-              Array.isArray(section2_4Data?.investmentReadyArray) &&
-              section2_4Data.investmentReadyArray.length > 0 &&
-              section2_4Data.investmentReadyArray.some(
-                (entry: any) =>
-                  entry?.projectName &&
-                  entry.projectName.trim() !== "" &&
-                  entry?.sector &&
-                  entry.sector.trim() !== "" &&
-                  entry?.status &&
-                  entry.status.trim() !== "" &&
-                  entry?.investmentType &&
-                  entry.investmentType.trim() !== ""
-              );
-            return hasWebsiteLink && hasArray;
+            return hasWebsiteLink;
           }
 
           if (hasInvestmentReady === "no") {
@@ -2459,7 +2470,7 @@ export const InfraDevelopmentStep = () => {
         return (
           <ProgressHeader
             title="Infrastructure Development"
-            description="Physical infrastructure development and completion metrics. (10 marks per sector, min. 1 sector)"
+            description="Physical infrastructure development and completion metrics"
             points={250}
             completed={completed}
             total={total}
@@ -3105,50 +3116,6 @@ export const InfraDevelopmentStep = () => {
                     <div key={entry.id} className="mb-2 relative">
                       <div className="flex flex-col gap-4 max-w-[70%]">
                         <div className="flex-1 w-full">
-                          <Label>
-                            Select Sector{" "}
-                            <span className="text-destructive">*</span>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>Select the sector</TooltipContent>
-                            </Tooltip>
-                          </Label>
-                          <Select
-                            value={entry.sector}
-                            onValueChange={(value) => {
-                              showErrorsIfNeeded();
-                              updateEntry(
-                                "section2_2",
-                                entry.id,
-                                "sector",
-                                value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("2.2")}
-                          >
-                            <SelectTrigger
-                              className={cn(
-                                getInputValidationClass(
-                                  `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
-                                    (e) => e.id === entry.id
-                                  )}.sector`
-                                )
-                              )}
-                            >
-                              <SelectValue placeholder="Select an option" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SECTOR_OPTIONS.map((sector) => (
-                                <SelectItem key={sector} value={sector}>
-                                  {sector}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex-1 w-full">
                           <FileUploadSection
                             label="Upload File"
                             value={entry.files?.[0] || null}
@@ -3260,9 +3227,6 @@ export const InfraDevelopmentStep = () => {
                       <thead>
                         <tr className="bg-[#DDE3F9]">
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Sector
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3284,9 +3248,6 @@ export const InfraDevelopmentStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {entry.sector}
-                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   No file uploaded
                                 </td>
@@ -3342,9 +3303,6 @@ export const InfraDevelopmentStep = () => {
 
                           return (
                             <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
                               <td className="py-3 px-4 text-sm font-normal">
                                 {displayName}
                               </td>
@@ -3559,11 +3517,23 @@ export const InfraDevelopmentStep = () => {
                               <SelectValue placeholder="Select an option" />
                             </SelectTrigger>
                             <SelectContent>
-                              {SECTOR_OPTIONS.map((sector) => (
-                                <SelectItem key={sector} value={sector}>
-                                  {sector}
-                                </SelectItem>
-                              ))}
+                              {SECTOR_OPTIONS.map((sector) => {
+                                // Check if this sector is already selected by another entry
+                                const isAlreadySelected =
+                                  formData.section2_3.infraDevelopmentArray.some(
+                                    (e) =>
+                                      e.id !== entry.id && e.sector === sector
+                                  );
+                                return (
+                                  <SelectItem
+                                    key={sector}
+                                    value={sector}
+                                    disabled={isAlreadySelected}
+                                  >
+                                    {sector}
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -3877,6 +3847,7 @@ export const InfraDevelopmentStep = () => {
                               ...prev.section2_4,
                               hasInvestmentReady: "yes",
                               comment: "",
+                              websiteLink: prev.section2_4?.websiteLink || "",
                               // Initialize with 1 entry if empty
                               investmentReadyArray:
                                 prev.section2_4?.investmentReadyArray &&
@@ -3888,7 +3859,6 @@ export const InfraDevelopmentStep = () => {
                                         projectName: "",
                                         sector: "",
                                         status: "",
-                                        investmentType: "",
                                         projectSize: "",
                                       },
                                     ],
@@ -3952,7 +3922,7 @@ export const InfraDevelopmentStep = () => {
                     </Label>
                     <Input
                       type="url"
-                      placeholder="Enter website URL"
+                      placeholder="Enter website URL (e.g., https://example.com)"
                       value={formData.section2_4.websiteLink || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
@@ -3982,10 +3952,7 @@ export const InfraDevelopmentStep = () => {
                     <div key={entry.id} className="mb-2">
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                         <div>
-                          <Label>
-                            Project Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Name</Label>
                           <Input
                             type="text"
                             placeholder="Enter project name"
@@ -4017,9 +3984,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>
-                            Sector <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Sector</Label>
                           <Select
                             value={entry.sector}
                             onValueChange={(value) => {
@@ -4055,9 +4020,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>
-                            Status <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Status</Label>
                           <Select
                             value={entry.status}
                             onValueChange={(value) => {
@@ -4093,10 +4056,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>
-                            Project Size (INR - values is in CRORES){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Cost (INR-CRORE)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -4140,49 +4100,6 @@ export const InfraDevelopmentStep = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <Label>
-                              Type of Investment{" "}
-                              <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                              value={entry.investmentType}
-                              onValueChange={(value) => {
-                                showErrorsIfNeeded();
-                                updateProject(
-                                  entry.id,
-                                  "investmentType",
-                                  value
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("2.4")}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                      (e) => e.id === entry.id
-                                    )}.investmentType`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {["Partner", "Investor", "Other"].map((t) => (
-                                  <SelectItem key={t} value={t}>
-                                    {t}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {renderFieldError(
-                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.investmentType`
-                            )}
-                          </div>
-
                           <Button
                             type="button"
                             variant="ghost"
@@ -4233,10 +4150,7 @@ export const InfraDevelopmentStep = () => {
                                 Status
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
-                                Project Size (Cr)
-                              </th>
-                              <th className="py-3 px-4 text-left text-sm font-normal">
-                                Type of Investment
+                                Project Cost (INR-CRORE)
                               </th>
                               <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                                 Action
@@ -4262,9 +4176,6 @@ export const InfraDevelopmentStep = () => {
                                 </td>
                                 <td className="py-3 px-4 text-sm">
                                   {entry.projectSize}
-                                </td>
-                                <td className="py-3 px-4 text-sm">
-                                  {entry.investmentType}
                                 </td>
                                 <td className="py-3 px-4">
                                   <button
@@ -4412,7 +4323,6 @@ export const InfraDevelopmentStep = () => {
                                       type: "",
                                       ownership: "",
                                       location: "",
-                                      websiteLink: "",
                                       estimatedMonetization: "",
                                     },
                                   ],
@@ -4454,17 +4364,44 @@ export const InfraDevelopmentStep = () => {
               {/* If Yes → show fields */}
               {formData.section2_5.hasAssetMonetization === "yes" && (
                 <>
+                  {/* Website Link - Section Level */}
+                  <div className="max-w-[60%]">
+                    <Label>
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="url"
+                      placeholder="Enter website URL (e.g., https://example.com)"
+                      value={formData.section2_5.websiteLink || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_5: {
+                            ...prev.section2_5,
+                            websiteLink: e.target.value,
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.5")}
+                      className={cn(
+                        getInputValidationClass("section2_5.websiteLink"),
+                        isIndicatorSubmitted("2.5") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                    />
+                    {renderFieldError("section2_5.websiteLink")}
+                  </div>
+
+                  {/* Add Assets Section */}
                   {(Array.isArray(formData.section2_5?.assetMonetizationArray)
                     ? formData.section2_5.assetMonetizationArray
                     : []
                   ).map((entry) => (
                     <div key={entry.id} className="mb-2">
-                      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                         <div>
-                          <Label>
-                            Project/Asset Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project/Asset Name</Label>
                           <Input
                             type="text"
                             placeholder="Enter project/asset name"
@@ -4496,8 +4433,7 @@ export const InfraDevelopmentStep = () => {
                         </div>
                         <div>
                           <Label>
-                            Select Sector{" "}
-                            <span className="text-destructive">*</span>
+                            Select Sector
                             <Tooltip>
                               <TooltipTrigger>
                                 <Info className="inline w-3 h-3 ml-1" />
@@ -4539,10 +4475,7 @@ export const InfraDevelopmentStep = () => {
                           )}
                         </div>
                         <div>
-                          <Label>
-                            Asset Type{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Asset Type</Label>
                           <Select
                             value={entry.type}
                             onValueChange={(value) => {
@@ -4577,10 +4510,7 @@ export const InfraDevelopmentStep = () => {
                           )}
                         </div>
                         <div>
-                          <Label>
-                            Asset Ownership{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Asset Ownership</Label>
                           <Select
                             value={entry.ownership}
                             onValueChange={(value) => {
@@ -4615,10 +4545,7 @@ export const InfraDevelopmentStep = () => {
                           )}
                         </div>
                         <div>
-                          <Label>
-                            Location (City/Cities){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Location (City/Cities)</Label>
                           <Input
                             type="text"
                             placeholder="Enter location"
@@ -4644,48 +4571,9 @@ export const InfraDevelopmentStep = () => {
                             )}.location`
                           )}
                         </div>
-                        <div>
-                          <Label>
-                            Website Link{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="url"
-                            placeholder="Enter website URL (e.g., https://example.com)"
-                            value={entry.websiteLink || ""}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateAsset(
-                                entry.id,
-                                "websiteLink",
-                                e.target.value
-                              );
-                            }}
-                            onBlur={createOnBlurHandler(
-                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.websiteLink`
-                            )}
-                            disabled={isIndicatorSubmitted("2.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.websiteLink`
-                              ),
-                              isIndicatorSubmitted("2.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                              (e) => e.id === entry.id
-                            )}.websiteLink`
-                          )}
-                        </div>
                         <div className="flex items-center gap-2">
                           <div>
-                            <Label>Estimated Monetization</Label>
+                            <Label>Estimated Monetization(INR-CRORE)</Label>
                             <Input
                               type="number"
                               placeholder="Estimated Monetization"
@@ -4769,10 +4657,7 @@ export const InfraDevelopmentStep = () => {
                                 Location
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
-                                Website Link
-                              </th>
-                              <th className="py-3 px-4 text-left text-sm font-normal">
-                                Estimated Monetization (INR Cr)
+                                Estimated Monetization (INR-CRORE)
                               </th>
                               <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                                 Action
@@ -4801,9 +4686,6 @@ export const InfraDevelopmentStep = () => {
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {entry.location || "N/A"}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {entry.websiteLink || "N/A"}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {entry.estimatedMonetization}

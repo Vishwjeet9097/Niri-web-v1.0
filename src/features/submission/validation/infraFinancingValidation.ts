@@ -173,7 +173,7 @@ export const validateInfraFinancing = (
           "Enter a non-negative amount with up to two decimal places.";
       } else if (!isGreaterThanZero(section12.actualCapex)) {
         errors["section1_2.actualCapex"] =
-          "Actual Capex must be greater than zero.";
+          "State Capex Utilisation must be greater than zero.";
       }
 
       if (
@@ -184,7 +184,7 @@ export const validateInfraFinancing = (
           "Enter a non-negative amount with up to two decimal places.";
       } else if (!isGreaterThanZero(section12.stateCapexUtilisation)) {
         errors["section1_2.stateCapexUtilisation"] =
-          "State capex utilisation must be greater than zero.";
+          "Capital Allocation for FY must be greater than zero.";
       }
 
       const actualCapex = parseNumber(section12.actualCapex);
@@ -283,7 +283,7 @@ export const validateInfraFinancing = (
           }
           if (!bond.tenorOfBond || bond.tenorOfBond.trim() === "") {
             errors[`${basePath}.tenorOfBond`] =
-              "Tenor of Bond (in years) is required.";
+              "Tenor of Bond (in months) is required.";
           } else if (
             !isNonNegativeDecimal(bond.tenorOfBond) ||
             !hasMaxTwoDecimals(bond.tenorOfBond)

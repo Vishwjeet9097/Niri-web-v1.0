@@ -226,12 +226,22 @@ export const InfraFinancingReview = ({
     Record<string, string>
   >({});
 
+  // State to track if indicator 1.1 is accepted and its capitalAllocation value (for STATE_APPROVER validation)
+  const [isIndicator1_1AcceptedState, setIsIndicator1_1AcceptedState] =
+    useState<boolean | null>(null);
+  const [indicator1_1CapitalAllocation, setIndicator1_1CapitalAllocation] =
+    useState<number | null>(null);
+  // Trigger to refresh indicator 1.1 acceptance check
+  const [refreshIndicator1_1Check, setRefreshIndicator1_1Check] = useState(0);
+
   // State to track if indicator 1.3 is accepted and its totalULBs value (for STATE_APPROVER validation)
   const [isIndicator1_3AcceptedState, setIsIndicator1_3AcceptedState] =
     useState<boolean | null>(null);
   const [indicator1_3TotalULBs, setIndicator1_3TotalULBs] = useState<
     number | null
   >(null);
+  // Trigger to refresh indicator 1.3 acceptance check
+  const [refreshIndicator1_3Check, setRefreshIndicator1_3Check] = useState(0);
 
   // Validate that totalULBs in 1.4 matches totalULBs in 1.3 (STATE_APPROVER only)
   useEffect(() => {
@@ -438,7 +448,7 @@ export const InfraFinancingReview = ({
     };
 
     checkIndicator1_3AcrossSubmissions();
-  }, [submission]);
+  }, [submission, refreshIndicator1_3Check]);
 
   // Helper function to check if indicator 1.3 is accepted (uses cached state)
   const isIndicator1_3Accepted = (): boolean => {
@@ -1098,6 +1108,262 @@ export const InfraFinancingReview = ({
       console.error("Error reading user role:", error);
     }
     return null;
+  };
+
+  // Fetch all submissions for the same state and check if indicator 1.1 is accepted in any of them
+  useEffect(() => {
+    const checkIndicator1_1AcrossSubmissions = async () => {
+      if (!submission) {
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      const currentStateUt =
+        (submission as any)?.stateUt || (submission as any)?.user?.stateUt;
+      if (!currentStateUt) {
+        console.log(
+          "❌ [isIndicator1_1Accepted] No stateUt found in submission"
+        );
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      console.log(
+        "🔍 [isIndicator1_1Accepted] Checking across all submissions for state:",
+        currentStateUt
+      );
+
+      try {
+        // Fetch all submissions
+        const submissionsData = await apiService.getSubmissions(1, 100);
+
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
+          submissionsArray = submissionsData.submissions;
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
+          submissionsArray = (submissionsData as any).data;
+        }
+
+        // Filter submissions for the same state/UT
+        const sameStateSubmissions = submissionsArray.filter((sub: any) => {
+          const subStateUt = sub.stateUt || sub.user?.stateUt;
+          return (
+            subStateUt &&
+            String(subStateUt).toUpperCase() ===
+              String(currentStateUt).toUpperCase()
+          );
+        });
+
+        console.log(
+          "🔍 [isIndicator1_1Accepted] Found submissions for same state:",
+          sameStateSubmissions.length
+        );
+
+        // Check each submission for indicator 1.1 acceptance
+        for (const sub of sameStateSubmissions) {
+          let isAccepted = false;
+          let capitalAllocationValue: number | null = null;
+
+          // Check section_status first
+          if (sub?.section_status && typeof sub.section_status === "object") {
+            const sectionStatus = (sub.section_status as any)["section1_1"];
+            if (sectionStatus === "ACCEPTED" || sectionStatus === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+          }
+
+          // Check completedIndicators
+          if (
+            sub?.section_status?.completedIndicators &&
+            Array.isArray(sub.section_status.completedIndicators)
+          ) {
+            if (sub.section_status.completedIndicators.includes("1.1")) {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 in completedIndicators for submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+          }
+
+          // Check formData
+          if (sub?.formData?.infraFinancing?.section1_1) {
+            const section1_1Data = sub.formData.infraFinancing.section1_1;
+            const statusValue = section1_1Data.status
+              ? String(section1_1Data.status).trim().toUpperCase()
+              : null;
+
+            if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in formData for submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+
+            // Extract capitalAllocation value from accepted indicator 1.1
+            if (isAccepted && section1_1Data.capitalAllocation !== undefined) {
+              const capAllocStr = String(section1_1Data.capitalAllocation)
+                .replace(/[₹,Crores\s]/g, "")
+                .trim();
+              capitalAllocationValue = Number(capAllocStr);
+              if (!isNaN(capitalAllocationValue)) {
+                console.log(
+                  "📊 [isIndicator1_1Accepted] Found capitalAllocation value:",
+                  capitalAllocationValue
+                );
+              }
+            }
+          }
+
+          // If indicator 1.1 is accepted, set state and return
+          if (isAccepted) {
+            setIsIndicator1_1AcceptedState(true);
+            setIndicator1_1CapitalAllocation(capitalAllocationValue);
+            return;
+          }
+        }
+
+        console.log(
+          "❌ [isIndicator1_1Accepted] Indicator 1.1 not found as ACCEPTED in any submission for state:",
+          currentStateUt
+        );
+        setIsIndicator1_1AcceptedState(false);
+      } catch (error) {
+        console.error(
+          "❌ [isIndicator1_1Accepted] Error checking across submissions:",
+          error
+        );
+        setIsIndicator1_1AcceptedState(false);
+      }
+    };
+
+    checkIndicator1_1AcrossSubmissions();
+  }, [submission, refreshIndicator1_1Check]);
+
+  // Validate that Capital Allocation for FY in 1.2 matches Capital Allocation for FY in 1.1 (STATE_APPROVER only)
+  useEffect(() => {
+    const userRole = getUserRole();
+    if (userRole !== "STATE_APPROVER") {
+      // Clear validation error for non-STATE_APPROVER users
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_2.stateCapexUtilisation"];
+        return updated;
+      });
+      return;
+    }
+
+    // Only validate if indicator 1.1 is accepted and capitalAllocation is available
+    if (!isIndicator1_1AcceptedState || !indicator1_1CapitalAllocation) {
+      // Clear validation error if indicator 1.1 is not accepted
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_2.stateCapexUtilisation"];
+        return updated;
+      });
+      return;
+    }
+
+    const currentValue = stateCapexUtilisation || "";
+    if (!currentValue || currentValue.trim() === "") {
+      // Field is empty, don't show validation error yet (let normal validation handle it)
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_2.stateCapexUtilisation"];
+        return updated;
+      });
+      return;
+    }
+
+    // Compare values
+    const indicator1_1Value = Number(indicator1_1CapitalAllocation);
+    const currentValueNum = Number(currentValue);
+
+    if (isNaN(indicator1_1Value) || isNaN(currentValueNum)) {
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_2.stateCapexUtilisation"];
+        return updated;
+      });
+      return;
+    }
+
+    if (indicator1_1Value !== currentValueNum) {
+      // Values don't match, show validation error
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section1_2.stateCapexUtilisation": `This value must equal the Capital Allocation for FY (${indicator1_1CapitalAllocation} INR-CRORE) from indicator 1.1`,
+      }));
+    } else {
+      // Values match, clear validation error
+      setIndicatorValidationErrors((prev) => {
+        const updated = { ...prev };
+        delete updated["section1_2.stateCapexUtilisation"];
+        return updated;
+      });
+    }
+  }, [
+    stateCapexUtilisation,
+    indicator1_1CapitalAllocation,
+    isIndicator1_1AcceptedState,
+  ]);
+
+  // Helper function to check if indicator 1.1 is accepted (uses cached state)
+  const isIndicator1_1Accepted = (): boolean => {
+    // Use the cached state from useEffect
+    if (isIndicator1_1AcceptedState === null) {
+      // Still loading, return false for now
+      return false;
+    }
+    return isIndicator1_1AcceptedState;
+  };
+
+  // Helper function to check if Capital Allocation for FY in 1.2 matches Capital Allocation for FY in 1.1
+  const doesCapitalAllocationMatch = (): boolean => {
+    // Only check at STATE_APPROVER level
+    const userRole = getUserRole();
+    if (userRole !== "STATE_APPROVER") {
+      return true; // No validation for other roles
+    }
+
+    // If indicator 1.1 is not accepted, don't validate
+    if (!isIndicator1_1Accepted()) {
+      return true;
+    }
+
+    // If capitalAllocation is not available, don't validate
+    if (!indicator1_1CapitalAllocation) {
+      return true;
+    }
+
+    const currentValue = stateCapexUtilisation || "";
+    if (!currentValue || currentValue.trim() === "") {
+      return false; // Field is empty, doesn't match
+    }
+
+    // Compare values
+    const indicator1_1Value = Number(indicator1_1CapitalAllocation);
+    const currentValueNum = Number(currentValue);
+
+    if (isNaN(indicator1_1Value) || isNaN(currentValueNum)) {
+      return false;
+    }
+
+    return indicator1_1Value === currentValueNum;
   };
 
   // Initialize section 1.2 state from formData/submissionData (but not when restoring from cancel)
@@ -3615,6 +3881,24 @@ export const InfraFinancingReview = ({
         }status updated successfully`
       );
 
+      // Trigger refresh of acceptance checks if indicator 1.1 or 1.3 was accepted
+      // Add a small delay to ensure server has processed the acceptance
+      if (status && statusValue === "ACCEPTED") {
+        setTimeout(() => {
+          if (sectionId === "1.1") {
+            console.log(
+              "🔄 [Auto-refresh] Triggering refresh of indicator 1.1 acceptance check"
+            );
+            setRefreshIndicator1_1Check((prev) => prev + 1);
+          } else if (sectionId === "1.3") {
+            console.log(
+              "🔄 [Auto-refresh] Triggering refresh of indicator 1.3 acceptance check"
+            );
+            setRefreshIndicator1_3Check((prev) => prev + 1);
+          }
+        }, 500); // 500ms delay to ensure server has processed the acceptance
+      }
+
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
         window.dispatchEvent(
@@ -4583,12 +4867,24 @@ export const InfraFinancingReview = ({
 
         {!isNodalOfficer &&
           (() => {
+            // For STATE_APPROVER, check if indicator 1.1 is accepted before allowing acceptance of 1.2
             // For STATE_APPROVER, check if indicator 1.3 is accepted before allowing acceptance of 1.4
             const isEditing = shouldBeEditable(sectionId);
             const userRole = getUserRole();
             const isStateApprover = userRole === "STATE_APPROVER";
+            const isIndicator1_1AcceptedValue = isIndicator1_1Accepted();
+            const capitalAllocationMatches = doesCapitalAllocationMatch();
             const isIndicator1_3AcceptedValue = isIndicator1_3Accepted();
             const totalULBsMatches = doesTotalULBsMatch();
+            const shouldDisableFor1_2_NotAccepted =
+              isStateApprover &&
+              sectionId === "1.2" &&
+              !isIndicator1_1AcceptedValue;
+            const shouldDisableFor1_2_NotMatching =
+              isStateApprover &&
+              sectionId === "1.2" &&
+              isIndicator1_1AcceptedValue &&
+              !capitalAllocationMatches;
             const shouldDisableFor1_4_NotAccepted =
               isStateApprover &&
               sectionId === "1.4" &&
@@ -4600,6 +4896,8 @@ export const InfraFinancingReview = ({
               !totalULBsMatches;
             const isDisabled =
               isEditing ||
+              shouldDisableFor1_2_NotAccepted ||
+              shouldDisableFor1_2_NotMatching ||
               shouldDisableFor1_4_NotAccepted ||
               shouldDisableFor1_4_NotMatching;
 
@@ -4623,7 +4921,11 @@ export const InfraFinancingReview = ({
                   {isDisabled && (
                     <TooltipContent side="top" className="max-w-xs">
                       <p className="text-sm">
-                        {shouldDisableFor1_4_NotAccepted
+                        {shouldDisableFor1_2_NotAccepted
+                          ? "Indicator 1.1 must be accepted before accepting indicator 1.2"
+                          : shouldDisableFor1_2_NotMatching
+                          ? `Capital Allocation for FY must equal the Capital Allocation for FY (${indicator1_1CapitalAllocation} INR-CRORE) from indicator 1.1`
+                          : shouldDisableFor1_4_NotAccepted
                           ? "Indicator 1.3 must be accepted before accepting indicator 1.4"
                           : shouldDisableFor1_4_NotMatching
                           ? `Total Number of ULBs must equal the Total Number of ULBs (${indicator1_3TotalULBs}) from indicator 1.3`
@@ -4774,7 +5076,7 @@ export const InfraFinancingReview = ({
                 <Label>
                   Capital Allocation for FY{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -4843,7 +5145,7 @@ export const InfraFinancingReview = ({
                 <Label>
                   GSDP for FY{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -5102,9 +5404,9 @@ export const InfraFinancingReview = ({
               </div>
               <div>
                 <Label>
-                  A₁ - Actual Capex{" "}
+                  State Capex Utilisation{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -5155,7 +5457,7 @@ export const InfraFinancingReview = ({
                       }
                     }
                   )}
-                  placeholder="Enter Actual Capex value"
+                  placeholder="Enter State Capex Utilisation value"
                   readOnly={!isEditable("1.2")}
                   className={cn(
                     isEditable("1.2") ? "bg-white" : "bg-gray-50",
@@ -5173,9 +5475,9 @@ export const InfraFinancingReview = ({
               </div>
               <div>
                 <Label>
-                  State Capex Utilisation{" "}
+                  Capital Allocation for FY{" "}
                   <span className="text-xs text-muted-foreground">
-                    (INR - values is in CRORES)
+                    (INR-CRORE)
                   </span>
                 </Label>
                 <Input
@@ -5231,7 +5533,7 @@ export const InfraFinancingReview = ({
                       }
                     }
                   )}
-                  placeholder="Enter State Capex Utilisation value"
+                  placeholder="Enter Capital Allocation for FY value"
                   readOnly={!isEditable("1.2")}
                   className={cn(
                     isEditable("1.2") ? "bg-white" : "bg-gray-50",
@@ -5250,7 +5552,7 @@ export const InfraFinancingReview = ({
                 )}
               </div>
               <div className="">
-                <Label>% Capex Actuals to GSDP</Label>
+                <Label>% Capex Actuals</Label>
                 <Input
                   value={(() => {
                     // Get values from local state if in edit mode, otherwise from formData
@@ -5553,7 +5855,7 @@ export const InfraFinancingReview = ({
                          />
                       </div>
                       <div>
-                        <Label>Value (INR)</Label>
+                        <Label>Value (INR-CRORE)</Label>
                         <Input
                           value={item.value ? `₹ ${item.value} Crores` : ""}
                           readOnly={!isEditable('1.4')}

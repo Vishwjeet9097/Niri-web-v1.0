@@ -41,9 +41,10 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "Calculated allocation to GSDP cannot exceed 100%.",
 
   // Section 1.2
-  "section1_2.actualCapex": "Actual Capex must be greater than zero.",
+  "section1_2.actualCapex":
+    "State Capex Utilisation must be greater than zero.",
   "section1_2.stateCapexUtilisation":
-    "State Capex Utilization must be greater than zero.",
+    "Capital Allocation for FY must be greater than zero.",
   "section1_2.capexActualsToGSDP":
     "Calculated capex actuals to GSDP cannot exceed 100%.",
 
@@ -70,7 +71,6 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // Section 2.2
   "section2_2.specializedEntityArray":
     "At least one specialized entity entry is required.",
-  "section2_2.specializedEntityArray.sector": "Sector is required.",
   "section2_2.specializedEntityArray.files": "Upload evidence is required.",
 
   // Section 2.3
@@ -88,8 +88,6 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section2_4.investmentReadyArray.projectName": "Project name is required.",
   "section2_4.investmentReadyArray.sector": "Sector is required.",
   "section2_4.investmentReadyArray.status": "Status is required.",
-  "section2_4.investmentReadyArray.investmentType":
-    "Type of investment is required.",
   "section2_4.investmentReadyArray.projectSize": "Project size is required.",
   "section2_4.comment": "Comment (reason) is required.",
 
@@ -130,9 +128,9 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // Section 3.4
   "section3_4.projects": "At least one project is required.",
   "section3_4.totalProjectsAwarded":
-    "Total Budgeted capital allocation (INR - values is in CRORES) is required.",
+    "Total Budgeted capital allocation (INR-CRORE) is required.",
   "section3_4.totalProjectCostAwarded":
-    "Total of all TPC of all Projects (INR - values is in CRORES) is required.",
+    "Total of TPC of PPP Projects (INR-CRORE) is required.",
   "section3_4.projects.totalProjectCost":
     "Enter a valid non-negative amount with up to two decimal places.",
   "section3_4.projects.infrastructureSector":

@@ -126,9 +126,8 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.hasSpecializedEntity)) return false;
     if (d?.hasSpecializedEntity === "yes") {
-      return anyValid(
-        data?.specializedEntityArray,
-        (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
+      return anyValid(data?.specializedEntityArray, (r) =>
+        hasMeaningfulValue(r.files)
       );
     }
     // If "no", comment is required
@@ -159,17 +158,10 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     const hasInvestmentReady = data?.hasInvestmentReady;
     if (!hasMeaningfulValue(hasInvestmentReady)) return false;
 
-    // If "yes", check for websiteLink and investmentReadyArray with valid entries
+    // If "yes", check for websiteLink only
     if (hasInvestmentReady === "yes") {
       if (!hasMeaningfulValue(data?.websiteLink)) return false;
-      return anyValid(
-        data?.investmentReadyArray,
-        (r) =>
-          hasMeaningfulValue(r.projectName) &&
-          hasMeaningfulValue(r.sector) &&
-          hasMeaningfulValue(r.status) &&
-          hasMeaningfulValue(r.investmentType)
-      );
+      return true;
     }
 
     // If "no", check for comment
@@ -185,18 +177,10 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     const hasAssetMonetization = data?.hasAssetMonetization;
     if (!hasMeaningfulValue(hasAssetMonetization)) return false;
 
-    // If "yes", check for assetMonetizationArray with valid entries
+    // If "yes", check for websiteLink only
     if (hasAssetMonetization === "yes") {
-      return anyValid(
-        data?.assetMonetizationArray,
-        (r) =>
-          hasMeaningfulValue(r.projectName) &&
-          hasMeaningfulValue(r.sector) &&
-          hasMeaningfulValue(r.type) &&
-          hasMeaningfulValue(r.ownership) &&
-          hasMeaningfulValue(r.location) &&
-          hasMeaningfulValue(r.websiteLink)
-      );
+      if (!hasMeaningfulValue(data?.websiteLink)) return false;
+      return true;
     }
 
     // If "no", check for comment

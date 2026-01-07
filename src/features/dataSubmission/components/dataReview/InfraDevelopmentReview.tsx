@@ -446,7 +446,6 @@ export const InfraDevelopmentReview = ({
     files: [] as FileUpload[],
   });
   const [newEntry2_2, setNewEntry2_2] = useState({
-    sector: "",
     files: [] as FileUpload[],
   });
   const [newEntry2_3, setNewEntry2_3] = useState({
@@ -458,16 +457,20 @@ export const InfraDevelopmentReview = ({
     sector: "",
     status: "",
     projectSize: "",
-    investmentType: "",
-    dprFile: null as FileUpload | null,
   });
-  const [newEntry2_5, setNewEntry2_5] = useState({
+  const [newEntry2_5, setNewEntry2_5] = useState<{
+    projectName: string;
+    sector: string;
+    type: string;
+    ownership: string;
+    location: string;
+    estimatedMonetization: string;
+  }>({
     projectName: "",
     sector: "",
     type: "",
     ownership: "",
     location: "",
-    websiteLink: "",
     estimatedMonetization: "",
   });
 
@@ -734,7 +737,6 @@ export const InfraDevelopmentReview = ({
         (sectionData as any).specializedEntityArray.forEach(
           (_: any, index: number) => {
             allSectionFields.push(
-              `${sectionPrefix}.specializedEntityArray.${index}.sector`,
               `${sectionPrefix}.specializedEntityArray.${index}.files`
             );
           }
@@ -930,7 +932,7 @@ export const InfraDevelopmentReview = ({
       setNewEntry2_1({ sector: "", files: [] });
     } else if (sectionId === "2.2") {
       setShowAddForm2_2(false);
-      setNewEntry2_2({ sector: "", files: [] });
+      setNewEntry2_2({ files: [] });
     } else if (sectionId === "2.3") {
       setShowAddForm2_3(false);
       setNewEntry2_3({ sector: "", files: [] });
@@ -941,8 +943,6 @@ export const InfraDevelopmentReview = ({
         sector: "",
         status: "",
         projectSize: "",
-        investmentType: "",
-        dprFile: null,
       });
     } else if (sectionId === "2.5") {
       setShowAddForm2_5(false);
@@ -952,7 +952,6 @@ export const InfraDevelopmentReview = ({
         type: "",
         ownership: "",
         location: "",
-        websiteLink: "",
         estimatedMonetization: "",
       });
     }
@@ -1006,7 +1005,6 @@ export const InfraDevelopmentReview = ({
 
     const newEntry = {
       id: `specialized-entity-${Date.now()}`,
-      sector: newEntry2_2.sector,
       files: newEntry2_2.files,
     };
 
@@ -1024,7 +1022,7 @@ export const InfraDevelopmentReview = ({
     }));
 
     // Reset form
-    setNewEntry2_2({ sector: "", files: [] });
+    setNewEntry2_2({ files: [] });
     setShowAddForm2_2(false);
   };
 
@@ -1142,6 +1140,22 @@ export const InfraDevelopmentReview = ({
       ? currentSection.infraDevelopmentArray
       : [];
 
+    // Check for duplicate sectors using state for current data
+    const isDuplicate = existingArray.some(
+      (e: any) =>
+        e.sector === newEntry2_3.sector && newEntry2_3.sector.trim() !== ""
+    );
+
+    if (isDuplicate) {
+      // Show error message
+      setIndicatorValidationErrors((prev) => ({
+        ...prev,
+        "section2_3.infraDevelopmentArray.new.sector":
+          "This sector has already been selected. Please choose a different sector.",
+      }));
+      return; // Don't add the entry if duplicate
+    }
+
     const newEntry = {
       id: `infra-development-${Date.now()}`,
       sector: newEntry2_3.sector,
@@ -1160,6 +1174,13 @@ export const InfraDevelopmentReview = ({
       ...prev,
       [sectionKey]: updatedSection,
     }));
+
+    // Clear any validation errors
+    setIndicatorValidationErrors((prev) => {
+      const updated = { ...prev };
+      delete updated["section2_3.infraDevelopmentArray.new.sector"];
+      return updated;
+    });
 
     // Reset form
     setNewEntry2_3({ sector: "", files: [] });
@@ -1191,8 +1212,6 @@ export const InfraDevelopmentReview = ({
         sector: "",
         status: "",
         projectSize: "",
-        investmentType: "",
-        dprFile: null,
       });
       // Clear investmentReadyArray, websiteLink, and comment when switching to "no"
       // Note: Section 2.4 doesn't have a top-level file field - files are in investmentReadyArray items as dprFile
@@ -1259,7 +1278,6 @@ export const InfraDevelopmentReview = ({
         type: "",
         ownership: "",
         location: "",
-        websiteLink: "",
         estimatedMonetization: "",
       });
       // Clear assetMonetizationArray when switching to "no"
@@ -1488,7 +1506,7 @@ export const InfraDevelopmentReview = ({
       value === "no"
     ) {
       setShowAddForm2_2(false);
-      setNewEntry2_2({ sector: "", files: [] });
+      setNewEntry2_2({ files: [] });
       // Clear specializedEntityArray and comment when switching to "no"
       // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
       const updatedSection = {
@@ -1535,7 +1553,7 @@ export const InfraDevelopmentReview = ({
     ) {
       // When switching to "yes", clear all existing files and start fresh
       setShowAddForm2_2(false);
-      setNewEntry2_2({ sector: "", files: [] });
+      setNewEntry2_2({ files: [] });
 
       // Start with a fresh array (empty, user will add entries)
       const updatedArray: any[] = [];
@@ -1689,8 +1707,6 @@ export const InfraDevelopmentReview = ({
       sector: newEntry2_4.sector,
       status: newEntry2_4.status,
       projectSize: newEntry2_4.projectSize,
-      investmentType: newEntry2_4.investmentType,
-      dprFile: newEntry2_4.dprFile,
     };
 
     const updatedSection = {
@@ -1712,8 +1728,6 @@ export const InfraDevelopmentReview = ({
       sector: "",
       status: "",
       projectSize: "",
-      investmentType: "",
-      dprFile: null,
     });
     setShowAddForm2_4(false);
   };
@@ -1736,7 +1750,6 @@ export const InfraDevelopmentReview = ({
       type: newEntry2_5.type,
       ownership: newEntry2_5.ownership,
       location: newEntry2_5.location,
-      websiteLink: newEntry2_5.websiteLink,
       estimatedMonetization: newEntry2_5.estimatedMonetization,
     };
 
@@ -2463,12 +2476,12 @@ export const InfraDevelopmentReview = ({
             section?.comment !== null &&
             section?.comment !== undefined &&
             section?.comment !== "";
-          
+
           // If boolean or comment is set, return true
           if (hasBoolean || hasComment) {
             return true;
           }
-          
+
           // Otherwise check array data
           const items = Array.isArray(section?.assetMonetizationArray)
             ? section.assetMonetizationArray
@@ -2552,9 +2565,12 @@ export const InfraDevelopmentReview = ({
       // BUT: Always keep sections that were previously submitted, even if they have no data now
       const existingSections = allPossibleSections.filter((sectionKey) => {
         const section = state[sectionKey];
-        
+
         // Exclude SAVE_AS_DRAFT indicators from review
-        if (section?.status && section.status.toUpperCase() === "SAVE_AS_DRAFT") {
+        if (
+          section?.status &&
+          section.status.toUpperCase() === "SAVE_AS_DRAFT"
+        ) {
           return false; // Exclude SAVE_AS_DRAFT indicators from review
         }
 
@@ -2819,7 +2835,6 @@ export const InfraDevelopmentReview = ({
               sector: item?.sector ?? null,
               status: item?.status ?? null,
               projectSize: item?.projectSize ?? null,
-              investmentType: item?.investmentType ?? null,
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -3004,7 +3019,6 @@ export const InfraDevelopmentReview = ({
             (sectionData as any).specializedEntityArray.forEach(
               (_: any, index: number) => {
                 allSectionFields.push(
-                  `${sectionPrefix}.specializedEntityArray.${index}.sector`,
                   `${sectionPrefix}.specializedEntityArray.${index}.files`
                 );
               }
@@ -3259,7 +3273,6 @@ export const InfraDevelopmentReview = ({
             (sectionData as any).specializedEntityArray.forEach(
               (_: any, index: number) => {
                 allSectionFields.push(
-                  `${sectionPrefix}.specializedEntityArray.${index}.sector`,
                   `${sectionPrefix}.specializedEntityArray.${index}.files`
                 );
               }
@@ -6020,9 +6033,6 @@ export const InfraDevelopmentReview = ({
                       <thead>
                         <tr className="bg-[#DDE3F9]">
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Sector
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -6047,7 +6057,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={shouldBeEditable("2.2") ? 4 : 3}
+                                  colSpan={shouldBeEditable("2.2") ? 3 : 2}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -6059,37 +6069,6 @@ export const InfraDevelopmentReview = ({
                           return specializedEntityArray.map(
                             (item: any, index: number) => (
                               <tr key={item.id || index} className="border-b">
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("2.2") ? (
-                                    <div>
-                                      <Dropdown
-                                        options={dropdownValues.sector.map(
-                                          (opt) => ({
-                                            label: opt,
-                                            value: opt,
-                                          })
-                                        )}
-                                        value={item.sector || ""}
-                                        onChange={(value) =>
-                                          handleArrayFieldUpdate(
-                                            "2.2",
-                                            index,
-                                            "sector",
-                                            value
-                                          )
-                                        }
-                                        placeholder="Select Sector"
-                                        isEditable={true}
-                                        resetKey={selectResetKey}
-                                      />
-                                      {renderFieldError(
-                                        `section2_2.specializedEntityArray.${index}.sector`
-                                      )}
-                                    </div>
-                                  ) : (
-                                    item.sector || "N/A"
-                                  )}
-                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.2") ? (
                                     <div className="space-y-1.5">
@@ -6345,24 +6324,6 @@ export const InfraDevelopmentReview = ({
                       </h4>
                       <div className="space-y-4">
                         <div>
-                          <Label>Sector</Label>
-                          <Dropdown
-                            options={dropdownValues.sector.map((opt) => ({
-                              label: opt,
-                              value: opt,
-                            }))}
-                            value={newEntry2_2.sector}
-                            onChange={(value) =>
-                              setNewEntry2_2({ ...newEntry2_2, sector: value })
-                            }
-                            placeholder="Select Sector"
-                            isEditable={true}
-                          />
-                          {renderFieldError(
-                            "section2_2.specializedEntityArray.new.sector"
-                          )}
-                        </div>
-                        <div>
                           <Label>Upload Files</Label>
                           <EditableFileDisplay
                             files={newEntry2_2.files}
@@ -6397,7 +6358,7 @@ export const InfraDevelopmentReview = ({
                           size="sm"
                           onClick={() => {
                             setShowAddForm2_2(false);
-                            setNewEntry2_2({ sector: "", files: [] });
+                            setNewEntry2_2({ files: [] });
                           }}
                           className="flex items-center gap-2"
                         >
@@ -6594,17 +6555,77 @@ export const InfraDevelopmentReview = ({
                                     <div>
                                       <Dropdown
                                         options={dropdownValues.sector.map(
-                                          (opt) => ({ label: opt, value: opt })
+                                          (opt) => {
+                                            // Check if this sector is already selected by another entry
+                                            // Use state to get the most current data during editing
+                                            const infraDevelopmentArray =
+                                              Array.isArray(
+                                                state?.section2_3
+                                                  ?.infraDevelopmentArray
+                                              )
+                                                ? state.section2_3
+                                                    .infraDevelopmentArray
+                                                : [];
+                                            const isAlreadySelected =
+                                              infraDevelopmentArray.some(
+                                                (e: any, idx: number) =>
+                                                  idx !== index &&
+                                                  e.sector === opt &&
+                                                  opt.trim() !== ""
+                                              );
+                                            return {
+                                              label: opt,
+                                              value: opt,
+                                              disabled: isAlreadySelected,
+                                            };
+                                          }
                                         )}
                                         value={item.sector || ""}
-                                        onChange={(value) =>
+                                        onChange={(value) => {
+                                          // Check for duplicate sectors using state for current data
+                                          const infraDevelopmentArray =
+                                            Array.isArray(
+                                              state?.section2_3
+                                                ?.infraDevelopmentArray
+                                            )
+                                              ? state.section2_3
+                                                  .infraDevelopmentArray
+                                              : [];
+                                          const isDuplicate =
+                                            infraDevelopmentArray.some(
+                                              (e: any, idx: number) =>
+                                                idx !== index &&
+                                                e.sector === value &&
+                                                value.trim() !== ""
+                                            );
+                                          if (isDuplicate) {
+                                            // Show error message
+                                            setIndicatorValidationErrors(
+                                              (prev) => ({
+                                                ...prev,
+                                                [`section2_3.infraDevelopmentArray.${index}.sector`]:
+                                                  "This sector has already been selected. Please choose a different sector.",
+                                              })
+                                            );
+                                            return;
+                                          }
+                                          // Clear any previous error
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_3.infraDevelopmentArray.${index}.sector`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
                                           handleArrayFieldUpdate(
                                             "2.3",
                                             index,
                                             "sector",
                                             value
-                                          )
-                                        }
+                                          );
+                                        }}
                                         placeholder="Select Sector"
                                         isEditable={true}
                                         resetKey={selectResetKey}
@@ -6884,17 +6905,68 @@ export const InfraDevelopmentReview = ({
                         <div>
                           <Label>Sector</Label>
                           <Dropdown
-                            options={dropdownValues.sector.map((opt) => ({
-                              label: opt,
-                              value: opt,
-                            }))}
+                            options={dropdownValues.sector.map((opt) => {
+                              // Check if this sector is already selected by an existing entry
+                              // Use state to get the most current data during editing
+                              const infraDevelopmentArray = Array.isArray(
+                                state?.section2_3?.infraDevelopmentArray
+                              )
+                                ? state.section2_3.infraDevelopmentArray
+                                : [];
+                              const isAlreadySelected =
+                                infraDevelopmentArray.some(
+                                  (e: any) =>
+                                    e.sector === opt && opt.trim() !== ""
+                                );
+                              return {
+                                label: opt,
+                                value: opt,
+                                disabled: isAlreadySelected,
+                              };
+                            })}
                             value={newEntry2_3.sector}
-                            onChange={(value) =>
-                              setNewEntry2_3({ ...newEntry2_3, sector: value })
-                            }
+                            onChange={(value) => {
+                              // Check for duplicate sectors using state for current data
+                              const infraDevelopmentArray = Array.isArray(
+                                state?.section2_3?.infraDevelopmentArray
+                              )
+                                ? state.section2_3.infraDevelopmentArray
+                                : [];
+                              const isDuplicate = infraDevelopmentArray.some(
+                                (e: any) =>
+                                  e.sector === value && value.trim() !== ""
+                              );
+                              if (isDuplicate) {
+                                // Show error message
+                                setIndicatorValidationErrors((prev) => ({
+                                  ...prev,
+                                  "section2_3.infraDevelopmentArray.new.sector":
+                                    "This sector has already been selected. Please choose a different sector.",
+                                }));
+                                return;
+                              }
+                              // Clear any previous error
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_3.infraDevelopmentArray.new.sector"
+                                ];
+                                return updated;
+                              });
+                              setNewEntry2_3({ ...newEntry2_3, sector: value });
+                            }}
                             placeholder="Select Sector"
                             isEditable={true}
                           />
+                          {getFieldError(
+                            "section2_3.infraDevelopmentArray.new.sector"
+                          ) && (
+                            <p className="text-sm text-red-500 mt-1">
+                              {getFieldError(
+                                "section2_3.infraDevelopmentArray.new.sector"
+                              )}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <Label>Upload Files</Label>
@@ -7137,10 +7209,7 @@ export const InfraDevelopmentReview = ({
                             Status
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Project Size (Cr)
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Type of Investment
+                            Project Cost (INR-CRORE)
                           </th>
                           {shouldBeEditable("2.4") && (
                             <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
@@ -7325,44 +7394,6 @@ export const InfraDevelopmentReview = ({
                                     item.projectSize || "N/A"
                                   )}
                                 </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("2.4") ? (
-                                    <div>
-                                      <Dropdown
-                                        options={[
-                                          "Partner",
-                                          "Investor",
-                                          "Other",
-                                        ].map((opt) => ({
-                                          label: opt,
-                                          value: opt,
-                                        }))}
-                                        value={item.investmentType || ""}
-                                        onChange={(value) =>
-                                          handleArrayFieldUpdate(
-                                            "2.4",
-                                            index,
-                                            "investmentType",
-                                            value
-                                          )
-                                        }
-                                        placeholder="Select Type"
-                                        isEditable={true}
-                                      />
-                                      {getFieldError(
-                                        `section2_4.investmentReadyArray.${index}.investmentType`
-                                      ) && (
-                                        <p className="text-sm text-red-500 mt-1">
-                                          {getFieldError(
-                                            `section2_4.investmentReadyArray.${index}.investmentType`
-                                          )}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    item.investmentType || "N/A"
-                                  )}
-                                </td>
                                 {shouldBeEditable("2.4") && (
                                   <td className="py-3 px-4 text-sm font-normal">
                                     <Button
@@ -7407,10 +7438,7 @@ export const InfraDevelopmentReview = ({
                       </h4>
                       <div className="space-y-4">
                         <div>
-                          <Label>
-                            Project Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Name</Label>
                           <Input
                             value={newEntry2_4.projectName}
                             onChange={(e) =>
@@ -7424,9 +7452,7 @@ export const InfraDevelopmentReview = ({
                           />
                         </div>
                         <div>
-                          <Label>
-                            Sector <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Sector</Label>
                           <Dropdown
                             options={dropdownValues.sector.map((opt) => ({
                               label: opt,
@@ -7444,9 +7470,7 @@ export const InfraDevelopmentReview = ({
                           />
                         </div>
                         <div>
-                          <Label>
-                            Status <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Status</Label>
                           <Dropdown
                             options={INVESTMENT_READY_STATUS_OPTIONS.map(
                               (opt) => ({ label: opt, value: opt })
@@ -7463,10 +7487,7 @@ export const InfraDevelopmentReview = ({
                           />
                         </div>
                         <div>
-                          <Label>
-                            Project Size (INR - values is in CRORES){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label>Project Cost (INR-CRORE)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -7480,42 +7501,6 @@ export const InfraDevelopmentReview = ({
                             }
                             className="bg-white"
                             placeholder="Enter project size"
-                          />
-                        </div>
-                        <div>
-                          <Label>
-                            Type of Investment{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Dropdown
-                            options={["Partner", "Investor", "Other"].map(
-                              (opt) => ({ label: opt, value: opt })
-                            )}
-                            value={newEntry2_4.investmentType}
-                            onChange={(value) =>
-                              setNewEntry2_4({
-                                ...newEntry2_4,
-                                investmentType: value,
-                              })
-                            }
-                            placeholder="Select Type"
-                            isEditable={true}
-                          />
-                        </div>
-                        <div>
-                          <Label>Upload DPR/Feasibility Report</Label>
-                          <EditableFileDisplay
-                            files={newEntry2_4.dprFile}
-                            isEditable={true}
-                            submissionId={submissionId}
-                            onFilesChange={(updatedFile) =>
-                              setNewEntry2_4({
-                                ...newEntry2_4,
-                                dprFile: toSingleFile(updatedFile),
-                              })
-                            }
-                            label=""
-                            multiple={false}
                           />
                         </div>
                       </div>
@@ -7539,8 +7524,6 @@ export const InfraDevelopmentReview = ({
                               sector: "",
                               status: "",
                               projectSize: "",
-                              investmentType: "",
-                              dprFile: null,
                             });
                           }}
                           className="flex items-center gap-2"
@@ -7619,7 +7602,7 @@ export const InfraDevelopmentReview = ({
             {renderMOSPIReviewerComments("2.5")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("2.5")}
-            
+
             {/* Yes/No selection */}
             <div className="mb-4">
               <Label className="mb-3 block">
@@ -7660,7 +7643,6 @@ export const InfraDevelopmentReview = ({
                             type: "",
                             ownership: "",
                             location: "",
-                            websiteLink: "",
                             estimatedMonetization: "",
                           };
                           handleSectionFieldUpdate(
@@ -7712,784 +7694,744 @@ export const InfraDevelopmentReview = ({
             {/* Show table and fields if hasAssetMonetization is "yes" */}
             {state?.section2_5?.hasAssetMonetization === "yes" && (
               <>
-            <div className="overflow-x-auto rounded-xl">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                      Project/Asset Name
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Select Sector
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Asset Type
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Asset Ownership
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Location
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Website Link
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Estimated Monetization (INR - values is in CRORES)
-                    </th>
-                    {shouldBeEditable("2.5") && (
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                        Action
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const assetMonetizationArray = Array.isArray(
-                      state?.section2_5?.assetMonetizationArray
-                    )
-                      ? state.section2_5.assetMonetizationArray
-                      : [];
+                {/* Website Link - Section Level */}
+                <div className="mb-4">
+                  <Label className="mb-2 block">
+                    Website Link <span className="text-destructive">*</span>
+                  </Label>
+                  {shouldBeEditable("2.5") ? (
+                    <div>
+                      <Input
+                        type="url"
+                        value={state?.section2_5?.websiteLink || ""}
+                        onChange={(e) => {
+                          handleSectionFieldUpdate(
+                            "2.5",
+                            "websiteLink",
+                            e.target.value
+                          );
+                          // Clear validation error when user types
+                          if (getFieldError("section2_5.websiteLink")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section2_5.websiteLink"];
+                              return updated;
+                            });
+                          }
+                        }}
+                        placeholder="Enter website URL (e.g., https://example.com)"
+                        className={
+                          getFieldError("section2_5.websiteLink")
+                            ? "w-full border-red-500"
+                            : "w-full"
+                        }
+                      />
+                      {getFieldError("section2_5.websiteLink") && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {getFieldError("section2_5.websiteLink")}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section2_5?.websiteLink ||
+                        "No website link provided"}
+                    </div>
+                  )}
+                </div>
 
-                    if (!assetMonetizationArray.length) {
-                      return (
-                        <tr>
-                          <td
-                            colSpan={shouldBeEditable("2.5") ? 8 : 7}
-                            className="py-8 text-center text-muted-foreground"
-                          >
-                            No asset monetization pipeline data available
-                          </td>
-                        </tr>
-                      );
-                    }
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Project/Asset Name
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Select Sector
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Asset Type
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Asset Ownership
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Location
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Estimated Monetization (INR-CRORE)
+                        </th>
+                        {shouldBeEditable("2.5") && (
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const assetMonetizationArray = Array.isArray(
+                          state?.section2_5?.assetMonetizationArray
+                        )
+                          ? state.section2_5.assetMonetizationArray
+                          : [];
 
-                    return assetMonetizationArray.map(
-                      (item: any, index: number) => (
-                        <tr key={item.id || index} className="border-b">
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Input
-                                  value={item.projectName || ""}
-                                  onChange={(e) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "projectName",
-                                      e.target.value
-                                    );
-                                    // Clear validation error when user types
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.projectName`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
+                        if (!assetMonetizationArray.length) {
+                          return (
+                            <tr>
+                              <td
+                                colSpan={shouldBeEditable("2.5") ? 7 : 6}
+                                className="py-8 text-center text-muted-foreground"
+                              >
+                                No asset monetization pipeline data available
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return assetMonetizationArray.map(
+                          (item: any, index: number) => (
+                            <tr key={item.id || index} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("2.5") ? (
+                                  <div>
+                                    <Input
+                                      value={item.projectName || ""}
+                                      onChange={(e) => {
+                                        handleArrayFieldUpdate(
+                                          "2.5",
+                                          index,
+                                          "projectName",
+                                          e.target.value
+                                        );
+                                        // Clear validation error when user types
+                                        if (
+                                          getFieldError(
+                                            `section2_5.assetMonetizationArray.${index}.projectName`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_5.assetMonetizationArray.${index}.projectName`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      className={
+                                        getFieldError(
                                           `section2_5.assetMonetizationArray.${index}.projectName`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  className={
-                                    getFieldError(
-                                      `section2_5.assetMonetizationArray.${index}.projectName`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.projectName`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                    />
                                     {getFieldError(
                                       `section2_5.assetMonetizationArray.${index}.projectName`
+                                    ) && (
+                                      <p className="text-xs text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section2_5.assetMonetizationArray.${index}.projectName`
+                                        )}
+                                      </p>
                                     )}
-                                  </p>
+                                  </div>
+                                ) : (
+                                  item.projectName || ""
                                 )}
-                              </div>
-                            ) : (
-                              item.projectName || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Dropdown
-                                  options={dropdownValues.sector.map((opt) => ({
-                                    label: opt,
-                                    value: opt,
-                                  }))}
-                                  value={item.sector || ""}
-                                  onChange={(value) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "sector",
-                                      value
-                                    );
-                                    // Clear validation error when user selects
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.sector`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
-                                          `section2_5.assetMonetizationArray.${index}.sector`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  placeholder="Select Sector"
-                                  isEditable={true}
-                                  resetKey={selectResetKey}
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.sector`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("2.5") ? (
+                                  <div>
+                                    <Dropdown
+                                      options={dropdownValues.sector.map(
+                                        (opt) => ({
+                                          label: opt,
+                                          value: opt,
+                                        })
+                                      )}
+                                      value={item.sector || ""}
+                                      onChange={(value) => {
+                                        handleArrayFieldUpdate(
+                                          "2.5",
+                                          index,
+                                          "sector",
+                                          value
+                                        );
+                                        // Clear validation error when user selects
+                                        if (
+                                          getFieldError(
+                                            `section2_5.assetMonetizationArray.${index}.sector`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_5.assetMonetizationArray.${index}.sector`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      placeholder="Select Sector"
+                                      isEditable={true}
+                                      resetKey={selectResetKey}
+                                    />
                                     {getFieldError(
                                       `section2_5.assetMonetizationArray.${index}.sector`
+                                    ) && (
+                                      <p className="text-xs text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section2_5.assetMonetizationArray.${index}.sector`
+                                        )}
+                                      </p>
                                     )}
-                                  </p>
+                                  </div>
+                                ) : (
+                                  item.sector || ""
                                 )}
-                              </div>
-                            ) : (
-                              item.sector || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Dropdown
-                                  options={dropdownValues.assetType.map(
-                                    (opt) => ({ label: opt, value: opt })
-                                  )}
-                                  value={item.type || ""}
-                                  onChange={(value) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "type",
-                                      value
-                                    );
-                                    // Clear validation error when user selects
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.type`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
-                                          `section2_5.assetMonetizationArray.${index}.type`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  placeholder="Select Asset Type"
-                                  isEditable={true}
-                                  resetKey={selectResetKey}
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.type`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("2.5") ? (
+                                  <div>
+                                    <Dropdown
+                                      options={dropdownValues.assetType.map(
+                                        (opt) => ({ label: opt, value: opt })
+                                      )}
+                                      value={item.type || ""}
+                                      onChange={(value) => {
+                                        handleArrayFieldUpdate(
+                                          "2.5",
+                                          index,
+                                          "type",
+                                          value
+                                        );
+                                        // Clear validation error when user selects
+                                        if (
+                                          getFieldError(
+                                            `section2_5.assetMonetizationArray.${index}.type`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_5.assetMonetizationArray.${index}.type`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      placeholder="Select Asset Type"
+                                      isEditable={true}
+                                      resetKey={selectResetKey}
+                                    />
                                     {getFieldError(
                                       `section2_5.assetMonetizationArray.${index}.type`
+                                    ) && (
+                                      <p className="text-xs text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section2_5.assetMonetizationArray.${index}.type`
+                                        )}
+                                      </p>
                                     )}
-                                  </p>
+                                  </div>
+                                ) : (
+                                  item.type || ""
                                 )}
-                              </div>
-                            ) : (
-                              item.type || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Dropdown
-                                  options={dropdownValues.ownership.map(
-                                    (opt) => ({ label: opt, value: opt })
-                                  )}
-                                  value={item.ownership || ""}
-                                  onChange={(value) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "ownership",
-                                      value
-                                    );
-                                    // Clear validation error when user selects
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.ownership`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
-                                          `section2_5.assetMonetizationArray.${index}.ownership`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  placeholder="Select Ownership"
-                                  isEditable={true}
-                                  resetKey={selectResetKey}
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.ownership`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("2.5") ? (
+                                  <div>
+                                    <Dropdown
+                                      options={dropdownValues.ownership.map(
+                                        (opt) => ({ label: opt, value: opt })
+                                      )}
+                                      value={item.ownership || ""}
+                                      onChange={(value) => {
+                                        handleArrayFieldUpdate(
+                                          "2.5",
+                                          index,
+                                          "ownership",
+                                          value
+                                        );
+                                        // Clear validation error when user selects
+                                        if (
+                                          getFieldError(
+                                            `section2_5.assetMonetizationArray.${index}.ownership`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_5.assetMonetizationArray.${index}.ownership`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      placeholder="Select Ownership"
+                                      isEditable={true}
+                                      resetKey={selectResetKey}
+                                    />
                                     {getFieldError(
                                       `section2_5.assetMonetizationArray.${index}.ownership`
+                                    ) && (
+                                      <p className="text-xs text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section2_5.assetMonetizationArray.${index}.ownership`
+                                        )}
+                                      </p>
                                     )}
-                                  </p>
+                                  </div>
+                                ) : (
+                                  item.ownership || ""
                                 )}
-                              </div>
-                            ) : (
-                              item.ownership || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Input
-                                  value={item.location || ""}
-                                  onChange={(e) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "location",
-                                      e.target.value
-                                    );
-                                    // Clear validation error when user types
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.location`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("2.5") ? (
+                                  <div>
+                                    <Input
+                                      value={item.location || ""}
+                                      onChange={(e) => {
+                                        handleArrayFieldUpdate(
+                                          "2.5",
+                                          index,
+                                          "location",
+                                          e.target.value
+                                        );
+                                        // Clear validation error when user types
+                                        if (
+                                          getFieldError(
+                                            `section2_5.assetMonetizationArray.${index}.location`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_5.assetMonetizationArray.${index}.location`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      className={
+                                        getFieldError(
                                           `section2_5.assetMonetizationArray.${index}.location`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  className={
-                                    getFieldError(
-                                      `section2_5.assetMonetizationArray.${index}.location`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                  placeholder="Enter location"
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.location`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                      placeholder="Enter location"
+                                    />
                                     {getFieldError(
                                       `section2_5.assetMonetizationArray.${index}.location`
+                                    ) && (
+                                      <p className="text-xs text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section2_5.assetMonetizationArray.${index}.location`
+                                        )}
+                                      </p>
                                     )}
-                                  </p>
+                                  </div>
+                                ) : (
+                                  item.location || ""
                                 )}
-                              </div>
-                            ) : (
-                              item.location || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Input
-                                  type="url"
-                                  value={item.websiteLink || ""}
-                                  onChange={(e) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "websiteLink",
-                                      e.target.value
-                                    );
-                                    // Clear validation error when user types
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
-                                          `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  className={
-                                    getFieldError(
-                                      `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                  placeholder="Enter website URL"
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
-                                    {getFieldError(
-                                      `section2_5.assetMonetizationArray.${index}.websiteLink`
-                                    )}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              item.websiteLink || ""
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("2.5") ? (
-                              <div>
-                                <Input
-                                  value={item.estimatedMonetization || ""}
-                                  onChange={(e) => {
-                                    handleArrayFieldUpdate(
-                                      "2.5",
-                                      index,
-                                      "estimatedMonetization",
-                                      e.target.value
-                                    );
-                                    // Clear validation error when user types
-                                    if (
-                                      getFieldError(
-                                        `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
-                                      )
-                                    ) {
-                                      setIndicatorValidationErrors((prev) => {
-                                        const updated = { ...prev };
-                                        delete updated[
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("2.5") ? (
+                                  <div>
+                                    <Input
+                                      value={item.estimatedMonetization || ""}
+                                      onChange={(e) => {
+                                        handleArrayFieldUpdate(
+                                          "2.5",
+                                          index,
+                                          "estimatedMonetization",
+                                          e.target.value
+                                        );
+                                        // Clear validation error when user types
+                                        if (
+                                          getFieldError(
+                                            `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                              ];
+                                              return updated;
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      className={
+                                        getFieldError(
                                           `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
-                                        ];
-                                        return updated;
-                                      });
-                                    }
-                                  }}
-                                  className={
-                                    getFieldError(
-                                      `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
-                                  placeholder="Enter amount"
-                                />
-                                {getFieldError(
-                                  `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
-                                ) && (
-                                  <p className="text-xs text-red-500 mt-1">
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                      placeholder="Enter amount"
+                                    />
                                     {getFieldError(
                                       `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                    ) && (
+                                      <p className="text-xs text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                        )}
+                                      </p>
                                     )}
-                                  </p>
+                                  </div>
+                                ) : item.estimatedMonetization ? (
+                                  `₹ ${item.estimatedMonetization} Crores`
+                                ) : (
+                                  ""
                                 )}
-                              </div>
-                            ) : item.estimatedMonetization ? (
-                              `₹ ${item.estimatedMonetization} Crores`
-                            ) : (
-                              ""
-                            )}
-                          </td>
-                          {shouldBeEditable("2.5") && (
-                            <td className="py-3 px-4 text-sm font-normal">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  // Use index for deletion since items may not have IDs
-                                  handleRemoveEntry2_5(index);
-                                }}
-                                className="text-red-500 hover:text-red-700 border-none bg-none"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
-                            </td>
-                          )}
-                        </tr>
-                      )
-                    );
-                  })()}
-                </tbody>
-              </table>
-            </div>
-            {/* General array error message */}
-            {shouldBeEditable("2.5") &&
-              getFieldError("section2_5.assetMonetizationArray") && (
-                <p className="text-sm text-red-500 mt-2">
-                  {getFieldError("section2_5.assetMonetizationArray")}
-                </p>
-              )}
-
-            {/* Add More Button - Only visible when in edit mode */}
-            {isEditable("2.5") && !showAddForm2_5 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 mt-4"
-                onClick={() => setShowAddForm2_5(true)}
-              >
-                <Plus className="w-4 h-4" />
-                Add More
-              </Button>
-            )}
-
-            {/* Add Entry Form - Only visible when showAddForm2_5 is true */}
-            {showAddForm2_5 && isEditable("2.5") && (
-              <div className="border rounded-lg p-4 bg-gray-50 mt-4">
-                <h4 className="font-medium mb-3">
-                  Add New Asset Monetization Entry
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Project/Asset Name</Label>
-                    <Input
-                      value={newEntry2_5.projectName}
-                      onChange={(e) => {
-                        setNewEntry2_5({
-                          ...newEntry2_5,
-                          projectName: e.target.value,
-                        });
-                        // Clear validation error when user types
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.projectName"
+                              </td>
+                              {shouldBeEditable("2.5") && (
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      // Use index for deletion since items may not have IDs
+                                      handleRemoveEntry2_5(index);
+                                    }}
+                                    className="text-red-500 hover:text-red-700 border-none bg-none"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </Button>
+                                </td>
+                              )}
+                            </tr>
                           )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.projectName"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      className={
-                        getFieldError(
-                          "section2_5.assetMonetizationArray.new.projectName"
-                        )
-                          ? "bg-white border-red-500"
-                          : "bg-white"
-                      }
-                      placeholder="Enter project/asset name"
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.projectName"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.projectName"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Sector</Label>
-                    <Dropdown
-                      options={dropdownValues.sector.map((opt) => ({
-                        label: opt,
-                        value: opt,
-                      }))}
-                      value={newEntry2_5.sector}
-                      onChange={(value) => {
-                        setNewEntry2_5({ ...newEntry2_5, sector: value });
-                        // Clear validation error when user selects
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.sector"
-                          )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.sector"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      placeholder="Select Sector"
-                      isEditable={true}
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.sector"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.sector"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Asset Type</Label>
-                    <Dropdown
-                      options={dropdownValues.assetType.map((opt) => ({
-                        label: opt,
-                        value: opt,
-                      }))}
-                      value={newEntry2_5.type}
-                      onChange={(value) => {
-                        setNewEntry2_5({ ...newEntry2_5, type: value });
-                        // Clear validation error when user selects
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.type"
-                          )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.type"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      placeholder="Select Asset Type"
-                      isEditable={true}
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.type"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.type"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Asset Ownership</Label>
-                    <Dropdown
-                      options={dropdownValues.ownership.map((opt) => ({
-                        label: opt,
-                        value: opt,
-                      }))}
-                      value={newEntry2_5.ownership}
-                      onChange={(value) => {
-                        setNewEntry2_5({ ...newEntry2_5, ownership: value });
-                        // Clear validation error when user selects
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.ownership"
-                          )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.ownership"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      placeholder="Select Ownership"
-                      isEditable={true}
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.ownership"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.ownership"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>
-                      Location <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      value={newEntry2_5.location}
-                      onChange={(e) => {
-                        setNewEntry2_5({
-                          ...newEntry2_5,
-                          location: e.target.value,
-                        });
-                        // Clear validation error when user types
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.location"
-                          )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.location"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      className={
-                        getFieldError(
-                          "section2_5.assetMonetizationArray.new.location"
-                        )
-                          ? "bg-white border-red-500"
-                          : "bg-white"
-                      }
-                      placeholder="Enter location"
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.location"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.location"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>
-                      Website Link <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      type="url"
-                      value={newEntry2_5.websiteLink}
-                      onChange={(e) => {
-                        setNewEntry2_5({
-                          ...newEntry2_5,
-                          websiteLink: e.target.value,
-                        });
-                        // Clear validation error when user types
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.websiteLink"
-                          )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.websiteLink"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      className={
-                        getFieldError(
-                          "section2_5.assetMonetizationArray.new.websiteLink"
-                        )
-                          ? "bg-white border-red-500"
-                          : "bg-white"
-                      }
-                      placeholder="Enter website URL"
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.websiteLink"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.websiteLink"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label>Estimated Monetization</Label>
-                    <Input
-                      value={newEntry2_5.estimatedMonetization}
-                      onChange={(e) => {
-                        setNewEntry2_5({
-                          ...newEntry2_5,
-                          estimatedMonetization: e.target.value,
-                        });
-                        // Clear validation error when user types
-                        if (
-                          getFieldError(
-                            "section2_5.assetMonetizationArray.new.estimatedMonetization"
-                          )
-                        ) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated[
-                              "section2_5.assetMonetizationArray.new.estimatedMonetization"
-                            ];
-                            return updated;
-                          });
-                        }
-                      }}
-                      className={
-                        getFieldError(
-                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
-                        )
-                          ? "bg-white border-red-500"
-                          : "bg-white"
-                      }
-                      placeholder="Enter amount"
-                    />
-                    {getFieldError(
-                      "section2_5.assetMonetizationArray.new.estimatedMonetization"
-                    ) && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {getFieldError(
-                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
-                        )}
-                      </p>
-                    )}
-                  </div>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleAddNewEntry2_5}
-                    className="flex items-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Save Entry
-                  </Button>
+                {/* General array error message */}
+                {shouldBeEditable("2.5") &&
+                  getFieldError("section2_5.assetMonetizationArray") && (
+                    <p className="text-sm text-red-500 mt-2">
+                      {getFieldError("section2_5.assetMonetizationArray")}
+                    </p>
+                  )}
+
+                {/* Add More Button - Only visible when in edit mode */}
+                {isEditable("2.5") && !showAddForm2_5 && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setShowAddForm2_5(false);
-                      setNewEntry2_5({
-                        projectName: "",
-                        sector: "",
-                        type: "",
-                        ownership: "",
-                        location: "",
-                        websiteLink: "",
-                        estimatedMonetization: "",
-                      });
-                    }}
-                    className="flex items-center gap-2"
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 mt-4"
+                    onClick={() => setShowAddForm2_5(true)}
                   >
-                    <X className="w-4 h-4" />
-                    Cancel
+                    <Plus className="w-4 h-4" />
+                    Add More
                   </Button>
-                </div>
-                </div>
-              )}
+                )}
+
+                {/* Add Entry Form - Only visible when showAddForm2_5 is true */}
+                {showAddForm2_5 && isEditable("2.5") && (
+                  <div className="border rounded-lg p-4 bg-gray-50 mt-4">
+                    <h4 className="font-medium mb-3">
+                      Add New Asset Monetization Entry
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Project/Asset Name</Label>
+                        <Input
+                          value={newEntry2_5.projectName}
+                          onChange={(e) => {
+                            setNewEntry2_5({
+                              ...newEntry2_5,
+                              projectName: e.target.value,
+                            });
+                            // Clear validation error when user types
+                            if (
+                              getFieldError(
+                                "section2_5.assetMonetizationArray.new.projectName"
+                              )
+                            ) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_5.assetMonetizationArray.new.projectName"
+                                ];
+                                return updated;
+                              });
+                            }
+                          }}
+                          className={
+                            getFieldError(
+                              "section2_5.assetMonetizationArray.new.projectName"
+                            )
+                              ? "bg-white border-red-500"
+                              : "bg-white"
+                          }
+                          placeholder="Enter project/asset name"
+                        />
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.projectName"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section2_5.assetMonetizationArray.new.projectName"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Sector</Label>
+                        <Dropdown
+                          options={dropdownValues.sector.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
+                          value={newEntry2_5.sector}
+                          onChange={(value) => {
+                            setNewEntry2_5({ ...newEntry2_5, sector: value });
+                            // Clear validation error when user selects
+                            if (
+                              getFieldError(
+                                "section2_5.assetMonetizationArray.new.sector"
+                              )
+                            ) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_5.assetMonetizationArray.new.sector"
+                                ];
+                                return updated;
+                              });
+                            }
+                          }}
+                          placeholder="Select Sector"
+                          isEditable={true}
+                        />
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.sector"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section2_5.assetMonetizationArray.new.sector"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Asset Type</Label>
+                        <Dropdown
+                          options={dropdownValues.assetType.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
+                          value={newEntry2_5.type}
+                          onChange={(value) => {
+                            setNewEntry2_5({ ...newEntry2_5, type: value });
+                            // Clear validation error when user selects
+                            if (
+                              getFieldError(
+                                "section2_5.assetMonetizationArray.new.type"
+                              )
+                            ) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_5.assetMonetizationArray.new.type"
+                                ];
+                                return updated;
+                              });
+                            }
+                          }}
+                          placeholder="Select Asset Type"
+                          isEditable={true}
+                        />
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.type"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section2_5.assetMonetizationArray.new.type"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Asset Ownership</Label>
+                        <Dropdown
+                          options={dropdownValues.ownership.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
+                          value={newEntry2_5.ownership}
+                          onChange={(value) => {
+                            setNewEntry2_5({
+                              ...newEntry2_5,
+                              ownership: value,
+                            });
+                            // Clear validation error when user selects
+                            if (
+                              getFieldError(
+                                "section2_5.assetMonetizationArray.new.ownership"
+                              )
+                            ) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_5.assetMonetizationArray.new.ownership"
+                                ];
+                                return updated;
+                              });
+                            }
+                          }}
+                          placeholder="Select Ownership"
+                          isEditable={true}
+                        />
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.ownership"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section2_5.assetMonetizationArray.new.ownership"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Location</Label>
+                        <Input
+                          value={newEntry2_5.location}
+                          onChange={(e) => {
+                            setNewEntry2_5({
+                              ...newEntry2_5,
+                              location: e.target.value,
+                            });
+                            // Clear validation error when user types
+                            if (
+                              getFieldError(
+                                "section2_5.assetMonetizationArray.new.location"
+                              )
+                            ) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_5.assetMonetizationArray.new.location"
+                                ];
+                                return updated;
+                              });
+                            }
+                          }}
+                          className={
+                            getFieldError(
+                              "section2_5.assetMonetizationArray.new.location"
+                            )
+                              ? "bg-white border-red-500"
+                              : "bg-white"
+                          }
+                          placeholder="Enter location"
+                        />
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.location"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section2_5.assetMonetizationArray.new.location"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label>Estimated Monetization (INR-CRORE)</Label>
+                        <Input
+                          value={newEntry2_5.estimatedMonetization}
+                          onChange={(e) => {
+                            setNewEntry2_5({
+                              ...newEntry2_5,
+                              estimatedMonetization: e.target.value,
+                            });
+                            // Clear validation error when user types
+                            if (
+                              getFieldError(
+                                "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                              )
+                            ) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated[
+                                  "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                                ];
+                                return updated;
+                              });
+                            }
+                          }}
+                          className={
+                            getFieldError(
+                              "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                            )
+                              ? "bg-white border-red-500"
+                              : "bg-white"
+                          }
+                          placeholder="Enter amount"
+                        />
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleAddNewEntry2_5}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Save Entry
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowAddForm2_5(false);
+                          setNewEntry2_5({
+                            projectName: "",
+                            sector: "",
+                            type: "",
+                            ownership: "",
+                            location: "",
+                            estimatedMonetization: "",
+                          });
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -8503,11 +8445,7 @@ export const InfraDevelopmentReview = ({
                   <Textarea
                     value={state?.section2_5?.comment || ""}
                     onChange={(e) =>
-                      handleSectionFieldUpdate(
-                        "2.5",
-                        "comment",
-                        e.target.value
-                      )
+                      handleSectionFieldUpdate("2.5", "comment", e.target.value)
                     }
                     placeholder="Please provide a comment..."
                     className={

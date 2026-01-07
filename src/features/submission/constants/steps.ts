@@ -154,7 +154,7 @@ export const RATING_OPTIONS = [
 ];
 
 export const IMPACT_OPTIONS = [
-  // "Capital allocation (INR)",
+  // "Capital allocation (INR-CRORE)",
   // "Process efficiency",
   // "Cost reduction",
   // "Time savings",

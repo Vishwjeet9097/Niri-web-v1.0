@@ -208,7 +208,7 @@ export const validatePPPDevelopment = (
           : "";
       if (!totalProjectsAwardedStr || totalProjectsAwardedStr.trim() === "") {
         errors["section3_4.totalProjectsAwarded"] =
-          "Total Budgeted capital allocation is required.";
+          "Total Budgeted capital allocation (INR-CRORE) is required.";
       } else if (
         !isNonNegativeDecimal(totalProjectsAwardedStr) ||
         !hasMaxTwoDecimals(totalProjectsAwardedStr)

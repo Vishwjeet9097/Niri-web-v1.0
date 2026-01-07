@@ -502,6 +502,19 @@ export const Section_1_3 = ({
             className="bg-gray-50 cursor-not-allowed"
           />
         </div>
+        <div className="max-w-xs">
+          <Label>% of Credit Rated ULBs</Label>
+          <Input
+            type="text"
+            value={
+              totalULBs > 0
+                ? ((ulbList.length / totalULBs) * 100).toFixed(2) + "%"
+                : "0%"
+            }
+            readOnly
+            className="bg-gray-50 cursor-not-allowed"
+          />
+        </div>
       </div>
 
       {/* Validation error for ulbList */}
