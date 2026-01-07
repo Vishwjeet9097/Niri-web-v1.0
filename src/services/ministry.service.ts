@@ -206,6 +206,163 @@ export async function getMinistrySubmissionId(userId: string): Promise<string | 
     }
 }
 
+ /* Get Ministry Dashboard Data
+ * Returns dummy data for now, can be switched to real API call
+ * @param useDummyData - Set to true to use dummy data, false to call real API
+ * @param userId - The user ID to fetch dashboard data for
+ */
+export async function getMinistryDashboardData(userId?: string): Promise<{
+    totalIndicators: number;
+    totalIndicatorSubmitted: number;
+    totalAssignedMinistryApprover: number;
+    totalIndicatorNodalMinistry: number;
+    totalAccepted: number;
+    totalPendingSubmission: number;
+    totalReturnNodal: number;
+    submittedToMospi: number;
+    approvedByMospi: number;
+    returnedFromMospi: number; 
+}> {
+        try {
+            let url = getApiUrl(`/ministry/dashboard/${userId}`); 
+            const response = await apiService.get(url, { withCredentials: true });
+            const data = response?.data?.data || response?.data || response;
+            
+            // Transform API response to match expected format
+            // Adjust these mappings based on your actual API response structure
+            return {
+                totalIndicators: data.totalIndicators || 0,
+                totalIndicatorSubmitted: data.totalIndicatorSubmitted || 0,
+                totalAssignedMinistryApprover: data.totalAssignedMinistryApprover || 0,
+                totalIndicatorNodalMinistry: data.totalIndicatorNodalMinistry || 0,
+                totalAccepted: data.totalAccepted || 0,
+                totalPendingSubmission: data.totalPendingSubmission || 0,
+                totalReturnNodal: data.totalReturnNodal || 0,
+                submittedToMospi: data.submittedToMospi || 0,
+                approvedByMospi: data.approvedByMospi || 0,
+                returnedFromMospi: data.returnedFromMospi || 0,
+            };
+        } catch (error) {
+            console.error('[getMinistryDashboardData] API Error:', error);
+            // Fallback to dummy data on error
+        } 
+}
+
+/**
+ * Get Ministry Submissions
+ * Returns dummy submissions data for now, can be switched to real API call
+ * @param useDummyData - Set to true to use dummy data, false to call real API
+ * @param userId - The user ID to fetch submissions for
+ */
+export async function getMinistrySubmissions(userId?: string): Promise<any[]> {
+        // Real API call - using apiService directly
+        try {
+            let url = getApiUrl(`/ministry/dashboard/${userId}`);
+  
+            const response = await apiService.get(url, { withCredentials: true });
+            const data = response?.data?.data || response?.data || response;
+            
+            // Return submissions array
+            return Array.isArray(data) ? data : data.submissions || [];
+        } catch (error) {
+            console.error('[getMinistrySubmissions] API Error:', error);
+            // Fallback to dummy data on error
+        } 
+}
+
+/**
+ * Get Nodal Officer KPI Dashboard Data
+ * Returns dummy data by default, automatically tries real API and falls back to dummy data if API fails
+ * @param userId - The user ID
+ * @param ministryId - The ministry ID
+ * @returns Promise with nodal dashboard metrics
+ */
+export async function getNodalKpiData(userId?: string): Promise<{
+    totalAllocated: number;
+    totalSubmitted: number;
+    underReview: number;
+    approved: number;
+    pending: number;
+}> {
+    // Dummy data
+    const nodalMinistryDashboardData = {
+        totalAllocated: 0,
+        totalSubmitted: 0,
+        underReview: 0,
+        approved: 0,
+        pending: 0,
+    };
+
+    // Try to fetch real API data
+    try {
+        const url = getApiUrl(`/ministry/dashboard/${userId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        const data = response?.data?.data || response?.data || response;
+
+        // Use real API data if available
+        if (data && typeof data === "object") {
+            return {
+                totalAllocated: data.totalAllocated ?? 0,
+                totalSubmitted: data.totalSubmitted ?? 0,
+                underReview: data.underReview ?? 0,
+                approved: data.approved ?? 0,
+                pending: data.pending ?? 0
+            };
+        }
+ 
+        return nodalMinistryDashboardData;
+    } catch (error) {
+        console.error('[getNodalKpiData] API Error, using dummy data:', error);
+        // Fallback to dummy data on error
+        return nodalMinistryDashboardData;
+    }
+}
+
+/**
+ * Get MOSPI Ministry Tab Metrics
+ * Fetches ministry-specific metrics for MOSPI Approver/Reviewer dashboard
+ * @param userId - The user ID to fetch metrics for
+ * @returns Promise with ministry metrics - structure differs by role:
+ *   MOSPI_APPROVER: { accepted, underReview, returnedToMinistry, total }
+ *   MOSPI_REVIEWER: { fullSubmission, accepted, underReview, total }
+ */
+export async function mospiMinisteryTab(userId?: string): Promise<{
+    // For MOSPI_APPROVER
+    accepted?: number;
+    underReview?: number;
+    returnedToMinistry?: number;
+    total?: number;
+    // For MOSPI_REVIEWER
+    fullSubmission?: number;
+}> {
+    try {
+        let url = getApiUrl(`/ministry/dashboard/${userId}`);
+    
+        const response = await apiService.get(url, { withCredentials: true });
+        const data = response?.data?.data || response?.data || response;
+        
+        // Return API response directly (structure differs by role)
+        return {
+            accepted: data.accepted || 0,
+            underReview: data.underReview || 0,
+            returnedToMinistry: data.returnedToMinistry || 0,
+            fullSubmission: data.fullSubmission || 0,
+            total: data.total || 0,
+        };
+    } catch (error) {
+        console.error('[mospiMinisteryTab] API Error:', error);
+        // Return empty data structure on error
+        return {
+            accepted: 0,
+            underReview: 0,
+            returnedToMinistry: 0,
+            fullSubmission: 0,
+            total: 0,
+        };
+    }
+}
+
+
 /**
  * Retrieve submission details with indicators, subsections, and input fields
  * @param userId - The ID of the user (Ministry Approver)

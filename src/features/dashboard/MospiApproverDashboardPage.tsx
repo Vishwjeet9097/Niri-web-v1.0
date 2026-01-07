@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import {
   FileText,
@@ -17,6 +18,7 @@ import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
+import { MospiApproverMinistryOverviewCards } from "./components/approver/MospiApproverMinistryOverviewCards";
 import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 
 export const MospiApproverDashboardPage = () => {
@@ -31,6 +33,7 @@ export const MospiApproverDashboardPage = () => {
   const [selectedCardTitle, setSelectedCardTitle] = useState<string | null>(
     null
   );
+  const [activeTab, setActiveTab] = useState<"state" | "ministry">("state");
   const tableRef = useRef<HTMLDivElement>(null);
 
   // Initial load - no status filter (keep existing behavior)
@@ -259,9 +262,22 @@ export const MospiApproverDashboardPage = () => {
   // When filtered by card, submissions are already filtered by API, so just apply local filters
   const allSubmissionsForTable = useMemo(() => {
     return submissions.filter((submission) => {
-      // State filter
+      // Filter by tab (State vs Ministry)
+      const isMinistrySubmission = 
+        submission.user?.ministryId || 
+        submission.ministryId || 
+        (submission.user?.ministry && submission.user.ministry !== null);
+      const isStateSubmission = submission.stateUt && !isMinistrySubmission;
+      
+      const tabMatch = activeTab === "ministry" 
+        ? isMinistrySubmission 
+        : isStateSubmission;
+
+      // State filter (only for state tab)
       const stateMatch =
-        selectedState === "All" || submission.stateUt === selectedState;
+        activeTab === "ministry" ||
+        selectedState === "All" ||
+        submission.stateUt === selectedState;
 
       // Search filter
       const searchMatch =
@@ -270,6 +286,8 @@ export const MospiApproverDashboardPage = () => {
           ?.toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
         submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.user?.ministryName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.user?.ministry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         submission.user?.firstName
           ?.toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
@@ -278,17 +296,20 @@ export const MospiApproverDashboardPage = () => {
           .includes(searchQuery.toLowerCase()) ||
         submission.status?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return stateMatch && searchMatch;
+      return tabMatch && stateMatch && searchMatch;
     });
-  }, [submissions, selectedState, searchQuery]);
+  }, [submissions, selectedState, searchQuery, activeTab]);
 
-  // Get unique states for filter
+  // Get unique states for filter (only for state tab)
   const states = useMemo(() => {
+    if (activeTab === "ministry") {
+      return ["All"];
+    }
     return [
       "All",
       ...Array.from(new Set(submissions.map((s) => s.stateUt).filter(Boolean))),
     ];
-  }, [submissions]);
+  }, [submissions, activeTab]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -394,11 +415,39 @@ export const MospiApproverDashboardPage = () => {
           </div>
         </div>
 
-        {/* Overview Cards */}
-        <MospiApproverOverviewCards
-          onStatusFilterChange={setSelectedStatus}
-          onCardTitleChange={setSelectedCardTitle}
-        />
+        {/* Tabs for State and Ministry */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full">
+          <TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
+            <TabsTrigger 
+              value="state" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+            >
+              State/UT
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ministry"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+            >
+              Ministry
+            </TabsTrigger>
+          </TabsList>
+
+          {/* State Tab */}
+          <TabsContent value="state" className="mt-0">
+            <MospiApproverOverviewCards
+              onStatusFilterChange={setSelectedStatus}
+              onCardTitleChange={setSelectedCardTitle}
+            />
+          </TabsContent>
+
+          {/* Ministry Tab */}
+          <TabsContent value="ministry" className="mt-0">
+            <MospiApproverMinistryOverviewCards
+              onStatusFilterChange={setSelectedStatus}
+              onCardTitleChange={setSelectedCardTitle}
+            />
+          </TabsContent>
+        </Tabs>
 
         {/* Recent Submissions */}
 
@@ -498,26 +547,28 @@ export const MospiApproverDashboardPage = () => {
                       className="pl-10 pr-4 py-2 border rounded-md text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
-                    <label
-                      htmlFor="state-filter"
-                      className="text-sm text-gray-600 whitespace-nowrap"
-                    >
-                      State
-                    </label>
-                    <select
-                      id="state-filter"
-                      className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]"
-                      value={selectedState}
-                      onChange={(e) => setSelectedState(e.target.value)}
-                    >
-                      {states.map((state) => (
-                        <option key={state} value={state}>
-                          {state}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {activeTab === "state" && (
+                    <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                      <label
+                        htmlFor="state-filter"
+                        className="text-sm text-gray-600 whitespace-nowrap"
+                      >
+                        State
+                      </label>
+                      <select
+                        id="state-filter"
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]"
+                        value={selectedState}
+                        onChange={(e) => setSelectedState(e.target.value)}
+                      >
+                        {states.map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -532,7 +583,9 @@ export const MospiApproverDashboardPage = () => {
                       <th className="px-3 py-2 border-b text-left">
                         Submission ID
                       </th>
-                      <th className="px-3 py-2 border-b text-left">State/UT</th>
+                      <th className="px-3 py-2 border-b text-left">
+                        {activeTab === "ministry" ? "Ministry" : "State/UT"}
+                      </th>
                       <th className="px-3 py-2 border-b text-left">Status</th>
                       <th className="px-3 py-2 border-b text-left">
                         Submitted By
@@ -605,12 +658,21 @@ export const MospiApproverDashboardPage = () => {
                               {submission.submissionId || submission.id}
                             </td>
                             <td className="px-3 py-2 border-b">
-                              <span className="inline-flex items-center gap-2">
-                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
-                                  {submission.stateUt?.charAt(0) || "N"}
+                              {activeTab === "ministry" ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-bold text-xs">
+                                    {submission.user?.ministryName?.charAt(0) || submission.user?.ministry?.charAt(0) || "M"}
+                                  </span>
+                                  {submission.user?.ministryName || submission.user?.ministry || "N/A"}
                                 </span>
-                                {submission.stateUt || "N/A"}
-                              </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                                    {submission.stateUt?.charAt(0) || "N"}
+                                  </span>
+                                  {submission.stateUt || "N/A"}
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-2 border-b">
                               <span

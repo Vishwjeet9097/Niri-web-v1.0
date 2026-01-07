@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Navigate } from "react-router-dom";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
+import { MospiApproverMinistryOverviewCards } from "./components/approver/MospiApproverMinistryOverviewCards";
 import ReviewerSubmissionsTable from "./components/reviewer/ReviewerSubmissionsTable";
 import ReviewerRecentActions from "./components/reviewer/ReviewerRecentActions";
 import ReviewerQuickActions from "./components/reviewer/ReviewerQuickActions";
@@ -15,6 +17,7 @@ const ReviewerDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [isFilteredByCard, setIsFilteredByCard] = useState(false);
+  const [activeTab, setActiveTab] = useState<"state" | "ministry">("state");
   const tableRef = useRef<HTMLDivElement>(null);
 
   // Only allow MosPI reviewer role
@@ -203,12 +206,37 @@ const ReviewerDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Overview Cards */}
-        <div className="mb-8">
-          <MospiApproverOverviewCards
-            onStatusFilterChange={handleStatusFilterChange}
-          />
-        </div>
+        {/* Tabs for State and Ministry */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full mb-8">
+          <TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
+            <TabsTrigger 
+              value="state" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+            >
+              State/UT
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ministry"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+            >
+              Ministry
+            </TabsTrigger>
+          </TabsList>
+
+          {/* State Tab */}
+          <TabsContent value="state" className="mt-0">
+            <MospiApproverOverviewCards
+              onStatusFilterChange={handleStatusFilterChange}
+            />
+          </TabsContent>
+
+          {/* Ministry Tab */}
+          <TabsContent value="ministry" className="mt-0">
+            <MospiApproverMinistryOverviewCards
+              onStatusFilterChange={handleStatusFilterChange}
+            />
+          </TabsContent>
+        </Tabs>
 
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
           {/* Latest Submissions Table */}

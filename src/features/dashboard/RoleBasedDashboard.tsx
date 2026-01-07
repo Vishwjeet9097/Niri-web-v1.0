@@ -5,8 +5,10 @@ import { Navigate } from "react-router-dom";
 import ReviewerDashboardPage from "./ReviewerDashboardPage";
 import ApproverDashboardPage from "./ApproverDashboardPage";
 import { NodalDashboardPage } from "./NodalDashboardPage";
+import { MinistryNodalDashboardPage } from "./MinistryNodalDashboardPage";
 import { StateApproverDashboardPage } from "./StateApproverDashboardPage";
 import { MospiApproverDashboardPage } from "./MospiApproverDashboardPage";
+import { MinistryDashboardPage } from "./MinistryDashboardPage";
 import { DashboardPage } from "./DashboardPage"; // Fallback dashboard
 import AdminDashboardPage from "./AdminDashboardPage";
 
@@ -17,6 +19,7 @@ export default function RoleBasedDashboard() {
   
   // Use backend role format
   const role = user.role;
+  const userMinistryId = user?.ministryId; 
 
   // Render dashboard based on backend role
   switch (role) {
@@ -27,7 +30,14 @@ export default function RoleBasedDashboard() {
       return <MospiApproverDashboardPage />;
     
     case "NODAL_OFFICER":
+      // If user has a ministryId (not blank), show MinistryNodalDashboardPage, otherwise show NodalDashboardPage
+      if (userMinistryId && String(userMinistryId).trim() !== "") {
+        return <MinistryNodalDashboardPage />;
+      }
       return <NodalDashboardPage />;
+
+    case "MINISTRY_APPROVER":
+        return <MinistryDashboardPage />;  
     
     case "STATE_APPROVER":
       return <StateApproverDashboardPage />;
