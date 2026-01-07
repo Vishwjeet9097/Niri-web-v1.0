@@ -1035,7 +1035,7 @@ export function UserForm({
         try {
           const statesData = await statesService.getStates();
           setStates(statesData);
-          // Auto-select state for STATE_APPROVER users
+          // Auto-select state for STATE_APPROVER users (when creating new user)
           if (user?.role === "STATE_APPROVER" && !officer) {
             const currentStateId = formData.stateId;
             // Check if current stateId is already a valid state ID
@@ -1066,7 +1066,20 @@ export function UserForm({
               
               // Set the state ID if found
               if (foundState) {
-                setFormData(prev => ({ ...prev, stateId: foundState.id }));
+                setFormData(prev => ({ 
+                  ...prev, 
+                  stateId: foundState.id,
+                  stateUt: foundState.name
+                }));
+              }
+            } else {
+              // If stateId is already valid, ensure stateUt is also set
+              const foundState = statesData.find((s: State) => s.id === currentStateId);
+              if (foundState && !formData.stateUt) {
+                setFormData(prev => ({ 
+                  ...prev, 
+                  stateUt: foundState.name
+                }));
               }
             }
           }
@@ -1121,6 +1134,55 @@ export function UserForm({
       }
     }
   }, [officer, states, formData.stateId]);
+
+  // Auto-select state for STATE_APPROVER when states are loaded (for new user creation)
+  useEffect(() => {
+    if (
+      user?.role === "STATE_APPROVER" && 
+      !officer && 
+      states.length > 0 && 
+      formData.role === "NODAL_OFFICER"
+    ) {
+      const currentStateId = formData.stateId;
+      // Check if current stateId is a valid state ID
+      const isStateIdValid = states.some((s: State) => s.id === currentStateId);
+      
+      // If stateId is not valid or empty, find state by user's state name
+      if (!isStateIdValid || !currentStateId) {
+        const userStateName = user?.state || user?.stateUt || "";
+        if (userStateName) {
+          const foundState = states.find(
+            (s: State) => 
+              s.name?.trim().toLowerCase() === userStateName.trim().toLowerCase() ||
+              s.code?.trim().toLowerCase() === userStateName.trim().toLowerCase()
+          );
+          
+          if (foundState) {
+            setFormData(prev => {
+              // Only update if stateId is different to avoid unnecessary re-renders
+              if (prev.stateId !== foundState.id) {
+                return {
+                  ...prev,
+                  stateId: foundState.id,
+                  stateUt: foundState.name
+                };
+              }
+              return prev;
+            });
+          }
+        }
+      } else {
+        // If stateId is valid, ensure stateUt is also set
+        const foundState = states.find((s: State) => s.id === currentStateId);
+        if (foundState && formData.stateUt !== foundState.name) {
+          setFormData(prev => ({
+            ...prev,
+            stateUt: foundState.name
+          }));
+        }
+      }
+    }
+  }, [user?.role, user?.state, user?.stateUt, officer, states, formData.role, formData.stateId, formData.stateUt]);
 
 
   const validate = () => {
