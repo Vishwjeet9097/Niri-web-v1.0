@@ -23,25 +23,25 @@ export const FormActions = ({
   isNextDisabled = false,
 }: FormActionsProps) => {
   return (
-    <div className="flex items-center justify-between ">
-      <div>
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
+      <div className="w-full sm:w-auto">
         {!isFirstStep && onPrevious && (
-          <Button variant="outline" onClick={onPrevious}>
+          <Button variant="outline" onClick={onPrevious} className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Previous
           </Button>
         )}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 w-full sm:w-auto">
         {/* {showSaveDraft && onSaveDraft && (
-          <Button variant="outline" onClick={onSaveDraft}>
+          <Button variant="outline" onClick={onSaveDraft} className="w-full sm:w-auto">
             <Save className="w-4 h-4 mr-2" />
             Save Draft
           </Button>
         )} */}
         {onNext && (
-          <Button onClick={onNext} disabled={isNextDisabled}>
+          <Button onClick={onNext} disabled={isNextDisabled} className="w-full sm:w-auto">
             {nextLabel}
             {!isLastStep && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

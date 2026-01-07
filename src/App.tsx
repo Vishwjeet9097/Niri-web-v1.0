@@ -34,6 +34,9 @@ import { EditSubmissionPage } from "./features/dataSubmission/pages/EditSubmissi
 import { UserManagementPage } from "./features/userManagement/UserManagementPage";
 import { CheckSubmissionRedirect } from "./features/submission/pages/CheckSubmissionRedirect";
 import { StateAggregateReviewPage } from "./features/dataSubmission/pages/StateAggregateReviewPage";
+import { MinistrySubmissionWrapper } from "./features/ministry/pages/MinistrySubmissionWrapper";
+import { MinistryApproverDashboardPage } from "./features/ministry/Dashboard/MinistryApproverDashboardPage";
+import { RoleBasedRedirect } from "./components/RoleBasedRedirect";
 
 const queryClient = new QueryClient();
 
@@ -57,7 +60,7 @@ const App = () => (
               >
                 <Route
                   path="/"
-                  element={<Navigate to="/dashboard" replace />}
+                  element={<RoleBasedRedirect />}
                 />
                 <Route path="/dashboard" element={<RoleBasedDashboard />} />
                 <Route
@@ -106,6 +109,27 @@ const App = () => (
                 <Route
                   path="/data-submission/edit/:id"
                   element={<EditSubmissionPage />}
+                />
+                <Route
+                  path="/ministry-dashboard"
+                  element={
+                    <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
+                      <MinistryApproverDashboardPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ministry-submission"
+                  element={<MinistrySubmissionWrapper />}
+                  // TEMPORARY: Role protection commented out for testing
+                  // TODO: Uncomment when ready to enable role protection
+                  // element={
+                  //   <ProtectedRoute
+                  //     allowedRoles={["MINISTRY_APPROVER"]}
+                  //   >
+                  //     <MinistrySubmissionWrapper />
+                  //   </ProtectedRoute>
+                  // }
                 />
                 <Route
                   path="/user-management"
