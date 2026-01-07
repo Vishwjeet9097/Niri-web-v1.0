@@ -164,7 +164,7 @@ export interface PPPDevelopmentData {
   section3_4: {
     projects: Array<{
       id: string;
-      nameOfProject: string; // Name of PPP/Bankable Projects
+      nameOfProject: string; // Name of Awarded PPP Projects
       infrastructureSector: string; // Infrastructure Sector
       dateOfAward: string; // Date of Award
       totalProjectCost: string; // Total Project Cost (in crore)

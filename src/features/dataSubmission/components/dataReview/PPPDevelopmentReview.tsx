@@ -226,7 +226,7 @@ export const PPPDevelopmentReview = ({
       validatingIndicator: null,
     });
 
-  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  // Auto-calculate Total of TPC of PPP Projects as sum of all project costs
   const calculatedTotalProjectCostAwarded = useMemo(() => {
     const projects = formDataState?.section3_4?.projects || [];
     const sum = projects.reduce((total: number, project: any) => {
@@ -5134,7 +5134,7 @@ export const PPPDevelopmentReview = ({
                 </div>
                 <div>
                   <Label>
-                    Total of all TPC of all Projects (INR-CRORE){" "}
+                  Total of TPC of PPP Projects (INR-CRORE){" "}
                   </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR-CRORE </p> */}
                   <Input
@@ -5378,7 +5378,7 @@ export const PPPDevelopmentReview = ({
                   <h4 className="font-medium mb-3">Add New Project</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>Name of PPP/Bankable Projects</Label>
+                      <Label>Name of Awarded PPP Projects</Label>
                       <Input
                         value={newProject.nameOfProject}
                         onChange={(e) =>

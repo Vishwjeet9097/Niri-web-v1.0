@@ -130,7 +130,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section3_4.totalProjectsAwarded":
     "Total Budgeted capital allocation (INR-CRORE) is required.",
   "section3_4.totalProjectCostAwarded":
-    "Total of all TPC of all Projects (INR-CRORE) is required.",
+    "Total of TPC of PPP Projects (INR-CRORE) is required.",
   "section3_4.projects.totalProjectCost":
     "Enter a valid non-negative amount with up to two decimal places.",
   "section3_4.projects.infrastructureSector":

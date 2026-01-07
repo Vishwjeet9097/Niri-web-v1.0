@@ -576,10 +576,10 @@ export const EditablePPPDevelopment = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Column 1 */}
                     <div className="space-y-4">
-                      {/* Name of PPP/Bankable Projects */}
+                      {/* Name of Awarded PPP Projects */}
                       <div>
                         <Label>
-                          Name of PPP/Bankable Projects{" "}
+                        Name of Awarded PPP Projects{" "}
                           <Tooltip>
                             <TooltipTrigger>
                               <Info className="inline w-3 h-3 ml-1" />

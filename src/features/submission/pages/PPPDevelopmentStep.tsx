@@ -537,7 +537,7 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
-  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  // Auto-calculate Total of TPC of PPP Projects as sum of all project costs
   const calculatedTotalTPC = useMemo(() => {
     const projects = formData.section3_4?.projects || [];
     const sum = projects.reduce((total: number, project: any) => {
@@ -594,7 +594,7 @@ export const PPPDevelopmentStep = () => {
     };
   }, [formData.section3_4.projects]);
 
-  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  // Auto-calculate Total of TPC of PPP Projects as sum of all project costs
   const calculatedTotalProjectCostAwarded = useMemo(() => {
     const projects = formData.section3_4?.projects || [];
     const sum = projects.reduce((total: number, project: any) => {
@@ -2711,7 +2711,7 @@ export const PPPDevelopmentStep = () => {
                 </div>
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
-                    Total of all TPC of all Projects (INR-CRORE)
+                  Total of TPC of PPP Projects (INR-CRORE)
                     <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -2742,7 +2742,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
                     <div>
                       <Label>
-                        Name of PPP/Bankable Projects that have been awarded
+                      Name of Awarded PPP Projects
                       </Label>
                       <Input
                         type="text"
