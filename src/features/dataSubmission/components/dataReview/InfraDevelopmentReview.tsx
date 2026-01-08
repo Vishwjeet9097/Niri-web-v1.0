@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -5146,21 +5147,106 @@ export const InfraDevelopmentReview = ({
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {shouldBeEditable("2.1") ? (
                                       <div className="space-y-1.5">
-                                        {item.files && item.files.length > 0 ? (
-                                          <div className="flex flex-wrap gap-1.5">
-                                            {item.files.map(
-                                              (
-                                                file: any,
-                                                fileIndex: number
-                                              ) => (
+                                        {/* No Document Available Checkbox */}
+                                        <div className="flex items-center space-x-2 py-1">
+                                          <Checkbox
+                                            id={`no-doc-2.1-${index}`}
+                                            checked={
+                                              item.noDocumentAvailable || false
+                                            }
+                                            onCheckedChange={(checked) => {
+                                              const noDocument =
+                                                checked as boolean;
+                                              // Update noDocumentAvailable and clear files if checked
+                                              const updatedArray =
+                                                formDataState?.section2_1?.infraActArray?.map(
+                                                  (entry: any, idx: number) =>
+                                                    idx === index
+                                                      ? {
+                                                          ...entry,
+                                                          noDocumentAvailable:
+                                                            noDocument,
+                                                          files: noDocument
+                                                            ? []
+                                                            : entry.files,
+                                                        }
+                                                      : entry
+                                                ) || [];
+
+                                              setFormDataState((prev: any) => ({
+                                                ...prev,
+                                                section2_1: {
+                                                  ...prev.section2_1,
+                                                  infraActArray: updatedArray,
+                                                },
+                                              }));
+
+                                              // Also update submissionData
+                                              setSubmissionData(
+                                                (prevSubmission: any) => {
+                                                  if (!prevSubmission)
+                                                    return prevSubmission;
+                                                  const infraDev =
+                                                    prevSubmission?.infraDevelopment ||
+                                                    {};
+                                                  return {
+                                                    ...prevSubmission,
+                                                    infraDevelopment: {
+                                                      ...infraDev,
+                                                      section2_1: {
+                                                        ...infraDev.section2_1,
+                                                        infraActArray:
+                                                          updatedArray,
+                                                      },
+                                                    },
+                                                  };
+                                                }
+                                              );
+
+                                              // Clear validation error
+                                              if (
+                                                getFieldError(
+                                                  `section2_1.infraActArray.${index}.files`
+                                                )
+                                              ) {
+                                                setIndicatorValidationErrors(
+                                                  (prev) => {
+                                                    const updated = { ...prev };
+                                                    delete updated[
+                                                      `section2_1.infraActArray.${index}.files`
+                                                    ];
+                                                    return updated;
+                                                  }
+                                                );
+                                              }
+                                            }}
+                                          />
+                                          <label
+                                            htmlFor={`no-doc-2.1-${index}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                          >
+                                            No document available
+                                          </label>
+                                        </div>
+
+                                        {item.noDocumentAvailable ? (
+                                          <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                            No document available
+                                          </div>
+                                        ) : (
+                                          <>
+                                            {/* For "yes" case, only show ONE file (first file if multiple exist) */}
+                                            {item.files &&
+                                            item.files.length > 0 ? (
+                                              <div className="flex flex-wrap gap-1.5">
                                                 <Badge
-                                                  key={fileIndex}
                                                   variant="secondary"
                                                   className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                                   title={
                                                     extractOriginalName(
-                                                      file.fileName || "",
-                                                      (file as any)
+                                                      item.files[0].fileName ||
+                                                        "",
+                                                      (item.files[0] as any)
                                                         ?.originalName
                                                     ) || "Unknown file"
                                                   }
@@ -5168,27 +5254,20 @@ export const InfraDevelopmentReview = ({
                                                   <Upload className="w-3 h-3 flex-shrink-0" />
                                                   <span className="truncate">
                                                     {extractOriginalName(
-                                                      file.fileName || "",
-                                                      (file as any)
+                                                      item.files[0].fileName ||
+                                                        "",
+                                                      (item.files[0] as any)
                                                         ?.originalName
                                                     ) || "Unknown file"}
                                                   </span>
                                                   <button
                                                     type="button"
                                                     onClick={() => {
-                                                      const updatedFiles =
-                                                        item.files.filter(
-                                                          (
-                                                            _: any,
-                                                            idx: number
-                                                          ) => idx !== fileIndex
-                                                        );
+                                                      // For "yes" case, clear the file (only one file allowed)
                                                       handleFilesUpdate(
                                                         "2.1",
                                                         index,
-                                                        updatedFiles.length > 0
-                                                          ? updatedFiles
-                                                          : []
+                                                        []
                                                       );
                                                     }}
                                                     className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -5196,61 +5275,136 @@ export const InfraDevelopmentReview = ({
                                                     <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
                                                   </button>
                                                 </Badge>
-                                              )
+                                              </div>
+                                            ) : (
+                                              <span className="text-muted-foreground text-xs">
+                                                No files
+                                              </span>
                                             )}
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground text-xs">
-                                            No files
-                                          </span>
-                                        )}
-                                        <div className="flex items-center">
-                                          <input
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            onChange={async (e) => {
-                                              const selectedFile =
-                                                e.target.files?.[0];
-                                              if (selectedFile) {
-                                                const uploadedFile =
-                                                  await handleFileUpload(
-                                                    selectedFile
-                                                  );
-                                                if (uploadedFile) {
-                                                  const existingFiles =
-                                                    item.files || [];
-                                                  await handleFilesUpdate(
-                                                    "2.1",
-                                                    index,
-                                                    [
-                                                      ...existingFiles,
-                                                      uploadedFile,
-                                                    ]
-                                                  );
+                                            {/* For "yes" case, show "Add" if no file, "Replace" if file exists */}
+                                            <div className="flex items-center">
+                                              <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx"
+                                                onChange={async (e) => {
+                                                  const selectedFile =
+                                                    e.target.files?.[0];
+                                                  if (selectedFile) {
+                                                    const uploadedFile =
+                                                      await handleFileUpload(
+                                                        selectedFile
+                                                      );
+                                                    if (uploadedFile) {
+                                                      // For "yes" case, only allow ONE file - replace instead of add
+                                                      const newFiles = [
+                                                        uploadedFile,
+                                                      ];
+
+                                                      // Update files and clear noDocumentAvailable in a single state update
+                                                      setFormDataState(
+                                                        (prev: any) => {
+                                                          const currentArray =
+                                                            prev?.section2_1
+                                                              ?.infraActArray ||
+                                                            [];
+                                                          const updatedArray =
+                                                            currentArray.map(
+                                                              (
+                                                                entry: any,
+                                                                idx: number
+                                                              ) =>
+                                                                idx === index
+                                                                  ? {
+                                                                      ...entry,
+                                                                      files:
+                                                                        newFiles,
+                                                                      noDocumentAvailable:
+                                                                        false,
+                                                                    }
+                                                                  : entry
+                                                            );
+
+                                                          return {
+                                                            ...prev,
+                                                            section2_1: {
+                                                              ...prev.section2_1,
+                                                              infraActArray:
+                                                                updatedArray,
+                                                            },
+                                                          };
+                                                        }
+                                                      );
+
+                                                      // Also update submissionData
+                                                      setSubmissionData(
+                                                        (
+                                                          prevSubmission: any
+                                                        ) => {
+                                                          if (!prevSubmission)
+                                                            return prevSubmission;
+                                                          const infraDev =
+                                                            prevSubmission?.infraDevelopment ||
+                                                            {};
+                                                          const currentArray =
+                                                            infraDev.section2_1
+                                                              ?.infraActArray ||
+                                                            [];
+                                                          const updatedArray =
+                                                            currentArray.map(
+                                                              (
+                                                                entry: any,
+                                                                idx: number
+                                                              ) =>
+                                                                idx === index
+                                                                  ? {
+                                                                      ...entry,
+                                                                      files:
+                                                                        newFiles,
+                                                                      noDocumentAvailable:
+                                                                        false,
+                                                                    }
+                                                                  : entry
+                                                            );
+
+                                                          return {
+                                                            ...prevSubmission,
+                                                            infraDevelopment: {
+                                                              ...infraDev,
+                                                              section2_1: {
+                                                                ...infraDev.section2_1,
+                                                                infraActArray:
+                                                                  updatedArray,
+                                                              },
+                                                            },
+                                                          };
+                                                        }
+                                                      );
+                                                    }
+                                                    e.target.value = ""; // Reset input
+                                                  }
+                                                }}
+                                                className="hidden"
+                                                id={`file-input-2.1-${index}`}
+                                              />
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                  document
+                                                    .getElementById(
+                                                      `file-input-2.1-${index}`
+                                                    )
+                                                    ?.click()
                                                 }
-                                                e.target.value = ""; // Reset input
-                                              }
-                                            }}
-                                            className="hidden"
-                                            id={`file-input-2.1-${index}`}
-                                          />
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                              document
-                                                .getElementById(
-                                                  `file-input-2.1-${index}`
-                                                )
-                                                ?.click()
-                                            }
-                                            className="h-6 px-2 text-xs"
-                                          >
-                                            <Plus className="w-3 h-3 mr-1" />
-                                            Add
-                                          </Button>
-                                        </div>
+                                                className="h-6 px-2 text-xs"
+                                              >
+                                                <Upload className="w-3 h-3 mr-1" />
+                                                Upload
+                                              </Button>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
                                     ) : item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5 items-center">
@@ -5337,22 +5491,18 @@ export const InfraDevelopmentReview = ({
                                     )}
                                   </td>
                                   <td className="py-3 px-4 text-sm font-normal">
+                                    {/* For "yes" case, only show first file's type */}
                                     {item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1">
-                                        {item.files.map(
-                                          (file: any, fileIndex: number) => (
-                                            <Badge
-                                              key={fileIndex}
-                                              variant="outline"
-                                              className="text-xs px-1.5 py-0.5"
-                                            >
-                                              {file.fileName
-                                                ?.split(".")
-                                                .pop()
-                                                ?.toUpperCase() || "N/A"}
-                                            </Badge>
-                                          )
-                                        )}
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs px-1.5 py-0.5"
+                                        >
+                                          {item.files[0].fileName
+                                            ?.split(".")
+                                            .pop()
+                                            ?.toUpperCase() || "N/A"}
+                                        </Badge>
                                       </div>
                                     ) : (
                                       <span className="text-muted-foreground text-xs">
@@ -5360,21 +5510,24 @@ export const InfraDevelopmentReview = ({
                                       </span>
                                     )}
                                   </td>
-                                  {shouldBeEditable("2.1") && (
-                                    <td className="py-3 px-4 text-sm font-normal">
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => {
-                                          // Use index for deletion since items may not have IDs
-                                          handleRemoveEntry2_1(index);
-                                        }}
-                                        className="text-red-500 hover:text-red-700 border-none bg-none"
-                                      >
-                                        <Trash2 className="h-5 w-5" />
-                                      </Button>
-                                    </td>
-                                  )}
+                                  {/* Hide delete button for "yes" case since only 1 entry is required */}
+                                  {shouldBeEditable("2.1") &&
+                                    formDataState?.section2_1
+                                      ?.hasOverarchingPolicy !== "yes" && (
+                                      <td className="py-3 px-4 text-sm font-normal">
+                                        <Button
+                                          variant="outline"
+                                          size="icon"
+                                          onClick={() => {
+                                            // Use index for deletion since items may not have IDs
+                                            handleRemoveEntry2_1(index);
+                                          }}
+                                          className="text-red-500 hover:text-red-700 border-none bg-none"
+                                        >
+                                          <Trash2 className="h-5 w-5" />
+                                        </Button>
+                                      </td>
+                                    )}
                                 </tr>
                               );
                             }
@@ -5580,111 +5733,279 @@ export const InfraDevelopmentReview = ({
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {shouldBeEditable("2.1") ? (
                                       <div className="space-y-1.5">
-                                        {item.files && item.files.length > 0 ? (
-                                          <div className="flex flex-wrap gap-1.5">
-                                            {item.files.map(
-                                              (
-                                                file: any,
-                                                fileIndex: number
-                                              ) => (
-                                                <Badge
-                                                  key={fileIndex}
-                                                  variant="secondary"
-                                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                                  title={
-                                                    extractOriginalName(
-                                                      file.fileName || "",
-                                                      (file as any)
-                                                        ?.originalName
-                                                    ) || "Unknown file"
-                                                  }
-                                                >
-                                                  <Upload className="w-3 h-3 flex-shrink-0" />
-                                                  <span className="truncate">
-                                                    {extractOriginalName(
-                                                      file.fileName || "",
-                                                      (file as any)
-                                                        ?.originalName
-                                                    ) || "Unknown file"}
-                                                  </span>
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                      const updatedFiles =
-                                                        item.files.filter(
-                                                          (
-                                                            _: any,
-                                                            idx: number
-                                                          ) => idx !== fileIndex
-                                                        );
-                                                      handleFilesUpdate(
-                                                        "2.1",
-                                                        index,
-                                                        updatedFiles.length > 0
-                                                          ? updatedFiles
-                                                          : []
-                                                      );
-                                                    }}
-                                                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                  >
-                                                    <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                                  </button>
-                                                </Badge>
-                                              )
-                                            )}
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground text-xs">
-                                            No files
-                                          </span>
-                                        )}
-                                        <div className="flex items-center">
-                                          <input
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            onChange={async (e) => {
-                                              const selectedFile =
-                                                e.target.files?.[0];
-                                              if (selectedFile) {
-                                                const uploadedFile =
-                                                  await handleFileUpload(
-                                                    selectedFile
-                                                  );
-                                                if (uploadedFile) {
-                                                  const existingFiles =
-                                                    item.files || [];
-                                                  await handleFilesUpdate(
-                                                    "2.1",
-                                                    index,
-                                                    [
-                                                      ...existingFiles,
-                                                      uploadedFile,
-                                                    ]
-                                                  );
+                                        {/* No Document Available Checkbox */}
+                                        <div className="flex items-center space-x-2 py-1">
+                                          <Checkbox
+                                            id={`no-doc-2.1-no-${index}`}
+                                            checked={
+                                              item.noDocumentAvailable || false
+                                            }
+                                            onCheckedChange={(checked) => {
+                                              const noDocument =
+                                                checked as boolean;
+                                              // Update noDocumentAvailable and clear files if checked
+                                              const updatedArray =
+                                                formDataState?.section2_1?.infraActArray?.map(
+                                                  (entry: any, idx: number) =>
+                                                    idx === index
+                                                      ? {
+                                                          ...entry,
+                                                          noDocumentAvailable:
+                                                            noDocument,
+                                                          files: noDocument
+                                                            ? []
+                                                            : entry.files,
+                                                        }
+                                                      : entry
+                                                ) || [];
+
+                                              setFormDataState((prev: any) => ({
+                                                ...prev,
+                                                section2_1: {
+                                                  ...prev.section2_1,
+                                                  infraActArray: updatedArray,
+                                                },
+                                              }));
+
+                                              // Also update submissionData
+                                              setSubmissionData(
+                                                (prevSubmission: any) => {
+                                                  if (!prevSubmission)
+                                                    return prevSubmission;
+                                                  const infraDev =
+                                                    prevSubmission?.infraDevelopment ||
+                                                    {};
+                                                  return {
+                                                    ...prevSubmission,
+                                                    infraDevelopment: {
+                                                      ...infraDev,
+                                                      section2_1: {
+                                                        ...infraDev.section2_1,
+                                                        infraActArray:
+                                                          updatedArray,
+                                                      },
+                                                    },
+                                                  };
                                                 }
-                                                e.target.value = ""; // Reset input
+                                              );
+
+                                              // Clear validation error
+                                              if (
+                                                getFieldError(
+                                                  `section2_1.infraActArray.${index}.files`
+                                                )
+                                              ) {
+                                                setIndicatorValidationErrors(
+                                                  (prev) => {
+                                                    const updated = { ...prev };
+                                                    delete updated[
+                                                      `section2_1.infraActArray.${index}.files`
+                                                    ];
+                                                    return updated;
+                                                  }
+                                                );
                                               }
                                             }}
-                                            className="hidden"
-                                            id={`file-input-2.1-no-${index}`}
                                           />
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                              document
-                                                .getElementById(
-                                                  `file-input-2.1-no-${index}`
-                                                )
-                                                ?.click()
-                                            }
-                                            className="h-6 px-2 text-xs"
+                                          <label
+                                            htmlFor={`no-doc-2.1-no-${index}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                           >
-                                            <Plus className="w-3 h-3 mr-1" />
-                                            Add
-                                          </Button>
+                                            No document available
+                                          </label>
                                         </div>
+
+                                        {item.noDocumentAvailable ? (
+                                          <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                            No document available
+                                          </div>
+                                        ) : (
+                                          <>
+                                            {item.files &&
+                                            item.files.length > 0 ? (
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {item.files.map(
+                                                  (
+                                                    file: any,
+                                                    fileIndex: number
+                                                  ) => (
+                                                    <Badge
+                                                      key={fileIndex}
+                                                      variant="secondary"
+                                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                                      title={
+                                                        extractOriginalName(
+                                                          file.fileName || "",
+                                                          (file as any)
+                                                            ?.originalName
+                                                        ) || "Unknown file"
+                                                      }
+                                                    >
+                                                      <Upload className="w-3 h-3 flex-shrink-0" />
+                                                      <span className="truncate">
+                                                        {extractOriginalName(
+                                                          file.fileName || "",
+                                                          (file as any)
+                                                            ?.originalName
+                                                        ) || "Unknown file"}
+                                                      </span>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const updatedFiles =
+                                                            item.files.filter(
+                                                              (
+                                                                _: any,
+                                                                idx: number
+                                                              ) =>
+                                                                idx !==
+                                                                fileIndex
+                                                            );
+                                                          handleFilesUpdate(
+                                                            "2.1",
+                                                            index,
+                                                            updatedFiles.length >
+                                                              0
+                                                              ? updatedFiles
+                                                              : []
+                                                          );
+                                                        }}
+                                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      >
+                                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                                      </button>
+                                                    </Badge>
+                                                  )
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <span className="text-muted-foreground text-xs">
+                                                No files
+                                              </span>
+                                            )}
+                                            <div className="flex items-center">
+                                              <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx"
+                                                onChange={async (e) => {
+                                                  const selectedFile =
+                                                    e.target.files?.[0];
+                                                  if (selectedFile) {
+                                                    const uploadedFile =
+                                                      await handleFileUpload(
+                                                        selectedFile
+                                                      );
+                                                    if (uploadedFile) {
+                                                      // For "yes" case, only allow ONE file - replace instead of add
+                                                      const newFiles = [
+                                                        uploadedFile,
+                                                      ];
+
+                                                      // Update files and clear noDocumentAvailable in a single state update
+                                                      setFormDataState(
+                                                        (prev: any) => {
+                                                          const currentArray =
+                                                            prev?.section2_1
+                                                              ?.infraActArray ||
+                                                            [];
+                                                          const updatedArray =
+                                                            currentArray.map(
+                                                              (
+                                                                entry: any,
+                                                                idx: number
+                                                              ) =>
+                                                                idx === index
+                                                                  ? {
+                                                                      ...entry,
+                                                                      files:
+                                                                        newFiles,
+                                                                      noDocumentAvailable:
+                                                                        false,
+                                                                    }
+                                                                  : entry
+                                                            );
+
+                                                          return {
+                                                            ...prev,
+                                                            section2_1: {
+                                                              ...prev.section2_1,
+                                                              infraActArray:
+                                                                updatedArray,
+                                                            },
+                                                          };
+                                                        }
+                                                      );
+
+                                                      // Also update submissionData
+                                                      setSubmissionData(
+                                                        (
+                                                          prevSubmission: any
+                                                        ) => {
+                                                          if (!prevSubmission)
+                                                            return prevSubmission;
+                                                          const infraDev =
+                                                            prevSubmission?.infraDevelopment ||
+                                                            {};
+                                                          const currentArray =
+                                                            infraDev.section2_1
+                                                              ?.infraActArray ||
+                                                            [];
+                                                          const updatedArray =
+                                                            currentArray.map(
+                                                              (
+                                                                entry: any,
+                                                                idx: number
+                                                              ) =>
+                                                                idx === index
+                                                                  ? {
+                                                                      ...entry,
+                                                                      files:
+                                                                        newFiles,
+                                                                      noDocumentAvailable:
+                                                                        false,
+                                                                    }
+                                                                  : entry
+                                                            );
+
+                                                          return {
+                                                            ...prevSubmission,
+                                                            infraDevelopment: {
+                                                              ...infraDev,
+                                                              section2_1: {
+                                                                ...infraDev.section2_1,
+                                                                infraActArray:
+                                                                  updatedArray,
+                                                              },
+                                                            },
+                                                          };
+                                                        }
+                                                      );
+                                                    }
+                                                    e.target.value = ""; // Reset input
+                                                  }
+                                                }}
+                                                className="hidden"
+                                                id={`file-input-2.1-no-${index}`}
+                                              />
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                  document
+                                                    .getElementById(
+                                                      `file-input-2.1-no-${index}`
+                                                    )
+                                                    ?.click()
+                                                }
+                                                className="h-6 px-2 text-xs"
+                                              >
+                                                <Upload className="w-3 h-3 mr-1" />
+                                                Upload
+                                              </Button>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
                                     ) : item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5 items-center">
