@@ -326,6 +326,21 @@ export function UserForm({
         ministryId: user.ministryId || "",
       };
     }
+    // If logged in as MOSPI_APPROVER, default role is MOSPI_REVIEWER (but can be overridden by sessionStorage)
+    if (user?.role === "MOSPI_APPROVER") {
+      return {
+        firstName: "",
+        lastName: "",
+        contactNumber: "",
+        email: "",
+        password: "",
+        role: "MOSPI_REVIEWER",
+        stateId: [],
+        assignedIndicators: [],
+        stateUt: "",
+        ministryId: "",
+      };
+    }
     return {
       firstName: "",
       lastName: "",
@@ -995,16 +1010,19 @@ export function UserForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officer, user?.state, user?.role, states]);
 
-  // Sync formData.role with Select component's displayed value when it doesn't match (for ADMIN users)
+  // Sync formData.role with Select component's displayed value when it doesn't match
+  // This is needed when formData.role is not in availableRoles (e.g., MOSPI_APPROVER with default NODAL_OFFICER)
   useEffect(() => {
-    if (!officer && user?.role === "ADMIN") {
+    if (!officer) {
       const availableRoles = getAvailableRoles();
       if (availableRoles.length > 0) {
-        const selectValue = availableRoles.some(r => r.value === formData.role)
+        const isRoleAvailable = availableRoles.some(r => r.value === formData.role);
+        const selectValue = isRoleAvailable
           ? formData.role
           : (availableRoles.length > 0 ? availableRoles[0].value : "");
         
         // If the Select would show a different value than formData.role, sync them
+        // This ensures the State/UT dropdown shows when STATE_APPROVER is selected by default
         if (selectValue && selectValue !== formData.role) {
           setFormData(prev => ({ ...prev, role: selectValue }));
         }
@@ -1029,6 +1047,7 @@ export function UserForm({
       setLoadingStates(false);
       return;
     }
+    // Load states if role requires it (MOSPI_REVIEWER or STATE_APPROVER) or if creating STATE_APPROVER role
     if (formData.role === "MOSPI_REVIEWER" || formData.role === "STATE_APPROVER" || user?.role === "STATE_APPROVER") {
       const loadStates = async () => {
         setLoadingStates(true);
