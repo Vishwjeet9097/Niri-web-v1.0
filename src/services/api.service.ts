@@ -1377,7 +1377,15 @@ class ApiService implements HttpClient {
             return true;
           }
 
-          // Pattern 1c: Yes requires file (section3_1, section3_2, section4_2, section4_4)
+          // Pattern 1c: Yes requires file (section3_1, section3_2, section4_1, section4_3)
+          // BUT: If noDocumentAvailable is true, skip file requirement
+          if (sectionData.noDocumentAvailable === true) {
+            console.log(
+              `  ✓ ${sectionKey}: Yes with noDocumentAvailable=true (file not required)`
+            );
+            return true;
+          }
+
           if (hasFileData(sectionData.file)) {
             console.log(`  ✓ ${sectionKey}: Yes with file`);
             return true;

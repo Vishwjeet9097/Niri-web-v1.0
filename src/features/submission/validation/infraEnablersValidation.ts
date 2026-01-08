@@ -82,13 +82,18 @@ export const validateInfraEnablers = (
     ) {
       errors["section4_1.available"] = "Please select Yes or No.";
     } else if (section42.available === "yes") {
-      // Check if file or URL is provided (assuming URL might be in comment or a separate field)
-      // For now, we'll check if file exists. If URL support is needed, we'll need to check that too
       // Skip file validation if "No document available" is selected
-      if (!section42.noDocumentAvailable && !hasRequiredFile(section42.file)) {
-        errors["section4_1.file"] = "Upload file is required.";
+      if (!section42.noDocumentAvailable) {
+        if (!hasRequiredFile(section42.file)) {
+          errors["section4_1.file"] = "Upload file is required.";
+        } else if (
+          section42.file &&
+          section42.file.file &&
+          !isValidPdfFile(section42.file)
+        ) {
+          errors["section4_1.file"] = "Only PDF files are allowed.";
+        }
       }
-      // Note: If URL is stored elsewhere, add validation here
     } else if (section42.available === "no") {
       if (!section42.comment || section42.comment.trim() === "") {
         errors["section4_1.comment"] = "Comment (reason) is required.";
@@ -155,14 +160,16 @@ export const validateInfraEnablers = (
       errors["section4_3.adopted"] = "Please select Yes or No.";
     } else if (section44.adopted === "yes") {
       // Skip file validation if "No document available" is selected
-      if (!section44.noDocumentAvailable && !hasRequiredFile(section44.file)) {
-        errors["section4_3.file"] = "Upload orders is required.";
-      } else if (
-        section44.file &&
-        section44.file.file &&
-        !isValidPdfFile(section44.file)
-      ) {
-        errors["section4_3.file"] = "Only PDF files are allowed.";
+      if (!section44.noDocumentAvailable) {
+        if (!hasRequiredFile(section44.file)) {
+          errors["section4_3.file"] = "Upload orders is required.";
+        } else if (
+          section44.file &&
+          section44.file.file &&
+          !isValidPdfFile(section44.file)
+        ) {
+          errors["section4_3.file"] = "Only PDF files are allowed.";
+        }
       }
     } else if (section44.adopted === "no") {
       if (!section44.comment || section44.comment.trim() === "") {
