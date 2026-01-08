@@ -34,7 +34,7 @@ export default function RoleBasedDashboard() {
     
     case "MINISTRY_APPROVER":
       // Redirect ministry approvers to their dedicated dashboard route
-      return <Navigate to="/ministry-dashboard" replace />;
+      return <Navigate to="/ministry/dashboard" replace />;
     
      case "ADMIN": {
       // Always redirect Admin to /dashboard for consistent sidebar/menu

@@ -14,7 +14,7 @@ export function RoleBasedRedirect() {
 
   const getDefaultPath = (role: string) => {
     if (role === "ADMIN") return "/user-management";
-    if (role === "MINISTRY_APPROVER") return "/ministry-dashboard";
+    if (role === "MINISTRY_APPROVER") return "/ministry/dashboard";
     return "/dashboard";
   };
 

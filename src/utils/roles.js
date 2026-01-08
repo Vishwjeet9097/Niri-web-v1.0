@@ -88,11 +88,11 @@ export const MENU_CONFIG = [
     children: [
       {
         label: "Create Submission",
-        path: "/ministry-submission", 
+        path: "/ministry/submission", 
       },
       {
         label: "Review Submission",
-        path: "/data-submission/review", 
+        path: "/ministry/review-submissions", 
       },
     ],
   },

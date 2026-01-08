@@ -544,3 +544,102 @@ export async function submitIndicatorToMinistryApprover(
     throw error;
   }
 }
+
+/**
+ * Get all ministry submissions for review
+ * Returns the latest submission for each ministry approver
+ */
+export async function getAllMinistrySubmissions(): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/all-submissions`);
+        console.log('[getAllMinistrySubmissions] Calling API:', url);
+        const response = await apiService.get(url, { withCredentials: true });
+        console.log('[getAllMinistrySubmissions] Raw response:', response);
+        console.log('[getAllMinistrySubmissions] Response type:', typeof response);
+        console.log('[getAllMinistrySubmissions] Response.data:', response.data);
+        console.log('[getAllMinistrySubmissions] Response.data type:', typeof response.data);
+        
+        // Handle different response structures from axios
+        if (response && typeof response === 'object') {
+            // If response has data property, use it
+            if (response.data !== undefined) {
+                return response.data;
+            }
+            // Otherwise return the response itself
+            return response;
+        }
+        
+        return response;
+    } catch (error: any) {
+        console.error('[getAllMinistrySubmissions] API Error:', error);
+        console.error('[getAllMinistrySubmissions] Error details:', {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data,
+            status: error.response?.status,
+        });
+        throw error;
+    }
+}
+
+/**
+ * Get submissions for the current logged-in user
+ * Returns all submissions where the user has submitted indicators
+ */
+export async function getSubmissionsForCurrentUser(): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/submissions/current-user`);
+        console.log('[getSubmissionsForCurrentUser] Calling API:', url);
+        const response = await apiService.get(url, { withCredentials: true });
+        console.log('[getSubmissionsForCurrentUser] Response from apiService.get:', response);
+        console.log('[getSubmissionsForCurrentUser] Response type:', typeof response);
+        console.log('[getSubmissionsForCurrentUser] Is array?', Array.isArray(response));
+        
+        // The axios interceptor already extracts response.data, so 'response' is already the API response object
+        // The API returns: {status: true, data: Array(1), message: '...'}
+        if (response && typeof response === 'object' && !Array.isArray(response)) {
+            console.log('[getSubmissionsForCurrentUser] API Response structure:', {
+                hasStatus: !!response.status,
+                hasData: !!response.data,
+                dataIsArray: Array.isArray(response.data),
+                dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+                message: response.message,
+                responseKeys: Object.keys(response)
+            });
+            
+            // Return the API response object which has {status, data, message}
+            return response;
+        }
+        
+        // If response is directly an array (unexpected but handle it)
+        if (Array.isArray(response)) {
+            console.warn('[getSubmissionsForCurrentUser] Response is directly an array, wrapping it');
+            return {
+                status: true,
+                data: response,
+                message: 'Retrieved submissions successfully'
+            };
+        }
+        
+        // Fallback: return response if structure is different
+        console.warn('[getSubmissionsForCurrentUser] Unexpected response structure, returning as-is');
+        return response;
+    } catch (error: any) {
+        console.error('[getSubmissionsForCurrentUser] API Error:', error);
+        console.error('[getSubmissionsForCurrentUser] Error details:', {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data,
+            status: error.response?.status,
+        });
+        throw error;
+    }
+}

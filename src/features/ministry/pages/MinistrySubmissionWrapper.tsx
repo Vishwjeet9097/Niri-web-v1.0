@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
 import { getMinistrySubmissionDetails, submitIndicatorToMinistryApprover, minstryRegistrationForm } from "@/services/ministry.service";
@@ -24,6 +24,8 @@ export function MinistrySubmissionWrapper() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id: submissionIdFromParams } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+  const reviewUserId = searchParams.get('userId'); // Get userId from query params for review mode
   const { toast } = useToast();
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -64,8 +66,12 @@ export function MinistrySubmissionWrapper() {
         return;
       }
 
+      // Determine which userId to use: reviewUserId (from query param) or logged-in user's id
+      const targetUserId = reviewUserId || user?.id;
+
       try {
-        if (!user?.id) {
+        
+        if (!targetUserId) {
           console.log("⚠️ No user ID found");
           setChecking(false);
           setNoSubmissionFound(true);
@@ -74,22 +80,36 @@ export function MinistrySubmissionWrapper() {
           return;
         }
 
-        // Only check for MINISTRY_APPROVER role
-        if (user?.role !== "MINISTRY_APPROVER") {
-          console.log("⚠️ User is not a Ministry Approver");
-          setChecking(false);
-          setNoSubmissionFound(true);
-          setSubmissionError("You don't have permission to access ministry submissions.");
-          hasCheckedSubmissionRef.current = true;
-          return;
+        // If reviewing another user's submission, allow ADMIN and MOSPI_APPROVER roles
+        // Otherwise, only allow MINISTRY_APPROVER to view their own submission
+        if (reviewUserId && user?.id !== reviewUserId) {
+          // Review mode: allow ADMIN, MOSPI_APPROVER, or MINISTRY_APPROVER
+          if (!['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER'].includes(user?.role || '')) {
+            console.log("⚠️ User doesn't have permission to review ministry submissions");
+            setChecking(false);
+            setNoSubmissionFound(true);
+            setSubmissionError("You don't have permission to review ministry submissions.");
+            hasCheckedSubmissionRef.current = true;
+            return;
+          }
+        } else {
+          // Own submission mode: only allow MINISTRY_APPROVER
+          if (user?.role !== "MINISTRY_APPROVER") {
+            console.log("⚠️ User is not a Ministry Approver");
+            setChecking(false);
+            setNoSubmissionFound(true);
+            setSubmissionError("You don't have permission to access ministry submissions.");
+            hasCheckedSubmissionRef.current = true;
+            return;
+          }
         }
         
         hasCheckedSubmissionRef.current = true;
-        console.log("🔍 Checking existing submission for Ministry Approver using ministry API:", user?.id);
-        // Use the ministry API endpoint directly with userId
+        console.log("🔍 Checking existing submission for Ministry Approver using ministry API:", targetUserId);
+        // Use the ministry API endpoint directly with userId (either reviewUserId or user.id)
         // This will also load the form data, so we don't need a separate fetchFormStructure call
         setLoading(true);
-        const response = await getMinistrySubmissionDetails(user.id);
+        const response = await getMinistrySubmissionDetails(targetUserId);
 
         if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
           console.log("✅ Found existing submission with indicators:", response.data.length);
@@ -177,12 +197,12 @@ export function MinistrySubmissionWrapper() {
             // OR we can fetch it from the simpler endpoint
             console.warn("⚠️ No submissionId in API response, trying to extract from data or fetch from endpoint...");
             
-            // First, try to get it from the simpler endpoint
-            try {
-              const submissionResponse = await apiService.get(
-                `/ministry/form/retrieve/submission/${user.id}`,
-                { withCredentials: true }
-              );
+              // First, try to get it from the simpler endpoint
+              try {
+                const submissionResponse = await apiService.get(
+                  `/ministry/form/retrieve/submission/${targetUserId}`,
+                  { withCredentials: true }
+                );
               const submissionData = submissionResponse.data;
               
               console.log("🔍 Submission endpoint response structure:", {
@@ -388,7 +408,13 @@ export function MinistrySubmissionWrapper() {
       }
     };
 
-    if (user?.id && user?.role === "MINISTRY_APPROVER") {
+    // Allow check if:
+    // 1. User is MINISTRY_APPROVER viewing their own submission
+    // 2. User is ADMIN/MOSPI_APPROVER/MINISTRY_APPROVER reviewing another user's submission (reviewUserId exists)
+    const canAccess = (user?.id && user?.role === "MINISTRY_APPROVER") || 
+                      (reviewUserId && ['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER'].includes(user?.role || ''));
+    
+    if (canAccess) {
       checkExistingSubmission();
     } else if (!user?.id) {
       setChecking(false);
@@ -401,7 +427,7 @@ export function MinistrySubmissionWrapper() {
       setSubmissionError("You don't have permission to access ministry submissions.");
       hasCheckedSubmissionRef.current = true;
     }
-  }, [user?.id, user?.role, submissionIdFromParams, toast]);
+  }, [user?.id, user?.role, submissionIdFromParams, reviewUserId, toast]);
 
   // Handle field changes - optimized to prevent full re-renders
   // Real-time validation on field change

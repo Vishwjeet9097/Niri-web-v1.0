@@ -691,6 +691,99 @@ export class ApiService {
     }
   }
 
+  async createSubmission(
+    payload: {
+      formData: Record<string, any>;
+      indicators?: string[];
+      status?: string;
+      section_status?: any;
+      attachedFiles?: any[];
+    }
+  ): Promise<NiriSubmission> {
+    try {
+      console.log("🔍 API Service - Create Submission Request Data:", payload);
+
+      // Check if payload contains File objects
+      const hasFiles = this.hasFileObjects(payload);
+
+      let response;
+
+      if (hasFiles) {
+        // Use FormData for multipart upload
+        const multipartFormData = new FormData();
+        const submissionData = {
+          formData: payload.formData,
+          indicators: payload.indicators,
+          status: payload.status || "DRAFT",
+          section_status: payload.section_status,
+          attachedFiles: payload.attachedFiles || [],
+        };
+
+        console.log("📤 Using multipart/form-data for file upload");
+        console.log(
+          "📦 Full payload before stringify:",
+          JSON.stringify(submissionData, null, 2)
+        );
+
+        multipartFormData.append("submission", JSON.stringify(submissionData));
+
+        // Append files recursively
+        this.appendFilesToFormData(multipartFormData, payload.formData, "formData");
+
+        response = await this.axios.post("/submission", multipartFormData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        // Use FormData format (backend expects FormData even without files)
+        const formData = new FormData();
+        const submissionData = {
+          formData: payload.formData,
+          indicators: payload.indicators,
+          status: payload.status || "DRAFT",
+          section_status: payload.section_status,
+          attachedFiles: payload.attachedFiles || [],
+        };
+
+        console.log("📤 Using FormData format (no files)");
+        console.log("📦 Full payload:", JSON.stringify(submissionData, null, 2));
+
+        formData.append("submission", JSON.stringify(submissionData));
+
+        response = await this.axios.post("/submission", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
+      console.log(
+        "🔍 API Service - Create Submission Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Create Submission Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const submissionData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Create Submission Data:",
+        submissionData
+      );
+
+      return submissionData;
+    } catch (error: any) {
+      console.error("❌ API Service - Create Submission Error:", error);
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Create Submission 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
+  }
+
   async addComment(
     id: string,
     url: string,

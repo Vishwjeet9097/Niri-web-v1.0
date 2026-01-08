@@ -36,6 +36,8 @@ import { CheckSubmissionRedirect } from "./features/submission/pages/CheckSubmis
 import { StateAggregateReviewPage } from "./features/dataSubmission/pages/StateAggregateReviewPage";
 import { MinistrySubmissionWrapper } from "./features/ministry/pages/MinistrySubmissionWrapper";
 import { MinistryApproverDashboardPage } from "./features/ministry/Dashboard/MinistryApproverDashboardPage";
+import { MinistryReviewSubmissionsPage } from "./features/ministry/pages/MinistryReviewSubmissionsPage";
+import { MinistryFormReviewSubmissionPage } from "./features/ministry/pages/MinistryFormReviewSubmissionPage";
 import { RoleBasedRedirect } from "./components/RoleBasedRedirect";
 
 const queryClient = new QueryClient();
@@ -110,27 +112,45 @@ const App = () => (
                   path="/data-submission/edit/:id"
                   element={<EditSubmissionPage />}
                 />
-                <Route
-                  path="/ministry-dashboard"
-                  element={
-                    <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
-                      <MinistryApproverDashboardPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/ministry-submission"
-                  element={<MinistrySubmissionWrapper />}
-                  // TEMPORARY: Role protection commented out for testing
-                  // TODO: Uncomment when ready to enable role protection
-                  // element={
-                  //   <ProtectedRoute
-                  //     allowedRoles={["MINISTRY_APPROVER"]}
-                  //   >
-                  //     <MinistrySubmissionWrapper />
-                  //   </ProtectedRoute>
-                  // }
-                />
+                <Route path="/ministry">
+                  <Route
+                    path="dashboard"
+                    element={
+                      <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
+                        <MinistryApproverDashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="submission"
+                    // element={<MinistrySubmissionWrapper />}
+                    // TEMPORARY: Role protection commented out for testing
+                    // TODO: Uncomment when ready to enable role protection
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["MINISTRY_APPROVER"]}
+                      >
+                        <MinistrySubmissionWrapper />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="review-submissions"
+                    element={
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
+                        <MinistryReviewSubmissionsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="review-submissions/form-review/:id"
+                    element={
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
+                        <MinistryFormReviewSubmissionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Route>
                 <Route
                   path="/user-management"
                   element={
