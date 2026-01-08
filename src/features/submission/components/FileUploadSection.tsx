@@ -1,4 +1,4 @@
-import { useState, useId, useEffect } from "react";
+import { useState, useId, useEffect, useRef } from "react";
 import { Upload, X, File as FileIcon, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -59,6 +59,7 @@ export const FileUploadSection = ({
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingNoDocument, setPendingNoDocument] = useState(false);
+  const isConfirmingRef = useRef(false);
 
   // Clean up object URL when component unmounts or file changes
   useEffect(() => {
@@ -68,6 +69,16 @@ export const FileUploadSection = ({
       }
     };
   }, [objectUrl]);
+
+  // Debug: Log props changes
+  useEffect(() => {
+    console.log("🔄 FileUploadSection: Props updated", {
+      noDocumentAvailable,
+      showNoDocumentOption,
+      hasOnNoDocumentChange: !!onNoDocumentChange,
+      label,
+    });
+  }, [noDocumentAvailable, showNoDocumentOption, onNoDocumentChange, label]);
 
   const handleFile = async (file: File) => {
     if (disabled) return;
@@ -307,24 +318,43 @@ export const FileUploadSection = ({
   };
 
   const handleNoDocumentCheck = (checked: boolean) => {
+    console.log("🔘 FileUploadSection: handleNoDocumentCheck called", {
+      checked,
+      currentNoDocumentAvailable: noDocumentAvailable,
+      hasOnNoDocumentChange: !!onNoDocumentChange,
+    });
     if (checked) {
       // If checking, show confirmation dialog
+      console.log("🔘 FileUploadSection: Showing confirmation dialog");
       setPendingNoDocument(true);
       setShowConfirmDialog(true);
     } else {
       // If unchecking, just update state
+      console.log("🔘 FileUploadSection: Unchecking, calling onNoDocumentChange(false)");
       onNoDocumentChange?.(false);
     }
   };
 
   const handleConfirmNoDocument = () => {
+    console.log("✅ FileUploadSection: handleConfirmNoDocument called", {
+      currentNoDocumentAvailable: noDocumentAvailable,
+      hasOnNoDocumentChange: !!onNoDocumentChange,
+    });
+    isConfirmingRef.current = true; // Mark that we're confirming, not canceling
+    console.log("✅ FileUploadSection: Calling onNoDocumentChange(true)");
     onNoDocumentChange?.(true);
     onChange(null); // Clear any uploaded file
-    setShowConfirmDialog(false);
     setPendingNoDocument(false);
+    setShowConfirmDialog(false);
+    // Reset the flag after a brief delay to allow onOpenChange to check it
+    setTimeout(() => {
+      isConfirmingRef.current = false;
+      console.log("✅ FileUploadSection: Reset isConfirmingRef flag");
+    }, 0);
   };
 
   const handleCancelNoDocument = () => {
+    console.log("❌ FileUploadSection: handleCancelNoDocument called");
     setShowConfirmDialog(false);
     setPendingNoDocument(false);
   };
@@ -346,7 +376,15 @@ export const FileUploadSection = ({
           <Checkbox
             id={`no-doc-${uniqueId}`}
             checked={noDocumentAvailable}
-            onCheckedChange={handleNoDocumentCheck}
+            onCheckedChange={(checked) => {
+              console.log("📋 FileUploadSection: Checkbox onCheckedChange", {
+                checked,
+                currentNoDocumentAvailable: noDocumentAvailable,
+                showConfirmDialog,
+                pendingNoDocument,
+              });
+              handleNoDocumentCheck(checked as boolean);
+            }}
             disabled={disabled}
           />
           <label
@@ -453,7 +491,24 @@ export const FileUploadSection = ({
       )}
 
       {/* Confirmation Dialog for No Document Available */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      <AlertDialog
+        open={showConfirmDialog}
+        onOpenChange={(open) => {
+          console.log("🔔 FileUploadSection: AlertDialog onOpenChange", {
+            open,
+            isConfirming: isConfirmingRef.current,
+            pendingNoDocument,
+          });
+          // Only handle closing, not opening (opening is handled by handleNoDocumentCheck)
+          // Don't cancel if we're in the process of confirming
+          if (!open && !isConfirmingRef.current) {
+            console.log("🔔 FileUploadSection: Calling handleCancelNoDocument from onOpenChange");
+            handleCancelNoDocument();
+          } else if (!open && isConfirmingRef.current) {
+            console.log("🔔 FileUploadSection: Dialog closing after confirmation, skipping cancel");
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>No Document Available</AlertDialogTitle>

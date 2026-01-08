@@ -1905,6 +1905,18 @@ export const PPPDevelopmentStep = () => {
               {/* If Yes → show File Upload */}
               {formData.section3_1.available === "yes" && (
                 <div className="flex flex-col gap-2">
+                  {(() => {
+                    console.log(
+                      "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_1",
+                      {
+                        noDocumentAvailable:
+                          formData.section3_1.noDocumentAvailable,
+                        hasFile: !!formData.section3_1.file,
+                        available: formData.section3_1.available,
+                      }
+                    );
+                    return null;
+                  })()}
                   <FileUploadSection
                     label="Upload File"
                     value={formData.section3_1.file ?? null}
@@ -1915,7 +1927,11 @@ export const PPPDevelopmentStep = () => {
                         section3_1: {
                           ...prev.section3_1,
                           file: fileUpload,
-                          noDocumentAvailable: false,
+                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                          noDocumentAvailable: fileUpload
+                            ? false
+                            : prev.section3_1.noDocumentAvailable,
                         },
                       }));
                     }}
@@ -1928,15 +1944,32 @@ export const PPPDevelopmentStep = () => {
                       formData.section3_1.noDocumentAvailable || false
                     }
                     onNoDocumentChange={(noDocument) => {
+                      console.log(
+                        "📝 PPPDevelopmentStep: section3_1 onNoDocumentChange called",
+                        {
+                          noDocument,
+                          currentValue: formData.section3_1.noDocumentAvailable,
+                        }
+                      );
                       showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_1: {
-                          ...prev.section3_1,
-                          noDocumentAvailable: noDocument,
-                          file: noDocument ? null : prev.section3_1.file,
-                        },
-                      }));
+                      setFormData((prev) => {
+                        const newData = {
+                          ...prev,
+                          section3_1: {
+                            ...prev.section3_1,
+                            noDocumentAvailable: noDocument,
+                            file: noDocument ? null : prev.section3_1.file,
+                          },
+                        };
+                        console.log(
+                          "📝 PPPDevelopmentStep: section3_1 state updated",
+                          {
+                            newValue: newData.section3_1.noDocumentAvailable,
+                            prevValue: prev.section3_1.noDocumentAvailable,
+                          }
+                        );
+                        return newData;
+                      });
                     }}
                     className={getInputValidationClass("section3_1.file")}
                   />
@@ -2106,6 +2139,18 @@ export const PPPDevelopmentStep = () => {
               {/* If Yes → show File Upload */}
               {formData.section3_2.available === "yes" && (
                 <div className="flex flex-col gap-2">
+                  {(() => {
+                    console.log(
+                      "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_2",
+                      {
+                        noDocumentAvailable:
+                          formData.section3_2.noDocumentAvailable,
+                        hasFile: !!formData.section3_2.file,
+                        available: formData.section3_2.available,
+                      }
+                    );
+                    return null;
+                  })()}
                   <FileUploadSection
                     label="Upload File"
                     value={formData.section3_2.file ?? null}
@@ -2116,7 +2161,11 @@ export const PPPDevelopmentStep = () => {
                         section3_2: {
                           ...prev.section3_2,
                           file: fileUpload,
-                          noDocumentAvailable: false,
+                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                          noDocumentAvailable: fileUpload
+                            ? false
+                            : prev.section3_2.noDocumentAvailable,
                         },
                       }));
                     }}
@@ -2129,15 +2178,32 @@ export const PPPDevelopmentStep = () => {
                       formData.section3_2.noDocumentAvailable || false
                     }
                     onNoDocumentChange={(noDocument) => {
+                      console.log(
+                        "📝 PPPDevelopmentStep: section3_2 onNoDocumentChange called",
+                        {
+                          noDocument,
+                          currentValue: formData.section3_2.noDocumentAvailable,
+                        }
+                      );
                       showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_2: {
-                          ...prev.section3_2,
-                          noDocumentAvailable: noDocument,
-                          file: noDocument ? null : prev.section3_2.file,
-                        },
-                      }));
+                      setFormData((prev) => {
+                        const newData = {
+                          ...prev,
+                          section3_2: {
+                            ...prev.section3_2,
+                            noDocumentAvailable: noDocument,
+                            file: noDocument ? null : prev.section3_2.file,
+                          },
+                        };
+                        console.log(
+                          "📝 PPPDevelopmentStep: section3_2 state updated",
+                          {
+                            newValue: newData.section3_2.noDocumentAvailable,
+                            prevValue: prev.section3_2.noDocumentAvailable,
+                          }
+                        );
+                        return newData;
+                      });
                     }}
                     className={getInputValidationClass("section3_2.file")}
                   />

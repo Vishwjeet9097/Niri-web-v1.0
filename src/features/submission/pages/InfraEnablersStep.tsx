@@ -61,6 +61,7 @@ const defaultData: InfraEnablersData = {
     available: "",
     file: null,
     comment: "",
+    noDocumentAvailable: false,
   },
   section4_2: {
     adopted: "",
@@ -71,6 +72,7 @@ const defaultData: InfraEnablersData = {
     adopted: "",
     file: null,
     comment: "",
+    noDocumentAvailable: false,
   },
   section4_4: {
     implemented: "",
@@ -1898,6 +1900,18 @@ export const InfraEnablersStep = () => {
             </div>
             {formData.section4_1.available === "yes" && (
               <div className="flex flex-col gap-2">
+                {(() => {
+                  console.log(
+                    "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_1",
+                    {
+                      noDocumentAvailable:
+                        formData.section4_1.noDocumentAvailable,
+                      hasFile: !!formData.section4_1.file,
+                      available: formData.section4_1.available,
+                    }
+                  );
+                  return null;
+                })()}
                 <FileUploadSection
                   label="Upload File"
                   value={formData.section4_1.file}
@@ -1908,7 +1922,11 @@ export const InfraEnablersStep = () => {
                       section4_1: {
                         ...prev.section4_1,
                         file,
-                        noDocumentAvailable: false,
+                        // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                        // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                        noDocumentAvailable: file
+                          ? false
+                          : prev.section4_1.noDocumentAvailable,
                       },
                     }));
                   }}
@@ -1921,15 +1939,32 @@ export const InfraEnablersStep = () => {
                     formData.section4_1.noDocumentAvailable || false
                   }
                   onNoDocumentChange={(noDocument) => {
+                    console.log(
+                      "📝 InfraEnablersStep: section4_1 onNoDocumentChange called",
+                      {
+                        noDocument,
+                        currentValue: formData.section4_1.noDocumentAvailable,
+                      }
+                    );
                     showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_1: {
-                        ...prev.section4_1,
-                        noDocumentAvailable: noDocument,
-                        file: noDocument ? null : prev.section4_1.file,
-                      },
-                    }));
+                    setFormData((prev) => {
+                      const newData = {
+                        ...prev,
+                        section4_1: {
+                          ...prev.section4_1,
+                          noDocumentAvailable: noDocument,
+                          file: noDocument ? null : prev.section4_1.file,
+                        },
+                      };
+                      console.log(
+                        "📝 InfraEnablersStep: section4_1 state updated",
+                        {
+                          newValue: newData.section4_1.noDocumentAvailable,
+                          prevValue: prev.section4_1.noDocumentAvailable,
+                        }
+                      );
+                      return newData;
+                    });
                   }}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
@@ -2241,7 +2276,8 @@ export const InfraEnablersStep = () => {
                         onChange={(file) => {
                           showErrorsIfNeeded();
                           updateGatiProject(entry.id, "file", file);
-                          // Clear noDocumentAvailable when file is uploaded
+                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
                           setFormData((prev) => ({
                             ...prev,
                             section4_2: {
@@ -2249,7 +2285,13 @@ export const InfraEnablersStep = () => {
                               projects: (prev.section4_2?.projects || []).map(
                                 (p) =>
                                   p.id === entry.id
-                                    ? { ...p, file, noDocumentAvailable: false }
+                                    ? {
+                                        ...p,
+                                        file,
+                                        noDocumentAvailable: file
+                                          ? false
+                                          : p.noDocumentAvailable,
+                                      }
                                     : p
                               ),
                             },
@@ -2262,23 +2304,44 @@ export const InfraEnablersStep = () => {
                         showNoDocumentOption={true}
                         noDocumentAvailable={entry.noDocumentAvailable || false}
                         onNoDocumentChange={(noDocument) => {
+                          console.log(
+                            "📝 InfraEnablersStep: section4_2 onNoDocumentChange called",
+                            {
+                              noDocument,
+                              entryId: entry.id,
+                              currentValue: entry.noDocumentAvailable,
+                            }
+                          );
                           showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section4_2: {
-                              ...prev.section4_2,
-                              projects: (prev.section4_2?.projects || []).map(
-                                (p) =>
-                                  p.id === entry.id
-                                    ? {
-                                        ...p,
-                                        noDocumentAvailable: noDocument,
-                                        file: noDocument ? null : p.file,
-                                      }
-                                    : p
-                              ),
-                            },
-                          }));
+                          setFormData((prev) => {
+                            const newData = {
+                              ...prev,
+                              section4_2: {
+                                ...prev.section4_2,
+                                projects: (prev.section4_2?.projects || []).map(
+                                  (p) =>
+                                    p.id === entry.id
+                                      ? {
+                                          ...p,
+                                          noDocumentAvailable: noDocument,
+                                          file: noDocument ? null : p.file,
+                                        }
+                                      : p
+                                ),
+                              },
+                            };
+                            console.log(
+                              "📝 InfraEnablersStep: section4_2 state updated",
+                              {
+                                entryId: entry.id,
+                                newValue: newData.section4_2.projects.find(
+                                  (p) => p.id === entry.id
+                                )?.noDocumentAvailable,
+                                prevValue: entry.noDocumentAvailable,
+                              }
+                            );
+                            return newData;
+                          });
                         }}
                         className={getInputValidationClass(
                           `section4_2.projects.${
@@ -2599,6 +2662,18 @@ export const InfraEnablersStep = () => {
             {/* ✅ If YES → show file upload */}
             {formData.section4_3.adopted === "yes" && (
               <div className="flex flex-col gap-2">
+                {(() => {
+                  console.log(
+                    "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_3",
+                    {
+                      noDocumentAvailable:
+                        formData.section4_3.noDocumentAvailable,
+                      hasFile: !!formData.section4_3.file,
+                      adopted: formData.section4_3.adopted,
+                    }
+                  );
+                  return null;
+                })()}
                 <FileUploadSection
                   label="Upload File"
                   value={formData.section4_3.file}
@@ -2609,7 +2684,11 @@ export const InfraEnablersStep = () => {
                       section4_3: {
                         ...prev.section4_3,
                         file,
-                        noDocumentAvailable: false,
+                        // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                        // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                        noDocumentAvailable: file
+                          ? false
+                          : prev.section4_3.noDocumentAvailable,
                       },
                     }));
                   }}
@@ -2622,15 +2701,32 @@ export const InfraEnablersStep = () => {
                     formData.section4_3.noDocumentAvailable || false
                   }
                   onNoDocumentChange={(noDocument) => {
+                    console.log(
+                      "📝 InfraEnablersStep: section4_3 onNoDocumentChange called",
+                      {
+                        noDocument,
+                        currentValue: formData.section4_3.noDocumentAvailable,
+                      }
+                    );
                     showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_3: {
-                        ...prev.section4_3,
-                        noDocumentAvailable: noDocument,
-                        file: noDocument ? null : prev.section4_3.file,
-                      },
-                    }));
+                    setFormData((prev) => {
+                      const newData = {
+                        ...prev,
+                        section4_3: {
+                          ...prev.section4_3,
+                          noDocumentAvailable: noDocument,
+                          file: noDocument ? null : prev.section4_3.file,
+                        },
+                      };
+                      console.log(
+                        "📝 InfraEnablersStep: section4_3 state updated",
+                        {
+                          newValue: newData.section4_3.noDocumentAvailable,
+                          prevValue: prev.section4_3.noDocumentAvailable,
+                        }
+                      );
+                      return newData;
+                    });
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -2912,7 +3008,8 @@ export const InfraEnablersStep = () => {
                         onChange={(file) => {
                           showErrorsIfNeeded();
                           updatePractice(entry.id, "file", file);
-                          // Clear noDocumentAvailable when file is uploaded
+                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
                           setFormData((prev) => ({
                             ...prev,
                             section4_4: {
@@ -2920,7 +3017,13 @@ export const InfraEnablersStep = () => {
                               practices: (prev.section4_4?.practices || []).map(
                                 (p) =>
                                   p.id === entry.id
-                                    ? { ...p, file, noDocumentAvailable: false }
+                                    ? {
+                                        ...p,
+                                        file,
+                                        noDocumentAvailable: file
+                                          ? false
+                                          : p.noDocumentAvailable,
+                                      }
                                     : p
                               ),
                             },
@@ -2933,13 +3036,23 @@ export const InfraEnablersStep = () => {
                         showNoDocumentOption={true}
                         noDocumentAvailable={entry.noDocumentAvailable || false}
                         onNoDocumentChange={(noDocument) => {
+                          console.log(
+                            "📝 InfraEnablersStep: section4_4 onNoDocumentChange called",
+                            {
+                              noDocument,
+                              entryId: entry.id,
+                              currentValue: entry.noDocumentAvailable,
+                            }
+                          );
                           showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section4_4: {
-                              ...prev.section4_4,
-                              practices: (prev.section4_4?.practices || []).map(
-                                (p) =>
+                          setFormData((prev) => {
+                            const newData = {
+                              ...prev,
+                              section4_4: {
+                                ...prev.section4_4,
+                                practices: (
+                                  prev.section4_4?.practices || []
+                                ).map((p) =>
                                   p.id === entry.id
                                     ? {
                                         ...p,
@@ -2947,9 +3060,21 @@ export const InfraEnablersStep = () => {
                                         file: noDocument ? null : p.file,
                                       }
                                     : p
-                              ),
-                            },
-                          }));
+                                ),
+                              },
+                            };
+                            console.log(
+                              "📝 InfraEnablersStep: section4_4 state updated",
+                              {
+                                entryId: entry.id,
+                                newValue: newData.section4_4.practices.find(
+                                  (p) => p.id === entry.id
+                                )?.noDocumentAvailable,
+                                prevValue: entry.noDocumentAvailable,
+                              }
+                            );
+                            return newData;
+                          });
                         }}
                         className={getInputValidationClass(
                           `section4_4.practices.${
