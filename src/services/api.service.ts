@@ -1355,15 +1355,28 @@ class ApiService implements HttpClient {
         if (conditionalValue === "yes") {
           // For "yes", check for required fields based on common patterns
 
-          // Pattern 1a: Yes requires websiteLink only (section2_4)
+          // Pattern 1a: Yes requires websiteLink OR investmentReadyArray (section2_4)
           if (fieldName === "hasInvestmentReady") {
+            // Check if websiteLink exists
             if (isMeaningful(sectionData.websiteLink)) {
               console.log(`  ✓ ${sectionKey}: Yes with websiteLink`);
               return true;
             }
-            // If websiteLink doesn't exist or is empty, return false
+            // Also check if investmentReadyArray has meaningful data
+            if (hasMeaningfulArrayItems(sectionData.investmentReadyArray)) {
+              console.log(`  ✓ ${sectionKey}: Yes with investmentReadyArray`);
+              return true;
+            }
+            // If status is SAVE_AS_DRAFT, allow saving even without websiteLink or array
+            if (sectionData.status === "SAVE_AS_DRAFT") {
+              console.log(
+                `  ✓ ${sectionKey}: Yes with SAVE_AS_DRAFT status (allowing incomplete data)`
+              );
+              return true;
+            }
+            // If websiteLink and array don't exist or are empty, return false
             console.log(
-              `  ⚠️ ${sectionKey}: Yes but websiteLink is missing or empty`
+              `  ⚠️ ${sectionKey}: Yes but websiteLink and investmentReadyArray are missing or empty`
             );
             return false;
           }
@@ -1972,6 +1985,21 @@ class ApiService implements HttpClient {
           }
         });
 
+        // Also include sections with SAVE_AS_DRAFT status even if not in completedIndicators
+        // This ensures draft data is saved even if incomplete
+        Object.keys(sectionData).forEach((sectionKey) => {
+          if (
+            sectionKey.startsWith("section") &&
+            sectionData[sectionKey]?.status === "SAVE_AS_DRAFT" &&
+            !filteredSectionData[sectionKey]
+          ) {
+            filteredSectionData[sectionKey] = sectionData[sectionKey];
+            console.log(
+              `💾 Including ${sectionKey} with SAVE_AS_DRAFT status (even if not in completedIndicators)`
+            );
+          }
+        });
+
         console.log("🔍 Original sectionData keys:", Object.keys(sectionData));
         console.log(
           "🔍 Filtered sectionData keys (merged with existing):",
@@ -2175,6 +2203,21 @@ class ApiService implements HttpClient {
             console.log(
               `🔍 [API CREATE] Available sectionData keys:`,
               Object.keys(sectionData)
+            );
+          }
+        });
+
+        // Also include sections with SAVE_AS_DRAFT status even if not in completedIndicators
+        // This ensures draft data is saved even if incomplete
+        Object.keys(sectionData).forEach((sectionKey) => {
+          if (
+            sectionKey.startsWith("section") &&
+            sectionData[sectionKey]?.status === "SAVE_AS_DRAFT" &&
+            !filteredSectionData[sectionKey]
+          ) {
+            filteredSectionData[sectionKey] = sectionData[sectionKey];
+            console.log(
+              `💾 Including ${sectionKey} with SAVE_AS_DRAFT status (even if not in completedIndicators)`
             );
           }
         });
