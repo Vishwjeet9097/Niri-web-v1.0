@@ -8,6 +8,7 @@ import { Plus, Trash2, X } from 'lucide-react';
 import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
+import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
 import type { SubsectionRendererProps } from './types';
 
 interface SubsectionTableProps extends SubsectionRendererProps {}
@@ -202,8 +203,12 @@ const SubsectionTableRow: React.FC<{
               </div>
             ) : (
               <div className="text-sm">
-                {isFileField && fieldValue?.fileName ? (
-                  <span className="text-blue-600 hover:underline cursor-pointer">{fieldValue.fileName}</span>
+                {isFileField ? (
+                  // Show files in table format in review mode
+                  <MinistryFileTable
+                    files={fieldValue}
+                    fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
+                  />
                 ) : (() => {
                   // Check if this is a Yes/No field
                   const isYesNoField = field.label.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
@@ -225,6 +230,7 @@ const SubsectionTableRow: React.FC<{
                       </span>
                     );
                   }
+                  // Show regular field values (not disabled inputs)
                   return fieldValue || <span className="text-muted-foreground">N/A</span>;
                 })()}
               </div>

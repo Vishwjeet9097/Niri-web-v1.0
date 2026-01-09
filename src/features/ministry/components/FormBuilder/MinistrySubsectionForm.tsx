@@ -8,6 +8,7 @@ import { FileUploadSection } from '@/features/submission/components/FileUploadSe
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { validateField } from '@/features/ministry/utils/validation';
+import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
 import type { SubsectionRendererProps } from './types';
 
 interface MinistrySubsectionFormProps extends SubsectionRendererProps {}
@@ -337,8 +338,8 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 
   return (
     <div className="space-y-6">
-      {/* Form fields for each item - in a grid layout (3 columns) */}
-      {items.map((item, index) => (
+      {/* Form fields for each item - in a grid layout (3 columns) - Only show in edit mode */}
+      {mode === 'edit' && items.map((item, index) => (
         <div key={item.id || `item-${index}`} className="mb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             {sortedFields.map((field, fieldIndex) => (
@@ -373,7 +374,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
         </div>
       ))}
 
-      {/* Add button */}
+      {/* Add button - Only show in edit mode */}
       {mode === 'edit' && !disabled && (
         <div>
           <Button
@@ -389,9 +390,9 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
         </div>
       )}
 
-      {/* Table view for filled values */}
+      {/* Table view for filled values - Show in both edit and review mode */}
       {items.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200">
+        <div className={cn("overflow-x-auto rounded-xl border border-gray-200", mode === 'edit' ? "mt-6" : "")}>
           <table className="min-w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-[#DDE3F9]">
@@ -418,20 +419,45 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
                 <tr key={item.id || `item-${index}`} className="bg-white">
                   {sortedFields.map((field) => {
                     const fieldValue = item[field.id];
+                    const isFileField = field.dataType === 'file';
+                    const isYesNo = isYesNoField(field);
                     
                     return (
-                      <td key={field.id} className="py-3 px-4 text-sm">
-                        {field.dataType === 'file' && fieldValue && fieldValue.fileName ? (
-                          <div className="flex items-center gap-2">
-                            <FileIcon className="w-4 h-4 text-blue-600" />
-                            <span className="text-blue-600 truncate max-w-[200px]">
-                              {fieldValue.fileName}
+                      <td key={field.id} className="py-3 px-4 text-sm align-top">
+                        {isFileField && fieldValue ? (
+                          // Show files in table format in review mode, simple display in edit mode
+                          mode === 'review' ? (
+                            <MinistryFileTable
+                              files={fieldValue}
+                              fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <FileIcon className="w-4 h-4 text-blue-600" />
+                              <span className="text-blue-600 truncate max-w-[200px]">
+                                {fieldValue?.fileName || 'File'}
+                              </span>
+                            </div>
+                          )
+                        ) : isYesNo ? (
+                          // Show Yes/No as colored badges in review mode
+                          mode === 'review' ? (
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm ${
+                                fieldValue === 'yes'
+                                  ? "bg-green-100 text-green-800"
+                                  : fieldValue === 'no'
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {fieldValue === 'yes' ? 'Yes' : fieldValue === 'no' ? 'No' : 'N/A'}
                             </span>
-                          </div>
-                        ) : isYesNoField(field) ? (
-                          <span className="capitalize">
-                            {fieldValue === 'yes' ? 'Yes' : fieldValue === 'no' ? 'No' : 'N/A'}
-                          </span>
+                          ) : (
+                            <span className="capitalize">
+                              {fieldValue === 'yes' ? 'Yes' : fieldValue === 'no' ? 'No' : 'N/A'}
+                            </span>
+                          )
                         ) : (
                           <span className={fieldValue ? '' : 'text-muted-foreground'}>
                             {fieldValue || 'N/A'}

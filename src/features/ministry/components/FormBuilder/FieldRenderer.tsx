@@ -7,6 +7,7 @@ import { FileUploadSection } from '@/features/submission/components/FileUploadSe
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { validateField } from '@/features/ministry/utils/validation';
+import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
 import type { FileUpload } from '@/features/submission/types';
 import type { FieldRendererProps } from './types';
 
@@ -391,15 +392,26 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
       const fileFieldPath = `${field.sectionId}.${field.id}`;
       return (
         <div className="space-y-2" data-field-path={fileFieldPath}>
-          <FileUploadSection
-            label={field.label}
-            value={value as FileUpload | null}
-            onChange={onChange}
-            required={isRequired}
-            submissionId={submissionId}
-            disabled={disabled || mode === 'review'}
-            className={error ? 'border-destructive' : className}
-          />
+          <Label>
+            {field.label} {isRequired && <span className="text-destructive">*</span>}
+          </Label>
+          {mode === 'review' ? (
+            // In review mode, show files in table format
+            <MinistryFileTable
+              files={value as FileUpload | FileUpload[] | null}
+              fileKeyPrefix={fileFieldPath}
+            />
+          ) : (
+            <FileUploadSection
+              label=""
+              value={value as FileUpload | null}
+              onChange={onChange}
+              required={isRequired}
+              submissionId={submissionId}
+              disabled={disabled}
+              className={error ? 'border-destructive' : className}
+            />
+          )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
       );
