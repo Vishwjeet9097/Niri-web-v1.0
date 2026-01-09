@@ -74,9 +74,9 @@ export function MinistrySubmissionWrapper() {
           return;
         }
 
-        // Only check for MINISTRY_APPROVER role
-        if (user?.role !== "MINISTRY_APPROVER") {
-          console.log("⚠️ User is not a Ministry Approver");
+        // Allow both MINISTRY_APPROVER and NODAL_OFFICER roles
+        if (user?.role !== "MINISTRY_APPROVER" && user?.role !== "NODAL_OFFICER") {
+          console.log("⚠️ User is not a Ministry Approver or Nodal Officer");
           setChecking(false);
           setNoSubmissionFound(true);
           setSubmissionError("You don't have permission to access ministry submissions.");
@@ -85,7 +85,7 @@ export function MinistrySubmissionWrapper() {
         }
         
         hasCheckedSubmissionRef.current = true;
-        console.log("🔍 Checking existing submission for Ministry Approver using ministry API:", user?.id);
+        console.log(`🔍 Checking existing submission for ${user?.role} using ministry API:`, user?.id);
         // Use the ministry API endpoint directly with userId
         // This will also load the form data, so we don't need a separate fetchFormStructure call
         setLoading(true);
@@ -388,7 +388,7 @@ export function MinistrySubmissionWrapper() {
       }
     };
 
-    if (user?.id && user?.role === "MINISTRY_APPROVER") {
+    if (user?.id && (user?.role === "MINISTRY_APPROVER" || user?.role === "NODAL_OFFICER")) {
       checkExistingSubmission();
     } else if (!user?.id) {
       setChecking(false);

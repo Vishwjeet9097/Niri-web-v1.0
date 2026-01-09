@@ -128,6 +128,17 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                   <Route
+                    path="ministry-nodal-submission"
+                    element={
+                      <ProtectedRoute allowedRoles={["NODAL_OFFICER"]}>
+                        <MinistrySubmissionWrapper />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  
+                 
                 </Route>
                 <Route
                   path="/ministry-submission"
@@ -142,6 +153,7 @@ const App = () => (
                   //   </ProtectedRoute>
                   // }
                 />
+              
                 <Route
                   path="/user-management"
                   element={
