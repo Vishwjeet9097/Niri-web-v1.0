@@ -73,6 +73,7 @@ import { getInputValidationClass as getInputValidationClassUtil } from "@/featur
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   isSubmissionFromNodalOfficer,
   isIndicatorFromNodalOfficer,
@@ -110,6 +111,54 @@ export const InfraEnablersReview = ({
 
     const normalized = { ...data };
     const infraEnablers = normalized.infraEnablers || normalized;
+
+    // Ensure mutual exclusivity for section 4.1
+    if (infraEnablers?.section4_1) {
+      const section = infraEnablers.section4_1;
+      const hasFile =
+        section.file &&
+        (section.file.file || section.file.fileName || section.file.filePath);
+
+      if (hasFile) {
+        infraEnablers.section4_1 = {
+          ...section,
+          noDocumentAvailable: false,
+        };
+      } else {
+        // Preserve noDocumentAvailable value if it exists, otherwise default to false
+        infraEnablers.section4_1 = {
+          ...section,
+          noDocumentAvailable:
+            section.noDocumentAvailable !== undefined
+              ? section.noDocumentAvailable
+              : false,
+        };
+      }
+    }
+
+    // Ensure mutual exclusivity for section 4.3
+    if (infraEnablers?.section4_3) {
+      const section = infraEnablers.section4_3;
+      const hasFile =
+        section.file &&
+        (section.file.file || section.file.fileName || section.file.filePath);
+
+      if (hasFile) {
+        infraEnablers.section4_3 = {
+          ...section,
+          noDocumentAvailable: false,
+        };
+      } else {
+        // Preserve noDocumentAvailable value if it exists, otherwise default to false
+        infraEnablers.section4_3 = {
+          ...section,
+          noDocumentAvailable:
+            section.noDocumentAvailable !== undefined
+              ? section.noDocumentAvailable
+              : false,
+        };
+      }
+    }
 
     if (infraEnablers?.section4_5?.capacityArray) {
       infraEnablers.section4_5 = {
@@ -751,6 +800,7 @@ export const InfraEnablersReview = ({
         available: "",
         file: null,
         comment: "",
+        noDocumentAvailable: false,
       },
       section4_2: formDataState?.section4_2 || {
         adopted: "",
@@ -762,6 +812,7 @@ export const InfraEnablersReview = ({
         adopted: "",
         file: null,
         comment: "",
+        noDocumentAvailable: false,
       },
       section4_4: formDataState?.section4_4 || {
         implemented: "",
@@ -1936,6 +1987,8 @@ export const InfraEnablersReview = ({
               available: formDataState?.section4_1?.available ?? null,
               file: formDataState?.section4_1?.file ?? null,
               comment: formDataState?.section4_1?.comment ?? null,
+              noDocumentAvailable:
+                formDataState?.section4_1?.noDocumentAvailable ?? false,
             },
           ];
           break;
@@ -2006,6 +2059,8 @@ export const InfraEnablersReview = ({
               adopted: formDataState?.section4_3?.adopted ?? null,
               file: files4_3.length > 0 ? files4_3[0] : null,
               comment: formDataState?.section4_3?.comment ?? null,
+              noDocumentAvailable:
+                formDataState?.section4_3?.noDocumentAvailable ?? false,
             },
           ];
           break;
@@ -2331,7 +2386,11 @@ export const InfraEnablersReview = ({
         const freshSubmission = await apiService.getSubmission(submissionId);
 
         if (freshSubmission?.formData?.infraEnablers) {
-          setFormDataState(freshSubmission.formData.infraEnablers);
+          // Normalize the data to ensure mutual exclusivity between file and noDocumentAvailable
+          const normalizedData = normalizeFormData(
+            freshSubmission.formData.infraEnablers
+          );
+          setFormDataState(normalizedData);
           setSubmissionState(freshSubmission);
           console.log(
             `[InfraEnablersReview] ✅ Data refreshed after save for section ${sectionId}`
@@ -2714,11 +2773,24 @@ export const InfraEnablersReview = ({
         ? null
         : updatedValue;
 
+    // Check if there's actually a file (not just a truthy value)
+    const hasFile =
+      normalizedValue !== null &&
+      normalizedValue !== undefined &&
+      (normalizedValue.file ||
+        normalizedValue.fileName ||
+        normalizedValue.filePath ||
+        normalizedValue.fileUrl);
+
     const updatedSection = {
       ...previousSection,
       [targetKey]: normalizedValue,
       // Keep 'files' array for backward compatibility with save logic
       ...(normalizedValue ? { files: [normalizedValue] } : { files: [] }),
+      // Clear noDocumentAvailable when file is uploaded (for sections 4.1 and 4.3)
+      ...(hasFile && (sectionId === "4.1" || sectionId === "4.3")
+        ? { noDocumentAvailable: false }
+        : {}),
     };
 
     // Update local state only - save will happen when user clicks Save button
@@ -4078,17 +4150,59 @@ export const InfraEnablersReview = ({
 
               {formDataState?.section4_1?.available === "yes" && (
                 <div>
-                  <Label className="mb-2 block">Upload File</Label>
-                  <EditableFileDisplay
-                    files={formDataState?.section4_1?.file || null}
-                    isEditable={shouldBeEditable("4.1")}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFiles) =>
-                      handleFileUpdate("4.1", updatedFiles)
-                    }
-                    label="Uploaded File"
-                    multiple={false}
-                  />
+                  {shouldBeEditable("4.1") && (
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="no-doc-4.1"
+                        checked={
+                          formDataState?.section4_1?.noDocumentAvailable ||
+                          false
+                        }
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section4_1: {
+                              ...prev.section4_1,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section4_1?.file,
+                            },
+                          }));
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-4.1"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+                  )}
+
+                  {formDataState?.section4_1?.noDocumentAvailable &&
+                  !(
+                    formDataState?.section4_1?.file?.file ||
+                    formDataState?.section4_1?.file?.fileName ||
+                    formDataState?.section4_1?.file?.filePath
+                  ) ? (
+                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                      No document available
+                    </div>
+                  ) : (
+                    <>
+                      <Label className="mb-2 block">Upload File</Label>
+                      <EditableFileDisplay
+                        files={formDataState?.section4_1?.file || null}
+                        isEditable={shouldBeEditable("4.1")}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) =>
+                          handleFileUpdate("4.1", updatedFiles)
+                        }
+                        label="Uploaded File"
+                        multiple={false}
+                      />
+                    </>
+                  )}
                 </div>
               )}
 
@@ -4776,17 +4890,59 @@ export const InfraEnablersReview = ({
 
               {formDataState?.section4_3?.adopted === "yes" && (
                 <div>
-                  <Label className="mb-2 block">Upload File</Label>
-                  <EditableFileDisplay
-                    files={formDataState?.section4_3?.file || null}
-                    isEditable={shouldBeEditable("4.3")}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFiles) =>
-                      handleFileUpdate("4.3", updatedFiles)
-                    }
-                    label="Uploaded File"
-                    multiple={false}
-                  />
+                  {shouldBeEditable("4.3") && (
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="no-doc-4.3"
+                        checked={
+                          formDataState?.section4_3?.noDocumentAvailable ||
+                          false
+                        }
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section4_3: {
+                              ...prev.section4_3,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section4_3?.file,
+                            },
+                          }));
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-4.3"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+                  )}
+
+                  {formDataState?.section4_3?.noDocumentAvailable &&
+                  !(
+                    formDataState?.section4_3?.file?.file ||
+                    formDataState?.section4_3?.file?.fileName ||
+                    formDataState?.section4_3?.file?.filePath
+                  ) ? (
+                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                      No document available
+                    </div>
+                  ) : (
+                    <>
+                      <Label className="mb-2 block">Upload File</Label>
+                      <EditableFileDisplay
+                        files={formDataState?.section4_3?.file || null}
+                        isEditable={shouldBeEditable("4.3")}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) =>
+                          handleFileUpdate("4.3", updatedFiles)
+                        }
+                        label="Uploaded File"
+                        multiple={false}
+                      />
+                    </>
+                  )}
                 </div>
               )}
 
