@@ -204,9 +204,29 @@ const SubsectionTableRow: React.FC<{
               <div className="text-sm">
                 {isFileField && fieldValue?.fileName ? (
                   <span className="text-blue-600 hover:underline cursor-pointer">{fieldValue.fileName}</span>
-                ) : (
-                  fieldValue || <span className="text-muted-foreground">N/A</span>
-                )}
+                ) : (() => {
+                  // Check if this is a Yes/No field
+                  const isYesNoField = field.label.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
+                  if (isYesNoField) {
+                    const normalizedValue = String(fieldValue || '').toLowerCase().trim();
+                    const isYes = normalizedValue === 'yes' || normalizedValue === 'y';
+                    const isNo = normalizedValue === 'no' || normalizedValue === 'n';
+                    return (
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          isYes
+                            ? "bg-green-100 text-green-800"
+                            : isNo
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {isYes ? 'Yes' : isNo ? 'No' : 'N/A'}
+                      </span>
+                    );
+                  }
+                  return fieldValue || <span className="text-muted-foreground">N/A</span>;
+                })()}
               </div>
             )}
           </td>
@@ -273,9 +293,11 @@ const CompactFieldRenderer: React.FC<{
 
   if (isYesNoField) {
     const normalizedValue = normalizeYesNoValue(value);
+    // Ensure value is either "yes", "no", or undefined (not empty string) for RadioGroup
+    const radioValue = normalizedValue === '' ? undefined : normalizedValue;
     return (
       <RadioGroup
-        value={normalizedValue}
+        value={radioValue}
         onValueChange={onChange}
         className="flex flex-row gap-4"
         disabled={disabled}

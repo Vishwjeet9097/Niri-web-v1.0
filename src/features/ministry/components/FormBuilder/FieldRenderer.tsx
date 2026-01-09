@@ -27,14 +27,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   // All fields are mandatory - always show asterisk
   const isRequired = true;
   
-  if (mode === 'review' && !value && field.dataType !== 'file') {
-    return (
-      <div className="space-y-2">
-        <Label>{field.label}</Label>
-        <p className="text-sm text-muted-foreground">N/A</p>
-      </div>
-    );
-  }
+  // In review mode, show disabled inputs instead of plain text for better visibility
+  const isReviewMode = mode === 'review';
 
   // Check if this is a Yes/No field (label contains "Yes/No" or is exactly "Yes/No")
   const isYesNoField = field.label.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
@@ -81,6 +75,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   // Yes/No fields are stored as one field in backend but displayed as radio buttons in UI
   if (isYesNoField) {
     const normalizedValue = normalizeYesNoValue(value);
+    // Ensure value is either "yes", "no", or undefined (not empty string) for RadioGroup
+    const radioValue = normalizedValue === '' ? undefined : normalizedValue;
     const fieldPath = `${field.sectionId}.${field.id}`;
     // Format label: "{indicatorName}?"
     const displayLabel = indicatorName 
@@ -92,9 +88,24 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
         <Label>
           {displayLabel} {isRequired && <span className="text-destructive">*</span>}
         </Label>
-        {mode === 'edit' ? (
+        {mode === 'review' ? (
+          // In review mode, show as colored badge matching state review component
+          <div className="flex items-center space-x-2">
+            <span
+              className={`px-3 py-1 rounded-full text-sm ${
+                normalizedValue === 'yes'
+                  ? "bg-green-100 text-green-800"
+                  : normalizedValue === 'no'
+                  ? "bg-red-100 text-red-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {normalizedValue === 'yes' ? 'Yes' : normalizedValue === 'no' ? 'No' : 'N/A'}
+            </span>
+          </div>
+        ) : (
           <RadioGroup
-            value={normalizedValue}
+            value={radioValue}
             onValueChange={(newValue) => {
               // Store as "yes" or "no" internally (normalized to lowercase)
               onChange(newValue);
@@ -119,8 +130,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
               </Label>
             </div>
           </RadioGroup>
-        ) : (
-          <p className="text-sm">{denormalizeYesNoValue(value) || 'N/A'}</p>
         )}
         {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
@@ -178,7 +187,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             isEditable={!disabled}
           />
         ) : (
-          <p className="text-sm">{value || 'N/A'}</p>
+          <Input
+            value={value || ''}
+            readOnly={true}
+            className={cn('cursor-not-allowed', className)}
+            placeholder={value ? undefined : 'N/A'}
+          />
         )}
         {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
@@ -193,6 +207,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
       const isCommentField = field.label?.toLowerCase().includes('comment') || 
                             field.uiComponent === 'Text Area' ||
                             field.uiComponent === 'TextArea';
+      
+      // Check if this is a Year field (should only accept numeric values)
+      const isYearField = field.label?.toLowerCase().includes('year') || 
+                        field.label?.toLowerCase() === 'fy' ||
+                        field.uiComponent === 'Year';
       
       // Regular string input or TextArea for comments
       const fieldPath = `${field.sectionId}.${field.id}`;
@@ -215,6 +234,37 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
                 )}
                 placeholder="Please provide a comment..."
                 rows={1}
+              />
+            ) : isYearField ? (
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={value || ''}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  // Only allow numeric characters (digits only, no decimals, no negative)
+                  if (newValue === '' || /^\d+$/.test(newValue)) {
+                    onChange(newValue);
+                    
+                    const fieldPath = `${field.sectionId}.${field.id}`;
+                    
+                    // Always validate on change - this will clear errors if field is valid
+                    if (onValidate && field) {
+                      onValidate(fieldPath, newValue, field);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur as well
+                  if (onValidate && field && value) {
+                    const fieldPath = `${field.sectionId}.${field.id}`;
+                    onValidate(fieldPath, value, field);
+                  }
+                }}
+                disabled={disabled}
+                className={error ? 'border-destructive' : className}
+                placeholder="Enter year (e.g., 2024)"
+                maxLength={4}
               />
             ) : (
               <Input
@@ -242,7 +292,26 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
               />
             )
           ) : (
-            <p className="text-sm">{value || 'N/A'}</p>
+            isCommentField ? (
+              <Textarea
+                value={value || ''}
+                readOnly={true}
+                className={cn(
+                  'cursor-not-allowed resize-none overflow-hidden',
+                  className
+                )}
+                placeholder={value ? undefined : 'N/A'}
+                rows={1}
+              />
+            ) : (
+              <Input
+                type={isYearField ? "text" : undefined}
+                value={value || ''}
+                readOnly={true}
+                className={cn('cursor-not-allowed', className)}
+                placeholder={value ? undefined : 'N/A'}
+              />
+            )
           )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
@@ -306,7 +375,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
               style={isCalculatedField ? { opacity: 1, backgroundColor: '#fff' } : undefined}
             />
           ) : (
-            <p className="text-sm">{value ?? 'N/A'}</p>
+            <Input
+              type="number"
+              value={value ?? ''}
+              readOnly={true}
+              className={cn('cursor-not-allowed', className)}
+              placeholder={value !== null && value !== undefined ? undefined : 'N/A'}
+            />
           )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>

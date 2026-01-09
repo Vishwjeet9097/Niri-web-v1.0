@@ -418,7 +418,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     prevProps.mode !== nextProps.mode ||
     prevProps.disabled !== nextProps.disabled ||
     prevProps.submissionId !== nextProps.submissionId ||
-    prevProps.validationErrors !== nextProps.validationErrors
+    prevProps.validationErrors !== nextProps.validationErrors ||
+    prevProps.isIndicatorSubmitted !== nextProps.isIndicatorSubmitted ||
+    prevProps.submittingIndicator !== nextProps.submittingIndicator
   ) {
     return false; // Re-render needed
   }

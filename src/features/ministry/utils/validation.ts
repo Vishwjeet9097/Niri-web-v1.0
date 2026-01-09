@@ -54,7 +54,8 @@ export const validateRequired = (value: any): boolean => {
   if (typeof value === 'object') {
     return Object.keys(value).length > 0;
   }
-  return true;
+  // For dropdowns and other types, if value exists, it's valid
+  return value !== null && value !== undefined && value !== '';
 };
 
 /**
@@ -114,10 +115,29 @@ export const validateField = (
     return undefined;
   }
 
+  // Check if this is a dropdown field (even if dataType is 'string')
+  // Dropdown fields can be identified by:
+  // 1. dataType === 'dropdown'
+  // 2. uiComponent === 'Dropdown' or 'dropdown'
+  // 3. Has validationRules.options (dropdown options)
+  // 4. Field label matches known dropdown field patterns (sector, status, etc.)
+  const fieldLabelLower = field.label?.toLowerCase() || '';
+  const isKnownDropdownField = fieldLabelLower.includes('sector') ||
+                              fieldLabelLower.includes('status') ||
+                              fieldLabelLower.includes('type') ||
+                              fieldLabelLower.includes('mode') ||
+                              fieldLabelLower.includes('scheme');
+  
+  const isDropdownField = field.dataType === 'dropdown' || 
+                         field.uiComponent === 'Dropdown' ||
+                         field.uiComponent === 'dropdown' ||
+                         (field.validationRules?.options && Array.isArray(field.validationRules.options) && field.validationRules.options.length > 0) ||
+                         isKnownDropdownField;
+
   // Type-specific validation
   switch (field.dataType) {
     case 'string':
-      // Skip validation for Yes/No fields, Comment fields, and URLs
+      // Skip validation for Yes/No fields, Comment fields, URLs, Year fields, and Dropdown fields
       const isYesNo = field.label?.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
       const isComment = field.label?.toLowerCase().includes('comment') || 
                        field.label?.toLowerCase().includes('objective') ||
@@ -125,9 +145,13 @@ export const validateField = (
       const isUrl = field.label?.toLowerCase().includes('website') ||
                     field.label?.toLowerCase().includes('url') ||
                     field.label?.toLowerCase().includes('link');
+      const isYearField = field.label?.toLowerCase().includes('year') || 
+                         field.label?.toLowerCase() === 'fy' ||
+                         field.uiComponent === 'Year';
       
-      if (isYesNo || isComment || isUrl) {
-        // These fields can have any string content
+      // If it's a dropdown field (even with string dataType), skip alphabet validation
+      if (isYesNo || isComment || isUrl || isYearField || isDropdownField) {
+        // These fields can have any string content (Year fields accept numbers, Dropdowns have predefined values)
         return undefined;
       }
       
@@ -172,9 +196,12 @@ export const validateField = (
       break;
 
     case 'dropdown':
-      // Dropdown validation is handled by the component itself
-      if (isRequired && !value) {
-        return `${field.label} is required.`;
+      // Dropdown validation: check if a value is selected
+      // Value should not be empty, null, undefined, or empty string
+      if (isRequired) {
+        if (value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '')) {
+          return `${field.label} is required.`;
+        }
       }
       break;
 

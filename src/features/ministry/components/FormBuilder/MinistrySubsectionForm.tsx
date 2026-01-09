@@ -100,38 +100,57 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 
     if (isYesNoField(field)) {
       const normalizedValue = normalizeYesNoValue(fieldValue);
+      // Ensure value is either "yes", "no", or undefined (not empty string) for RadioGroup
+      const radioValue = normalizedValue === '' ? undefined : normalizedValue;
       return (
         <div className="space-y-2">
           <Label>
             {field.label.replace(/\s*\(?\s*Yes\/No\s*\)?\s*/gi, '').trim()}
             {isRequired && <span className="text-destructive">*</span>}
           </Label>
-          <RadioGroup
-            value={normalizedValue}
-            onValueChange={(value) => {
-              onChange(index, field.id, value);
-              
-              // Always validate on change - this will clear errors if field is valid
-              if (onValidateField && field) {
-                onValidateField(fieldPath, value, field);
-              }
-            }}
-            className="flex flex-row gap-6"
-            disabled={disabled}
-          >
+          {mode === 'review' ? (
+            // In review mode, show as colored badge matching state review component
             <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id={`${field.id}-${index}-yes`} disabled={disabled} />
-              <Label htmlFor={`${field.id}-${index}-yes`} className="cursor-pointer font-normal">
-                Yes
-              </Label>
+              <span
+                className={`px-3 py-1 rounded-full text-sm ${
+                  normalizedValue === 'yes'
+                    ? "bg-green-100 text-green-800"
+                    : normalizedValue === 'no'
+                    ? "bg-red-100 text-red-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {normalizedValue === 'yes' ? 'Yes' : normalizedValue === 'no' ? 'No' : 'N/A'}
+              </span>
             </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id={`${field.id}-${index}-no`} disabled={disabled} />
-              <Label htmlFor={`${field.id}-${index}-no`} className="cursor-pointer font-normal">
-                No
-              </Label>
-            </div>
-          </RadioGroup>
+          ) : (
+            <RadioGroup
+              value={radioValue}
+              onValueChange={(value) => {
+                onChange(index, field.id, value);
+                
+                // Always validate on change - this will clear errors if field is valid
+                if (onValidateField && field) {
+                  onValidateField(fieldPath, value, field);
+                }
+              }}
+              className="flex flex-row gap-6"
+              disabled={disabled}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="yes" id={`${field.id}-${index}-yes`} disabled={disabled} />
+                <Label htmlFor={`${field.id}-${index}-yes`} className="cursor-pointer font-normal">
+                  Yes
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="no" id={`${field.id}-${index}-no`} disabled={disabled} />
+                <Label htmlFor={`${field.id}-${index}-no`} className="cursor-pointer font-normal">
+                  No
+                </Label>
+              </div>
+            </RadioGroup>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
       );

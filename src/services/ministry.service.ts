@@ -312,6 +312,85 @@ export async function getMinistrySubmissionDetails(userId: string): Promise<{
 }
 
 /**
+ * Retrieve submission details with indicators for review (read-only mode)
+ * @param userId - The ID of the user (Ministry Approver)
+ * @returns Promise with submission form structure
+ */
+export async function getMinistrySubmissionDetailsForReview(userId: string): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+    submissionId?: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${userId}?forReview=true`);
+        const response = await apiService.get(url, { withCredentials: true });
+        
+        console.log('[getMinistrySubmissionDetailsForReview] Raw axios response:', {
+            hasData: !!response.data,
+            dataType: typeof response.data,
+            isArray: Array.isArray(response.data),
+            dataKeys: response.data && typeof response.data === 'object' && !Array.isArray(response.data) ? Object.keys(response.data) : 'N/A',
+        });
+        
+        let apiResponse = response.data;
+        
+        // Handle nested response structure
+        if (apiResponse?.data && typeof apiResponse.data === 'object' && 'status' in apiResponse && Array.isArray(apiResponse.data)) {
+            console.log('[getMinistrySubmissionDetailsForReview] Found nested structure with status');
+        } else if (Array.isArray(apiResponse)) {
+            if (response?.data?.data && Array.isArray(response.data.data)) {
+                apiResponse = response.data;
+                console.log('[getMinistrySubmissionDetailsForReview] Found nested data structure');
+            }
+        }
+        
+        // If the response has the expected structure
+        if (apiResponse && typeof apiResponse === 'object' && !Array.isArray(apiResponse) && 'status' in apiResponse) {
+            console.log('[getMinistrySubmissionDetailsForReview] API Response structure:', {
+                hasStatus: 'status' in apiResponse,
+                hasData: 'data' in apiResponse,
+                hasSubmissionId: 'submissionId' in apiResponse,
+                submissionId: apiResponse.submissionId,
+            });
+            
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data || [],
+                message: apiResponse.message || '',
+                submissionId: apiResponse.submissionId
+            };
+        }
+        
+        // Fallback: if response.data is directly the array
+        if (Array.isArray(apiResponse)) {
+            console.warn('[getMinistrySubmissionDetailsForReview] Response is directly an array');
+            return {
+                status: true,
+                data: apiResponse,
+                message: 'Retrieved indicators for review'
+            };
+        }
+        
+        // Fallback: if response.data.data exists
+        if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data,
+                message: apiResponse.message || '',
+                submissionId: apiResponse.submissionId
+            };
+        }
+        
+        console.error('[getMinistrySubmissionDetailsForReview] Unexpected response structure:', apiResponse);
+        return { status: false, data: [], message: 'Unexpected response structure' };
+    } catch (error) {
+        console.error('[getMinistrySubmissionDetailsForReview] API Error:', error);
+        throw error;
+    }
+}
+
+/**
  * Upload files in section data to S3 and replace File objects with filePath
  * Similar to state submission flow
  */
