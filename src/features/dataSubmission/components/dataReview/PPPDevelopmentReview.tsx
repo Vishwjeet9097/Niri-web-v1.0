@@ -125,6 +125,20 @@ export const PPPDevelopmentReview = ({
         items = section;
       }
 
+      // Ensure mutual exclusivity for each item in VGFArray
+      items = items.map((item: any) => {
+        const hasFile =
+          item.file &&
+          (item.file.file || item.file.fileName || item.file.filePath);
+
+        return {
+          ...item,
+          noDocumentAvailable: hasFile
+            ? false
+            : item.noDocumentAvailable || false,
+        };
+      });
+
       normalized.section3_3 = {
         ...(section && !Array.isArray(section) ? section : {}),
         VGFArray: items,
@@ -138,7 +152,7 @@ export const PPPDevelopmentReview = ({
       const hasFile =
         section.file &&
         (section.file.file || section.file.fileName || section.file.filePath);
-      
+
       if (hasFile) {
         normalized.section3_1 = {
           ...section,
@@ -153,7 +167,7 @@ export const PPPDevelopmentReview = ({
       const hasFile =
         section.file &&
         (section.file.file || section.file.fileName || section.file.filePath);
-      
+
       if (hasFile) {
         normalized.section3_2 = {
           ...section,
@@ -649,6 +663,7 @@ export const PPPDevelopmentReview = ({
     totalProjectCost: "",
     statusOfProject: "",
     file: null as FileUpload | null,
+    noDocumentAvailable: false,
   });
 
   // State for save confirmation dialog
@@ -1052,6 +1067,7 @@ export const PPPDevelopmentReview = ({
           totalProjectCost: "",
           statusOfProject: "",
           file: null,
+          noDocumentAvailable: false,
         });
       }
 
@@ -1153,6 +1169,7 @@ export const PPPDevelopmentReview = ({
           totalProjectCost: "",
           statusOfProject: "",
           file: null,
+          noDocumentAvailable: false,
         });
       }
       if (sectionId === "3.4") {
@@ -2230,7 +2247,8 @@ export const PPPDevelopmentReview = ({
         submissionDate: newVGFItem.submissionDate
           ? new Date(newVGFItem.submissionDate).toISOString()
           : null,
-        file: newVGFItem.file,
+        file: newVGFItem.noDocumentAvailable ? null : newVGFItem.file,
+        noDocumentAvailable: newVGFItem.noDocumentAvailable || false,
       };
       return {
         ...prev,
@@ -2249,6 +2267,7 @@ export const PPPDevelopmentReview = ({
       totalProjectCost: "",
       statusOfProject: "",
       file: null,
+      noDocumentAvailable: false,
     });
     setShowAddVGFForm(false);
   };
@@ -2263,6 +2282,7 @@ export const PPPDevelopmentReview = ({
       totalProjectCost: "",
       statusOfProject: "",
       file: null,
+      noDocumentAvailable: false,
     });
     setShowAddVGFForm(false);
   };
@@ -4830,129 +4850,229 @@ export const PPPDevelopmentReview = ({
                             <td className="py-3 px-4 text-sm font-normal">
                               {shouldBeEditable("3.3") ? (
                                 <div className="space-y-1.5">
-                                  {item.file ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                      title={
-                                        extractOriginalName(
-                                          item.file.fileName || "",
-                                          (item.file as any)?.originalName
-                                        ) || "Unknown file"
+                                  {/* No Document Available Checkbox */}
+                                  <div className="flex items-center space-x-2 py-1">
+                                    <Checkbox
+                                      id={`no-doc-3.3-${index}`}
+                                      checked={
+                                        item.noDocumentAvailable || false
                                       }
-                                    >
-                                      <Upload className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">
-                                        {extractOriginalName(
-                                          item.file.fileName || "",
-                                          (item.file as any)?.originalName
-                                        ) || "Unknown file"}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handleTableFieldUpdate(
-                                            index,
-                                            "file",
-                                            null
+                                      onCheckedChange={(checked) => {
+                                        const noDocument = checked as boolean;
+                                        // Update noDocumentAvailable and clear file if checked
+                                        setFormDataState((prev: any) => {
+                                          const current =
+                                            prev?.section3_3?.VGFArray;
+                                          const rows = Array.isArray(current)
+                                            ? [...current]
+                                            : [];
+                                          const currentRow = {
+                                            ...(rows[index] || {}),
+                                          };
+                                          currentRow.noDocumentAvailable =
+                                            noDocument;
+                                          currentRow.file = noDocument
+                                            ? null
+                                            : currentRow.file;
+                                          rows[index] = currentRow;
+                                          return {
+                                            ...prev,
+                                            section3_3: {
+                                              ...(prev?.section3_3 || {}),
+                                              VGFArray: rows,
+                                            },
+                                          };
+                                        });
+
+                                        // Clear validation error
+                                        if (
+                                          getFieldError(
+                                            `section3_3.VGFArray.${index}.file`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section3_3.VGFArray.${index}.file`
+                                              ];
+                                              return updated;
+                                            }
                                           );
-                                        }}
-                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                      </button>
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      No file
-                                    </span>
-                                  )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
-                                        const selectedFile =
-                                          e.target.files?.[0];
-                                        if (selectedFile) {
-                                          // Upload file immediately (same as create submission)
-                                          try {
-                                            const response =
-                                              await apiService.uploadFile(
-                                                submissionId,
-                                                selectedFile
-                                              );
-                                            const fileData =
-                                              response?.data || response;
-
-                                            const newFile: FileUpload = {
-                                              id:
-                                                fileData.id ??
-                                                crypto.randomUUID(),
-                                              file: null, // File not stored locally when backend handles upload
-                                              fileName:
-                                                fileData.fileName ||
-                                                fileData.filename ||
-                                                selectedFile.name,
-                                              originalName:
-                                                selectedFile.name ||
-                                                fileData.originalName ||
-                                                fileData.data?.originalName, // Preserve original file name
-                                              fileSize: Number(
-                                                fileData.fileSize ??
-                                                  fileData.size ??
-                                                  selectedFile.size ??
-                                                  0
-                                              ),
-                                              uploadedAt: Number(
-                                                fileData.uploadedAt ??
-                                                  Date.now()
-                                              ),
-                                              filePath:
-                                                fileData.filePath ??
-                                                fileData.file ??
-                                                fileData.url ??
-                                                fileData.path,
-                                              fileUrl:
-                                                fileData.fileUrl ||
-                                                fileData.url,
-                                              mimeType: fileData.mimeType,
-                                            };
-
-                                            await handleTableFieldUpdate(
-                                              index,
-                                              "file",
-                                              newFile
-                                            );
-                                            e.target.value = ""; // Reset input
-                                          } catch (error: any) {
-                                            console.error(
-                                              "Failed to upload file:",
-                                              error
-                                            );
-                                          }
                                         }
                                       }}
-                                      className="hidden"
-                                      id={`file-input-3.3-${index}`}
                                     />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        document
-                                          .getElementById(
-                                            `file-input-3.3-${index}`
-                                          )
-                                          ?.click()
-                                      }
-                                      className="h-6 px-2 text-xs"
+                                    <label
+                                      htmlFor={`no-doc-3.3-${index}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                     >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
+                                      No document available
+                                    </label>
                                   </div>
+
+                                  {item.noDocumentAvailable ? (
+                                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                      No document available
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {/* Only show ONE file (single file upload) */}
+                                      {item.file ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                            title={
+                                              extractOriginalName(
+                                                item.file.fileName || "",
+                                                (item.file as any)?.originalName
+                                              ) || "Unknown file"
+                                            }
+                                          >
+                                            <Upload className="w-3 h-3 flex-shrink-0" />
+                                            <span className="truncate">
+                                              {extractOriginalName(
+                                                item.file.fileName || "",
+                                                (item.file as any)?.originalName
+                                              ) || "Unknown file"}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                handleTableFieldUpdate(
+                                                  index,
+                                                  "file",
+                                                  null
+                                                );
+                                              }}
+                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                            </button>
+                                          </Badge>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">
+                                          No file
+                                        </span>
+                                      )}
+                                      {/* Upload button for both add and replace */}
+                                      <div className="flex items-center">
+                                        <input
+                                          type="file"
+                                          accept=".pdf,.doc,.docx"
+                                          onChange={async (e) => {
+                                            const selectedFile =
+                                              e.target.files?.[0];
+                                            if (selectedFile) {
+                                              // Upload file immediately (same as create submission)
+                                              try {
+                                                const response =
+                                                  await apiService.uploadFile(
+                                                    submissionId,
+                                                    selectedFile
+                                                  );
+                                                const fileData =
+                                                  response?.data || response;
+
+                                                const newFile: FileUpload = {
+                                                  id:
+                                                    fileData.id ??
+                                                    crypto.randomUUID(),
+                                                  file: null, // File not stored locally when backend handles upload
+                                                  fileName:
+                                                    fileData.fileName ||
+                                                    fileData.filename ||
+                                                    selectedFile.name,
+                                                  originalName:
+                                                    selectedFile.name ||
+                                                    fileData.originalName ||
+                                                    fileData.data?.originalName, // Preserve original file name
+                                                  fileSize: Number(
+                                                    fileData.fileSize ??
+                                                      fileData.size ??
+                                                      selectedFile.size ??
+                                                      0
+                                                  ),
+                                                  uploadedAt: Number(
+                                                    fileData.uploadedAt ??
+                                                      Date.now()
+                                                  ),
+                                                  filePath:
+                                                    fileData.filePath ??
+                                                    fileData.file ??
+                                                    fileData.url ??
+                                                    fileData.path,
+                                                  fileUrl:
+                                                    fileData.fileUrl ||
+                                                    fileData.url,
+                                                  mimeType: fileData.mimeType,
+                                                };
+
+                                                // Update file and clear noDocumentAvailable
+                                                setFormDataState(
+                                                  (prev: any) => {
+                                                    const current =
+                                                      prev?.section3_3
+                                                        ?.VGFArray;
+                                                    const rows = Array.isArray(
+                                                      current
+                                                    )
+                                                      ? [...current]
+                                                      : [];
+                                                    const currentRow = {
+                                                      ...(rows[index] || {}),
+                                                    };
+                                                    currentRow.file = newFile;
+                                                    currentRow.noDocumentAvailable =
+                                                      false;
+                                                    rows[index] = currentRow;
+                                                    return {
+                                                      ...prev,
+                                                      section3_3: {
+                                                        ...(prev?.section3_3 ||
+                                                          {}),
+                                                        VGFArray: rows,
+                                                      },
+                                                    };
+                                                  }
+                                                );
+
+                                                e.target.value = ""; // Reset input
+                                              } catch (error: any) {
+                                                console.error(
+                                                  "Failed to upload file:",
+                                                  error
+                                                );
+                                              }
+                                            }
+                                          }}
+                                          className="hidden"
+                                          id={`file-input-3.3-${index}`}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            document
+                                              .getElementById(
+                                                `file-input-3.3-${index}`
+                                              )
+                                              ?.click()
+                                          }
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          <Upload className="w-3 h-3 mr-1" />
+                                          Upload
+                                        </Button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              ) : item.noDocumentAvailable ? (
+                                <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                  No document available
                                 </div>
                               ) : item.file ? (
                                 <div className="flex items-center gap-1">
@@ -5203,20 +5323,51 @@ export const PPPDevelopmentReview = ({
                   </div>
                   {/* Row 3: File Upload */}
                   <div className="mb-4">
-                    <Label>Upload File</Label>
-                    <EditableFileDisplay
-                      files={newVGFItem.file}
-                      isEditable={true}
-                      submissionId={submissionId}
-                      onFilesChange={(updatedFile) => {
-                        setNewVGFItem({
-                          ...newVGFItem,
-                          file: updatedFile as FileUpload | null,
-                        });
-                      }}
-                      label=""
-                      multiple={false}
-                    />
+                    {/* No Document Available Checkbox */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="no-doc-3.3-new"
+                        checked={newVGFItem.noDocumentAvailable || false}
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            noDocumentAvailable: noDocument,
+                            file: noDocument ? null : newVGFItem.file,
+                          });
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-3.3-new"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+
+                    {newVGFItem.noDocumentAvailable ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
+                    ) : (
+                      <>
+                        <Label>Upload File</Label>
+                        <EditableFileDisplay
+                          files={newVGFItem.file}
+                          isEditable={true}
+                          submissionId={submissionId}
+                          onFilesChange={(updatedFile) => {
+                            setNewVGFItem({
+                              ...newVGFItem,
+                              file: updatedFile as FileUpload | null,
+                              noDocumentAvailable: false,
+                            });
+                          }}
+                          label=""
+                          multiple={false}
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button
