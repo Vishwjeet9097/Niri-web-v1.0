@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,8 +85,8 @@ import {
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
-  formData?: unknown;
-  submission?: unknown; // Complete submission object
+  formData?: any;
+  submission?: any; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer

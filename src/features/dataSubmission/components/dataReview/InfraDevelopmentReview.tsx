@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,8 +95,8 @@ const toSingleFile = (
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
-  formData?: unknown;
-  submission?: unknown; // Complete submission object
+  formData?: any;
+  submission?: any; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
@@ -1774,7 +1775,6 @@ export const InfraDevelopmentReview = ({
       type: "",
       ownership: "",
       location: "",
-      websiteLink: "",
       estimatedMonetization: "",
     });
     setShowAddForm2_5(false);
@@ -3141,7 +3141,7 @@ export const InfraDevelopmentReview = ({
       );
 
       // Use the local formData state (formDataState) to build fields for this section
-      let fields = buildSectionFields(sectionId);
+      const fields = buildSectionFields(sectionId);
       console.log(
         `[InfraDevelopmentReview] performSave - Fields built:`,
         fields

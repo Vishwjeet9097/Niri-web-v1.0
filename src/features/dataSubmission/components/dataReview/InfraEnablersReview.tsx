@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -87,7 +88,7 @@ import {
 interface InfraEnablersReviewProps {
   submissionId: string;
   formData?: unknown;
-  submission?: unknown; // Complete submission object
+  submission?: any; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
@@ -158,6 +159,66 @@ export const InfraEnablersReview = ({
               : false,
         };
       }
+    }
+
+    // Ensure mutual exclusivity for section 4.2 projects
+    if (infraEnablers?.section4_2?.projects) {
+      infraEnablers.section4_2 = {
+        ...infraEnablers.section4_2,
+        projects: infraEnablers.section4_2.projects.map((project: any) => {
+          const hasFile =
+            project.file &&
+            (project.file.file ||
+              project.file.fileName ||
+              project.file.filePath ||
+              project.file.fileUrl);
+
+          if (hasFile) {
+            return {
+              ...project,
+              noDocumentAvailable: false,
+            };
+          } else {
+            return {
+              ...project,
+              noDocumentAvailable:
+                project.noDocumentAvailable !== undefined
+                  ? project.noDocumentAvailable
+                  : false,
+            };
+          }
+        }),
+      };
+    }
+
+    // Ensure mutual exclusivity for section 4.4 practices
+    if (infraEnablers?.section4_4?.practices) {
+      infraEnablers.section4_4 = {
+        ...infraEnablers.section4_4,
+        practices: infraEnablers.section4_4.practices.map((practice: any) => {
+          const hasFile =
+            practice.file &&
+            (practice.file.file ||
+              practice.file.fileName ||
+              practice.file.filePath ||
+              practice.file.fileUrl);
+
+          if (hasFile) {
+            return {
+              ...practice,
+              noDocumentAvailable: false,
+            };
+          } else {
+            return {
+              ...practice,
+              noDocumentAvailable:
+                practice.noDocumentAvailable !== undefined
+                  ? practice.noDocumentAvailable
+                  : false,
+            };
+          }
+        }),
+      };
     }
 
     if (infraEnablers?.section4_5?.capacityArray) {
@@ -571,6 +632,7 @@ export const InfraEnablersReview = ({
     sector: "",
     statusOfProject: "",
     file: null as FileUpload | null,
+    noDocumentAvailable: false,
   });
 
   // State for adding new practice in section 4.5
@@ -1011,6 +1073,7 @@ export const InfraEnablersReview = ({
           sector: "",
           statusOfProject: "",
           file: null,
+          noDocumentAvailable: false,
         });
       }
 
@@ -1138,6 +1201,7 @@ export const InfraEnablersReview = ({
           sector: "",
           statusOfProject: "",
           file: null,
+          noDocumentAvailable: false,
         });
       }
       // Close and reset "Add Practice" form for section 4.4
@@ -1993,7 +2057,7 @@ export const InfraEnablersReview = ({
           ];
           break;
 
-        case "4.2":
+        case "4.2": {
           // Use local state for section 4.2 data
           const files4_2 = (
             formDataState?.section4_2?.file
@@ -2021,6 +2085,7 @@ export const InfraEnablersReview = ({
               sector: project.sector ?? null,
               statusOfProject: project.statusOfProject ?? null,
               file: project.file ?? null,
+              noDocumentAvailable: project.noDocumentAvailable ?? false,
             })
           );
 
@@ -2033,8 +2098,9 @@ export const InfraEnablersReview = ({
             },
           ];
           break;
+        }
 
-        case "4.3":
+        case "4.3": {
           // Use local state for section 4.3 data (Adoption of ADR)
           const files4_3 = (
             formDataState?.section4_3?.file
@@ -2064,8 +2130,9 @@ export const InfraEnablersReview = ({
             },
           ];
           break;
+        }
 
-        case "4.4":
+        case "4.4": {
           // Use local state for section 4.4 data
           const practices4_4 = (formDataState?.section4_4?.practices || []).map(
             (practice: any) => ({
@@ -2073,6 +2140,7 @@ export const InfraEnablersReview = ({
               practiceName: practice.practiceName ?? null,
               impact: practice.impact ?? null,
               file: practice.file ?? null,
+              noDocumentAvailable: practice.noDocumentAvailable ?? false,
             })
           );
           fields = [
@@ -2083,9 +2151,9 @@ export const InfraEnablersReview = ({
             },
           ];
           break;
+        }
 
-        case "4.5":
-          // Use local state for section 4.5 data
+        case "4.5": { // Use local state for section 4.5 data
           const capacityArray4_5 = (
             formDataState?.section4_5?.capacityArray || []
           ).map((item: any) => ({
@@ -2105,6 +2173,7 @@ export const InfraEnablersReview = ({
             },
           ];
           break;
+        }
 
         default:
           console.warn(`Unhandled section: ${sectionId}`);
@@ -2907,6 +2976,7 @@ export const InfraEnablersReview = ({
       sector: "",
       statusOfProject: "",
       file: null,
+      noDocumentAvailable: false,
     });
     setShowAddProjectForm(false);
   };
@@ -2918,6 +2988,7 @@ export const InfraEnablersReview = ({
       sector: "",
       statusOfProject: "",
       file: null,
+      noDocumentAvailable: false,
     });
     setShowAddProjectForm(false);
   };
@@ -4450,124 +4521,225 @@ export const InfraEnablersReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("4.2") ? (
                                     <div className="space-y-1.5">
-                                      {project.file ? (
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                          title={
-                                            extractOriginalName(
-                                              project.file.fileName || "",
-                                              (project.file as any)
-                                                ?.originalName
-                                            ) || "Unknown file"
+                                      {/* No Document Available Checkbox */}
+                                      <div className="flex items-center space-x-2 py-1">
+                                        <Checkbox
+                                          id={`no-doc-4.2-${idx}`}
+                                          checked={
+                                            project.noDocumentAvailable || false
                                           }
-                                        >
-                                          <Upload className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">
-                                            {extractOriginalName(
-                                              project.file.fileName || "",
-                                              (project.file as any)
-                                                ?.originalName
-                                            ) || "Unknown file"}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              handleProjectFileUpdate(
-                                                idx,
-                                                null
-                                              );
-                                            }}
-                                            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          >
-                                            <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                          </button>
-                                        </Badge>
-                                      ) : (
-                                        <span className="text-muted-foreground text-xs">
-                                          No file
-                                        </span>
-                                      )}
-                                      <div className="flex items-center">
-                                        <input
-                                          type="file"
-                                          accept=".pdf,.doc,.docx"
-                                          onChange={async (e) => {
-                                            const selectedFile =
-                                              e.target.files?.[0];
-                                            if (selectedFile) {
-                                              try {
-                                                const response =
-                                                  await apiService.uploadFile(
-                                                    submissionId,
-                                                    selectedFile
-                                                  );
-                                                const fileData =
-                                                  response?.data || response;
-
-                                                const newFile: FileUpload = {
-                                                  id:
-                                                    fileData.id ??
-                                                    crypto.randomUUID(),
-                                                  file: null,
-                                                  fileName:
-                                                    fileData.fileName ||
-                                                    fileData.filename ||
-                                                    selectedFile.name,
-                                                  fileSize: Number(
-                                                    fileData.fileSize ??
-                                                      fileData.size ??
-                                                      selectedFile.size ??
-                                                      0
-                                                  ),
-                                                  uploadedAt: Number(
-                                                    fileData.uploadedAt ??
-                                                      Date.now()
-                                                  ),
-                                                  filePath:
-                                                    fileData.filePath ??
-                                                    fileData.file ??
-                                                    fileData.url ??
-                                                    fileData.path,
-                                                  fileUrl:
-                                                    fileData.fileUrl ||
-                                                    fileData.url,
-                                                  mimeType: fileData.mimeType,
-                                                };
-
-                                                await handleProjectFileUpdate(
-                                                  idx,
-                                                  newFile
+                                          onCheckedChange={(checked) => {
+                                            const noDocument =
+                                              checked as boolean;
+                                            // Update noDocumentAvailable and clear file if checked
+                                            setFormDataState((prev: any) => {
+                                              const projects =
+                                                prev?.section4_2?.projects ||
+                                                [];
+                                              const updatedProjects =
+                                                projects.map(
+                                                  (p: any, index: number) =>
+                                                    index === idx
+                                                      ? {
+                                                          ...p,
+                                                          noDocumentAvailable:
+                                                            noDocument,
+                                                          file: noDocument
+                                                            ? null
+                                                            : p.file,
+                                                        }
+                                                      : p
                                                 );
-                                                e.target.value = "";
-                                              } catch (error: any) {
-                                                console.error(
-                                                  "Failed to upload file:",
-                                                  error
-                                                );
-                                              }
-                                            }
+                                              return {
+                                                ...prev,
+                                                section4_2: {
+                                                  ...prev.section4_2,
+                                                  projects: updatedProjects,
+                                                },
+                                              };
+                                            });
                                           }}
-                                          className="hidden"
-                                          id={`file-input-4.2-${idx}`}
                                         />
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() =>
-                                            document
-                                              .getElementById(
-                                                `file-input-4.2-${idx}`
-                                              )
-                                              ?.click()
-                                          }
-                                          className="h-6 px-2 text-xs"
+                                        <label
+                                          htmlFor={`no-doc-4.2-${idx}`}
+                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                         >
-                                          <Plus className="w-3 h-3 mr-1" />
-                                          Add
-                                        </Button>
+                                          No document available
+                                        </label>
                                       </div>
+
+                                      {project.noDocumentAvailable &&
+                                      !(
+                                        project.file?.file ||
+                                        project.file?.fileName ||
+                                        project.file?.filePath ||
+                                        project.file?.fileUrl
+                                      ) ? (
+                                        <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                          No document available
+                                        </div>
+                                      ) : (
+                                        <>
+                                          {project.file ? (
+                                            <Badge
+                                              variant="secondary"
+                                              className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                              title={
+                                                extractOriginalName(
+                                                  project.file.fileName || "",
+                                                  (project.file as any)
+                                                    ?.originalName
+                                                ) || "Unknown file"
+                                              }
+                                            >
+                                              <Upload className="w-3 h-3 flex-shrink-0" />
+                                              <span className="truncate">
+                                                {extractOriginalName(
+                                                  project.file.fileName || "",
+                                                  (project.file as any)
+                                                    ?.originalName
+                                                ) || "Unknown file"}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  handleProjectFileUpdate(
+                                                    idx,
+                                                    null
+                                                  );
+                                                }}
+                                                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                              </button>
+                                            </Badge>
+                                          ) : (
+                                            <span className="text-muted-foreground text-xs">
+                                              No file
+                                            </span>
+                                          )}
+                                          <div className="flex items-center">
+                                            <input
+                                              type="file"
+                                              accept=".pdf,.doc,.docx"
+                                              onChange={async (e) => {
+                                                const selectedFile =
+                                                  e.target.files?.[0];
+                                                if (selectedFile) {
+                                                  try {
+                                                    const response =
+                                                      await apiService.uploadFile(
+                                                        submissionId,
+                                                        selectedFile
+                                                      );
+                                                    const fileData =
+                                                      response?.data ||
+                                                      response;
+
+                                                    const newFile: FileUpload =
+                                                      {
+                                                        id:
+                                                          fileData.id ??
+                                                          crypto.randomUUID(),
+                                                        file: null,
+                                                        fileName:
+                                                          fileData.fileName ||
+                                                          fileData.filename ||
+                                                          selectedFile.name,
+                                                        fileSize: Number(
+                                                          fileData.fileSize ??
+                                                            fileData.size ??
+                                                            selectedFile.size ??
+                                                            0
+                                                        ),
+                                                        uploadedAt: Number(
+                                                          fileData.uploadedAt ??
+                                                            Date.now()
+                                                        ),
+                                                        filePath:
+                                                          fileData.filePath ??
+                                                          fileData.file ??
+                                                          fileData.url ??
+                                                          fileData.path,
+                                                        fileUrl:
+                                                          fileData.fileUrl ||
+                                                          fileData.url,
+                                                        mimeType:
+                                                          fileData.mimeType,
+                                                      };
+
+                                                    // Update file and clear noDocumentAvailable
+                                                    setFormDataState(
+                                                      (prev: any) => {
+                                                        const projects =
+                                                          prev?.section4_2
+                                                            ?.projects || [];
+                                                        const updatedProjects =
+                                                          projects.map(
+                                                            (
+                                                              p: any,
+                                                              index: number
+                                                            ) =>
+                                                              index === idx
+                                                                ? {
+                                                                    ...p,
+                                                                    file: newFile,
+                                                                    noDocumentAvailable:
+                                                                      false,
+                                                                  }
+                                                                : p
+                                                          );
+                                                        return {
+                                                          ...prev,
+                                                          section4_2: {
+                                                            ...prev.section4_2,
+                                                            projects:
+                                                              updatedProjects,
+                                                          },
+                                                        };
+                                                      }
+                                                    );
+                                                    e.target.value = "";
+                                                  } catch (error: any) {
+                                                    console.error(
+                                                      "Failed to upload file:",
+                                                      error
+                                                    );
+                                                  }
+                                                }
+                                              }}
+                                              className="hidden"
+                                              id={`file-input-4.2-${idx}`}
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() =>
+                                                document
+                                                  .getElementById(
+                                                    `file-input-4.2-${idx}`
+                                                  )
+                                                  ?.click()
+                                              }
+                                              className="h-6 px-2 text-xs"
+                                            >
+                                              <Plus className="w-3 h-3 mr-1" />
+                                              Add
+                                            </Button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  ) : project.noDocumentAvailable &&
+                                    !(
+                                      project.file?.file ||
+                                      project.file?.fileName ||
+                                      project.file?.filePath ||
+                                      project.file?.fileUrl
+                                    ) ? (
+                                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                      No document available
                                     </div>
                                   ) : project.file ? (
                                     <div className="flex items-center gap-1">
@@ -4676,7 +4848,7 @@ export const InfraEnablersReview = ({
                           className="w-fit"
                         >
                           <Plus className="w-4 h-4 mr-2" />
-                          Add Project
+                          Add More Project
                         </Button>
                       ) : (
                         <div className="space-y-4">
@@ -4758,19 +4930,58 @@ export const InfraEnablersReview = ({
                                 Upload File{" "}
                                 <span className="text-red-500">*</span>
                               </Label>
-                              <FileUploadSection
-                                label=""
-                                value={newProject.file}
-                                onChange={(file) =>
-                                  setNewProject({
-                                    ...newProject,
-                                    file,
-                                  })
-                                }
-                                submissionId={submissionId}
-                                required
-                                multiple={false}
-                              />
+                              <div className="space-y-2">
+                                {/* No Document Available Checkbox */}
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="no-doc-add-project-4.2"
+                                    checked={newProject.noDocumentAvailable}
+                                    onCheckedChange={(checked) => {
+                                      const noDocument = checked as boolean;
+                                      setNewProject({
+                                        ...newProject,
+                                        noDocumentAvailable: noDocument,
+                                        file: noDocument
+                                          ? null
+                                          : newProject.file,
+                                      });
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor="no-doc-add-project-4.2"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  >
+                                    No document available
+                                  </label>
+                                </div>
+
+                                {newProject.noDocumentAvailable &&
+                                !(
+                                  newProject.file?.file ||
+                                  newProject.file?.fileName ||
+                                  newProject.file?.filePath ||
+                                  newProject.file?.fileUrl
+                                ) ? (
+                                  <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                    No document available
+                                  </div>
+                                ) : (
+                                  <FileUploadSection
+                                    label=""
+                                    value={newProject.file}
+                                    onChange={(file) =>
+                                      setNewProject({
+                                        ...newProject,
+                                        file,
+                                        noDocumentAvailable: false,
+                                      })
+                                    }
+                                    submissionId={submissionId}
+                                    required={!newProject.noDocumentAvailable}
+                                    multiple={false}
+                                  />
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -4781,7 +4992,8 @@ export const InfraEnablersReview = ({
                               disabled={
                                 !newProject.projectName ||
                                 !newProject.sector ||
-                                !newProject.file
+                                (!newProject.file &&
+                                  !newProject.noDocumentAvailable)
                               }
                             >
                               Add
@@ -5138,120 +5350,221 @@ export const InfraEnablersReview = ({
                               <td className="py-3 px-4 text-sm font-normal">
                                 {shouldBeEditable("4.4") ? (
                                   <div className="space-y-1.5">
-                                    {practice.file ? (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={
-                                          extractOriginalName(
-                                            practice.file.fileName || "",
-                                            (practice.file as any)?.originalName
-                                          ) || "Unknown file"
+                                    {/* No Document Available Checkbox */}
+                                    <div className="flex items-center space-x-2 py-1">
+                                      <Checkbox
+                                        id={`no-doc-4.4-${idx}`}
+                                        checked={
+                                          practice.noDocumentAvailable || false
                                         }
-                                      >
-                                        <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">
-                                          {extractOriginalName(
-                                            practice.file.fileName || "",
-                                            (practice.file as any)?.originalName
-                                          ) || "Unknown file"}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            handlePracticeFileUpdate(idx, null);
-                                          }}
-                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                        </button>
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">
-                                        No file
-                                      </span>
-                                    )}
-                                    <div className="flex items-center">
-                                      <input
-                                        type="file"
-                                        accept=".pdf,.doc,.docx"
-                                        onChange={async (e) => {
-                                          const selectedFile =
-                                            e.target.files?.[0];
-                                          if (selectedFile) {
-                                            // Upload file immediately (same as create submission)
-                                            try {
-                                              const response =
-                                                await apiService.uploadFile(
-                                                  submissionId,
-                                                  selectedFile
-                                                );
-                                              const fileData =
-                                                response?.data || response;
-
-                                              const newFile: FileUpload = {
-                                                id:
-                                                  fileData.id ??
-                                                  crypto.randomUUID(),
-                                                file: null, // File not stored locally when backend handles upload
-                                                fileName:
-                                                  fileData.fileName ||
-                                                  fileData.filename ||
-                                                  selectedFile.name,
-                                                fileSize: Number(
-                                                  fileData.fileSize ??
-                                                    fileData.size ??
-                                                    selectedFile.size ??
-                                                    0
-                                                ),
-                                                uploadedAt: Number(
-                                                  fileData.uploadedAt ??
-                                                    Date.now()
-                                                ),
-                                                filePath:
-                                                  fileData.filePath ??
-                                                  fileData.file ??
-                                                  fileData.url ??
-                                                  fileData.path,
-                                                fileUrl:
-                                                  fileData.fileUrl ||
-                                                  fileData.url,
-                                                mimeType: fileData.mimeType,
-                                              };
-
-                                              await handlePracticeFileUpdate(
-                                                idx,
-                                                newFile
+                                        onCheckedChange={(checked) => {
+                                          const noDocument = checked as boolean;
+                                          // Update noDocumentAvailable and clear file if checked
+                                          setFormDataState((prev: any) => {
+                                            const practices =
+                                              prev?.section4_4?.practices || [];
+                                            const updatedPractices =
+                                              practices.map(
+                                                (p: any, index: number) =>
+                                                  index === idx
+                                                    ? {
+                                                        ...p,
+                                                        noDocumentAvailable:
+                                                          noDocument,
+                                                        file: noDocument
+                                                          ? null
+                                                          : p.file,
+                                                      }
+                                                    : p
                                               );
-                                              e.target.value = ""; // Reset input
-                                            } catch (error: any) {
-                                              console.error(
-                                                "Failed to upload file:",
-                                                error
-                                              );
-                                            }
-                                          }
+                                            return {
+                                              ...prev,
+                                              section4_4: {
+                                                ...prev.section4_4,
+                                                practices: updatedPractices,
+                                              },
+                                            };
+                                          });
                                         }}
-                                        className="hidden"
-                                        id={`file-input-4.4-${idx}`}
                                       />
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          document
-                                            .getElementById(
-                                              `file-input-4.4-${idx}`
-                                            )
-                                            ?.click()
-                                        }
-                                        className="h-6 px-2 text-xs"
+                                      <label
+                                        htmlFor={`no-doc-4.4-${idx}`}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                       >
-                                        <Plus className="w-3 h-3 mr-1" />
-                                        Add
-                                      </Button>
+                                        No document available
+                                      </label>
                                     </div>
+
+                                    {practice.noDocumentAvailable &&
+                                    !(
+                                      practice.file?.file ||
+                                      practice.file?.fileName ||
+                                      practice.file?.filePath ||
+                                      practice.file?.fileUrl
+                                    ) ? (
+                                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                        No document available
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {practice.file ? (
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                            title={
+                                              extractOriginalName(
+                                                practice.file.fileName || "",
+                                                (practice.file as any)
+                                                  ?.originalName
+                                              ) || "Unknown file"
+                                            }
+                                          >
+                                            <Upload className="w-3 h-3 flex-shrink-0" />
+                                            <span className="truncate">
+                                              {extractOriginalName(
+                                                practice.file.fileName || "",
+                                                (practice.file as any)
+                                                  ?.originalName
+                                              ) || "Unknown file"}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                handlePracticeFileUpdate(
+                                                  idx,
+                                                  null
+                                                );
+                                              }}
+                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                            </button>
+                                          </Badge>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">
+                                            No file
+                                          </span>
+                                        )}
+                                        <div className="flex items-center">
+                                          <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={async (e) => {
+                                              const selectedFile =
+                                                e.target.files?.[0];
+                                              if (selectedFile) {
+                                                // Upload file immediately (same as create submission)
+                                                try {
+                                                  const response =
+                                                    await apiService.uploadFile(
+                                                      submissionId,
+                                                      selectedFile
+                                                    );
+                                                  const fileData =
+                                                    response?.data || response;
+
+                                                  const newFile: FileUpload = {
+                                                    id:
+                                                      fileData.id ??
+                                                      crypto.randomUUID(),
+                                                    file: null, // File not stored locally when backend handles upload
+                                                    fileName:
+                                                      fileData.fileName ||
+                                                      fileData.filename ||
+                                                      selectedFile.name,
+                                                    fileSize: Number(
+                                                      fileData.fileSize ??
+                                                        fileData.size ??
+                                                        selectedFile.size ??
+                                                        0
+                                                    ),
+                                                    uploadedAt: Number(
+                                                      fileData.uploadedAt ??
+                                                        Date.now()
+                                                    ),
+                                                    filePath:
+                                                      fileData.filePath ??
+                                                      fileData.file ??
+                                                      fileData.url ??
+                                                      fileData.path,
+                                                    fileUrl:
+                                                      fileData.fileUrl ||
+                                                      fileData.url,
+                                                    mimeType: fileData.mimeType,
+                                                  };
+
+                                                  // Update file and clear noDocumentAvailable
+                                                  setFormDataState(
+                                                    (prev: any) => {
+                                                      const practices =
+                                                        prev?.section4_4
+                                                          ?.practices || [];
+                                                      const updatedPractices =
+                                                        practices.map(
+                                                          (
+                                                            p: any,
+                                                            index: number
+                                                          ) =>
+                                                            index === idx
+                                                              ? {
+                                                                  ...p,
+                                                                  file: newFile,
+                                                                  noDocumentAvailable:
+                                                                    false,
+                                                                }
+                                                              : p
+                                                        );
+                                                      return {
+                                                        ...prev,
+                                                        section4_4: {
+                                                          ...prev.section4_4,
+                                                          practices:
+                                                            updatedPractices,
+                                                        },
+                                                      };
+                                                    }
+                                                  );
+                                                  e.target.value = ""; // Reset input
+                                                } catch (error: any) {
+                                                  console.error(
+                                                    "Failed to upload file:",
+                                                    error
+                                                  );
+                                                }
+                                              }
+                                            }}
+                                            className="hidden"
+                                            id={`file-input-4.4-${idx}`}
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              document
+                                                .getElementById(
+                                                  `file-input-4.4-${idx}`
+                                                )
+                                                ?.click()
+                                            }
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Plus className="w-3 h-3 mr-1" />
+                                            Add
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : practice.noDocumentAvailable &&
+                                  !(
+                                    practice.file?.file ||
+                                    practice.file?.fileName ||
+                                    practice.file?.filePath ||
+                                    practice.file?.fileUrl
+                                  ) ? (
+                                  <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                    No document available
                                   </div>
                                 ) : practice.file ? (
                                   <div className="flex items-center gap-1">
