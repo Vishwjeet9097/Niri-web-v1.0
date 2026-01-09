@@ -122,10 +122,11 @@ export const validateInfraDevelopment = (
               entry.sector = "Overarching";
             }
             // File upload is mandatory when "yes" is selected
-            if (!hasRequiredFile(entry.files)) {
+            // Skip file validation if "No document available" is selected
+            if (!entry.noDocumentAvailable && !hasRequiredFile(entry.files)) {
               errors[`section2_1.infraActArray.${index}.files`] =
                 "Upload file is required.";
-            } else {
+            } else if (entry.files && entry.files.length > 0) {
               const file = entry.files?.[0];
               if (file && file.file && !isValidPdfFile(file)) {
                 errors[`section2_1.infraActArray.${index}.files`] =
@@ -149,10 +150,11 @@ export const validateInfraDevelopment = (
               errors[`section2_1.infraActArray.${index}.sector`] =
                 "Sector is required.";
             }
-            if (!hasRequiredFile(entry.files)) {
+            // Skip file validation if "No document available" is selected
+            if (!entry.noDocumentAvailable && !hasRequiredFile(entry.files)) {
               errors[`section2_1.infraActArray.${index}.files`] =
                 "Upload file is required.";
-            } else {
+            } else if (entry.files && entry.files.length > 0) {
               const file = entry.files?.[0];
               if (file && file.file && !isValidPdfFile(file)) {
                 errors[`section2_1.infraActArray.${index}.files`] =
@@ -192,10 +194,11 @@ export const validateInfraDevelopment = (
             "At least one entry is required when specialized entity is available.";
         } else {
           section22.specializedEntityArray.forEach((entry, index) => {
-            if (!hasRequiredFile(entry.files)) {
+            // Skip file validation if "No document available" is selected
+            if (!entry.noDocumentAvailable && !hasRequiredFile(entry.files)) {
               errors[`section2_2.specializedEntityArray.${index}.files`] =
                 "Upload evidence is required.";
-            } else {
+            } else if (entry.files && entry.files.length > 0) {
               const file = entry.files?.[0];
               if (file && file.file && !isValidPdfFile(file)) {
                 errors[`section2_2.specializedEntityArray.${index}.files`] =
@@ -244,7 +247,8 @@ export const validateInfraDevelopment = (
                 errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
                   "Sector is required.";
               }
-              if (!hasRequiredFile(entry.files)) {
+              // Skip file validation if "No document available" is selected
+              if (!entry.noDocumentAvailable && !hasRequiredFile(entry.files)) {
                 errors[`section2_3.infraDevelopmentArray.${index}.files`] =
                   "Upload plan is required.";
               } else {

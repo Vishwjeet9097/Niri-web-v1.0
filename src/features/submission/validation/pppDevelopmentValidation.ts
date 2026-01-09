@@ -103,14 +103,17 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_1.available"] = "Please select Yes or No.";
     } else if (section31.available === "yes") {
-      if (!hasRequiredFile(section31.file)) {
-        errors["section3_1.file"] = "Upload file is required.";
-      } else if (
-        section31.file &&
-        section31.file.file &&
-        !isValidPdfFile(section31.file)
-      ) {
-        errors["section3_1.file"] = "Only PDF files are allowed.";
+      // Skip file validation if "No document available" is selected
+      if (!section31.noDocumentAvailable) {
+        if (!hasRequiredFile(section31.file)) {
+          errors["section3_1.file"] = "Upload file is required.";
+        } else if (
+          section31.file &&
+          section31.file.file &&
+          !isValidPdfFile(section31.file)
+        ) {
+          errors["section3_1.file"] = "Only PDF files are allowed.";
+        }
       }
     } else if (section31.available === "no") {
       if (!section31.comment || section31.comment.trim() === "") {
@@ -130,14 +133,17 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_2.available"] = "Please select Yes or No.";
     } else if (section32.available === "yes") {
-      if (!hasRequiredFile(section32.file)) {
-        errors["section3_2.file"] = "Upload notification is required.";
-      } else if (
-        section32.file &&
-        section32.file.file &&
-        !isValidPdfFile(section32.file)
-      ) {
-        errors["section3_2.file"] = "Only PDF files are allowed.";
+      // Skip file validation if "No document available" is selected
+      if (!section32.noDocumentAvailable) {
+        if (!hasRequiredFile(section32.file)) {
+          errors["section3_2.file"] = "Upload notification is required.";
+        } else if (
+          section32.file &&
+          section32.file.file &&
+          !isValidPdfFile(section32.file)
+        ) {
+          errors["section3_2.file"] = "Only PDF files are allowed.";
+        }
       }
     } else if (section32.available === "no") {
       if (!section32.comment || section32.comment.trim() === "") {

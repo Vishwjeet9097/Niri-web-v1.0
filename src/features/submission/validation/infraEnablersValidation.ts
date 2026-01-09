@@ -82,12 +82,18 @@ export const validateInfraEnablers = (
     ) {
       errors["section4_1.available"] = "Please select Yes or No.";
     } else if (section42.available === "yes") {
-      // Check if file or URL is provided (assuming URL might be in comment or a separate field)
-      // For now, we'll check if file exists. If URL support is needed, we'll need to check that too
-      if (!hasRequiredFile(section42.file)) {
-        errors["section4_1.file"] = "Upload file is required.";
+      // Skip file validation if "No document available" is selected
+      if (!section42.noDocumentAvailable) {
+        if (!hasRequiredFile(section42.file)) {
+          errors["section4_1.file"] = "Upload file is required.";
+        } else if (
+          section42.file &&
+          section42.file.file &&
+          !isValidPdfFile(section42.file)
+        ) {
+          errors["section4_1.file"] = "Only PDF files are allowed.";
+        }
       }
-      // Note: If URL is stored elsewhere, add validation here
     } else if (section42.available === "no") {
       if (!section42.comment || section42.comment.trim() === "") {
         errors["section4_1.comment"] = "Comment (reason) is required.";
@@ -121,7 +127,8 @@ export const validateInfraEnablers = (
             errors[`section4_2.projects.${index}.sector`] =
               "Sector is required.";
           }
-          if (!hasRequiredFile(project.file)) {
+          // Skip file validation if "No document available" is selected
+          if (!project.noDocumentAvailable && !hasRequiredFile(project.file)) {
             errors[`section4_2.projects.${index}.file`] =
               "Upload evidence is required.";
           } else if (
@@ -152,14 +159,17 @@ export const validateInfraEnablers = (
     ) {
       errors["section4_3.adopted"] = "Please select Yes or No.";
     } else if (section44.adopted === "yes") {
-      if (!hasRequiredFile(section44.file)) {
-        errors["section4_3.file"] = "Upload orders is required.";
-      } else if (
-        section44.file &&
-        section44.file.file &&
-        !isValidPdfFile(section44.file)
-      ) {
-        errors["section4_3.file"] = "Only PDF files are allowed.";
+      // Skip file validation if "No document available" is selected
+      if (!section44.noDocumentAvailable) {
+        if (!hasRequiredFile(section44.file)) {
+          errors["section4_3.file"] = "Upload orders is required.";
+        } else if (
+          section44.file &&
+          section44.file.file &&
+          !isValidPdfFile(section44.file)
+        ) {
+          errors["section4_3.file"] = "Only PDF files are allowed.";
+        }
       }
     } else if (section44.adopted === "no") {
       if (!section44.comment || section44.comment.trim() === "") {
@@ -194,7 +204,11 @@ export const validateInfraEnablers = (
             errors[`section4_4.practices.${index}.impact`] =
               "Impact is required.";
           }
-          if (!hasRequiredFile(practice.file)) {
+          // Skip file validation if "No document available" is selected
+          if (
+            !practice.noDocumentAvailable &&
+            !hasRequiredFile(practice.file)
+          ) {
             errors[`section4_4.practices.${index}.file`] =
               "Upload evidence is required.";
           }
@@ -260,21 +274,51 @@ export const validateInfraEnablers = (
           }
           if (!entry.trainingPeriod || entry.trainingPeriod.trim() === "") {
             errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-              "Training Period (MMYY) is required.";
-          } else if (!/^\d{4}$/.test(entry.trainingPeriod)) {
-            errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-              "Training Period must be in MMYY format (e.g., 1224).";
+              "Conducted during (MM/YY) is required.";
           } else {
-            // Validate month (01-12) and year (reasonable range)
-            const month = parseInt(entry.trainingPeriod.substring(0, 2), 10);
-            const year = parseInt(entry.trainingPeriod.substring(2, 4), 10);
-            if (month < 1 || month > 12) {
-              errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-                "Month must be between 01 and 12.";
+            // Handle both MM/YY and MMYY formats for backward compatibility
+            let monthStr: string;
+            let yearStr: string;
+            let formatValid = false;
+
+            if (
+              entry.trainingPeriod.includes("/") &&
+              entry.trainingPeriod.length === 5
+            ) {
+              // MM/YY format (e.g., "07/26")
+              const parts = entry.trainingPeriod.split("/");
+              if (
+                parts.length === 2 &&
+                parts[0].length === 2 &&
+                parts[1].length === 2
+              ) {
+                monthStr = parts[0];
+                yearStr = parts[1];
+                formatValid = true;
+              }
+            } else if (/^\d{4}$/.test(entry.trainingPeriod)) {
+              // MMYY format (e.g., "0726") - backward compatibility
+              monthStr = entry.trainingPeriod.substring(0, 2);
+              yearStr = entry.trainingPeriod.substring(2, 4);
+              formatValid = true;
             }
-            if (year < 0 || year > 99) {
+
+            if (!formatValid) {
               errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
-                "Year must be between 00 and 99.";
+                "Conducted during must be in MM/YY format (e.g., 07/26).";
+            } else {
+              // Validate month (01-12) and year (00-99)
+              const month = parseInt(monthStr, 10);
+              const year = parseInt(yearStr, 10);
+
+              if (isNaN(month) || month < 1 || month > 12) {
+                errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+                  "Month must be between 01 and 12.";
+              }
+              if (isNaN(year) || year < 0 || year > 99) {
+                errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+                  "Year must be between 00 and 99.";
+              }
             }
           }
         });

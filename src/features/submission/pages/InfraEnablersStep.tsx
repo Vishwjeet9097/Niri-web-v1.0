@@ -44,6 +44,7 @@ import {
   type InfraEnablersValidationResult,
 } from "../validation/infraEnablersValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
+import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +61,7 @@ const defaultData: InfraEnablersData = {
     available: "",
     file: null,
     comment: "",
+    noDocumentAvailable: false,
   },
   section4_2: {
     adopted: "",
@@ -70,6 +72,7 @@ const defaultData: InfraEnablersData = {
     adopted: "",
     file: null,
     comment: "",
+    noDocumentAvailable: false,
   },
   section4_4: {
     implemented: "",
@@ -551,6 +554,7 @@ export const InfraEnablersStep = () => {
               practiceName: "",
               impact: "",
               file: null,
+              noDocumentAvailable: false,
             },
           ],
         },
@@ -647,7 +651,9 @@ export const InfraEnablersStep = () => {
                 : Date.now().toString(),
             projectName: "",
             sector: "",
+            statusOfProject: "",
             file: null,
+            noDocumentAvailable: false,
           },
         ],
       },
@@ -668,7 +674,7 @@ export const InfraEnablersStep = () => {
 
   const updateGatiProject = (
     id: string,
-    field: "projectName" | "sector" | "file",
+    field: "projectName" | "sector" | "statusOfProject" | "file",
     value: any
   ) => {
     setFormData((prev) => ({
@@ -699,6 +705,7 @@ export const InfraEnablersStep = () => {
             practiceName: "",
             impact: "",
             file: null,
+            noDocumentAvailable: false,
           },
         ],
       },
@@ -1893,6 +1900,18 @@ export const InfraEnablersStep = () => {
             </div>
             {formData.section4_1.available === "yes" && (
               <div className="flex flex-col gap-2">
+                {(() => {
+                  console.log(
+                    "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_1",
+                    {
+                      noDocumentAvailable:
+                        formData.section4_1.noDocumentAvailable,
+                      hasFile: !!formData.section4_1.file,
+                      available: formData.section4_1.available,
+                    }
+                  );
+                  return null;
+                })()}
                 <FileUploadSection
                   label="Upload File"
                   value={formData.section4_1.file}
@@ -1900,13 +1919,53 @@ export const InfraEnablersStep = () => {
                     showErrorsIfNeeded();
                     setFormData((prev) => ({
                       ...prev,
-                      section4_1: { ...prev.section4_1, file },
+                      section4_1: {
+                        ...prev.section4_1,
+                        file,
+                        // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                        // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                        noDocumentAvailable: file
+                          ? false
+                          : prev.section4_1.noDocumentAvailable,
+                      },
                     }));
                   }}
                   submissionId={submissionId}
                   required
                   disabled={isIndicatorSubmitted("4.1")}
                   deferFileDeletion={editingIndicators.has("4.1")}
+                  showNoDocumentOption={true}
+                  noDocumentAvailable={
+                    formData.section4_1.noDocumentAvailable || false
+                  }
+                  onNoDocumentChange={(noDocument) => {
+                    console.log(
+                      "📝 InfraEnablersStep: section4_1 onNoDocumentChange called",
+                      {
+                        noDocument,
+                        currentValue: formData.section4_1.noDocumentAvailable,
+                      }
+                    );
+                    showErrorsIfNeeded();
+                    setFormData((prev) => {
+                      const newData = {
+                        ...prev,
+                        section4_1: {
+                          ...prev.section4_1,
+                          noDocumentAvailable: noDocument,
+                          file: noDocument ? null : prev.section4_1.file,
+                        },
+                      };
+                      console.log(
+                        "📝 InfraEnablersStep: section4_1 state updated",
+                        {
+                          newValue: newData.section4_1.noDocumentAvailable,
+                          prevValue: prev.section4_1.noDocumentAvailable,
+                        }
+                      );
+                      return newData;
+                    });
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
               </div>
@@ -2037,7 +2096,9 @@ export const InfraEnablersStep = () => {
                                     id: Date.now().toString(),
                                     projectName: "",
                                     sector: "",
+                                    statusOfProject: "",
                                     file: null,
+                                    noDocumentAvailable: false,
                                   },
                                 ],
                         },
@@ -2078,7 +2139,7 @@ export const InfraEnablersStep = () => {
                 {(formData.section4_2?.projects || []).map((entry, index) => (
                   <div key={entry.id || `entry-${index}`} className="mb-2">
                     {/* Fields row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                       <div>
                         <Label>
                           Project Name{" "}
@@ -2160,6 +2221,37 @@ export const InfraEnablersStep = () => {
                         )}
                       </div>
 
+                      <div>
+                        <Label>Status of Project</Label>
+                        <Select
+                          value={entry.statusOfProject || ""}
+                          onValueChange={(v) => {
+                            showErrorsIfNeeded();
+                            updateGatiProject(entry.id, "statusOfProject", v);
+                          }}
+                          disabled={isIndicatorSubmitted("4.2")}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              isIndicatorSubmitted("4.2") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          >
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Ongoing">Ongoing</SelectItem>
+                            <SelectItem value="Under Implementation">
+                              Under Implementation
+                            </SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                            <SelectItem value="Under Planning">
+                              Under Planning
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="flex items-center gap-2">
                         <Button
                           type="button"
@@ -2184,11 +2276,73 @@ export const InfraEnablersStep = () => {
                         onChange={(file) => {
                           showErrorsIfNeeded();
                           updateGatiProject(entry.id, "file", file);
+                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_2: {
+                              ...prev.section4_2,
+                              projects: (prev.section4_2?.projects || []).map(
+                                (p) =>
+                                  p.id === entry.id
+                                    ? {
+                                        ...p,
+                                        file,
+                                        noDocumentAvailable: file
+                                          ? false
+                                          : p.noDocumentAvailable,
+                                      }
+                                    : p
+                              ),
+                            },
+                          }));
                         }}
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("4.2")}
                         deferFileDeletion={editingIndicators.has("4.2")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={entry.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          console.log(
+                            "📝 InfraEnablersStep: section4_2 onNoDocumentChange called",
+                            {
+                              noDocument,
+                              entryId: entry.id,
+                              currentValue: entry.noDocumentAvailable,
+                            }
+                          );
+                          showErrorsIfNeeded();
+                          setFormData((prev) => {
+                            const newData = {
+                              ...prev,
+                              section4_2: {
+                                ...prev.section4_2,
+                                projects: (prev.section4_2?.projects || []).map(
+                                  (p) =>
+                                    p.id === entry.id
+                                      ? {
+                                          ...p,
+                                          noDocumentAvailable: noDocument,
+                                          file: noDocument ? null : p.file,
+                                        }
+                                      : p
+                                ),
+                              },
+                            };
+                            console.log(
+                              "📝 InfraEnablersStep: section4_2 state updated",
+                              {
+                                entryId: entry.id,
+                                newValue: newData.section4_2.projects.find(
+                                  (p) => p.id === entry.id
+                                )?.noDocumentAvailable,
+                                prevValue: entry.noDocumentAvailable,
+                              }
+                            );
+                            return newData;
+                          });
+                        }}
                         className={getInputValidationClass(
                           `section4_2.projects.${
                             formData.section4_2?.projects?.findIndex(
@@ -2234,6 +2388,9 @@ export const InfraEnablersStep = () => {
                         Sector
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
+                        Status of Project
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         Uploaded File
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2259,6 +2416,9 @@ export const InfraEnablersStep = () => {
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.statusOfProject || "N/A"}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 No file uploaded
@@ -2316,6 +2476,9 @@ export const InfraEnablersStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm">
                               {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.statusOfProject || "N/A"}
                             </td>
                             <td className="py-3 px-4 text-sm">{displayName}</td>
                             <td className="py-3 px-4 text-sm">
@@ -2499,6 +2662,18 @@ export const InfraEnablersStep = () => {
             {/* ✅ If YES → show file upload */}
             {formData.section4_3.adopted === "yes" && (
               <div className="flex flex-col gap-2">
+                {(() => {
+                  console.log(
+                    "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_3",
+                    {
+                      noDocumentAvailable:
+                        formData.section4_3.noDocumentAvailable,
+                      hasFile: !!formData.section4_3.file,
+                      adopted: formData.section4_3.adopted,
+                    }
+                  );
+                  return null;
+                })()}
                 <FileUploadSection
                   label="Upload File"
                   value={formData.section4_3.file}
@@ -2506,13 +2681,53 @@ export const InfraEnablersStep = () => {
                     showErrorsIfNeeded();
                     setFormData((prev) => ({
                       ...prev,
-                      section4_3: { ...prev.section4_3, file },
+                      section4_3: {
+                        ...prev.section4_3,
+                        file,
+                        // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                        // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                        noDocumentAvailable: file
+                          ? false
+                          : prev.section4_3.noDocumentAvailable,
+                      },
                     }));
                   }}
                   submissionId={submissionId}
                   required
                   disabled={isIndicatorSubmitted("4.3")}
                   deferFileDeletion={editingIndicators.has("4.3")}
+                  showNoDocumentOption={true}
+                  noDocumentAvailable={
+                    formData.section4_3.noDocumentAvailable || false
+                  }
+                  onNoDocumentChange={(noDocument) => {
+                    console.log(
+                      "📝 InfraEnablersStep: section4_3 onNoDocumentChange called",
+                      {
+                        noDocument,
+                        currentValue: formData.section4_3.noDocumentAvailable,
+                      }
+                    );
+                    showErrorsIfNeeded();
+                    setFormData((prev) => {
+                      const newData = {
+                        ...prev,
+                        section4_3: {
+                          ...prev.section4_3,
+                          noDocumentAvailable: noDocument,
+                          file: noDocument ? null : prev.section4_3.file,
+                        },
+                      };
+                      console.log(
+                        "📝 InfraEnablersStep: section4_3 state updated",
+                        {
+                          newValue: newData.section4_3.noDocumentAvailable,
+                          prevValue: prev.section4_3.noDocumentAvailable,
+                        }
+                      );
+                      return newData;
+                    });
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Upload ADR orders
@@ -2646,6 +2861,7 @@ export const InfraEnablersStep = () => {
                                     practiceName: "",
                                     impact: "",
                                     file: null,
+                                    noDocumentAvailable: false,
                                   },
                                 ],
                         },
@@ -2792,11 +3008,74 @@ export const InfraEnablersStep = () => {
                         onChange={(file) => {
                           showErrorsIfNeeded();
                           updatePractice(entry.id, "file", file);
+                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_4: {
+                              ...prev.section4_4,
+                              practices: (prev.section4_4?.practices || []).map(
+                                (p) =>
+                                  p.id === entry.id
+                                    ? {
+                                        ...p,
+                                        file,
+                                        noDocumentAvailable: file
+                                          ? false
+                                          : p.noDocumentAvailable,
+                                      }
+                                    : p
+                              ),
+                            },
+                          }));
                         }}
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("4.4")}
                         deferFileDeletion={editingIndicators.has("4.4")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={entry.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          console.log(
+                            "📝 InfraEnablersStep: section4_4 onNoDocumentChange called",
+                            {
+                              noDocument,
+                              entryId: entry.id,
+                              currentValue: entry.noDocumentAvailable,
+                            }
+                          );
+                          showErrorsIfNeeded();
+                          setFormData((prev) => {
+                            const newData = {
+                              ...prev,
+                              section4_4: {
+                                ...prev.section4_4,
+                                practices: (
+                                  prev.section4_4?.practices || []
+                                ).map((p) =>
+                                  p.id === entry.id
+                                    ? {
+                                        ...p,
+                                        noDocumentAvailable: noDocument,
+                                        file: noDocument ? null : p.file,
+                                      }
+                                    : p
+                                ),
+                              },
+                            };
+                            console.log(
+                              "📝 InfraEnablersStep: section4_4 state updated",
+                              {
+                                entryId: entry.id,
+                                newValue: newData.section4_4.practices.find(
+                                  (p) => p.id === entry.id
+                                )?.noDocumentAvailable,
+                                prevValue: entry.noDocumentAvailable,
+                              }
+                            );
+                            return newData;
+                          });
+                        }}
                         className={getInputValidationClass(
                           `section4_4.practices.${
                             formData.section4_4?.practices?.findIndex(
@@ -3196,22 +3475,28 @@ export const InfraEnablersStep = () => {
                         </div>
                         <div>
                           <Label>
-                            Training Period (MMYY){" "}
+                            Conducted during (MM/YY){" "}
                             <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            type="text"
-                            placeholder="MMYY (e.g., 1224)"
-                            value={entry.trainingPeriod || ""}
-                            onChange={(e) => {
+                          <MonthYearPicker
+                            value={
+                              entry.trainingPeriod
+                                ? entry.trainingPeriod.includes("/")
+                                  ? entry.trainingPeriod
+                                  : entry.trainingPeriod.length === 4
+                                  ? `${entry.trainingPeriod.slice(
+                                      0,
+                                      2
+                                    )}/${entry.trainingPeriod.slice(2)}`
+                                  : entry.trainingPeriod
+                                : ""
+                            }
+                            onChange={(value) => {
                               showErrorsIfNeeded();
-                              // Only allow numbers and limit to 4 characters
-                              const value = e.target.value
-                                .replace(/\D/g, "")
-                                .slice(0, 4);
                               updateTraining(entry.id, "trainingPeriod", value);
                             }}
                             disabled={isIndicatorSubmitted("4.5")}
+                            placeholder="Select month/year"
                             className={cn(
                               getInputValidationClass(
                                 `section4_5.capacityArray.${
@@ -3223,7 +3508,6 @@ export const InfraEnablersStep = () => {
                               isIndicatorSubmitted("4.5") &&
                                 "bg-gray-50 cursor-not-allowed"
                             )}
-                            maxLength={4}
                           />
                           {renderFieldError(
                             `section4_5.capacityArray.${
@@ -3286,7 +3570,7 @@ export const InfraEnablersStep = () => {
                         Type
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
-                        Training Period (MMYY)
+                        Conducted during (MM/YY)
                       </th>
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                         Action
@@ -3316,7 +3600,16 @@ export const InfraEnablersStep = () => {
                             {entry.trainingType}
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {entry.trainingPeriod || "-"}
+                            {entry.trainingPeriod
+                              ? entry.trainingPeriod.includes("/")
+                                ? entry.trainingPeriod
+                                : entry.trainingPeriod.length === 4
+                                ? `${entry.trainingPeriod.slice(
+                                    0,
+                                    2
+                                  )}/${entry.trainingPeriod.slice(2)}`
+                                : entry.trainingPeriod
+                              : "-"}
                           </td>
                           <td className="py-3 px-4">
                             <button

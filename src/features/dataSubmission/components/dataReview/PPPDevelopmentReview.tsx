@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,8 +85,8 @@ import {
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
-  formData?: unknown;
-  submission?: unknown; // Complete submission object
+  formData?: any;
+  submission?: any; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
@@ -124,11 +126,55 @@ export const PPPDevelopmentReview = ({
         items = section;
       }
 
+      // Ensure mutual exclusivity for each item in VGFArray
+      items = items.map((item: any) => {
+        const hasFile =
+          item.file &&
+          (item.file.file || item.file.fileName || item.file.filePath);
+
+        return {
+          ...item,
+          noDocumentAvailable: hasFile
+            ? false
+            : item.noDocumentAvailable || false,
+        };
+      });
+
       normalized.section3_3 = {
         ...(section && !Array.isArray(section) ? section : {}),
         VGFArray: items,
         ...(status !== undefined ? { status } : {}),
       };
+    }
+
+    // Ensure mutual exclusivity for section 3.1
+    if (normalized.section3_1) {
+      const section = normalized.section3_1;
+      const hasFile =
+        section.file &&
+        (section.file.file || section.file.fileName || section.file.filePath);
+
+      if (hasFile) {
+        normalized.section3_1 = {
+          ...section,
+          noDocumentAvailable: false,
+        };
+      }
+    }
+
+    // Ensure mutual exclusivity for section 3.2
+    if (normalized.section3_2) {
+      const section = normalized.section3_2;
+      const hasFile =
+        section.file &&
+        (section.file.file || section.file.fileName || section.file.filePath);
+
+      if (hasFile) {
+        normalized.section3_2 = {
+          ...section,
+          noDocumentAvailable: false,
+        };
+      }
     }
 
     return normalized;
@@ -618,6 +664,7 @@ export const PPPDevelopmentReview = ({
     totalProjectCost: "",
     statusOfProject: "",
     file: null as FileUpload | null,
+    noDocumentAvailable: false,
   });
 
   // State for save confirmation dialog
@@ -1021,6 +1068,7 @@ export const PPPDevelopmentReview = ({
           totalProjectCost: "",
           statusOfProject: "",
           file: null,
+          noDocumentAvailable: false,
         });
       }
 
@@ -1122,6 +1170,7 @@ export const PPPDevelopmentReview = ({
           totalProjectCost: "",
           statusOfProject: "",
           file: null,
+          noDocumentAvailable: false,
         });
       }
       if (sectionId === "3.4") {
@@ -1932,9 +1981,18 @@ export const PPPDevelopmentReview = ({
         ? null
         : updatedValue;
 
+    // Clear noDocumentAvailable when a file is uploaded
+    const hasFile =
+      normalizedValue !== null &&
+      normalizedValue !== undefined &&
+      (normalizedValue.file ||
+        normalizedValue.fileName ||
+        normalizedValue.filePath);
     const updatedSection = {
       ...previousSection,
       [targetKey]: normalizedValue,
+      // Clear noDocumentAvailable when file is uploaded
+      ...(hasFile ? { noDocumentAvailable: false } : {}),
     };
 
     // Update local state only - save will happen when user clicks Save button
@@ -1943,6 +2001,27 @@ export const PPPDevelopmentReview = ({
       ...prev,
       [sectionKey]: updatedSection,
     }));
+
+    // Also update submissionState to keep it in sync
+    if (hasFile) {
+      setSubmissionState((prevSubmission: any) => {
+        if (!prevSubmission) return prevSubmission;
+        const pppDev = prevSubmission?.formData?.pppDevelopment || {};
+        return {
+          ...prevSubmission,
+          formData: {
+            ...prevSubmission.formData,
+            pppDevelopment: {
+              ...pppDev,
+              [sectionKey]: {
+                ...pppDev[sectionKey],
+                noDocumentAvailable: false,
+              },
+            },
+          },
+        };
+      });
+    }
 
     // Removed auto-save - files are stored as File objects and will be uploaded
     // when user clicks Save button (via updateSubmission → uploadFilesAndReplace)
@@ -2169,7 +2248,8 @@ export const PPPDevelopmentReview = ({
         submissionDate: newVGFItem.submissionDate
           ? new Date(newVGFItem.submissionDate).toISOString()
           : null,
-        file: newVGFItem.file,
+        file: newVGFItem.noDocumentAvailable ? null : newVGFItem.file,
+        noDocumentAvailable: newVGFItem.noDocumentAvailable || false,
       };
       return {
         ...prev,
@@ -2188,6 +2268,7 @@ export const PPPDevelopmentReview = ({
       totalProjectCost: "",
       statusOfProject: "",
       file: null,
+      noDocumentAvailable: false,
     });
     setShowAddVGFForm(false);
   };
@@ -2202,6 +2283,7 @@ export const PPPDevelopmentReview = ({
       totalProjectCost: "",
       statusOfProject: "",
       file: null,
+      noDocumentAvailable: false,
     });
     setShowAddVGFForm(false);
   };
@@ -4030,19 +4112,91 @@ export const PPPDevelopmentReview = ({
               </div>
 
               {state?.section3_1?.available === "yes" && (
-                <div>
-                  <EditableFileDisplay
-                    files={state?.section3_1?.file ?? null}
-                    isEditable={shouldBeEditable("3.1")}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFile) => {
-                      handleFileUpdate("3.1", updatedFile);
-                      markFieldAsTouched("section3_1.file");
-                      setShowValidationErrors(true);
-                    }}
-                    label="Uploaded File"
-                    multiple={false}
-                  />
+                <div className="space-y-2">
+                  {/* No Document Available Checkbox */}
+                  {shouldBeEditable("3.1") && (
+                    <div className="flex items-center space-x-2 py-1">
+                      <Checkbox
+                        id="no-doc-3.1"
+                        checked={
+                          state?.section3_1?.noDocumentAvailable || false
+                        }
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section3_1: {
+                              ...prev.section3_1,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section3_1?.file,
+                            },
+                          }));
+
+                          // Also update submissionData
+                          setSubmissionState((prevSubmission: any) => {
+                            if (!prevSubmission) return prevSubmission;
+                            const pppDev =
+                              prevSubmission?.formData?.pppDevelopment || {};
+                            return {
+                              ...prevSubmission,
+                              formData: {
+                                ...prevSubmission.formData,
+                                pppDevelopment: {
+                                  ...pppDev,
+                                  section3_1: {
+                                    ...pppDev.section3_1,
+                                    noDocumentAvailable: noDocument,
+                                    file: noDocument
+                                      ? null
+                                      : pppDev.section3_1?.file,
+                                  },
+                                },
+                              },
+                            };
+                          });
+
+                          // Clear validation error
+                          if (getFieldError("section3_1.file")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section3_1.file"];
+                              return updated;
+                            });
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-3.1"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+                  )}
+
+                  {state?.section3_1?.noDocumentAvailable &&
+                  !(
+                    state?.section3_1?.file?.file ||
+                    state?.section3_1?.file?.fileName ||
+                    state?.section3_1?.file?.filePath
+                  ) ? (
+                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                      No document available
+                    </div>
+                  ) : (
+                    <EditableFileDisplay
+                      files={state?.section3_1?.file ?? null}
+                      isEditable={shouldBeEditable("3.1")}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFile) => {
+                        handleFileUpdate("3.1", updatedFile);
+                        markFieldAsTouched("section3_1.file");
+                        setShowValidationErrors(true);
+                      }}
+                      label="Uploaded File"
+                      multiple={false}
+                    />
+                  )}
                   {renderFieldError("section3_1.file")}
                 </div>
               )}
@@ -4168,25 +4322,97 @@ export const PPPDevelopmentReview = ({
               </div>
 
               {state?.section3_2?.available === "yes" && (
-                <div>
-                  <EditableFileDisplay
-                    files={state?.section3_2?.file ?? null}
-                    isEditable={shouldBeEditable("3.2")}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFile) => {
-                      handleFileUpdate("3.2", updatedFile);
-                      // Clear validation error when file is uploaded
-                      if (getFieldError("section3_2.file")) {
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section3_2.file"];
-                          return updated;
-                        });
-                      }
-                    }}
-                    label="Uploaded File"
-                    multiple={false}
-                  />
+                <div className="space-y-2">
+                  {/* No Document Available Checkbox */}
+                  {shouldBeEditable("3.2") && (
+                    <div className="flex items-center space-x-2 py-1">
+                      <Checkbox
+                        id="no-doc-3.2"
+                        checked={
+                          state?.section3_2?.noDocumentAvailable || false
+                        }
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section3_2: {
+                              ...prev.section3_2,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section3_2?.file,
+                            },
+                          }));
+
+                          // Also update submissionData
+                          setSubmissionState((prevSubmission: any) => {
+                            if (!prevSubmission) return prevSubmission;
+                            const pppDev =
+                              prevSubmission?.formData?.pppDevelopment || {};
+                            return {
+                              ...prevSubmission,
+                              formData: {
+                                ...prevSubmission.formData,
+                                pppDevelopment: {
+                                  ...pppDev,
+                                  section3_2: {
+                                    ...pppDev.section3_2,
+                                    noDocumentAvailable: noDocument,
+                                    file: noDocument
+                                      ? null
+                                      : pppDev.section3_2?.file,
+                                  },
+                                },
+                              },
+                            };
+                          });
+
+                          // Clear validation error
+                          if (getFieldError("section3_2.file")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section3_2.file"];
+                              return updated;
+                            });
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-3.2"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+                  )}
+
+                  {state?.section3_2?.noDocumentAvailable &&
+                  !(
+                    state?.section3_2?.file?.file ||
+                    state?.section3_2?.file?.fileName ||
+                    state?.section3_2?.file?.filePath
+                  ) ? (
+                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                      No document available
+                    </div>
+                  ) : (
+                    <EditableFileDisplay
+                      files={state?.section3_2?.file ?? null}
+                      isEditable={shouldBeEditable("3.2")}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFile) => {
+                        handleFileUpdate("3.2", updatedFile);
+                        // Clear validation error when file is uploaded
+                        if (getFieldError("section3_2.file")) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated["section3_2.file"];
+                            return updated;
+                          });
+                        }
+                      }}
+                      label="Uploaded File"
+                      multiple={false}
+                    />
+                  )}
                   {renderFieldError("section3_2.file")}
                 </div>
               )}
@@ -4625,129 +4851,229 @@ export const PPPDevelopmentReview = ({
                             <td className="py-3 px-4 text-sm font-normal">
                               {shouldBeEditable("3.3") ? (
                                 <div className="space-y-1.5">
-                                  {item.file ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                      title={
-                                        extractOriginalName(
-                                          item.file.fileName || "",
-                                          (item.file as any)?.originalName
-                                        ) || "Unknown file"
+                                  {/* No Document Available Checkbox */}
+                                  <div className="flex items-center space-x-2 py-1">
+                                    <Checkbox
+                                      id={`no-doc-3.3-${index}`}
+                                      checked={
+                                        item.noDocumentAvailable || false
                                       }
-                                    >
-                                      <Upload className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">
-                                        {extractOriginalName(
-                                          item.file.fileName || "",
-                                          (item.file as any)?.originalName
-                                        ) || "Unknown file"}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handleTableFieldUpdate(
-                                            index,
-                                            "file",
-                                            null
+                                      onCheckedChange={(checked) => {
+                                        const noDocument = checked as boolean;
+                                        // Update noDocumentAvailable and clear file if checked
+                                        setFormDataState((prev: any) => {
+                                          const current =
+                                            prev?.section3_3?.VGFArray;
+                                          const rows = Array.isArray(current)
+                                            ? [...current]
+                                            : [];
+                                          const currentRow = {
+                                            ...(rows[index] || {}),
+                                          };
+                                          currentRow.noDocumentAvailable =
+                                            noDocument;
+                                          currentRow.file = noDocument
+                                            ? null
+                                            : currentRow.file;
+                                          rows[index] = currentRow;
+                                          return {
+                                            ...prev,
+                                            section3_3: {
+                                              ...(prev?.section3_3 || {}),
+                                              VGFArray: rows,
+                                            },
+                                          };
+                                        });
+
+                                        // Clear validation error
+                                        if (
+                                          getFieldError(
+                                            `section3_3.VGFArray.${index}.file`
+                                          )
+                                        ) {
+                                          setIndicatorValidationErrors(
+                                            (prev) => {
+                                              const updated = { ...prev };
+                                              delete updated[
+                                                `section3_3.VGFArray.${index}.file`
+                                              ];
+                                              return updated;
+                                            }
                                           );
-                                        }}
-                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                      </button>
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      No file
-                                    </span>
-                                  )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
-                                        const selectedFile =
-                                          e.target.files?.[0];
-                                        if (selectedFile) {
-                                          // Upload file immediately (same as create submission)
-                                          try {
-                                            const response =
-                                              await apiService.uploadFile(
-                                                submissionId,
-                                                selectedFile
-                                              );
-                                            const fileData =
-                                              response?.data || response;
-
-                                            const newFile: FileUpload = {
-                                              id:
-                                                fileData.id ??
-                                                crypto.randomUUID(),
-                                              file: null, // File not stored locally when backend handles upload
-                                              fileName:
-                                                fileData.fileName ||
-                                                fileData.filename ||
-                                                selectedFile.name,
-                                              originalName:
-                                                selectedFile.name ||
-                                                fileData.originalName ||
-                                                fileData.data?.originalName, // Preserve original file name
-                                              fileSize: Number(
-                                                fileData.fileSize ??
-                                                  fileData.size ??
-                                                  selectedFile.size ??
-                                                  0
-                                              ),
-                                              uploadedAt: Number(
-                                                fileData.uploadedAt ??
-                                                  Date.now()
-                                              ),
-                                              filePath:
-                                                fileData.filePath ??
-                                                fileData.file ??
-                                                fileData.url ??
-                                                fileData.path,
-                                              fileUrl:
-                                                fileData.fileUrl ||
-                                                fileData.url,
-                                              mimeType: fileData.mimeType,
-                                            };
-
-                                            await handleTableFieldUpdate(
-                                              index,
-                                              "file",
-                                              newFile
-                                            );
-                                            e.target.value = ""; // Reset input
-                                          } catch (error: any) {
-                                            console.error(
-                                              "Failed to upload file:",
-                                              error
-                                            );
-                                          }
                                         }
                                       }}
-                                      className="hidden"
-                                      id={`file-input-3.3-${index}`}
                                     />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        document
-                                          .getElementById(
-                                            `file-input-3.3-${index}`
-                                          )
-                                          ?.click()
-                                      }
-                                      className="h-6 px-2 text-xs"
+                                    <label
+                                      htmlFor={`no-doc-3.3-${index}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                     >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
+                                      No document available
+                                    </label>
                                   </div>
+
+                                  {item.noDocumentAvailable ? (
+                                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                      No document available
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {/* Only show ONE file (single file upload) */}
+                                      {item.file ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                            title={
+                                              extractOriginalName(
+                                                item.file.fileName || "",
+                                                (item.file as any)?.originalName
+                                              ) || "Unknown file"
+                                            }
+                                          >
+                                            <Upload className="w-3 h-3 flex-shrink-0" />
+                                            <span className="truncate">
+                                              {extractOriginalName(
+                                                item.file.fileName || "",
+                                                (item.file as any)?.originalName
+                                              ) || "Unknown file"}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                handleTableFieldUpdate(
+                                                  index,
+                                                  "file",
+                                                  null
+                                                );
+                                              }}
+                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                            </button>
+                                          </Badge>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">
+                                          No file
+                                        </span>
+                                      )}
+                                      {/* Upload button for both add and replace */}
+                                      <div className="flex items-center">
+                                        <input
+                                          type="file"
+                                          accept=".pdf,.doc,.docx"
+                                          onChange={async (e) => {
+                                            const selectedFile =
+                                              e.target.files?.[0];
+                                            if (selectedFile) {
+                                              // Upload file immediately (same as create submission)
+                                              try {
+                                                const response =
+                                                  await apiService.uploadFile(
+                                                    submissionId,
+                                                    selectedFile
+                                                  );
+                                                const fileData =
+                                                  response?.data || response;
+
+                                                const newFile: FileUpload = {
+                                                  id:
+                                                    fileData.id ??
+                                                    crypto.randomUUID(),
+                                                  file: null, // File not stored locally when backend handles upload
+                                                  fileName:
+                                                    fileData.fileName ||
+                                                    fileData.filename ||
+                                                    selectedFile.name,
+                                                  originalName:
+                                                    selectedFile.name ||
+                                                    fileData.originalName ||
+                                                    fileData.data?.originalName, // Preserve original file name
+                                                  fileSize: Number(
+                                                    fileData.fileSize ??
+                                                      fileData.size ??
+                                                      selectedFile.size ??
+                                                      0
+                                                  ),
+                                                  uploadedAt: Number(
+                                                    fileData.uploadedAt ??
+                                                      Date.now()
+                                                  ),
+                                                  filePath:
+                                                    fileData.filePath ??
+                                                    fileData.file ??
+                                                    fileData.url ??
+                                                    fileData.path,
+                                                  fileUrl:
+                                                    fileData.fileUrl ||
+                                                    fileData.url,
+                                                  mimeType: fileData.mimeType,
+                                                };
+
+                                                // Update file and clear noDocumentAvailable
+                                                setFormDataState(
+                                                  (prev: any) => {
+                                                    const current =
+                                                      prev?.section3_3
+                                                        ?.VGFArray;
+                                                    const rows = Array.isArray(
+                                                      current
+                                                    )
+                                                      ? [...current]
+                                                      : [];
+                                                    const currentRow = {
+                                                      ...(rows[index] || {}),
+                                                    };
+                                                    currentRow.file = newFile;
+                                                    currentRow.noDocumentAvailable =
+                                                      false;
+                                                    rows[index] = currentRow;
+                                                    return {
+                                                      ...prev,
+                                                      section3_3: {
+                                                        ...(prev?.section3_3 ||
+                                                          {}),
+                                                        VGFArray: rows,
+                                                      },
+                                                    };
+                                                  }
+                                                );
+
+                                                e.target.value = ""; // Reset input
+                                              } catch (error: any) {
+                                                console.error(
+                                                  "Failed to upload file:",
+                                                  error
+                                                );
+                                              }
+                                            }
+                                          }}
+                                          className="hidden"
+                                          id={`file-input-3.3-${index}`}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            document
+                                              .getElementById(
+                                                `file-input-3.3-${index}`
+                                              )
+                                              ?.click()
+                                          }
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          <Upload className="w-3 h-3 mr-1" />
+                                          Upload
+                                        </Button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              ) : item.noDocumentAvailable ? (
+                                <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                  No document available
                                 </div>
                               ) : item.file ? (
                                 <div className="flex items-center gap-1">
@@ -4932,9 +5258,7 @@ export const PPPDevelopmentReview = ({
                   {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
-                      <Label>
-                        Total Project Cost (INR-CRORE)
-                      </Label>
+                      <Label>Total Project Cost (INR-CRORE)</Label>
                       <Input
                         type="number"
                         inputMode="decimal"
@@ -5000,20 +5324,51 @@ export const PPPDevelopmentReview = ({
                   </div>
                   {/* Row 3: File Upload */}
                   <div className="mb-4">
-                    <Label>Upload File</Label>
-                    <EditableFileDisplay
-                      files={newVGFItem.file}
-                      isEditable={true}
-                      submissionId={submissionId}
-                      onFilesChange={(updatedFile) => {
-                        setNewVGFItem({
-                          ...newVGFItem,
-                          file: updatedFile as FileUpload | null,
-                        });
-                      }}
-                      label=""
-                      multiple={false}
-                    />
+                    {/* No Document Available Checkbox */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="no-doc-3.3-new"
+                        checked={newVGFItem.noDocumentAvailable || false}
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            noDocumentAvailable: noDocument,
+                            file: noDocument ? null : newVGFItem.file,
+                          });
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-3.3-new"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+
+                    {newVGFItem.noDocumentAvailable ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
+                    ) : (
+                      <>
+                        <Label>Upload File</Label>
+                        <EditableFileDisplay
+                          files={newVGFItem.file}
+                          isEditable={true}
+                          submissionId={submissionId}
+                          onFilesChange={(updatedFile) => {
+                            setNewVGFItem({
+                              ...newVGFItem,
+                              file: updatedFile as FileUpload | null,
+                              noDocumentAvailable: false,
+                            });
+                          }}
+                          label=""
+                          multiple={false}
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button
@@ -5090,9 +5445,7 @@ export const PPPDevelopmentReview = ({
               {/* Summary Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <Label>
-                    Total Budgeted capital allocation (INR-CRORE)
-                  </Label>
+                  <Label>Total Budgeted capital allocation (INR-CRORE)</Label>
                   {shouldBeEditable("3.4") ? (
                     <div>
                       <Input
@@ -5133,9 +5486,7 @@ export const PPPDevelopmentReview = ({
                   )}
                 </div>
                 <div>
-                  <Label>
-                  Total of TPC of PPP Projects (INR-CRORE){" "}
-                  </Label>
+                  <Label>Total of TPC of PPP Projects (INR-CRORE) </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR-CRORE </p> */}
                   <Input
                     type="number"
