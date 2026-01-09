@@ -21,6 +21,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,6 +130,36 @@ export const PPPDevelopmentReview = ({
         VGFArray: items,
         ...(status !== undefined ? { status } : {}),
       };
+    }
+
+    // Ensure mutual exclusivity for section 3.1
+    if (normalized.section3_1) {
+      const section = normalized.section3_1;
+      const hasFile =
+        section.file &&
+        (section.file.file || section.file.fileName || section.file.filePath);
+      
+      if (hasFile) {
+        normalized.section3_1 = {
+          ...section,
+          noDocumentAvailable: false,
+        };
+      }
+    }
+
+    // Ensure mutual exclusivity for section 3.2
+    if (normalized.section3_2) {
+      const section = normalized.section3_2;
+      const hasFile =
+        section.file &&
+        (section.file.file || section.file.fileName || section.file.filePath);
+      
+      if (hasFile) {
+        normalized.section3_2 = {
+          ...section,
+          noDocumentAvailable: false,
+        };
+      }
     }
 
     return normalized;
@@ -1932,9 +1963,18 @@ export const PPPDevelopmentReview = ({
         ? null
         : updatedValue;
 
+    // Clear noDocumentAvailable when a file is uploaded
+    const hasFile =
+      normalizedValue !== null &&
+      normalizedValue !== undefined &&
+      (normalizedValue.file ||
+        normalizedValue.fileName ||
+        normalizedValue.filePath);
     const updatedSection = {
       ...previousSection,
       [targetKey]: normalizedValue,
+      // Clear noDocumentAvailable when file is uploaded
+      ...(hasFile ? { noDocumentAvailable: false } : {}),
     };
 
     // Update local state only - save will happen when user clicks Save button
@@ -1943,6 +1983,27 @@ export const PPPDevelopmentReview = ({
       ...prev,
       [sectionKey]: updatedSection,
     }));
+
+    // Also update submissionState to keep it in sync
+    if (hasFile) {
+      setSubmissionState((prevSubmission: any) => {
+        if (!prevSubmission) return prevSubmission;
+        const pppDev = prevSubmission?.formData?.pppDevelopment || {};
+        return {
+          ...prevSubmission,
+          formData: {
+            ...prevSubmission.formData,
+            pppDevelopment: {
+              ...pppDev,
+              [sectionKey]: {
+                ...pppDev[sectionKey],
+                noDocumentAvailable: false,
+              },
+            },
+          },
+        };
+      });
+    }
 
     // Removed auto-save - files are stored as File objects and will be uploaded
     // when user clicks Save button (via updateSubmission → uploadFilesAndReplace)
@@ -4030,19 +4091,91 @@ export const PPPDevelopmentReview = ({
               </div>
 
               {state?.section3_1?.available === "yes" && (
-                <div>
-                  <EditableFileDisplay
-                    files={state?.section3_1?.file ?? null}
-                    isEditable={shouldBeEditable("3.1")}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFile) => {
-                      handleFileUpdate("3.1", updatedFile);
-                      markFieldAsTouched("section3_1.file");
-                      setShowValidationErrors(true);
-                    }}
-                    label="Uploaded File"
-                    multiple={false}
-                  />
+                <div className="space-y-2">
+                  {/* No Document Available Checkbox */}
+                  {shouldBeEditable("3.1") && (
+                    <div className="flex items-center space-x-2 py-1">
+                      <Checkbox
+                        id="no-doc-3.1"
+                        checked={
+                          state?.section3_1?.noDocumentAvailable || false
+                        }
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section3_1: {
+                              ...prev.section3_1,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section3_1?.file,
+                            },
+                          }));
+
+                          // Also update submissionData
+                          setSubmissionState((prevSubmission: any) => {
+                            if (!prevSubmission) return prevSubmission;
+                            const pppDev =
+                              prevSubmission?.formData?.pppDevelopment || {};
+                            return {
+                              ...prevSubmission,
+                              formData: {
+                                ...prevSubmission.formData,
+                                pppDevelopment: {
+                                  ...pppDev,
+                                  section3_1: {
+                                    ...pppDev.section3_1,
+                                    noDocumentAvailable: noDocument,
+                                    file: noDocument
+                                      ? null
+                                      : pppDev.section3_1?.file,
+                                  },
+                                },
+                              },
+                            };
+                          });
+
+                          // Clear validation error
+                          if (getFieldError("section3_1.file")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section3_1.file"];
+                              return updated;
+                            });
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-3.1"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+                  )}
+
+                  {state?.section3_1?.noDocumentAvailable &&
+                  !(
+                    state?.section3_1?.file?.file ||
+                    state?.section3_1?.file?.fileName ||
+                    state?.section3_1?.file?.filePath
+                  ) ? (
+                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                      No document available
+                    </div>
+                  ) : (
+                    <EditableFileDisplay
+                      files={state?.section3_1?.file ?? null}
+                      isEditable={shouldBeEditable("3.1")}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFile) => {
+                        handleFileUpdate("3.1", updatedFile);
+                        markFieldAsTouched("section3_1.file");
+                        setShowValidationErrors(true);
+                      }}
+                      label="Uploaded File"
+                      multiple={false}
+                    />
+                  )}
                   {renderFieldError("section3_1.file")}
                 </div>
               )}
@@ -4168,25 +4301,97 @@ export const PPPDevelopmentReview = ({
               </div>
 
               {state?.section3_2?.available === "yes" && (
-                <div>
-                  <EditableFileDisplay
-                    files={state?.section3_2?.file ?? null}
-                    isEditable={shouldBeEditable("3.2")}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFile) => {
-                      handleFileUpdate("3.2", updatedFile);
-                      // Clear validation error when file is uploaded
-                      if (getFieldError("section3_2.file")) {
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section3_2.file"];
-                          return updated;
-                        });
-                      }
-                    }}
-                    label="Uploaded File"
-                    multiple={false}
-                  />
+                <div className="space-y-2">
+                  {/* No Document Available Checkbox */}
+                  {shouldBeEditable("3.2") && (
+                    <div className="flex items-center space-x-2 py-1">
+                      <Checkbox
+                        id="no-doc-3.2"
+                        checked={
+                          state?.section3_2?.noDocumentAvailable || false
+                        }
+                        onCheckedChange={(checked) => {
+                          const noDocument = checked as boolean;
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section3_2: {
+                              ...prev.section3_2,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section3_2?.file,
+                            },
+                          }));
+
+                          // Also update submissionData
+                          setSubmissionState((prevSubmission: any) => {
+                            if (!prevSubmission) return prevSubmission;
+                            const pppDev =
+                              prevSubmission?.formData?.pppDevelopment || {};
+                            return {
+                              ...prevSubmission,
+                              formData: {
+                                ...prevSubmission.formData,
+                                pppDevelopment: {
+                                  ...pppDev,
+                                  section3_2: {
+                                    ...pppDev.section3_2,
+                                    noDocumentAvailable: noDocument,
+                                    file: noDocument
+                                      ? null
+                                      : pppDev.section3_2?.file,
+                                  },
+                                },
+                              },
+                            };
+                          });
+
+                          // Clear validation error
+                          if (getFieldError("section3_2.file")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section3_2.file"];
+                              return updated;
+                            });
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="no-doc-3.2"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        No document available
+                      </label>
+                    </div>
+                  )}
+
+                  {state?.section3_2?.noDocumentAvailable &&
+                  !(
+                    state?.section3_2?.file?.file ||
+                    state?.section3_2?.file?.fileName ||
+                    state?.section3_2?.file?.filePath
+                  ) ? (
+                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                      No document available
+                    </div>
+                  ) : (
+                    <EditableFileDisplay
+                      files={state?.section3_2?.file ?? null}
+                      isEditable={shouldBeEditable("3.2")}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFile) => {
+                        handleFileUpdate("3.2", updatedFile);
+                        // Clear validation error when file is uploaded
+                        if (getFieldError("section3_2.file")) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated["section3_2.file"];
+                            return updated;
+                          });
+                        }
+                      }}
+                      label="Uploaded File"
+                      multiple={false}
+                    />
+                  )}
                   {renderFieldError("section3_2.file")}
                 </div>
               )}
@@ -4932,9 +5137,7 @@ export const PPPDevelopmentReview = ({
                   {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
-                      <Label>
-                        Total Project Cost (INR-CRORE)
-                      </Label>
+                      <Label>Total Project Cost (INR-CRORE)</Label>
                       <Input
                         type="number"
                         inputMode="decimal"
@@ -5090,9 +5293,7 @@ export const PPPDevelopmentReview = ({
               {/* Summary Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <Label>
-                    Total Budgeted capital allocation (INR-CRORE)
-                  </Label>
+                  <Label>Total Budgeted capital allocation (INR-CRORE)</Label>
                   {shouldBeEditable("3.4") ? (
                     <div>
                       <Input
@@ -5133,9 +5334,7 @@ export const PPPDevelopmentReview = ({
                   )}
                 </div>
                 <div>
-                  <Label>
-                  Total of TPC of PPP Projects (INR-CRORE){" "}
-                  </Label>
+                  <Label>Total of TPC of PPP Projects (INR-CRORE) </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR-CRORE </p> */}
                   <Input
                     type="number"
