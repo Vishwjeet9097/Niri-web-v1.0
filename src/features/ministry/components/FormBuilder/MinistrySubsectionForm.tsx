@@ -31,7 +31,11 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 }) => {
   const subsectionName = Object.keys(subsection)[0];
   const subsectionData = subsection[subsectionName];
-  const items = useMemo(() => Array.isArray(formData) ? formData : [], [formData]);
+  const items = useMemo(() => {
+    const arrayData = Array.isArray(formData) ? formData : [];
+    console.log(`📋 MinistrySubsectionForm [${sectionKey}.${subsectionName}]: Received ${arrayData.length} items in ${mode} mode:`, arrayData);
+    return arrayData;
+  }, [formData, sectionKey, subsectionName, mode]);
   
   // Normalize Yes/No value
   const normalizedYesNoValue = useMemo(() => {
@@ -65,22 +69,28 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
   }, []);
 
   // Sort and filter fields by sequence and Yes/No value
+  // In review mode, always show all fields regardless of Yes/No value
   const sortedFields = useMemo(() => {
     const allFields = [...(subsectionData.inputs || [])].sort((a, b) => a.sequence - b.sequence);
     
-    // If Yes/No value is "no", only show comment fields
+    // In review mode, always show all fields
+    if (mode === 'review') {
+      return allFields;
+    }
+    
+    // If Yes/No value is "no", only show comment fields (edit mode only)
     if (normalizedYesNoValue === 'no') {
       return allFields.filter(field => isCommentField(field));
     }
     
-    // If Yes/No value is "yes", show all fields except comment fields
+    // If Yes/No value is "yes", show all fields except comment fields (edit mode only)
     if (normalizedYesNoValue === 'yes') {
       return allFields.filter(field => !isCommentField(field));
     }
     
     // If no Yes/No value, show all fields
     return allFields;
-  }, [subsectionData.inputs, normalizedYesNoValue, isCommentField]);
+  }, [subsectionData.inputs, normalizedYesNoValue, isCommentField, mode]);
 
   // Helper to normalize Yes/No values
   const normalizeYesNoValue = useCallback((val: any): string => {

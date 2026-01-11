@@ -56,6 +56,17 @@ export function MinistrySubmissionReviewWrapper({
         
         const initialFormData = transformApiResponseToFormData(response.data, {});
         console.log("📋 Transformed formData:", Object.keys(initialFormData));
+        // Log subsection entries for debugging
+        Object.keys(initialFormData).forEach(sectionKey => {
+          const sectionData = initialFormData[sectionKey];
+          if (sectionData && typeof sectionData === 'object') {
+            Object.keys(sectionData).forEach(key => {
+              if (Array.isArray(sectionData[key])) {
+                console.log(`📋 Section ${sectionKey}.${key}: ${sectionData[key].length} entries`, sectionData[key]);
+              }
+            });
+          }
+        });
         setFormData(initialFormData);
         
         // Extract submission ID

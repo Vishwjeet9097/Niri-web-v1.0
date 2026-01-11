@@ -191,7 +191,12 @@ export function MinistryFormReviewSubmissionPage() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <MinistryDocumentsTab submission={submission} />
+          <MinistryDocumentsTab 
+            submission={submission}
+            documents={submission?.attachedFiles || []}
+            formData={submission?.formData}
+            submissionId={submission?.id}
+          />
         </TabsContent>
 
         <TabsContent value="history">
