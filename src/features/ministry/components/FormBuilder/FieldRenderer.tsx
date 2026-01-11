@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MinistryFileUploadSection } from '@/features/ministry/components/FileUpload/MinistryFileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { validateField } from '@/features/ministry/utils/validation';
@@ -24,9 +25,16 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   indicatorName,
   onValidate,
   onClearError,
+  formData,
+  sectionKey,
+  sectionInputs,
+  onFieldChange,
 }) => {
   // All fields are mandatory - always show asterisk
   const isRequired = true;
+  
+  // Ref to track when "No document available" is confirmed (to skip validation temporarily)
+  const skipFileValidationRef = useRef<Record<string, boolean>>({});
   
   // In review mode, show disabled inputs instead of plain text for better visibility
   const isReviewMode = mode === 'review';
@@ -390,26 +398,130 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
 
     case 'file':
       const fileFieldPath = `${field.sectionId}.${field.id}`;
+      // Find "No document available" field in the section
+      const noDocAvailableField = sectionInputs?.find((f: any) => 
+        f.label?.toLowerCase().includes('no document available') ||
+        f.label?.toLowerCase() === 'no document available'
+      );
+      const noDocAvailableFieldPath = noDocAvailableField && sectionKey 
+        ? `${sectionKey}.${noDocAvailableField.id}` 
+        : undefined;
+      const noDocAvailableValue = noDocAvailableFieldPath && formData
+        ? formData[sectionKey!]?.[noDocAvailableField.id]
+        : undefined;
+      
+      console.log(`🔍 [FieldRenderer] File field: ${fileFieldPath}`);
+      console.log(`🔍 [FieldRenderer] noDocAvailableField:`, noDocAvailableField ? { id: noDocAvailableField.id, label: noDocAvailableField.label } : 'NOT FOUND');
+      console.log(`🔍 [FieldRenderer] noDocAvailableFieldPath: ${noDocAvailableFieldPath}`);
+      console.log(`🔍 [FieldRenderer] noDocAvailableValue: "${noDocAvailableValue}"`);
+      console.log(`🔍 [FieldRenderer] formData[${sectionKey}]:`, formData?.[sectionKey!]);
+      console.log(`🔍 [FieldRenderer] skipFileValidationRef[${fileFieldPath}]: ${skipFileValidationRef.current[fileFieldPath]}`);
+      
       return (
         <div className="space-y-2" data-field-path={fileFieldPath}>
-          <Label>
-            {field.label} {isRequired && <span className="text-destructive">*</span>}
-          </Label>
           {mode === 'review' ? (
-            // In review mode, show files in table format
-            <MinistryFileTable
-              files={value as FileUpload | FileUpload[] | null}
-              fileKeyPrefix={fileFieldPath}
-            />
+            // In review mode, show files in table format or "No document available" checkbox
+            noDocAvailableValue === 'No document available' ? (
+              <div className="flex items-center space-x-2 py-2">
+                <Checkbox
+                  checked={true}
+                  disabled
+                  className="cursor-not-allowed"
+                />
+                <Label className="text-sm font-normal cursor-not-allowed">
+                  No document available
+                </Label>
+              </div>
+            ) : (
+              <MinistryFileTable
+                files={value as FileUpload | FileUpload[] | null}
+                fileKeyPrefix={fileFieldPath}
+              />
+            )
           ) : (
-            <FileUploadSection
-              label=""
+            <MinistryFileUploadSection
+              label={field.label}
               value={value as FileUpload | null}
-              onChange={onChange}
+              onChange={(fileValue) => {
+                console.log(`🔄 [FieldRenderer] File onChange called for ${fileFieldPath}, fileValue:`, fileValue);
+                console.log(`🔄 [FieldRenderer] noDocAvailableValue: "${noDocAvailableValue}"`);
+                
+                // Get the current formData value - it might have been updated
+                const currentNoDocValue = formData?.[sectionKey!]?.[noDocAvailableField?.id || ''];
+                console.log(`🔄 [FieldRenderer] currentNoDocValue from formData: "${currentNoDocValue}"`);
+                console.log(`🔄 [FieldRenderer] skipFileValidationRef[${fileFieldPath}]: ${skipFileValidationRef.current[fileFieldPath]}`);
+                
+                // Only trigger validation if "No document available" is not checked AND we're not skipping validation
+                const shouldValidate = !skipFileValidationRef.current[fileFieldPath] && 
+                                      noDocAvailableValue !== 'No document available' && 
+                                      currentNoDocValue !== 'No document available';
+                console.log(`🔄 [FieldRenderer] shouldValidate: ${shouldValidate} (skipRef: ${skipFileValidationRef.current[fileFieldPath]}, prop: ${noDocAvailableValue}, formData: ${currentNoDocValue})`);
+                
+                // If we're skipping validation, delay the onChange call slightly to allow formData to update
+                if (skipFileValidationRef.current[fileFieldPath]) {
+                  console.log(`🔄 [FieldRenderer] Delaying onChange call to allow formData update`);
+                  setTimeout(() => {
+                    onChange(fileValue);
+                    // Clear error after formData has updated
+                    if (onClearError) {
+                      console.log(`🔄 [FieldRenderer] Clearing error for ${fileFieldPath} (No document available is checked)`);
+                      onClearError(fileFieldPath);
+                    }
+                    // Reset the skip flag
+                    skipFileValidationRef.current[fileFieldPath] = false;
+                    console.log(`🔄 [FieldRenderer] Reset skipFileValidationRef for ${fileFieldPath}`);
+                  }, 100);
+                } else {
+                  onChange(fileValue);
+                  
+                  // Skip validation if "No document available" is checked (file is not required)
+                  if (shouldValidate && onValidate) {
+                    console.log(`🔄 [FieldRenderer] Running validation for ${fileFieldPath}`);
+                    onValidate(fileFieldPath, fileValue, field);
+                  } else {
+                    if (onClearError) {
+                      console.log(`🔄 [FieldRenderer] Clearing error for ${fileFieldPath} (No document available is checked)`);
+                      // Clear error if "No document available" is checked
+                      onClearError(fileFieldPath);
+                    }
+                  }
+                }
+              }}
               required={isRequired}
               submissionId={submissionId}
               disabled={disabled}
               className={error ? 'border-destructive' : className}
+              noDocumentAvailableValue={noDocAvailableValue}
+              onNoDocumentAvailableChange={(newValue) => {
+                console.log(`🔄 [FieldRenderer] onNoDocumentAvailableChange called, newValue: "${newValue}"`);
+                console.log(`🔄 [FieldRenderer] noDocAvailableFieldPath: ${noDocAvailableFieldPath}`);
+                console.log(`🔄 [FieldRenderer] fileFieldPath: ${fileFieldPath}`);
+                if (noDocAvailableFieldPath && onFieldChange && noDocAvailableField) {
+                  console.log(`🔄 [FieldRenderer] Updating "No document available" field: ${noDocAvailableFieldPath} = "${newValue}"`);
+                  
+                  // Set flag to skip validation when clearing file
+                  if (newValue === 'No document available') {
+                    skipFileValidationRef.current[fileFieldPath] = true;
+                    console.log(`🔄 [FieldRenderer] Set skipFileValidationRef[${fileFieldPath}] to true`);
+                  }
+                  
+                  onFieldChange(noDocAvailableFieldPath, newValue, noDocAvailableField);
+                  // Validate the "No document available" field
+                  if (onValidate && noDocAvailableField) {
+                    console.log(`🔄 [FieldRenderer] Validating "No document available" field: ${noDocAvailableFieldPath}`);
+                    onValidate(noDocAvailableFieldPath, newValue, noDocAvailableField);
+                  }
+                  // Clear the file upload field error if "No document available" is confirmed
+                  if (newValue === 'No document available' && onClearError) {
+                    console.log(`🔄 [FieldRenderer] Clearing file upload error for ${fileFieldPath} (No document available confirmed)`);
+                    // File upload is no longer required, so clear the error directly
+                    onClearError(fileFieldPath);
+                  }
+                } else {
+                  console.log(`⚠️ [FieldRenderer] Missing props: noDocAvailableFieldPath: ${!!noDocAvailableFieldPath}, onFieldChange: ${!!onFieldChange}, noDocAvailableField: ${!!noDocAvailableField}`);
+                }
+              }}
+              noDocumentAvailableFieldId={noDocAvailableField?.id}
             />
           )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}

@@ -178,6 +178,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                 field.uiComponent === 'File' ||
                                                 field.label?.toLowerCase().includes('upload file') ||
                                                 field.label?.toLowerCase().includes('upload');
+                            // Filter out "No Document Available" field - it's handled by MinistryFileUploadSection
+                            const isNoDocAvailable = field.label?.toLowerCase().includes('no document available') ||
+                                                    field.label?.toLowerCase() === 'no document available';
                             
                             if (isYesNo) {
                               yesNoFields.push(field);
@@ -185,7 +188,8 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                               commentFields.push(field);
                             } else if (isFileUpload) {
                               fileUploadFields.push(field);
-                            } else {
+                            } else if (!isNoDocAvailable) {
+                              // Exclude "No Document Available" field from otherFields
                               otherFields.push(field);
                             }
                           });
@@ -259,6 +263,11 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                           dropdownOptions={getDropdownOptions?.(field.id, field.sectionId, field.label)}
                                           indicatorName={sectionName}
                                           onValidate={onValidateField}
+                                          onClearError={onClearFieldError}
+                                          formData={formData}
+                                          sectionKey={sectionKey}
+                                          sectionInputs={section.inputs}
+                                          onFieldChange={handleFieldChange}
                                         />
                                       );
                                     })}

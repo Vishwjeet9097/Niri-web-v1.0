@@ -557,7 +557,7 @@ export function MinistryDocumentsTab({
                     ? (doc.indicatorName || getIndicatorDisplayName(indicatorCode))
                     : (doc.indicatorName || "N/A");
 
-                  return (
+  return (
                     <TableRow key={docKey}>
                       <TableCell className="font-medium text-sm">
                         {getCategoryDisplayName(category)}

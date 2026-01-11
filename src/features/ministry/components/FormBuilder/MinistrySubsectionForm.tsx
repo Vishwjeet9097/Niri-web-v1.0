@@ -1,10 +1,11 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, X, File as FileIcon } from 'lucide-react';
-import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MinistryFileUploadSection } from '@/features/ministry/components/FileUpload/MinistryFileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { validateField } from '@/features/ministry/utils/validation';
@@ -31,6 +32,10 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 }) => {
   const subsectionName = Object.keys(subsection)[0];
   const subsectionData = subsection[subsectionName];
+  
+  // Ref to track when "No document available" is confirmed (to skip validation temporarily)
+  const skipFileValidationRef = useRef<Record<string, boolean>>({});
+  
   const items = useMemo(() => {
     const arrayData = Array.isArray(formData) ? formData : [];
     console.log(`📋 MinistrySubsectionForm [${sectionKey}.${subsectionName}]: Received ${arrayData.length} items in ${mode} mode:`, arrayData);
@@ -319,23 +324,81 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 
 
       case 'file':
+        // Find "No document available" field in the subsection inputs
+        const noDocAvailableField = subsectionData.inputs?.find((f: any) => 
+          (f.label?.toLowerCase().includes('no document available') ||
+           f.label?.toLowerCase() === 'no document available') &&
+          f.id !== field.id
+        );
+        const noDocAvailableValue = noDocAvailableField && item
+          ? item[noDocAvailableField.id]
+          : undefined;
+        
         return (
           <div className="space-y-2" data-field-path={fieldPath}>
-            <FileUploadSection
+            <MinistryFileUploadSection
               label={field.label}
               value={fieldValue || null}
               onChange={(value) => {
+                console.log(`🔄 [MinistrySubsectionForm] File onChange called for ${fieldPath}, value:`, value);
+                console.log(`🔄 [MinistrySubsectionForm] noDocAvailableValue: "${noDocAvailableValue}"`);
+                console.log(`🔄 [MinistrySubsectionForm] skipFileValidationRef[${fieldPath}]: ${skipFileValidationRef.current[fieldPath]}`);
+                
+                // Only trigger validation if "No document available" is not checked AND we're not skipping validation
+                const shouldValidate = !skipFileValidationRef.current[fieldPath] && noDocAvailableValue !== 'No document available';
+                console.log(`🔄 [MinistrySubsectionForm] shouldValidate: ${shouldValidate}`);
+                
                 onChange(index, field.id, value);
                 
-                // Always validate on change - this will clear errors if field is valid
-                if (onValidateField && field) {
+                // Skip validation if "No document available" is checked (file is not required)
+                if (shouldValidate && onValidateField && field) {
+                  console.log(`🔄 [MinistrySubsectionForm] Running validation for ${fieldPath}`);
                   onValidateField(fieldPath, value, field);
+                } else {
+                  if (onClearFieldError) {
+                    console.log(`🔄 [MinistrySubsectionForm] Clearing error for ${fieldPath} (No document available is checked or skipValidationRef is true)`);
+                    // Clear error if "No document available" is checked
+                    onClearFieldError(fieldPath);
+                  }
+                  // Reset the skip flag after a short delay
+                  if (skipFileValidationRef.current[fieldPath]) {
+                    setTimeout(() => {
+                      skipFileValidationRef.current[fieldPath] = false;
+                      console.log(`🔄 [MinistrySubsectionForm] Reset skipFileValidationRef for ${fieldPath}`);
+                    }, 200);
+                  }
                 }
               }}
               required={isRequired}
               submissionId={submissionId}
               disabled={disabled}
               className={error ? 'border-destructive' : ''}
+              noDocumentAvailableValue={noDocAvailableValue}
+              onNoDocumentAvailableChange={(newValue) => {
+                console.log(`🔄 [MinistrySubsectionForm] onNoDocumentAvailableChange called, newValue: "${newValue}"`);
+                if (noDocAvailableField) {
+                  // Set flag to skip validation when clearing file
+                  if (newValue === 'No document available') {
+                    skipFileValidationRef.current[fieldPath] = true;
+                    console.log(`🔄 [MinistrySubsectionForm] Set skipFileValidationRef[${fieldPath}] to true`);
+                  }
+                  
+                  onChange(index, noDocAvailableField.id, newValue);
+                  // Validate the "No document available" field
+                  const noDocAvailableFieldPath = `${sectionKey}.${subsectionName}[${index}].${noDocAvailableField.id}`;
+                  if (onValidateField && noDocAvailableField) {
+                    console.log(`🔄 [MinistrySubsectionForm] Validating "No document available" field: ${noDocAvailableFieldPath}`);
+                    onValidateField(noDocAvailableFieldPath, newValue, noDocAvailableField);
+                  }
+                  // Clear the file upload field error if "No document available" is confirmed
+                  if (newValue === 'No document available' && onClearFieldError) {
+                    console.log(`🔄 [MinistrySubsectionForm] Clearing file upload error for ${fieldPath} (No document available confirmed)`);
+                    // File upload is no longer required, so clear the error directly
+                    onClearFieldError(fieldPath);
+                  }
+                }
+              }}
+              noDocumentAvailableFieldId={noDocAvailableField?.id}
             />
             {error && <p className="text-sm text-destructive mt-1">{error}</p>}
           </div>
@@ -432,22 +495,51 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
                     const isFileField = field.dataType === 'file';
                     const isYesNo = isYesNoField(field);
                     
+                    // Find "No document available" field for this file field
+                    const noDocAvailableField = subsectionData.inputs?.find((f: any) => 
+                      (f.label?.toLowerCase().includes('no document available') ||
+                       f.label?.toLowerCase() === 'no document available') &&
+                      f.id !== field.id
+                    );
+                    const noDocAvailableValue = noDocAvailableField && item
+                      ? item[noDocAvailableField.id]
+                      : undefined;
+                    
                     return (
                       <td key={field.id} className="py-3 px-4 text-sm align-top">
-                        {isFileField && fieldValue ? (
+                        {isFileField ? (
                           // Show files in table format in review mode, simple display in edit mode
                           mode === 'review' ? (
-                            <MinistryFileTable
-                              files={fieldValue}
-                              fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
-                            />
+                            noDocAvailableValue === 'No document available' ? (
+                              <div className="flex items-center space-x-2 py-2">
+                                <Checkbox
+                                  checked={true}
+                                  disabled
+                                  className="cursor-not-allowed"
+                                />
+                                <Label className="text-sm font-normal cursor-not-allowed">
+                                  No document available
+                                </Label>
+                              </div>
+                            ) : fieldValue ? (
+                              <MinistryFileTable
+                                files={fieldValue}
+                                fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
+                              />
+                            ) : (
+                              <div className="text-sm text-muted-foreground py-2">
+                                No files uploaded
+                              </div>
+                            )
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <FileIcon className="w-4 h-4 text-blue-600" />
-                              <span className="text-blue-600 truncate max-w-[200px]">
-                                {fieldValue?.fileName || 'File'}
-                              </span>
-                            </div>
+                            fieldValue ? (
+                              <div className="flex items-center gap-2">
+                                <FileIcon className="w-4 h-4 text-blue-600" />
+                                <span className="text-blue-600 truncate max-w-[200px]">
+                                  {fieldValue?.fileName || 'File'}
+                                </span>
+                              </div>
+                            ) : null
                           )
                         ) : isYesNo ? (
                           // Show Yes/No as colored badges in review mode

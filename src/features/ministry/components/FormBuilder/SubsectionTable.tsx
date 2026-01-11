@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, X } from 'lucide-react';
 import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
@@ -108,6 +109,7 @@ export const SubsectionTable: React.FC<SubsectionTableProps> = React.memo(({
                   item={item}
                   index={index}
                   subsectionName={subsectionName}
+                  subsectionData={subsectionData}
                   sortedFields={sortedFields}
                   sectionKey={sectionKey}
                   mode={mode}
@@ -153,6 +155,7 @@ const SubsectionTableRow: React.FC<{
   item: any;
   index: number;
   subsectionName: string;
+  subsectionData: any;
   sortedFields: any[];
   sectionKey: string;
   mode: 'edit' | 'review';
@@ -166,6 +169,7 @@ const SubsectionTableRow: React.FC<{
   item,
   index,
   subsectionName,
+  subsectionData,
   sortedFields,
   sectionKey,
   mode,
@@ -204,11 +208,48 @@ const SubsectionTableRow: React.FC<{
             ) : (
               <div className="text-sm">
                 {isFileField ? (
-                  // Show files in table format in review mode
-                  <MinistryFileTable
-                    files={fieldValue}
-                    fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
-                  />
+                  // Check if "No document available" is set for this file field
+                  (() => {
+                    // Find "No document available" field in subsection inputs
+                    // We need to get subsectionData from the subsection prop
+                    const subsectionData = subsection[subsectionName];
+                    const noDocAvailableField = subsectionData?.inputs?.find((f: any) => 
+                      (f.label?.toLowerCase().includes('no document available') ||
+                       f.label?.toLowerCase() === 'no document available') &&
+                      f.id !== field.id
+                    );
+                    const noDocAvailableValue = noDocAvailableField && item
+                      ? item[noDocAvailableField.id]
+                      : undefined;
+                    
+                    // Show "No document available" checkbox if set, otherwise show files
+                    if (noDocAvailableValue === 'No document available') {
+                      return (
+                        <div className="flex items-center space-x-2 py-2">
+                          <Checkbox
+                            checked={true}
+                            disabled
+                            className="cursor-not-allowed"
+                          />
+                          <Label className="text-sm font-normal cursor-not-allowed">
+                            No document available
+                          </Label>
+                        </div>
+                      );
+                    }
+                    
+                    // Show files in table format in review mode
+                    return fieldValue ? (
+                      <MinistryFileTable
+                        files={fieldValue}
+                        fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground py-2">
+                        No files uploaded
+                      </div>
+                    );
+                  })()
                 ) : (() => {
                   // Check if this is a Yes/No field
                   const isYesNoField = field.label.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
