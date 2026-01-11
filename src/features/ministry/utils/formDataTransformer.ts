@@ -73,9 +73,10 @@ export function transformApiResponseToFormData(
               section.subsection.forEach((subsection: any) => {
                 Object.entries(subsection).forEach(([subsectionName, subsectionData]: [string, any]) => {
                   // Use submittedItems if available (backend now provides this)
-                  if (subsectionData.submittedItems && Array.isArray(subsectionData.submittedItems) && subsectionData.submittedItems.length > 0) {
+                  if (subsectionData.submittedItems && Array.isArray(subsectionData.submittedItems)) {
+                    // Always set submittedItems, even if empty array, to ensure consistency
                     formData[sectionKey][subsectionName] = subsectionData.submittedItems;
-                    console.log(`📝 Loaded ${sectionKey}.${subsectionName} with ${subsectionData.submittedItems.length} submitted items`);
+                    console.log(`📝 Loaded ${sectionKey}.${subsectionName} with ${subsectionData.submittedItems.length} submitted items:`, subsectionData.submittedItems);
                   } else if (formData[sectionKey][subsectionName] === undefined) {
                     // Only initialize if not exists - preserve existing data including empty arrays
                     formData[sectionKey][subsectionName] = [];

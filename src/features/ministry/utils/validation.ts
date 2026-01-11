@@ -54,7 +54,8 @@ export const validateRequired = (value: any): boolean => {
   if (typeof value === 'object') {
     return Object.keys(value).length > 0;
   }
-  return true;
+  // For dropdowns and other types, if value exists, it's valid
+  return value !== null && value !== undefined && value !== '';
 };
 
 /**
@@ -114,10 +115,29 @@ export const validateField = (
     return undefined;
   }
 
+  // Check if this is a dropdown field (even if dataType is 'string')
+  // Dropdown fields can be identified by:
+  // 1. dataType === 'dropdown'
+  // 2. uiComponent === 'Dropdown' or 'dropdown'
+  // 3. Has validationRules.options (dropdown options)
+  // 4. Field label matches known dropdown field patterns (sector, status, etc.)
+  const fieldLabelLower = field.label?.toLowerCase() || '';
+  const isKnownDropdownField = fieldLabelLower.includes('sector') ||
+                              fieldLabelLower.includes('status') ||
+                              fieldLabelLower.includes('type') ||
+                              fieldLabelLower.includes('mode') ||
+                              fieldLabelLower.includes('scheme');
+  
+  const isDropdownField = field.dataType === 'dropdown' || 
+                         field.uiComponent === 'Dropdown' ||
+                         field.uiComponent === 'dropdown' ||
+                         (field.validationRules?.options && Array.isArray(field.validationRules.options) && field.validationRules.options.length > 0) ||
+                         isKnownDropdownField;
+
   // Type-specific validation
   switch (field.dataType) {
     case 'string':
-      // Skip validation for Yes/No fields, Comment fields, and URLs
+      // Skip validation for Yes/No fields, Comment fields, URLs, Year fields, and Dropdown fields
       const isYesNo = field.label?.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
       const isComment = field.label?.toLowerCase().includes('comment') || 
                        field.label?.toLowerCase().includes('objective') ||
@@ -125,9 +145,13 @@ export const validateField = (
       const isUrl = field.label?.toLowerCase().includes('website') ||
                     field.label?.toLowerCase().includes('url') ||
                     field.label?.toLowerCase().includes('link');
+      const isYearField = field.label?.toLowerCase().includes('year') || 
+                         field.label?.toLowerCase() === 'fy' ||
+                         field.uiComponent === 'Year';
       
-      if (isYesNo || isComment || isUrl) {
-        // These fields can have any string content
+      // If it's a dropdown field (even with string dataType), skip alphabet validation
+      if (isYesNo || isComment || isUrl || isYearField || isDropdownField) {
+        // These fields can have any string content (Year fields accept numbers, Dropdowns have predefined values)
         return undefined;
       }
       
@@ -172,15 +196,23 @@ export const validateField = (
       break;
 
     case 'dropdown':
-      // Dropdown validation is handled by the component itself
-      if (isRequired && !value) {
-        return `${field.label} is required.`;
+      // Dropdown validation: check if a value is selected
+      // Value should not be empty, null, undefined, or empty string
+      if (isRequired) {
+        if (value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '')) {
+          return `${field.label} is required.`;
+        }
       }
       break;
 
     case 'file':
       // File validation
+      // Check if "No document available" is set in the formData
+      // Since we don't have formData here, we rely on the validation hook to handle this
+      // The validation hook will skip file validation if "No document available" is checked
       if (isRequired && !value) {
+        // Note: The validation hook (useMinistryValidation) will check for "No document available"
+        // and skip this validation if it's set. This is just the base validation logic.
         return `${field.label} is required.`;
       }
       break;
@@ -235,8 +267,15 @@ export const validateSection = (
         return; // Skip to next field
       }
       
+      // Skip validation for "No Document Available" field - it's handled by MinistryFileUploadSection
+      const isNoDocAvailable = field.label?.toLowerCase().includes('no document available') ||
+                              field.label?.toLowerCase() === 'no document available';
+      if (isNoDocAvailable) {
+        return; // Skip to next field - validation is handled by file upload component
+      }
+      
       // Check if this is a Comment field
-      const isComment = field.label?.toLowerCase().includes('comment') || 
+      const isComment = field.label?.toLowerCase().includes('comment') ||
                        field.uiComponent === 'Text Area' ||
                        field.uiComponent === 'TextArea';
       
@@ -254,6 +293,29 @@ export const validateSection = (
           if (!isComment) {
             isFieldRequired = false;
           }
+        }
+      }
+      
+      // Check if this is a file field and "No document available" is checked
+      const isFileField = field.dataType === 'file' || 
+                         field.uiComponent === 'File' ||
+                         field.label?.toLowerCase().includes('upload file') ||
+                         field.label?.toLowerCase().includes('upload');
+      
+      if (isFileField) {
+        // Find "No document available" field in the section
+        const noDocAvailableField = section.inputs?.find((f: any) => 
+          (f.label?.toLowerCase().includes('no document available') ||
+           f.label?.toLowerCase() === 'no document available') &&
+          f.id !== field.id
+        );
+        const noDocAvailableValue = noDocAvailableField 
+          ? (sectionData[noDocAvailableField.id] || '')
+          : undefined;
+        
+        // If "No document available" is checked, file upload is not required
+        if (noDocAvailableValue === 'No document available') {
+          isFieldRequired = false;
         }
       }
       
@@ -307,19 +369,46 @@ export const validateSection = (
               const fieldPath = `${sectionKey}.${subsectionName}[${index}].${field.id}`;
               const fieldValue = item[field.id];
               
-              // All fields are mandatory
-              const fieldWithRequired = {
-                ...field,
-                validationRules: {
-                  ...field.validationRules,
-                  required: true
-                }
-              };
+              // Check if this is a file field and "No document available" is checked
+              const isFileField = field.dataType === 'file' || 
+                                 field.uiComponent === 'File' ||
+                                 field.label?.toLowerCase().includes('upload file') ||
+                                 field.label?.toLowerCase().includes('upload');
               
-              // Pass yesNoValue for conditional validation (subsections inherit section's Yes/No value)
-              const error = validateField(fieldWithRequired, fieldValue, fieldPath, yesNoValue);
-              if (error) {
-                errors[fieldPath] = error;
+              let isFieldRequired = true;
+              
+              if (isFileField) {
+                // Find "No document available" field in the subsection inputs
+                const noDocAvailableField = subsectionData.inputs?.find((f: any) => 
+                  (f.label?.toLowerCase().includes('no document available') ||
+                   f.label?.toLowerCase() === 'no document available') &&
+                  f.id !== field.id
+                );
+                const noDocAvailableValue = noDocAvailableField 
+                  ? (item[noDocAvailableField.id] || '')
+                  : undefined;
+                
+                // If "No document available" is checked, file upload is not required
+                if (noDocAvailableValue === 'No document available') {
+                  isFieldRequired = false;
+                }
+              }
+              
+              // All fields are mandatory (unless "No document available" is checked for file fields)
+              if (isFieldRequired) {
+                const fieldWithRequired = {
+                  ...field,
+                  validationRules: {
+                    ...field.validationRules,
+                    required: true
+                  }
+                };
+                
+                // Pass yesNoValue for conditional validation (subsections inherit section's Yes/No value)
+                const error = validateField(fieldWithRequired, fieldValue, fieldPath, yesNoValue);
+                if (error) {
+                  errors[fieldPath] = error;
+                }
               }
             });
           }

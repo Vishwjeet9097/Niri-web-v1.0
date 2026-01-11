@@ -469,6 +469,85 @@ export async function getMinistrySubmissionDetails(userId: string): Promise<{
 }
 
 /**
+ * Retrieve submission details with indicators for review (read-only mode)
+ * @param userId - The ID of the user (Ministry Approver)
+ * @returns Promise with submission form structure
+ */
+export async function getMinistrySubmissionDetailsForReview(userId: string): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+    submissionId?: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${userId}?forReview=true`);
+        const response = await apiService.get(url, { withCredentials: true });
+        
+        console.log('[getMinistrySubmissionDetailsForReview] Raw axios response:', {
+            hasData: !!response.data,
+            dataType: typeof response.data,
+            isArray: Array.isArray(response.data),
+            dataKeys: response.data && typeof response.data === 'object' && !Array.isArray(response.data) ? Object.keys(response.data) : 'N/A',
+        });
+        
+        let apiResponse = response.data;
+        
+        // Handle nested response structure
+        if (apiResponse?.data && typeof apiResponse.data === 'object' && 'status' in apiResponse && Array.isArray(apiResponse.data)) {
+            console.log('[getMinistrySubmissionDetailsForReview] Found nested structure with status');
+        } else if (Array.isArray(apiResponse)) {
+            if (response?.data?.data && Array.isArray(response.data.data)) {
+                apiResponse = response.data;
+                console.log('[getMinistrySubmissionDetailsForReview] Found nested data structure');
+            }
+        }
+        
+        // If the response has the expected structure
+        if (apiResponse && typeof apiResponse === 'object' && !Array.isArray(apiResponse) && 'status' in apiResponse) {
+            console.log('[getMinistrySubmissionDetailsForReview] API Response structure:', {
+                hasStatus: 'status' in apiResponse,
+                hasData: 'data' in apiResponse,
+                hasSubmissionId: 'submissionId' in apiResponse,
+                submissionId: apiResponse.submissionId,
+            });
+            
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data || [],
+                message: apiResponse.message || '',
+                submissionId: apiResponse.submissionId
+            };
+        }
+        
+        // Fallback: if response.data is directly the array
+        if (Array.isArray(apiResponse)) {
+            console.warn('[getMinistrySubmissionDetailsForReview] Response is directly an array');
+            return {
+                status: true,
+                data: apiResponse,
+                message: 'Retrieved indicators for review'
+            };
+        }
+        
+        // Fallback: if response.data.data exists
+        if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data,
+                message: apiResponse.message || '',
+                submissionId: apiResponse.submissionId
+            };
+        }
+        
+        console.error('[getMinistrySubmissionDetailsForReview] Unexpected response structure:', apiResponse);
+        return { status: false, data: [], message: 'Unexpected response structure' };
+    } catch (error) {
+        console.error('[getMinistrySubmissionDetailsForReview] API Error:', error);
+        throw error;
+    }
+}
+
+/**
  * Upload files in section data to S3 and replace File objects with filePath
  * Similar to state submission flow
  */
@@ -700,4 +779,103 @@ export async function submitIndicatorToMinistryApprover(
     console.error('❌ Error in submitIndicatorToMinistryApprover:', error);
     throw error;
   }
+}
+
+/**
+ * Get all ministry submissions for review
+ * Returns the latest submission for each ministry approver
+ */
+export async function getAllMinistrySubmissions(): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/all-submissions`);
+        console.log('[getAllMinistrySubmissions] Calling API:', url);
+        const response = await apiService.get(url, { withCredentials: true });
+        console.log('[getAllMinistrySubmissions] Raw response:', response);
+        console.log('[getAllMinistrySubmissions] Response type:', typeof response);
+        console.log('[getAllMinistrySubmissions] Response.data:', response.data);
+        console.log('[getAllMinistrySubmissions] Response.data type:', typeof response.data);
+        
+        // Handle different response structures from axios
+        if (response && typeof response === 'object') {
+            // If response has data property, use it
+            if (response.data !== undefined) {
+                return response.data;
+            }
+            // Otherwise return the response itself
+            return response;
+        }
+        
+        return response;
+    } catch (error: any) {
+        console.error('[getAllMinistrySubmissions] API Error:', error);
+        console.error('[getAllMinistrySubmissions] Error details:', {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data,
+            status: error.response?.status,
+        });
+        throw error;
+    }
+}
+
+/**
+ * Get submissions for the current logged-in user
+ * Returns all submissions where the user has submitted indicators
+ */
+export async function getSubmissionsForCurrentUser(): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/submissions/current-user`);
+        console.log('[getSubmissionsForCurrentUser] Calling API:', url);
+        const response = await apiService.get(url, { withCredentials: true });
+        console.log('[getSubmissionsForCurrentUser] Response from apiService.get:', response);
+        console.log('[getSubmissionsForCurrentUser] Response type:', typeof response);
+        console.log('[getSubmissionsForCurrentUser] Is array?', Array.isArray(response));
+        
+        // The axios interceptor already extracts response.data, so 'response' is already the API response object
+        // The API returns: {status: true, data: Array(1), message: '...'}
+        if (response && typeof response === 'object' && !Array.isArray(response)) {
+            console.log('[getSubmissionsForCurrentUser] API Response structure:', {
+                hasStatus: !!response.status,
+                hasData: !!response.data,
+                dataIsArray: Array.isArray(response.data),
+                dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+                message: response.message,
+                responseKeys: Object.keys(response)
+            });
+            
+            // Return the API response object which has {status, data, message}
+            return response;
+        }
+        
+        // If response is directly an array (unexpected but handle it)
+        if (Array.isArray(response)) {
+            console.warn('[getSubmissionsForCurrentUser] Response is directly an array, wrapping it');
+            return {
+                status: true,
+                data: response,
+                message: 'Retrieved submissions successfully'
+            };
+        }
+        
+        // Fallback: return response if structure is different
+        console.warn('[getSubmissionsForCurrentUser] Unexpected response structure, returning as-is');
+        return response;
+    } catch (error: any) {
+        console.error('[getSubmissionsForCurrentUser] API Error:', error);
+        console.error('[getSubmissionsForCurrentUser] Error details:', {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data,
+            status: error.response?.status,
+        });
+        throw error;
+    }
 }

@@ -1,13 +1,15 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, X, File as FileIcon } from 'lucide-react';
-import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MinistryFileUploadSection } from '@/features/ministry/components/FileUpload/MinistryFileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { validateField } from '@/features/ministry/utils/validation';
+import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
 import type { SubsectionRendererProps } from './types';
 
 interface MinistrySubsectionFormProps extends SubsectionRendererProps {}
@@ -30,7 +32,15 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 }) => {
   const subsectionName = Object.keys(subsection)[0];
   const subsectionData = subsection[subsectionName];
-  const items = useMemo(() => Array.isArray(formData) ? formData : [], [formData]);
+  
+  // Ref to track when "No document available" is confirmed (to skip validation temporarily)
+  const skipFileValidationRef = useRef<Record<string, boolean>>({});
+  
+  const items = useMemo(() => {
+    const arrayData = Array.isArray(formData) ? formData : [];
+    console.log(`📋 MinistrySubsectionForm [${sectionKey}.${subsectionName}]: Received ${arrayData.length} items in ${mode} mode:`, arrayData);
+    return arrayData;
+  }, [formData, sectionKey, subsectionName, mode]);
   
   // Normalize Yes/No value
   const normalizedYesNoValue = useMemo(() => {
@@ -64,22 +74,28 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
   }, []);
 
   // Sort and filter fields by sequence and Yes/No value
+  // In review mode, always show all fields regardless of Yes/No value
   const sortedFields = useMemo(() => {
     const allFields = [...(subsectionData.inputs || [])].sort((a, b) => a.sequence - b.sequence);
     
-    // If Yes/No value is "no", only show comment fields
+    // In review mode, always show all fields
+    if (mode === 'review') {
+      return allFields;
+    }
+    
+    // If Yes/No value is "no", only show comment fields (edit mode only)
     if (normalizedYesNoValue === 'no') {
       return allFields.filter(field => isCommentField(field));
     }
     
-    // If Yes/No value is "yes", show all fields except comment fields
+    // If Yes/No value is "yes", show all fields except comment fields (edit mode only)
     if (normalizedYesNoValue === 'yes') {
       return allFields.filter(field => !isCommentField(field));
     }
     
     // If no Yes/No value, show all fields
     return allFields;
-  }, [subsectionData.inputs, normalizedYesNoValue, isCommentField]);
+  }, [subsectionData.inputs, normalizedYesNoValue, isCommentField, mode]);
 
   // Helper to normalize Yes/No values
   const normalizeYesNoValue = useCallback((val: any): string => {
@@ -100,38 +116,57 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 
     if (isYesNoField(field)) {
       const normalizedValue = normalizeYesNoValue(fieldValue);
+      // Ensure value is either "yes", "no", or undefined (not empty string) for RadioGroup
+      const radioValue = normalizedValue === '' ? undefined : normalizedValue;
       return (
         <div className="space-y-2">
           <Label>
             {field.label.replace(/\s*\(?\s*Yes\/No\s*\)?\s*/gi, '').trim()}
             {isRequired && <span className="text-destructive">*</span>}
           </Label>
-          <RadioGroup
-            value={normalizedValue}
-            onValueChange={(value) => {
-              onChange(index, field.id, value);
-              
-              // Always validate on change - this will clear errors if field is valid
-              if (onValidateField && field) {
-                onValidateField(fieldPath, value, field);
-              }
-            }}
-            className="flex flex-row gap-6"
-            disabled={disabled}
-          >
+          {mode === 'review' ? (
+            // In review mode, show as colored badge matching state review component
             <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id={`${field.id}-${index}-yes`} disabled={disabled} />
-              <Label htmlFor={`${field.id}-${index}-yes`} className="cursor-pointer font-normal">
-                Yes
-              </Label>
+              <span
+                className={`px-3 py-1 rounded-full text-sm ${
+                  normalizedValue === 'yes'
+                    ? "bg-green-100 text-green-800"
+                    : normalizedValue === 'no'
+                    ? "bg-red-100 text-red-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {normalizedValue === 'yes' ? 'Yes' : normalizedValue === 'no' ? 'No' : 'N/A'}
+              </span>
             </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id={`${field.id}-${index}-no`} disabled={disabled} />
-              <Label htmlFor={`${field.id}-${index}-no`} className="cursor-pointer font-normal">
-                No
-              </Label>
-            </div>
-          </RadioGroup>
+          ) : (
+            <RadioGroup
+              value={radioValue}
+              onValueChange={(value) => {
+                onChange(index, field.id, value);
+                
+                // Always validate on change - this will clear errors if field is valid
+                if (onValidateField && field) {
+                  onValidateField(fieldPath, value, field);
+                }
+              }}
+              className="flex flex-row gap-6"
+              disabled={disabled}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="yes" id={`${field.id}-${index}-yes`} disabled={disabled} />
+                <Label htmlFor={`${field.id}-${index}-yes`} className="cursor-pointer font-normal">
+                  Yes
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="no" id={`${field.id}-${index}-no`} disabled={disabled} />
+                <Label htmlFor={`${field.id}-${index}-no`} className="cursor-pointer font-normal">
+                  No
+                </Label>
+              </div>
+            </RadioGroup>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
       );
@@ -289,23 +324,81 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 
 
       case 'file':
+        // Find "No document available" field in the subsection inputs
+        const noDocAvailableField = subsectionData.inputs?.find((f: any) => 
+          (f.label?.toLowerCase().includes('no document available') ||
+           f.label?.toLowerCase() === 'no document available') &&
+          f.id !== field.id
+        );
+        const noDocAvailableValue = noDocAvailableField && item
+          ? item[noDocAvailableField.id]
+          : undefined;
+        
         return (
           <div className="space-y-2" data-field-path={fieldPath}>
-            <FileUploadSection
+            <MinistryFileUploadSection
               label={field.label}
               value={fieldValue || null}
               onChange={(value) => {
+                console.log(`🔄 [MinistrySubsectionForm] File onChange called for ${fieldPath}, value:`, value);
+                console.log(`🔄 [MinistrySubsectionForm] noDocAvailableValue: "${noDocAvailableValue}"`);
+                console.log(`🔄 [MinistrySubsectionForm] skipFileValidationRef[${fieldPath}]: ${skipFileValidationRef.current[fieldPath]}`);
+                
+                // Only trigger validation if "No document available" is not checked AND we're not skipping validation
+                const shouldValidate = !skipFileValidationRef.current[fieldPath] && noDocAvailableValue !== 'No document available';
+                console.log(`🔄 [MinistrySubsectionForm] shouldValidate: ${shouldValidate}`);
+                
                 onChange(index, field.id, value);
                 
-                // Always validate on change - this will clear errors if field is valid
-                if (onValidateField && field) {
+                // Skip validation if "No document available" is checked (file is not required)
+                if (shouldValidate && onValidateField && field) {
+                  console.log(`🔄 [MinistrySubsectionForm] Running validation for ${fieldPath}`);
                   onValidateField(fieldPath, value, field);
+                } else {
+                  if (onClearFieldError) {
+                    console.log(`🔄 [MinistrySubsectionForm] Clearing error for ${fieldPath} (No document available is checked or skipValidationRef is true)`);
+                    // Clear error if "No document available" is checked
+                    onClearFieldError(fieldPath);
+                  }
+                  // Reset the skip flag after a short delay
+                  if (skipFileValidationRef.current[fieldPath]) {
+                    setTimeout(() => {
+                      skipFileValidationRef.current[fieldPath] = false;
+                      console.log(`🔄 [MinistrySubsectionForm] Reset skipFileValidationRef for ${fieldPath}`);
+                    }, 200);
+                  }
                 }
               }}
               required={isRequired}
               submissionId={submissionId}
               disabled={disabled}
               className={error ? 'border-destructive' : ''}
+              noDocumentAvailableValue={noDocAvailableValue}
+              onNoDocumentAvailableChange={(newValue) => {
+                console.log(`🔄 [MinistrySubsectionForm] onNoDocumentAvailableChange called, newValue: "${newValue}"`);
+                if (noDocAvailableField) {
+                  // Set flag to skip validation when clearing file
+                  if (newValue === 'No document available') {
+                    skipFileValidationRef.current[fieldPath] = true;
+                    console.log(`🔄 [MinistrySubsectionForm] Set skipFileValidationRef[${fieldPath}] to true`);
+                  }
+                  
+                  onChange(index, noDocAvailableField.id, newValue);
+                  // Validate the "No document available" field
+                  const noDocAvailableFieldPath = `${sectionKey}.${subsectionName}[${index}].${noDocAvailableField.id}`;
+                  if (onValidateField && noDocAvailableField) {
+                    console.log(`🔄 [MinistrySubsectionForm] Validating "No document available" field: ${noDocAvailableFieldPath}`);
+                    onValidateField(noDocAvailableFieldPath, newValue, noDocAvailableField);
+                  }
+                  // Clear the file upload field error if "No document available" is confirmed
+                  if (newValue === 'No document available' && onClearFieldError) {
+                    console.log(`🔄 [MinistrySubsectionForm] Clearing file upload error for ${fieldPath} (No document available confirmed)`);
+                    // File upload is no longer required, so clear the error directly
+                    onClearFieldError(fieldPath);
+                  }
+                }
+              }}
+              noDocumentAvailableFieldId={noDocAvailableField?.id}
             />
             {error && <p className="text-sm text-destructive mt-1">{error}</p>}
           </div>
@@ -318,8 +411,8 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
 
   return (
     <div className="space-y-6">
-      {/* Form fields for each item - in a grid layout (3 columns) */}
-      {items.map((item, index) => (
+      {/* Form fields for each item - in a grid layout (3 columns) - Only show in edit mode */}
+      {mode === 'edit' && items.map((item, index) => (
         <div key={item.id || `item-${index}`} className="mb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             {sortedFields.map((field, fieldIndex) => (
@@ -354,7 +447,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
         </div>
       ))}
 
-      {/* Add button */}
+      {/* Add button - Only show in edit mode */}
       {mode === 'edit' && !disabled && (
         <div>
           <Button
@@ -370,9 +463,9 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
         </div>
       )}
 
-      {/* Table view for filled values */}
+      {/* Table view for filled values - Show in both edit and review mode */}
       {items.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200">
+        <div className={cn("overflow-x-auto rounded-xl border border-gray-200", mode === 'edit' ? "mt-6" : "")}>
           <table className="min-w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-[#DDE3F9]">
@@ -399,20 +492,74 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> = Rea
                 <tr key={item.id || `item-${index}`} className="bg-white">
                   {sortedFields.map((field) => {
                     const fieldValue = item[field.id];
+                    const isFileField = field.dataType === 'file';
+                    const isYesNo = isYesNoField(field);
+                    
+                    // Find "No document available" field for this file field
+                    const noDocAvailableField = subsectionData.inputs?.find((f: any) => 
+                      (f.label?.toLowerCase().includes('no document available') ||
+                       f.label?.toLowerCase() === 'no document available') &&
+                      f.id !== field.id
+                    );
+                    const noDocAvailableValue = noDocAvailableField && item
+                      ? item[noDocAvailableField.id]
+                      : undefined;
                     
                     return (
-                      <td key={field.id} className="py-3 px-4 text-sm">
-                        {field.dataType === 'file' && fieldValue && fieldValue.fileName ? (
-                          <div className="flex items-center gap-2">
-                            <FileIcon className="w-4 h-4 text-blue-600" />
-                            <span className="text-blue-600 truncate max-w-[200px]">
-                              {fieldValue.fileName}
+                      <td key={field.id} className="py-3 px-4 text-sm align-top">
+                        {isFileField ? (
+                          // Show files in table format in review mode, simple display in edit mode
+                          mode === 'review' ? (
+                            noDocAvailableValue === 'No document available' ? (
+                              <div className="flex items-center space-x-2 py-2">
+                                <Checkbox
+                                  checked={true}
+                                  disabled
+                                  className="cursor-not-allowed"
+                                />
+                                <Label className="text-sm font-normal cursor-not-allowed">
+                                  No document available
+                                </Label>
+                              </div>
+                            ) : fieldValue ? (
+                              <MinistryFileTable
+                                files={fieldValue}
+                                fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
+                              />
+                            ) : (
+                              <div className="text-sm text-muted-foreground py-2">
+                                No files uploaded
+                              </div>
+                            )
+                          ) : (
+                            fieldValue ? (
+                              <div className="flex items-center gap-2">
+                                <FileIcon className="w-4 h-4 text-blue-600" />
+                                <span className="text-blue-600 truncate max-w-[200px]">
+                                  {fieldValue?.fileName || 'File'}
+                                </span>
+                              </div>
+                            ) : null
+                          )
+                        ) : isYesNo ? (
+                          // Show Yes/No as colored badges in review mode
+                          mode === 'review' ? (
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm ${
+                                fieldValue === 'yes'
+                                  ? "bg-green-100 text-green-800"
+                                  : fieldValue === 'no'
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {fieldValue === 'yes' ? 'Yes' : fieldValue === 'no' ? 'No' : 'N/A'}
                             </span>
-                          </div>
-                        ) : isYesNoField(field) ? (
-                          <span className="capitalize">
-                            {fieldValue === 'yes' ? 'Yes' : fieldValue === 'no' ? 'No' : 'N/A'}
-                          </span>
+                          ) : (
+                            <span className="capitalize">
+                              {fieldValue === 'yes' ? 'Yes' : fieldValue === 'no' ? 'No' : 'N/A'}
+                            </span>
+                          )
                         ) : (
                           <span className={fieldValue ? '' : 'text-muted-foreground'}>
                             {fieldValue || 'N/A'}

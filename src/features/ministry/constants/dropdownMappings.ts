@@ -34,6 +34,14 @@ export function getDropdownOptions(
   
   // Sector dropdowns - Infrastructure Sector, Sector, Infra Sector (multiple indicators: 1.2, 2.2, 2.3, 3.2, 3.3, 4.2)
   // Match: "Infrastructure Sector", "Sector", "Infra Sector"
+  // Specifically check section 3.3 for infrastructure sector field
+  if (lowerSectionId === '3.3' || lowerSectionId === 'section3_3' || lowerSectionId.includes('3.3')) {
+    if (lowerLabel.includes('sector') || lowerLabel.includes('infra')) {
+      return SECTOR_OPTIONS.map(opt => ({ value: opt, label: opt }));
+    }
+  }
+  
+  // General sector dropdown matching for all sections
   if (lowerLabel === 'sector' || 
       lowerLabel === 'infrastructure sector' || 
       lowerLabel === 'infra sector' ||

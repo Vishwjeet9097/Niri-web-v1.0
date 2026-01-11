@@ -1,0 +1,2 @@
+export { MinistryFileTable } from './MinistryFileTable';
+

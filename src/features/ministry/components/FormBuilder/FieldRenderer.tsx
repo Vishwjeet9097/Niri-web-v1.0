@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MinistryFileUploadSection } from '@/features/ministry/components/FileUpload/MinistryFileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { validateField } from '@/features/ministry/utils/validation';
+import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
 import type { FileUpload } from '@/features/submission/types';
 import type { FieldRendererProps } from './types';
 
@@ -23,18 +25,19 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   indicatorName,
   onValidate,
   onClearError,
+  formData,
+  sectionKey,
+  sectionInputs,
+  onFieldChange,
 }) => {
   // All fields are mandatory - always show asterisk
   const isRequired = true;
   
-  if (mode === 'review' && !value && field.dataType !== 'file') {
-    return (
-      <div className="space-y-2">
-        <Label>{field.label}</Label>
-        <p className="text-sm text-muted-foreground">N/A</p>
-      </div>
-    );
-  }
+  // Ref to track when "No document available" is confirmed (to skip validation temporarily)
+  const skipFileValidationRef = useRef<Record<string, boolean>>({});
+  
+  // In review mode, show disabled inputs instead of plain text for better visibility
+  const isReviewMode = mode === 'review';
 
   // Check if this is a Yes/No field (label contains "Yes/No" or is exactly "Yes/No")
   const isYesNoField = field.label.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
@@ -81,6 +84,8 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
   // Yes/No fields are stored as one field in backend but displayed as radio buttons in UI
   if (isYesNoField) {
     const normalizedValue = normalizeYesNoValue(value);
+    // Ensure value is either "yes", "no", or undefined (not empty string) for RadioGroup
+    const radioValue = normalizedValue === '' ? undefined : normalizedValue;
     const fieldPath = `${field.sectionId}.${field.id}`;
     // Format label: "{indicatorName}?"
     const displayLabel = indicatorName 
@@ -92,9 +97,24 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
         <Label>
           {displayLabel} {isRequired && <span className="text-destructive">*</span>}
         </Label>
-        {mode === 'edit' ? (
+        {mode === 'review' ? (
+          // In review mode, show as colored badge matching state review component
+          <div className="flex items-center space-x-2">
+            <span
+              className={`px-3 py-1 rounded-full text-sm ${
+                normalizedValue === 'yes'
+                  ? "bg-green-100 text-green-800"
+                  : normalizedValue === 'no'
+                  ? "bg-red-100 text-red-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {normalizedValue === 'yes' ? 'Yes' : normalizedValue === 'no' ? 'No' : 'N/A'}
+            </span>
+          </div>
+        ) : (
           <RadioGroup
-            value={normalizedValue}
+            value={radioValue}
             onValueChange={(newValue) => {
               // Store as "yes" or "no" internally (normalized to lowercase)
               onChange(newValue);
@@ -119,8 +139,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
               </Label>
             </div>
           </RadioGroup>
-        ) : (
-          <p className="text-sm">{denormalizeYesNoValue(value) || 'N/A'}</p>
         )}
         {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
@@ -178,7 +196,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
             isEditable={!disabled}
           />
         ) : (
-          <p className="text-sm">{value || 'N/A'}</p>
+          <Input
+            value={value || ''}
+            readOnly={true}
+            className={cn('cursor-not-allowed', className)}
+            placeholder={value ? undefined : 'N/A'}
+          />
         )}
         {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
@@ -193,6 +216,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
       const isCommentField = field.label?.toLowerCase().includes('comment') || 
                             field.uiComponent === 'Text Area' ||
                             field.uiComponent === 'TextArea';
+      
+      // Check if this is a Year field (should only accept numeric values)
+      const isYearField = field.label?.toLowerCase().includes('year') || 
+                        field.label?.toLowerCase() === 'fy' ||
+                        field.uiComponent === 'Year';
       
       // Regular string input or TextArea for comments
       const fieldPath = `${field.sectionId}.${field.id}`;
@@ -215,6 +243,37 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
                 )}
                 placeholder="Please provide a comment..."
                 rows={1}
+              />
+            ) : isYearField ? (
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={value || ''}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  // Only allow numeric characters (digits only, no decimals, no negative)
+                  if (newValue === '' || /^\d+$/.test(newValue)) {
+                    onChange(newValue);
+                    
+                    const fieldPath = `${field.sectionId}.${field.id}`;
+                    
+                    // Always validate on change - this will clear errors if field is valid
+                    if (onValidate && field) {
+                      onValidate(fieldPath, newValue, field);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur as well
+                  if (onValidate && field && value) {
+                    const fieldPath = `${field.sectionId}.${field.id}`;
+                    onValidate(fieldPath, value, field);
+                  }
+                }}
+                disabled={disabled}
+                className={error ? 'border-destructive' : className}
+                placeholder="Enter year (e.g., 2024)"
+                maxLength={4}
               />
             ) : (
               <Input
@@ -242,7 +301,26 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
               />
             )
           ) : (
-            <p className="text-sm">{value || 'N/A'}</p>
+            isCommentField ? (
+              <Textarea
+                value={value || ''}
+                readOnly={true}
+                className={cn(
+                  'cursor-not-allowed resize-none overflow-hidden',
+                  className
+                )}
+                placeholder={value ? undefined : 'N/A'}
+                rows={1}
+              />
+            ) : (
+              <Input
+                type={isYearField ? "text" : undefined}
+                value={value || ''}
+                readOnly={true}
+                className={cn('cursor-not-allowed', className)}
+                placeholder={value ? undefined : 'N/A'}
+              />
+            )
           )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
@@ -306,7 +384,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
               style={isCalculatedField ? { opacity: 1, backgroundColor: '#fff' } : undefined}
             />
           ) : (
-            <p className="text-sm">{value ?? 'N/A'}</p>
+            <Input
+              type="number"
+              value={value ?? ''}
+              readOnly={true}
+              className={cn('cursor-not-allowed', className)}
+              placeholder={value !== null && value !== undefined ? undefined : 'N/A'}
+            />
           )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
@@ -314,17 +398,132 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(({
 
     case 'file':
       const fileFieldPath = `${field.sectionId}.${field.id}`;
+      // Find "No document available" field in the section
+      const noDocAvailableField = sectionInputs?.find((f: any) => 
+        f.label?.toLowerCase().includes('no document available') ||
+        f.label?.toLowerCase() === 'no document available'
+      );
+      const noDocAvailableFieldPath = noDocAvailableField && sectionKey 
+        ? `${sectionKey}.${noDocAvailableField.id}` 
+        : undefined;
+      const noDocAvailableValue = noDocAvailableFieldPath && formData
+        ? formData[sectionKey!]?.[noDocAvailableField.id]
+        : undefined;
+      
+      console.log(`🔍 [FieldRenderer] File field: ${fileFieldPath}`);
+      console.log(`🔍 [FieldRenderer] noDocAvailableField:`, noDocAvailableField ? { id: noDocAvailableField.id, label: noDocAvailableField.label } : 'NOT FOUND');
+      console.log(`🔍 [FieldRenderer] noDocAvailableFieldPath: ${noDocAvailableFieldPath}`);
+      console.log(`🔍 [FieldRenderer] noDocAvailableValue: "${noDocAvailableValue}"`);
+      console.log(`🔍 [FieldRenderer] formData[${sectionKey}]:`, formData?.[sectionKey!]);
+      console.log(`🔍 [FieldRenderer] skipFileValidationRef[${fileFieldPath}]: ${skipFileValidationRef.current[fileFieldPath]}`);
+      
       return (
         <div className="space-y-2" data-field-path={fileFieldPath}>
-          <FileUploadSection
-            label={field.label}
-            value={value as FileUpload | null}
-            onChange={onChange}
-            required={isRequired}
-            submissionId={submissionId}
-            disabled={disabled || mode === 'review'}
-            className={error ? 'border-destructive' : className}
-          />
+          {mode === 'review' ? (
+            // In review mode, show files in table format or "No document available" checkbox
+            noDocAvailableValue === 'No document available' ? (
+              <div className="flex items-center space-x-2 py-2">
+                <Checkbox
+                  checked={true}
+                  disabled
+                  className="cursor-not-allowed"
+                />
+                <Label className="text-sm font-normal cursor-not-allowed">
+                  No document available
+                </Label>
+              </div>
+            ) : (
+              <MinistryFileTable
+                files={value as FileUpload | FileUpload[] | null}
+                fileKeyPrefix={fileFieldPath}
+              />
+            )
+          ) : (
+            <MinistryFileUploadSection
+              label={field.label}
+              value={value as FileUpload | null}
+              onChange={(fileValue) => {
+                console.log(`🔄 [FieldRenderer] File onChange called for ${fileFieldPath}, fileValue:`, fileValue);
+                console.log(`🔄 [FieldRenderer] noDocAvailableValue: "${noDocAvailableValue}"`);
+                
+                // Get the current formData value - it might have been updated
+                const currentNoDocValue = formData?.[sectionKey!]?.[noDocAvailableField?.id || ''];
+                console.log(`🔄 [FieldRenderer] currentNoDocValue from formData: "${currentNoDocValue}"`);
+                console.log(`🔄 [FieldRenderer] skipFileValidationRef[${fileFieldPath}]: ${skipFileValidationRef.current[fileFieldPath]}`);
+                
+                // Only trigger validation if "No document available" is not checked AND we're not skipping validation
+                const shouldValidate = !skipFileValidationRef.current[fileFieldPath] && 
+                                      noDocAvailableValue !== 'No document available' && 
+                                      currentNoDocValue !== 'No document available';
+                console.log(`🔄 [FieldRenderer] shouldValidate: ${shouldValidate} (skipRef: ${skipFileValidationRef.current[fileFieldPath]}, prop: ${noDocAvailableValue}, formData: ${currentNoDocValue})`);
+                
+                // If we're skipping validation, delay the onChange call slightly to allow formData to update
+                if (skipFileValidationRef.current[fileFieldPath]) {
+                  console.log(`🔄 [FieldRenderer] Delaying onChange call to allow formData update`);
+                  setTimeout(() => {
+                    onChange(fileValue);
+                    // Clear error after formData has updated
+                    if (onClearError) {
+                      console.log(`🔄 [FieldRenderer] Clearing error for ${fileFieldPath} (No document available is checked)`);
+                      onClearError(fileFieldPath);
+                    }
+                    // Reset the skip flag
+                    skipFileValidationRef.current[fileFieldPath] = false;
+                    console.log(`🔄 [FieldRenderer] Reset skipFileValidationRef for ${fileFieldPath}`);
+                  }, 100);
+                } else {
+                  onChange(fileValue);
+                  
+                  // Skip validation if "No document available" is checked (file is not required)
+                  if (shouldValidate && onValidate) {
+                    console.log(`🔄 [FieldRenderer] Running validation for ${fileFieldPath}`);
+                    onValidate(fileFieldPath, fileValue, field);
+                  } else {
+                    if (onClearError) {
+                      console.log(`🔄 [FieldRenderer] Clearing error for ${fileFieldPath} (No document available is checked)`);
+                      // Clear error if "No document available" is checked
+                      onClearError(fileFieldPath);
+                    }
+                  }
+                }
+              }}
+              required={isRequired}
+              submissionId={submissionId}
+              disabled={disabled}
+              className={error ? 'border-destructive' : className}
+              noDocumentAvailableValue={noDocAvailableValue}
+              onNoDocumentAvailableChange={(newValue) => {
+                console.log(`🔄 [FieldRenderer] onNoDocumentAvailableChange called, newValue: "${newValue}"`);
+                console.log(`🔄 [FieldRenderer] noDocAvailableFieldPath: ${noDocAvailableFieldPath}`);
+                console.log(`🔄 [FieldRenderer] fileFieldPath: ${fileFieldPath}`);
+                if (noDocAvailableFieldPath && onFieldChange && noDocAvailableField) {
+                  console.log(`🔄 [FieldRenderer] Updating "No document available" field: ${noDocAvailableFieldPath} = "${newValue}"`);
+                  
+                  // Set flag to skip validation when clearing file
+                  if (newValue === 'No document available') {
+                    skipFileValidationRef.current[fileFieldPath] = true;
+                    console.log(`🔄 [FieldRenderer] Set skipFileValidationRef[${fileFieldPath}] to true`);
+                  }
+                  
+                  onFieldChange(noDocAvailableFieldPath, newValue, noDocAvailableField);
+                  // Validate the "No document available" field
+                  if (onValidate && noDocAvailableField) {
+                    console.log(`🔄 [FieldRenderer] Validating "No document available" field: ${noDocAvailableFieldPath}`);
+                    onValidate(noDocAvailableFieldPath, newValue, noDocAvailableField);
+                  }
+                  // Clear the file upload field error if "No document available" is confirmed
+                  if (newValue === 'No document available' && onClearError) {
+                    console.log(`🔄 [FieldRenderer] Clearing file upload error for ${fileFieldPath} (No document available confirmed)`);
+                    // File upload is no longer required, so clear the error directly
+                    onClearError(fileFieldPath);
+                  }
+                } else {
+                  console.log(`⚠️ [FieldRenderer] Missing props: noDocAvailableFieldPath: ${!!noDocAvailableFieldPath}, onFieldChange: ${!!onFieldChange}, noDocAvailableField: ${!!noDocAvailableField}`);
+                }
+              }}
+              noDocumentAvailableFieldId={noDocAvailableField?.id}
+            />
+          )}
           {error && <p className="text-sm text-destructive mt-1">{error}</p>}
         </div>
       );

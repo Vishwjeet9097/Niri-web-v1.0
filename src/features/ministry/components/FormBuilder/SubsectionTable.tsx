@@ -4,10 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, X } from 'lucide-react';
 import { FileUploadSection } from '@/features/submission/components/FileUploadSection';
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
+import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
 import type { SubsectionRendererProps } from './types';
 
 interface SubsectionTableProps extends SubsectionRendererProps {}
@@ -107,6 +109,7 @@ export const SubsectionTable: React.FC<SubsectionTableProps> = React.memo(({
                   item={item}
                   index={index}
                   subsectionName={subsectionName}
+                  subsectionData={subsectionData}
                   sortedFields={sortedFields}
                   sectionKey={sectionKey}
                   mode={mode}
@@ -152,6 +155,7 @@ const SubsectionTableRow: React.FC<{
   item: any;
   index: number;
   subsectionName: string;
+  subsectionData: any;
   sortedFields: any[];
   sectionKey: string;
   mode: 'edit' | 'review';
@@ -165,6 +169,7 @@ const SubsectionTableRow: React.FC<{
   item,
   index,
   subsectionName,
+  subsectionData,
   sortedFields,
   sectionKey,
   mode,
@@ -202,11 +207,73 @@ const SubsectionTableRow: React.FC<{
               </div>
             ) : (
               <div className="text-sm">
-                {isFileField && fieldValue?.fileName ? (
-                  <span className="text-blue-600 hover:underline cursor-pointer">{fieldValue.fileName}</span>
-                ) : (
-                  fieldValue || <span className="text-muted-foreground">N/A</span>
-                )}
+                {isFileField ? (
+                  // Check if "No document available" is set for this file field
+                  (() => {
+                    // Find "No document available" field in subsection inputs
+                    // We need to get subsectionData from the subsection prop
+                    const subsectionData = subsection[subsectionName];
+                    const noDocAvailableField = subsectionData?.inputs?.find((f: any) => 
+                      (f.label?.toLowerCase().includes('no document available') ||
+                       f.label?.toLowerCase() === 'no document available') &&
+                      f.id !== field.id
+                    );
+                    const noDocAvailableValue = noDocAvailableField && item
+                      ? item[noDocAvailableField.id]
+                      : undefined;
+                    
+                    // Show "No document available" checkbox if set, otherwise show files
+                    if (noDocAvailableValue === 'No document available') {
+                      return (
+                        <div className="flex items-center space-x-2 py-2">
+                          <Checkbox
+                            checked={true}
+                            disabled
+                            className="cursor-not-allowed"
+                          />
+                          <Label className="text-sm font-normal cursor-not-allowed">
+                            No document available
+                          </Label>
+                        </div>
+                      );
+                    }
+                    
+                    // Show files in table format in review mode
+                    return fieldValue ? (
+                      <MinistryFileTable
+                        files={fieldValue}
+                        fileKeyPrefix={`${sectionKey}-${subsectionName}-${index}-${field.id}`}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground py-2">
+                        No files uploaded
+                      </div>
+                    );
+                  })()
+                ) : (() => {
+                  // Check if this is a Yes/No field
+                  const isYesNoField = field.label.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
+                  if (isYesNoField) {
+                    const normalizedValue = String(fieldValue || '').toLowerCase().trim();
+                    const isYes = normalizedValue === 'yes' || normalizedValue === 'y';
+                    const isNo = normalizedValue === 'no' || normalizedValue === 'n';
+                    return (
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          isYes
+                            ? "bg-green-100 text-green-800"
+                            : isNo
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {isYes ? 'Yes' : isNo ? 'No' : 'N/A'}
+                      </span>
+                    );
+                  }
+                  // Show regular field values (not disabled inputs)
+                  return fieldValue || <span className="text-muted-foreground">N/A</span>;
+                })()}
               </div>
             )}
           </td>
@@ -273,9 +340,11 @@ const CompactFieldRenderer: React.FC<{
 
   if (isYesNoField) {
     const normalizedValue = normalizeYesNoValue(value);
+    // Ensure value is either "yes", "no", or undefined (not empty string) for RadioGroup
+    const radioValue = normalizedValue === '' ? undefined : normalizedValue;
     return (
       <RadioGroup
-        value={normalizedValue}
+        value={radioValue}
         onValueChange={onChange}
         className="flex flex-row gap-4"
         disabled={disabled}

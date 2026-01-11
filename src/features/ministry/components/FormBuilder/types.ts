@@ -69,6 +69,11 @@ export interface FieldRendererProps {
   indicatorName?: string; // Indicator name (e.g., "Availability of Infrastructure Development Plan") for Yes/No field labels
   onValidate?: (path: string, value: any, field: any) => void; // Real-time validation callback
   onClearError?: (path: string) => void; // Clear error when user starts typing
+  // Props for "No document available" feature
+  formData?: Record<string, any>; // Form data to find "No document available" field
+  sectionKey?: string; // Section key to find "No document available" field
+  sectionInputs?: InputField[]; // Section inputs to find "No document available" field
+  onFieldChange?: (path: string, value: any, field?: any) => void; // Handler to update "No document available" field
 }
 
 export interface SubsectionRendererProps {
