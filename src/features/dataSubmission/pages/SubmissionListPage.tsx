@@ -590,6 +590,16 @@ export const SubmissionListPage = () => {
   const [activeTab, setActiveTab] = useState<"state" | "ministry">("state");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Check if user is MOSPI_REVIEWER or MOSPI_APPROVER
+  const isMospiUser = user?.role === "MOSPI_REVIEWER" || user?.role === "MOSPI_APPROVER";
+
+  // Reset activeTab to "state" if user doesn't have access to ministry tab and it's currently set to "ministry"
+  useEffect(() => {
+    if (!isMospiUser && activeTab === "ministry") {
+      setActiveTab("state");
+    }
+  }, [isMospiUser, activeTab]);
   const [submissionProgress, setSubmissionProgress] = useState<
     Record<string, number>
   >({});
@@ -1791,21 +1801,32 @@ export const SubmissionListPage = () => {
         </div>
 
         {/* Tabs for State and Ministry */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full mb-6">
-          <TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
-            <TabsTrigger 
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(value) => {
+            // Only allow switching to ministry tab if user has access
+            if (value === "ministry" && !isMospiUser) {
+              return;
+            }
+            setActiveTab(value as "state" | "ministry");
+          }} 
+          className="w-full mb-6"
+        >
+         { isMospiUser && (<TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
+             <TabsTrigger 
               value="state" 
               className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
             >
               State/UT
             </TabsTrigger>
-            <TabsTrigger 
-              value="ministry"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
-            >
-              Ministry
-            </TabsTrigger>
-          </TabsList>
+           
+              <TabsTrigger 
+                value="ministry"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+              >
+                Ministry
+              </TabsTrigger>
+          </TabsList>)}
 
           {/* State Tab */}
           <TabsContent value="state" className="mt-6">
@@ -2292,24 +2313,26 @@ export const SubmissionListPage = () => {
         )}
           </TabsContent>
 
-          {/* Ministry Tab */}
-          <TabsContent value="ministry" className="mt-6">
-            {user?.id ? (
-              <MinistrySubmissionsList userId={user.id} />
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <FileText className="w-12 h-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    User ID not found
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Please log in to view ministry submissions
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+          {/* Ministry Tab - Only visible for MOSPI_REVIEWER and MOSPI_APPROVER */}
+          {isMospiUser && (
+            <TabsContent value="ministry" className="mt-6">
+              {user?.id ? (
+                <MinistrySubmissionsList userId={user.id} />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <FileText className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      User ID not found
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Please log in to view ministry submissions
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
