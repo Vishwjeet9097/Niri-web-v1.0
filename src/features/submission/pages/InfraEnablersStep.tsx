@@ -2005,7 +2005,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.1")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.1", submittingIndicator)}
@@ -2546,7 +2545,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.2")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.2", submittingIndicator)}
@@ -2769,7 +2767,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.3")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.3", submittingIndicator)}
@@ -3145,7 +3142,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.4")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.4", submittingIndicator)}
@@ -3666,7 +3662,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.5")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.5", submittingIndicator)}

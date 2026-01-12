@@ -2022,7 +2022,6 @@ export const PPPDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("3.1")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("3.1", submittingIndicator)}
@@ -2256,7 +2255,6 @@ export const PPPDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("3.2")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("3.2", submittingIndicator)}
@@ -2797,7 +2795,6 @@ export const PPPDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("3.3")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("3.3", submittingIndicator)}
@@ -3185,7 +3182,7 @@ export const PPPDevelopmentStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("3.4")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("3.4", submittingIndicator)}

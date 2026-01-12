@@ -135,7 +135,7 @@ export function ApproverSubmissionCard({
           // Show Review Now button only if user can review this submission
           canReviewSubmission(currentUserRole || "", status) && (
             <Button 
-              className="bg-primary hover:bg-primary-hover"
+              // className="bg-primary hover:bg-primary-hover"
               onClick={onReview}
             >
               <FileText className="w-4 h-4 mr-2" />

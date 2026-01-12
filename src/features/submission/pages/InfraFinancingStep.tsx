@@ -2735,7 +2735,7 @@ export const InfraFinancingStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("1.1")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
                   {getSubmitButtonText("1.1", submittingIndicator)}
@@ -2938,7 +2938,7 @@ export const InfraFinancingStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("1.2")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
                   {getSubmitButtonText("1.2", submittingIndicator)}
@@ -3585,7 +3585,7 @@ export const InfraFinancingStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("1.3")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("1.3", submittingIndicator)}
@@ -4108,7 +4108,7 @@ export const InfraFinancingStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("1.4")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("1.4", submittingIndicator)}
@@ -4611,7 +4611,7 @@ export const InfraFinancingStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("1.5")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("1.5", submittingIndicator)}
