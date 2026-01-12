@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { MinistrySubmissionsList } from "@/features/ministry/components/MinistrySubmissionsList";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -585,6 +587,7 @@ export const SubmissionListPage = () => {
   // const [stateFilter, setStateFilter] = useState("all");
   // const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [activeTab, setActiveTab] = useState<"state" | "ministry">("state");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submissionProgress, setSubmissionProgress] = useState<
@@ -1773,18 +1776,40 @@ export const SubmissionListPage = () => {
                 Latest Submission
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {filteredSubmissions.length} Submission
-                {filteredSubmissions.length !== 1 ? "s" : ""} Found
+                {activeTab === "state" 
+                  ? `${filteredSubmissions.length} Submission${filteredSubmissions.length !== 1 ? "s" : ""} Found`
+                  : "Ministry Submissions"}
               </p>
             </div>
-            <Button variant="outline" className="gap-2" onClick={handleExport}>
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
+            {activeTab === "state" && (
+              <Button variant="outline" className="gap-2" onClick={handleExport}>
+                <Download className="w-4 h-4" />
+                Export
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Progress Overview Section - Only for STATE_APPROVER */}
+        {/* Tabs for State and Ministry */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full mb-6">
+          <TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
+            <TabsTrigger 
+              value="state" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+            >
+              State/UT
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ministry"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+            >
+              Ministry
+            </TabsTrigger>
+          </TabsList>
+
+          {/* State Tab */}
+          <TabsContent value="state" className="mt-6">
+            {/* Progress Overview Section - Only for STATE_APPROVER */}
 
         {user?.role === "STATE_APPROVER" && (
           <div className="max-w-7xl mx-auto mb-6">
@@ -1915,8 +1940,8 @@ export const SubmissionListPage = () => {
           </div>
         )}
 
-        {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white rounded-lg shadow-sm border p-6">
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white rounded-lg shadow-sm border p-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
@@ -2265,6 +2290,27 @@ export const SubmissionListPage = () => {
             )}
           </div>
         )}
+          </TabsContent>
+
+          {/* Ministry Tab */}
+          <TabsContent value="ministry" className="mt-6">
+            {user?.id ? (
+              <MinistrySubmissionsList userId={user.id} />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <FileText className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    User ID not found
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Please log in to view ministry submissions
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Confirmation Modal for Final Submit */}
