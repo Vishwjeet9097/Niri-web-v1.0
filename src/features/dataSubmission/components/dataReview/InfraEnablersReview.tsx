@@ -75,6 +75,8 @@ import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { IndicatorScoreToggle } from "@/components/IndicatorScoreToggle";
+import { IndicatorScoreDisplay } from "@/components/IndicatorScoreDisplay";
 import {
   isSubmissionFromNodalOfficer,
   isIndicatorFromNodalOfficer,
@@ -432,6 +434,11 @@ export const InfraEnablersReview = ({
   const [pendingActionSectionId, setPendingActionSectionId] = useState<
     string | null
   >(null);
+
+  // State for indicator score toggle (per indicator)
+  const [indicatorScoreToggleState, setIndicatorScoreToggleState] = useState<
+    Record<string, "score" | "updatedScore">
+  >({});
 
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
@@ -3317,14 +3324,12 @@ export const InfraEnablersReview = ({
     if (!isMospiApprover) return null;
 
     const comments = getComments(sectionId);
-    if (!comments || comments.length === 0) return null;
-
-    const mospiReviewerComments = comments.filter((comment: any) => {
-      const commentRole = comment.role || comment.userRole || "";
-      return commentRole.toUpperCase() === "MOSPI_REVIEWER";
-    });
-
-    if (mospiReviewerComments.length === 0) return null;
+    const mospiReviewerComments = comments
+      ? comments.filter((comment: any) => {
+          const commentRole = comment.role || comment.userRole || "";
+          return commentRole.toUpperCase() === "MOSPI_REVIEWER";
+        })
+      : [];
 
     // Sort by timestamp (newest first) and get the last (most recent) comment
     const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
@@ -3332,7 +3337,9 @@ export const InfraEnablersReview = ({
       const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
       return timeB - timeA; // Descending order (newest first)
     });
-    const lastComment = sortedComments[0]; // Get the most recent comment
+    const lastComment = sortedComments.length > 0 ? sortedComments[0] : null;
+
+    if (!lastComment) return null;
 
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
@@ -3451,8 +3458,24 @@ export const InfraEnablersReview = ({
         : sectionData?.mospi_status;
 
       if (mospiStatus === "ACCEPTED") {
+        const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <IndicatorScoreToggle
+              submissionId={submissionId}
+              indicatorCode={sectionId}
+              controlledToggleState={toggleState}
+              mospiStatus={mospiStatus}
+              onToggleChange={(newState) => {
+                setIndicatorScoreToggleState((prev) => ({
+                  ...prev,
+                  [sectionId]: newState,
+                }));
+              }}
+              showLabel={false}
+              size="sm"
+              variant="outline"
+            />
             <Button
               variant="outline"
               size="sm"
@@ -3476,8 +3499,24 @@ export const InfraEnablersReview = ({
       }
 
       if (mospiStatus === "REVERTED") {
+        const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <IndicatorScoreToggle
+              submissionId={submissionId}
+              indicatorCode={sectionId}
+              controlledToggleState={toggleState}
+              mospiStatus={mospiStatus}
+              onToggleChange={(newState) => {
+                setIndicatorScoreToggleState((prev) => ({
+                  ...prev,
+                  [sectionId]: newState,
+                }));
+              }}
+              showLabel={false}
+              size="sm"
+              variant="outline"
+            />
             <Button
               variant="outline"
               size="sm"
@@ -3501,8 +3540,24 @@ export const InfraEnablersReview = ({
       }
 
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
+      const toggleState = indicatorScoreToggleState[sectionId] || "score";
       return (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <IndicatorScoreToggle
+            submissionId={submissionId}
+            indicatorCode={sectionId}
+            controlledToggleState={toggleState}
+            mospiStatus={mospiStatus}
+            onToggleChange={(newState) => {
+              setIndicatorScoreToggleState((prev) => ({
+                ...prev,
+                [sectionId]: newState,
+              }));
+            }}
+            showLabel={false}
+            size="sm"
+            variant="outline"
+          />
           <Button
             variant="outline"
             size="sm"
@@ -3898,8 +3953,28 @@ export const InfraEnablersReview = ({
       return null;
     }
 
+    const toggleState = indicatorScoreToggleState[sectionId] || "score";
+
     return (
       <div className="flex gap-2">
+        {/* Indicator Score Toggle for MOSPI_APPROVER */}
+        {isMospiApprover && (
+          <IndicatorScoreToggle
+            submissionId={submissionId}
+            indicatorCode={sectionId}
+            toggleState={toggleState}
+            onToggleChange={(newState) => {
+              setIndicatorScoreToggleState((prev) => ({
+                ...prev,
+                [sectionId]: newState,
+              }));
+            }}
+            showLabel={false}
+            size="sm"
+            variant="outline"
+          />
+        )}
+
         {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
         {isStateApprover &&
           (() => {
@@ -4173,7 +4248,8 @@ export const InfraEnablersReview = ({
             {renderMOSPIReviewerComments("4.1")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.1")}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Availability & Use of State/UT PMG{" "}
@@ -4301,6 +4377,17 @@ export const InfraEnablersReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload documentation of State/UT PMG portal
               </p>
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="4.1"
+                    toggleState={indicatorScoreToggleState["4.1"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -4327,7 +4414,8 @@ export const InfraEnablersReview = ({
             {renderMOSPIReviewerComments("4.2")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.2")}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Adoption of PM GatiShakti?*
@@ -5034,6 +5122,17 @@ export const InfraEnablersReview = ({
                   )}
                 </div>
               )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="4.2"
+                    toggleState={indicatorScoreToggleState["4.2"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -5059,7 +5158,8 @@ export const InfraEnablersReview = ({
             {renderMOSPIReviewerComments("4.3")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.3")}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">Adoption of ADR?*</Label>
                 {shouldBeEditable("4.3") ? (
@@ -5178,6 +5278,17 @@ export const InfraEnablersReview = ({
                   )}
                 </div>
               )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="4.3"
+                    toggleState={indicatorScoreToggleState["4.3"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -5220,7 +5331,8 @@ export const InfraEnablersReview = ({
               </Button> )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">Innovation Practices </Label>
                 {shouldBeEditable("4.4") ? (
@@ -5771,6 +5883,17 @@ export const InfraEnablersReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload documentation of innovative practices
               </p>
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="4.4"
+                    toggleState={indicatorScoreToggleState["4.4"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -5797,7 +5920,8 @@ export const InfraEnablersReview = ({
             {renderMOSPIReviewerComments("4.5")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.5")}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Capacity Building – Officer Participation*
@@ -6228,6 +6352,17 @@ export const InfraEnablersReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload capacity building participation data
               </p>
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="4.5"
+                    toggleState={indicatorScoreToggleState["4.5"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}

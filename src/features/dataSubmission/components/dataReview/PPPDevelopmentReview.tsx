@@ -77,6 +77,8 @@ import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorD
 import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
 import { cn } from "@/lib/utils";
 import { useMemo, useCallback } from "react";
+import { IndicatorScoreToggle } from "@/components/IndicatorScoreToggle";
+import { IndicatorScoreDisplay } from "@/components/IndicatorScoreDisplay";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -679,6 +681,11 @@ export const PPPDevelopmentReview = ({
   const [pendingActionSectionId, setPendingActionSectionId] = useState<
     string | null
   >(null);
+
+  // State for indicator score toggle (per indicator)
+  const [indicatorScoreToggleState, setIndicatorScoreToggleState] = useState<
+    Record<string, "score" | "updatedScore">
+  >({});
 
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
@@ -3148,14 +3155,12 @@ export const PPPDevelopmentReview = ({
     if (!isMospiApprover) return null;
 
     const comments = getComments(sectionId);
-    if (!comments || comments.length === 0) return null;
-
-    const mospiReviewerComments = comments.filter((comment: any) => {
-      const commentRole = comment.role || comment.userRole || "";
-      return commentRole.toUpperCase() === "MOSPI_REVIEWER";
-    });
-
-    if (mospiReviewerComments.length === 0) return null;
+    const mospiReviewerComments = comments
+      ? comments.filter((comment: any) => {
+          const commentRole = comment.role || comment.userRole || "";
+          return commentRole.toUpperCase() === "MOSPI_REVIEWER";
+        })
+      : [];
 
     // Sort by timestamp (newest first) and get the last (most recent) comment
     const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
@@ -3163,7 +3168,9 @@ export const PPPDevelopmentReview = ({
       const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
       return timeB - timeA; // Descending order (newest first)
     });
-    const lastComment = sortedComments[0]; // Get the most recent comment
+    const lastComment = sortedComments.length > 0 ? sortedComments[0] : null;
+
+    if (!lastComment) return null;
 
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
@@ -3284,8 +3291,24 @@ export const PPPDevelopmentReview = ({
         : undefined;
 
       if (mospiStatus === "ACCEPTED") {
+        const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <IndicatorScoreToggle
+              submissionId={submissionId}
+              indicatorCode={sectionId}
+              controlledToggleState={toggleState}
+              mospiStatus={mospiStatus}
+              onToggleChange={(newState) => {
+                setIndicatorScoreToggleState((prev) => ({
+                  ...prev,
+                  [sectionId]: newState,
+                }));
+              }}
+              showLabel={false}
+              size="sm"
+              variant="outline"
+            />
             <Button
               variant="outline"
               size="sm"
@@ -3309,8 +3332,24 @@ export const PPPDevelopmentReview = ({
       }
 
       if (mospiStatus === "REVERTED") {
+        const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <IndicatorScoreToggle
+              submissionId={submissionId}
+              indicatorCode={sectionId}
+              controlledToggleState={toggleState}
+              mospiStatus={mospiStatus}
+              onToggleChange={(newState) => {
+                setIndicatorScoreToggleState((prev) => ({
+                  ...prev,
+                  [sectionId]: newState,
+                }));
+              }}
+              showLabel={false}
+              size="sm"
+              variant="outline"
+            />
             <Button
               variant="outline"
               size="sm"
@@ -3334,8 +3373,24 @@ export const PPPDevelopmentReview = ({
       }
 
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
+      const toggleState = indicatorScoreToggleState[sectionId] || "score";
       return (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <IndicatorScoreToggle
+            submissionId={submissionId}
+            indicatorCode={sectionId}
+            controlledToggleState={toggleState}
+            mospiStatus={mospiStatus}
+            onToggleChange={(newState) => {
+              setIndicatorScoreToggleState((prev) => ({
+                ...prev,
+                [sectionId]: newState,
+              }));
+            }}
+            showLabel={false}
+            size="sm"
+            variant="outline"
+          />
           <Button
             variant="outline"
             size="sm"
@@ -3752,8 +3807,28 @@ export const PPPDevelopmentReview = ({
       return null;
     }
 
+    const toggleState = indicatorScoreToggleState[sectionId] || "score";
+
     return (
       <div className="flex gap-2">
+        {/* Indicator Score Toggle for MOSPI_APPROVER */}
+        {isMospiApprover && (
+          <IndicatorScoreToggle
+            submissionId={submissionId}
+            indicatorCode={sectionId}
+            toggleState={toggleState}
+            onToggleChange={(newState) => {
+              setIndicatorScoreToggleState((prev) => ({
+                ...prev,
+                [sectionId]: newState,
+              }));
+            }}
+            showLabel={false}
+            size="sm"
+            variant="outline"
+          />
+        )}
+
         {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
         {isStateApprover &&
           (() => {
@@ -4073,7 +4148,8 @@ export const PPPDevelopmentReview = ({
             {renderMOSPIReviewerComments("3.1")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("3.1")}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
                 {shouldBeEditable("3.1") ? (
@@ -4231,6 +4307,17 @@ export const PPPDevelopmentReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload copy of Act/Policy
               </p>
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="3.1"
+                    toggleState={indicatorScoreToggleState["3.1"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -4275,7 +4362,8 @@ export const PPPDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Functional State/UT PPP Cell/Unit*
@@ -4453,6 +4541,17 @@ export const PPPDevelopmentReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload notification or mandate
               </p>
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="3.2"
+                    toggleState={indicatorScoreToggleState["3.2"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -4498,7 +4597,8 @@ export const PPPDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full border-separate border-spacing-0 ">
                   <thead>
@@ -5396,6 +5496,17 @@ export const PPPDevelopmentReview = ({
               {/* <p className="text-xs text-muted-foreground">
                 Annex 7: Provide VGF/IIPDF details
               </p> */}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="3.3"
+                    toggleState={indicatorScoreToggleState["3.3"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -5441,7 +5552,8 @@ export const PPPDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               {/* Summary Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -5847,6 +5959,17 @@ export const PPPDevelopmentReview = ({
                       Cancel
                     </Button>
                   </div>
+                </div>
+              )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="3.4"
+                    toggleState={indicatorScoreToggleState["3.4"] || "score"}
+                  />
                 </div>
               )}
             </div>

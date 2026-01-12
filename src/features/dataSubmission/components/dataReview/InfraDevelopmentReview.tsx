@@ -76,6 +76,8 @@ import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorD
 import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
 import { cn } from "@/lib/utils";
 import { useMemo, useCallback } from "react";
+import { IndicatorScoreToggle } from "@/components/IndicatorScoreToggle";
+import { IndicatorScoreDisplay } from "@/components/IndicatorScoreDisplay";
 
 const toFileArray = (
   value: FileUpload | FileUpload[] | null | undefined
@@ -248,6 +250,11 @@ export const InfraDevelopmentReview = ({
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
+
+  // State for indicator score toggle (per indicator)
+  const [indicatorScoreToggleState, setIndicatorScoreToggleState] = useState<
+    Record<string, "score" | "updatedScore">
+  >({});
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
   const extractOriginalName = (
@@ -4047,14 +4054,12 @@ export const InfraDevelopmentReview = ({
     if (!isMospiApprover) return null;
 
     const comments = getComments(sectionId);
-    if (!comments || comments.length === 0) return null;
-
-    const mospiReviewerComments = comments.filter((comment: any) => {
-      const commentRole = comment.role || comment.userRole || "";
-      return commentRole.toUpperCase() === "MOSPI_REVIEWER";
-    });
-
-    if (mospiReviewerComments.length === 0) return null;
+    const mospiReviewerComments = comments
+      ? comments.filter((comment: any) => {
+          const commentRole = comment.role || comment.userRole || "";
+          return commentRole.toUpperCase() === "MOSPI_REVIEWER";
+        })
+      : [];
 
     // Sort by timestamp (newest first) and get the last (most recent) comment
     const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
@@ -4062,7 +4067,9 @@ export const InfraDevelopmentReview = ({
       const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
       return timeB - timeA; // Descending order (newest first)
     });
-    const lastComment = sortedComments[0]; // Get the most recent comment
+    const lastComment = sortedComments.length > 0 ? sortedComments[0] : null;
+
+    if (!lastComment) return null;
 
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
@@ -4181,8 +4188,24 @@ export const InfraDevelopmentReview = ({
         : sectionData?.mospi_status;
 
       if (mospiStatus === "ACCEPTED") {
+        const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <IndicatorScoreToggle
+              submissionId={submissionId}
+              indicatorCode={sectionId}
+              controlledToggleState={toggleState}
+              mospiStatus={mospiStatus}
+              onToggleChange={(newState) => {
+                setIndicatorScoreToggleState((prev) => ({
+                  ...prev,
+                  [sectionId]: newState,
+                }));
+              }}
+              showLabel={false}
+              size="sm"
+              variant="outline"
+            />
             <Button
               variant="outline"
               size="sm"
@@ -4206,8 +4229,24 @@ export const InfraDevelopmentReview = ({
       }
 
       if (mospiStatus === "REVERTED") {
+        const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <IndicatorScoreToggle
+              submissionId={submissionId}
+              indicatorCode={sectionId}
+              controlledToggleState={toggleState}
+              mospiStatus={mospiStatus}
+              onToggleChange={(newState) => {
+                setIndicatorScoreToggleState((prev) => ({
+                  ...prev,
+                  [sectionId]: newState,
+                }));
+              }}
+              showLabel={false}
+              size="sm"
+              variant="outline"
+            />
             <Button
               variant="outline"
               size="sm"
@@ -4231,8 +4270,24 @@ export const InfraDevelopmentReview = ({
       }
 
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
+      const toggleState = indicatorScoreToggleState[sectionId] || "score";
       return (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <IndicatorScoreToggle
+            submissionId={submissionId}
+            indicatorCode={sectionId}
+            controlledToggleState={toggleState}
+            mospiStatus={mospiStatus}
+            onToggleChange={(newState) => {
+              setIndicatorScoreToggleState((prev) => ({
+                ...prev,
+                [sectionId]: newState,
+              }));
+            }}
+            showLabel={false}
+            size="sm"
+            variant="outline"
+          />
           <Button
             variant="outline"
             size="sm"
@@ -4642,8 +4697,28 @@ export const InfraDevelopmentReview = ({
 
     // Debug logging removed for performance
 
+    const toggleState = indicatorScoreToggleState[sectionId] || "score";
+
     return (
       <div className="flex gap-2">
+        {/* Indicator Score Toggle for MOSPI_APPROVER */}
+        {isMospiApprover && (
+          <IndicatorScoreToggle
+            submissionId={submissionId}
+            indicatorCode={sectionId}
+            toggleState={toggleState}
+            onToggleChange={(newState) => {
+              setIndicatorScoreToggleState((prev) => ({
+                ...prev,
+                [sectionId]: newState,
+              }));
+            }}
+            showLabel={false}
+            size="sm"
+            variant="outline"
+          />
+        )}
+
         {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
         {isStateApprover &&
           (() => {
@@ -4890,14 +4965,12 @@ export const InfraDevelopmentReview = ({
           <SectionCard
             key="section-2.1"
             title={
-              <div className="flex flex-col relative">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">2.1 -</span> Availability of
-                    Infrastructure Act/Policy{" "}
-                  </span>
-                  {renderActionButtons("2.1")}
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.1 -</span> Availability of
+                  Infrastructure Act/Policy{" "}
+                </span>
+                {renderActionButtons("2.1")}
               </div>
             }
             // subtitle="Annex 4: Provide link and funding details"
@@ -4926,7 +4999,8 @@ export const InfraDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               {/* RadioGroup for hasOverarchingPolicy */}
               <div>
                 <Label className="mb-3 block">
@@ -6227,6 +6301,17 @@ export const InfraDevelopmentReview = ({
                   </p>
                 </>
               )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="2.1"
+                    toggleState={indicatorScoreToggleState["2.1"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -6272,7 +6357,8 @@ export const InfraDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               {/* RadioGroup for hasSpecializedEntity */}
               <div>
                 <Label className="mb-3 block">Has Specialized Entity?*</Label>
@@ -6876,6 +6962,17 @@ export const InfraDevelopmentReview = ({
               {formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
                 <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
               )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="2.2"
+                    toggleState={indicatorScoreToggleState["2.2"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -6921,7 +7018,8 @@ export const InfraDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               {/* RadioGroup for hasInfraDevelopmentPlan */}
               <div>
                 <Label className="mb-3 block">
@@ -7671,6 +7769,17 @@ export const InfraDevelopmentReview = ({
                   )}
                 </div>
               )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="2.3"
+                    toggleState={indicatorScoreToggleState["2.3"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -7716,7 +7825,8 @@ export const InfraDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               {/* RadioGroup for hasInvestmentReady */}
               <div>
                 <Label className="mb-3 block">
@@ -8207,6 +8317,17 @@ export const InfraDevelopmentReview = ({
                   )}
                 </div>
               )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="2.4"
+                    toggleState={indicatorScoreToggleState["2.4"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -8235,6 +8356,8 @@ export const InfraDevelopmentReview = ({
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("2.5")}
 
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1">
             {/* Yes/No selection */}
             <div className="mb-4">
               <Label className="mb-3 block">
@@ -9097,7 +9220,19 @@ export const InfraDevelopmentReview = ({
                   </p>
                 )}
               </div>
-            )}
+              )}
+              </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="2.5"
+                    toggleState={indicatorScoreToggleState["2.5"] || "score"}
+                  />
+                </div>
+              )}
+            </div>
           </SectionCard>
         )}
       </div>

@@ -4079,6 +4079,66 @@ class ApiService implements HttpClient {
     }
   }
 
+  /**
+   * Save manual score update
+   */
+  async saveManualScoreUpdate(
+    submissionId: string,
+    indicatorCode: string,
+    category: string,
+    updatedScore: number,
+    maxScore: number,
+    updateReason: string
+  ): Promise<any> {
+    try {
+      const response = await this.axios.post('/scoring/manual-update', {
+        submissionId,
+        indicatorCode,
+        category,
+        updatedScore,
+        maxScore,
+        updateReason,
+      });
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Get manual score update history for an indicator
+   */
+  async getManualScoreUpdateHistory(
+    submissionId: string,
+    indicatorCode: string
+  ): Promise<any> {
+    try {
+      const response = await this.axios.get(
+        `/scoring/manual-update/${submissionId}/${indicatorCode}`
+      );
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Get latest manual score update for an indicator
+   */
+  async getLatestManualScoreUpdate(
+    submissionId: string,
+    indicatorCode: string
+  ): Promise<any> {
+    try {
+      const response = await this.axios.get(
+        `/scoring/manual-update/${submissionId}/${indicatorCode}/latest`
+      );
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
   async calculateScore(submissionId: string): Promise<any> {
     try {
       const response = await this.axios.get(
