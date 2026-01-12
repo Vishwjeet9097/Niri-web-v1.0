@@ -477,12 +477,39 @@ export const FileUploadSection = ({
             >
               <Download className="w-4 h-4" />
             </Button>
+            {!disabled && (
+              <>
+                <input
+                  id={`replace-${fileInputId}`}
+                  type="file"
+                  accept={accept}
+                  onChange={handleChange}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const replaceInput = document.getElementById(`replace-${fileInputId}`) as HTMLInputElement;
+                    if (replaceInput) {
+                      replaceInput.click();
+                    }
+                  }}
+                  className="h-8 w-8 p-0"
+                  title="Replace file"
+                >
+                  <Upload className="w-4 h-4" />
+                </Button>
+              </>
+            )}
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={handleRemoveFile}
               disabled={disabled}
+              title="Remove file"
             >
               <X className="w-4 h-4" />
             </Button>

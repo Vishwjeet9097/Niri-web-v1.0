@@ -3154,6 +3154,8 @@ export const InfraFinancingReview = ({
                 ulb: item.ulb,
                 ratingDate: item.ratingDate,
                 rating: item.rating,
+                file: item.file ?? null,
+                noDocumentAvailable: item.noDocumentAvailable ?? false,
               })),
               totalULBs: section13State.totalULBs || 0,
             },
@@ -5818,9 +5820,7 @@ export const InfraFinancingReview = ({
               validationErrors={validation.errors}
               getFieldError={getFieldError}
               submissionId={submissionId}
-              deferFileDeletion={
-                shouldBeEditable("1.3") && isSectionRevertedOrResubmitted("1.3")
-              }
+              deferFileDeletion={shouldBeEditable("1.3")}
             />
           </SectionCard>
         )}

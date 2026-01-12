@@ -3,6 +3,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Plus, Check, X, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -32,6 +33,27 @@ export const Section_1_3 = ({
   submissionId,
   deferFileDeletion = false,
 }: Section1_3Props) => {
+  // Helper function to extract original name from UUID-prefixed fileName
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
+    if (originalName && originalName.trim()) return originalName;
+
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, "");
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+
+    return fileName;
+  };
+
   const getError = (fieldPath: string) => {
     // Check local duplicate errors first, then validation errors
     return (
@@ -556,7 +578,9 @@ export const Section_1_3 = ({
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Rating
               </th>
-              <th className="py-3 px-4 text-left text-sm font-normal">File</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                Uploaded File
+              </th>
               {isEditable("1.3") && (
                 <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                   Action
@@ -725,56 +749,81 @@ export const Section_1_3 = ({
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
-                      <div>
-                        <FileUploadSection
-                          label="Upload File"
-                          required
-                          value={item.file ?? null}
-                          onChange={(fileUpload) => {
-                            const updatedUlbList = [...ulbList];
-                            updatedUlbList[index] = {
-                              ...updatedUlbList[index],
-                              file: fileUpload,
-                              noDocumentAvailable: fileUpload
-                                ? false
-                                : updatedUlbList[index].noDocumentAvailable ||
-                                  false,
-                            };
-                            if (setSectionState) {
-                              setSectionState({
-                                totalULBs,
-                                ulbList: updatedUlbList,
-                              });
-                            }
-                          }}
-                          submissionId={submissionId}
-                          disabled={false}
-                          deferFileDeletion={deferFileDeletion}
-                          showNoDocumentOption={true}
-                          noDocumentAvailable={
-                            item.noDocumentAvailable || false
-                          }
-                          onNoDocumentChange={(noDocument) => {
-                            const updatedUlbList = [...ulbList];
-                            updatedUlbList[index] = {
-                              ...updatedUlbList[index],
-                              noDocumentAvailable: noDocument,
-                              file: noDocument
-                                ? null
-                                : updatedUlbList[index].file,
-                            };
-                            if (setSectionState) {
-                              setSectionState({
-                                totalULBs,
-                                ulbList: updatedUlbList,
-                              });
-                            }
-                          }}
-                          className={cn(
-                            getError(`section1_3.ulbList.${index}.file`) &&
-                              "border-red-500"
-                          )}
-                        />
+                      <div className="space-y-1.5">
+                        {/* No Document Available Checkbox */}
+                        <div className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`no-doc-1.3-${index}`}
+                            checked={item.noDocumentAvailable || false}
+                            onCheckedChange={(checked) => {
+                              const noDocument = checked as boolean;
+                              const updatedUlbList = [...ulbList];
+                              updatedUlbList[index] = {
+                                ...updatedUlbList[index],
+                                noDocumentAvailable: noDocument,
+                                file: noDocument
+                                  ? null
+                                  : updatedUlbList[index].file,
+                              };
+                              if (setSectionState) {
+                                setSectionState({
+                                  totalULBs,
+                                  ulbList: updatedUlbList,
+                                });
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`no-doc-1.3-${index}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            No document available
+                          </label>
+                        </div>
+
+                        {/* File Upload Section - only show if noDocumentAvailable is false */}
+                        {item.noDocumentAvailable &&
+                        !(
+                          item.file?.file ||
+                          item.file?.fileName ||
+                          item.file?.filePath ||
+                          item.file?.fileUrl
+                        ) ? (
+                          <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                            No document available
+                          </div>
+                        ) : (
+                          <FileUploadSection
+                            label="Upload File"
+                            required
+                            value={item.file ?? null}
+                            onChange={(fileUpload) => {
+                              const updatedUlbList = [...ulbList];
+                              updatedUlbList[index] = {
+                                ...updatedUlbList[index],
+                                file: fileUpload,
+                                noDocumentAvailable: fileUpload
+                                  ? false
+                                  : updatedUlbList[index].noDocumentAvailable ||
+                                    false,
+                              };
+                              if (setSectionState) {
+                                setSectionState({
+                                  totalULBs,
+                                  ulbList: updatedUlbList,
+                                });
+                              }
+                            }}
+                            submissionId={submissionId}
+                            disabled={false}
+                            deferFileDeletion={deferFileDeletion}
+                            showNoDocumentOption={false}
+                            className={cn(
+                              getError(`section1_3.ulbList.${index}.file`) &&
+                                "border-red-500"
+                            )}
+                          />
+                        )}
                         {getError(`section1_3.ulbList.${index}.file`) && (
                           <p className="text-sm text-red-500 mt-1">
                             {getError(`section1_3.ulbList.${index}.file`)}
@@ -782,11 +831,16 @@ export const Section_1_3 = ({
                         )}
                       </div>
                     ) : item.noDocumentAvailable ? (
-                      <span className="text-muted-foreground italic">
-                        No Document Available
-                      </span>
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
                     ) : item.file?.fileName ? (
-                      <span className="text-primary">{item.file.fileName}</span>
+                      <span className="text-primary">
+                        {extractOriginalName(
+                          item.file.fileName || "",
+                          (item.file as any)?.originalName
+                        )}
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
