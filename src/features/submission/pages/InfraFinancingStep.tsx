@@ -218,6 +218,7 @@ export const InfraFinancingStep = () => {
         {
           id: Math.random().toString(36).substr(2, 9),
           bondType: "",
+          ulb: "",
           cityName: "",
           issuingAuthority: "",
           value: "",
@@ -335,6 +336,7 @@ export const InfraFinancingStep = () => {
             {
               id: Math.random().toString(36).substr(2, 9),
               bondType: "",
+              ulb: "",
               cityName: "",
               issuingAuthority: "",
               value: "",
@@ -1331,6 +1333,7 @@ export const InfraFinancingStep = () => {
     const newBond = {
       id: Date.now().toString(),
       bondType: "",
+      ulb: "",
       cityName: "",
       issuingAuthority: "",
       value: "",
@@ -3840,6 +3843,7 @@ export const InfraFinancingStep = () => {
                               {
                                 id: Date.now().toString(),
                                 bondType: "",
+                                ulb: "",
                                 cityName: "",
                                 issuingAuthority: "",
                                 value: "",
@@ -3908,7 +3912,7 @@ export const InfraFinancingStep = () => {
                 {formData.section1_4.bondList.map((bond, index) => (
                   <div
                     key={bond.id}
-                    className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center"
+                    className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center"
                   >
                     <div>
                       <Label>
@@ -3955,42 +3959,194 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
+                        ULB<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Select
+                          value={bond.ulb}
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.4");
+
+                            // Find selected ULB object
+                            const selectedULB = ulbOptions.find(
+                              (u) => u.id === value
+                            );
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_4: {
+                                ...prev.section1_4,
+                                bondList: prev.section1_4.bondList.map((item) =>
+                                  item.id === bond.id
+                                    ? {
+                                        ...item,
+                                        ulb: value,
+                                        cityName: selectedULB?.city_name || "",
+                                      }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setUlbSearchMap((prev) => ({
+                                ...prev,
+                                [bond.id]: "",
+                              }));
+                              setUlbVisibleCountMap((prev) => ({
+                                ...prev,
+                                [bond.id]: 10,
+                              }));
+                            }
+                          }}
+                          disabled={isIndicatorSubmitted("1.4")}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_4.bondList.${index}.ulb`
+                              ),
+                              "cursor-pointer"
+                            )}
+                            tabIndex={0}
+                          >
+                            <SelectValue placeholder="Select ULB" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="px-2 py-1 transition-all duration-200 ease-in-out">
+                              <Input
+                                placeholder="Search by ULB name, city, or type..."
+                                value={ulbSearchMap[bond.id] || ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setUlbSearchMap((prev) => ({
+                                    ...prev,
+                                    [bond.id]: value,
+                                  }));
+                                  setUlbVisibleCountMap((prev) => ({
+                                    ...prev,
+                                    [bond.id]: 10,
+                                  }));
+                                }}
+                                className="mb-2 focus:shadow-lg focus:border-blue-400 transition-all duration-200 ease-in-out"
+                                disabled={isIndicatorSubmitted("1.4")}
+                                autoFocus
+                                onClick={(e) => {
+                                  e.currentTarget.focus();
+                                }}
+                              />
+                            </div>
+                            {(ulbSearchMap[bond.id] || "").trim() ? (
+                              <div>
+                                {(() => {
+                                  const filtered = ulbOptions.filter((u) => {
+                                    // Filter by search term
+                                    const matchesSearch =
+                                      `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
+                                        .toLowerCase()
+                                        .includes(
+                                          (
+                                            ulbSearchMap[bond.id] || ""
+                                          ).toLowerCase()
+                                        );
+                                    return matchesSearch;
+                                  });
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="px-3 py-2 text-gray-500 text-sm">
+                                        No results found
+                                      </div>
+                                    );
+                                  }
+                                  return filtered.map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                      )
+                                    </SelectItem>
+                                  ));
+                                })()}
+                              </div>
+                            ) : (
+                              <div
+                                style={{ maxHeight: 240, overflowY: "auto" }}
+                                onScroll={(e) => {
+                                  const el = e.currentTarget;
+                                  if (
+                                    el.scrollTop + el.clientHeight >=
+                                      el.scrollHeight - 10 &&
+                                    (ulbVisibleCountMap[bond.id] || 10) <
+                                      ulbOptions.length
+                                  ) {
+                                    setUlbVisibleCountMap((prev) => ({
+                                      ...prev,
+                                      [bond.id]: Math.min(
+                                        (prev[bond.id] || 10) + 10,
+                                        ulbOptions.length
+                                      ),
+                                    }));
+                                  }
+                                }}
+                              >
+                                {ulbOptions
+                                  .slice(0, ulbVisibleCountMap[bond.id] || 10)
+                                  .map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                      )
+                                    </SelectItem>
+                                  ))}
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {renderFieldError(`section1_4.bondList.${index}.ulb`)}
+                    </div>
+
+                    <div>
+                      <Label>
                         City Name<span className="text-red-500">*</span>
                       </Label>
-                      <Select
+                      <Input
+                        placeholder="City Name"
                         value={bond.cityName}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_4: {
-                              ...prev.section1_4,
-                              bondList: prev.section1_4.bondList.map((item) =>
-                                item.id === bond.id
-                                  ? { ...item, cityName: value }
-                                  : item
-                              ),
-                            },
-                          }));
+                        readOnly={!!bond.ulb}
+                        onChange={(e) => {
+                          if (!bond.ulb) {
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.4");
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_4: {
+                                ...prev.section1_4,
+                                bondList: prev.section1_4.bondList.map((item) =>
+                                  item.id === bond.id
+                                    ? { ...item, cityName: value }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }
                         }}
                         disabled={isIndicatorSubmitted("1.4")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_4.bondList.${index}.cityName`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select city" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Mumbai">Mumbai</SelectItem>
-                          <SelectItem value="Pune">Pune</SelectItem>
-                          <SelectItem value="Nagpur">Nagpur</SelectItem>
-                          <SelectItem value="Nashik">Nashik</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_4.bondList.${index}.cityName`
+                          ),
+                          (isIndicatorSubmitted("1.4") || bond.ulb) &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
                       {renderFieldError(
                         `section1_4.bondList.${index}.cityName`
                       )}
@@ -4210,6 +4366,9 @@ export const InfraFinancingStep = () => {
                             Bond Type
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
+                            ULB
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             City
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -4234,6 +4393,16 @@ export const InfraFinancingStep = () => {
                           >
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.bondType}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {(() => {
+                                const found = ulbOptions?.find(
+                                  (u) => u.id === bond.ulb
+                                );
+                                return found
+                                  ? found.ulb_name
+                                  : bond.ulb || "N/A";
+                              })()}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.cityName}

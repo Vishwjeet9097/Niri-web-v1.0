@@ -63,6 +63,7 @@ export interface InfraFinancingData {
     bondList: Array<{
       id: string;
       bondType: string;
+      ulb: string;
       cityName: string;
       issuingAuthority: string;
       value: string;
