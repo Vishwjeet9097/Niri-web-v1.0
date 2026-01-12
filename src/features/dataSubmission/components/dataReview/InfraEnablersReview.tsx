@@ -90,6 +90,10 @@ import {
   parseCapacityBuildingExcel,
   generateCapacityBuildingTemplate,
 } from "@/utils/excelParser";
+import {
+  getCurrentFinancialYear,
+  countOfficersTrainedInCurrentFY,
+} from "@/utils/dateUtils";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -3294,6 +3298,24 @@ export const InfraEnablersReview = ({
     setShowAddCapacityForm(false);
   };
 
+  // Clear all officers function for review component
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
+
+  const handleClearAll = () => {
+    setFormDataState((prev: any) => ({
+      ...prev,
+      section4_5: {
+        ...prev?.section4_5,
+        capacityArray: [],
+      },
+    }));
+    setShowClearAllDialog(false);
+    toast({
+      title: "All entries cleared",
+      description: "All officer entries have been removed.",
+    });
+  };
+
   // Excel upload handlers for Section 4.5
   const handleExcelUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -5926,6 +5948,27 @@ export const InfraEnablersReview = ({
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.5")}
             <div className="space-y-4">
+              {/* --- FY Count Display --- */}
+              {formDataState?.section4_5?.participated === "yes" && (
+                <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <Label className="text-base font-semibold text-gray-700 leading-none">
+                      Total Number of Officers Trained (FY{" "}
+                      {getCurrentFinancialYear()}):
+                    </Label>
+                    <span className="text-base font-semibold text-blue-600 leading-none">
+                      {countOfficersTrainedInCurrentFY(
+                        formDataState?.section4_5?.capacityArray || []
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Count based on training dates within the current financial
+                    year
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label className="mb-3 block">
                   Capacity Building – Officer Participation*
@@ -6213,39 +6256,55 @@ export const InfraEnablersReview = ({
 
               {/* Add More and Excel Upload Buttons - Only visible when in edit mode and "yes" is selected */}
               {shouldBeEditable("4.5") && !showAddCapacityForm && (
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                    onClick={() => setShowAddCapacityForm(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More
-                  </Button>
+                <div className="flex gap-2 flex-wrap items-center justify-between w-full">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddCapacityForm(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More
+                    </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExcelUploadClick}
-                    disabled={isUploadingExcel}
-                    className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Upload className="w-4 h-4" />
-                    {isUploadingExcel ? "Uploading..." : "Upload Excel"}
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExcelUploadClick}
+                      disabled={isUploadingExcel}
+                      className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {isUploadingExcel ? "Uploading..." : "Upload Excel"}
+                    </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadTemplate}
-                    className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download Template
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadTemplate}
+                      className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Template
+                    </Button>
+                  </div>
+
+                  {(formDataState?.section4_5?.capacityArray || []).length >
+                    0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowClearAllDialog(true)}
+                      className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <X className="w-4 h-4" />
+                      Clear All
+                    </Button>
+                  )}
 
                   <input
                     ref={excelFileInputRef}
@@ -6256,6 +6315,46 @@ export const InfraEnablersReview = ({
                   />
                 </div>
               )}
+
+              {/* Clear All Confirmation Dialog */}
+              <AlertDialog
+                open={showClearAllDialog}
+                onOpenChange={setShowClearAllDialog}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to clear all officer entries? This
+                      action cannot be undone.
+                      {(formDataState?.section4_5?.capacityArray || []).length >
+                        0 && (
+                        <span className="block mt-2 font-semibold text-destructive">
+                          This will remove{" "}
+                          {
+                            (formDataState?.section4_5?.capacityArray || [])
+                              .length
+                          }{" "}
+                          {(formDataState?.section4_5?.capacityArray || [])
+                            .length === 1
+                            ? "entry"
+                            : "entries"}
+                          .
+                        </span>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleClearAll}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Clear All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
               {showAddCapacityForm && shouldBeEditable("4.5") && (
