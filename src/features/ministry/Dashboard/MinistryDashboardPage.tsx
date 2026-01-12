@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { MinistryLatestSubmission } from "./MinistryLatestSubmission";
 import { getMinistryDashboardData, getMinistrySubmissions } from "@/services/ministry.service";
 import {
   FileText,
@@ -11,6 +10,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { MinistryApproverKPICard } from "../../dashboard/components/approver/MinistryApproverKPICard";
+import { MinistryReviewSubmissionsPage } from "../pages/MinistryReviewSubmissionsPage";
 
 // Set to false to use real API when available
  
@@ -266,14 +266,9 @@ export function MinistryDashboardPage() {
             ))}
           </div>
         </div>
-      </div>
+      </div>     
 
-      {/* Main Content Grid - MinistryLatestSubmission */}
-      <MinistryLatestSubmission
-        filteredSubmissions={filteredSubmissions}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-      />
+       <MinistryReviewSubmissionsPage /> 
     </div>
   );
 }

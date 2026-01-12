@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { NodalKpiCard } from "../../dashboard/components/nodal/NodalKpiCards";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { MinistryNodalLatestSubmission } from "./MinistryNodalLatestSubmission";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { getNodalKpiData } from "@/services/ministry.service";
@@ -16,6 +15,7 @@ import {
   Search,
   TrendingUp,
 } from "lucide-react";
+import { MinistryReviewSubmissionsPage } from "../pages/MinistryReviewSubmissionsPage";
 
 // Helper function to map backend status to frontend status
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -298,12 +298,7 @@ export function MinistryNodalDashboardPage() {
         </div>
       </TooltipProvider>
 
-      {/* Main Content Grid */}
-      <MinistryNodalLatestSubmission
-        filteredSubmissions={filteredSubmissions}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
+      <MinistryReviewSubmissionsPage />
     </div>
   );
 }

@@ -85,8 +85,8 @@ export function useMinistrySubmission(
             return;
           }
         } else {
-          if (user?.role !== "MINISTRY_APPROVER") {
-            console.log("⚠️ User is not a Ministry Approver");
+          if (user?.role !== "MINISTRY_APPROVER" && user?.role !== "NODAL_OFFICER") {
+            console.log("⚠️ User is not a Ministry Approver or Nodal Officer");
             setChecking(false);
             setNoSubmissionFound(true);
             setSubmissionError("You don't have permission to access ministry submissions.");
@@ -173,7 +173,7 @@ export function useMinistrySubmission(
       }
     };
 
-    const canAccess = (user?.id && user?.role === "MINISTRY_APPROVER") || 
+    const canAccess = (user?.id && user?.role === "MINISTRY_APPROVER") ||  (user?.id && user?.role === "NODAL_OFFICER") ||
                       (reviewUserId && ['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER'].includes(user?.role || ''));
     
     if (canAccess) {
