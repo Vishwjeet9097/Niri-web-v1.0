@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
-import { getSubmissionsForCurrentUser } from '@/services/ministry.service';
+import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails } from '@/services/ministry.service';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { MinistrySubmissionDetailsCard } from '../components/MinistrySubmissionDetailsCard';
 import { MinistryOverviewTab } from '../components/tabs/MinistryOverviewTab';
@@ -18,39 +18,81 @@ export function MinistryFormReviewSubmissionPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { user } = useAuth();
+  
+  // Check if isConsolidated query parameter is true
+  // If true, use consolidated API, otherwise use regular API
+  const isConsolidated = searchParams.get('isConsolidated') === 'true';
+  
+  console.log("🔍 Ministry Review Page - API Selection:", {
+    isConsolidated,
+    submissionId: id,
+    willUseConsolidatedApi: isConsolidated
+  });
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id && user?.id) {
+    if (id) {
       loadSubmission();
     } else {
       setLoading(false);
-      setError('Submission ID or user not found');
+      setError('Submission ID not found');
     }
-  }, [id, user?.id]);
+  }, [id, isConsolidated]);
 
   const loadSubmission = async () => {
     try {
       setLoading(true);
-      const response = await getSubmissionsForCurrentUser();
       
-      let submissionsData: any[] = [];
-      if (Array.isArray(response)) {
-        submissionsData = response;
-      } else if (response?.data && Array.isArray(response.data)) {
-        submissionsData = response.data;
-      }
-
-      // Find the submission by ID
-      const foundSubmission = submissionsData.find((sub) => sub.id === id);
-      
-      if (foundSubmission) {
-        setSubmission(foundSubmission);
+      if (isConsolidated) {
+        // Use consolidated API - get submission from MOSPI dashboard API
+        console.log("📋 Loading submission using consolidated API, submissionId:", id);
+        
+        if (!user?.id) {
+          setError('User ID is required for consolidated API');
+          setLoading(false);
+          return;
+        }
+        
+        const response = await getMospiMinistrySubmissionDetails(user.id);
+        
+        if (response?.status && response?.data?.submissions) {
+          // Find the submission by ID from the submissions array
+          const foundSubmission = response.data.submissions.find((sub: any) => sub.id === id);
+          
+          if (foundSubmission) {
+            console.log("✅ Found submission from consolidated API:", foundSubmission);
+            setSubmission(foundSubmission);
+          } else {
+            setError('Submission not found in consolidated data');
+          }
+        } else {
+          setError('Failed to load submissions from consolidated API');
+        }
       } else {
-        setError('Submission not found');
+        // Use regular API - get submission from current user's submissions
+        console.log("📋 Loading submission using regular API, submissionId:", id);
+        const response = await getSubmissionsForCurrentUser();
+        
+        let submissionsData: any[] = [];
+        if (Array.isArray(response)) {
+          submissionsData = response;
+        } else if (response?.data && Array.isArray(response.data)) {
+          submissionsData = response.data;
+        }
+
+        // Find the submission by ID
+        const foundSubmission = submissionsData.find((sub) => sub.id === id);
+        
+        if (foundSubmission) {
+          console.log("✅ Found submission from regular API:", foundSubmission);
+          setSubmission(foundSubmission);
+        } else {
+          setError('Submission not found');
+        }
       }
     } catch (error: any) {
       console.error('Error loading submission:', error);
@@ -187,7 +229,11 @@ export function MinistryFormReviewSubmissionPage() {
         </TabsContent>
 
         <TabsContent value="data-review">
-          <MinistryDataReviewTab submission={submission} />
+          <MinistryDataReviewTab 
+            submission={submission}
+            useConsolidatedApi={isConsolidated}
+            submissionId={id}
+          />
         </TabsContent>
 
         <TabsContent value="documents">

@@ -11,6 +11,8 @@ interface OverviewCardProps {
   description: string;
   borderColor: string;
   iconColor: string;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
 const OverviewCard: React.FC<OverviewCardProps> = ({
@@ -20,10 +22,15 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
   description,
   borderColor,
   iconColor,
+  onClick,
+  isSelected,
 }) => {
   return (
     <div
-      className={`bg-white rounded-lg border-l-4 ${borderColor} p-6 shadow-sm`}
+      className={`bg-white rounded-lg border-l-4 ${borderColor} p-6 shadow-sm ${
+        onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""
+      } ${isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""}`}
+      onClick={onClick}
     >
       <div className="flex items-start gap-4">
         <div className={`${iconColor} p-3 rounded-lg flex-shrink-0`}>
@@ -61,6 +68,7 @@ export const MospiApproverMinistryOverviewCards = ({
     count: 0,
     total: 0,
   });
+  const [selectedCardTitle, setSelectedCardTitle] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -139,7 +147,14 @@ export const MospiApproverMinistryOverviewCards = ({
               value={`${fullSubmission.count}/${fullSubmission.total}`}
               description="Ministries with full submissions"
               borderColor="border-blue-500"
-              iconColor="bg-blue-50" 
+              iconColor="bg-blue-50"
+              onClick={() => {
+                const newTitle = selectedCardTitle === "Full Submission" ? null : "Full Submission";
+                setSelectedCardTitle(newTitle);
+                onCardTitleChange?.(newTitle);
+                onStatusFilterChange?.(newTitle ? "FULL_SUBMISSION" : null);
+              }}
+              isSelected={selectedCardTitle === "Full Submission"}
             />
           )}
             
@@ -150,6 +165,13 @@ export const MospiApproverMinistryOverviewCards = ({
             description="No. of Ministries fully approved"
             borderColor="border-green-500"
             iconColor="bg-green-50"
+            onClick={() => {
+              const newTitle = selectedCardTitle === "Approved" ? null : "Approved";
+              setSelectedCardTitle(newTitle);
+              onCardTitleChange?.(newTitle);
+              onStatusFilterChange?.(newTitle ? "APPROVED" : null);
+            }}
+            isSelected={selectedCardTitle === "Approved"}
           />
 
           <OverviewCard
@@ -159,6 +181,13 @@ export const MospiApproverMinistryOverviewCards = ({
             description="Approval in progress"
             borderColor="border-orange-500"
             iconColor="bg-orange-50"
+            onClick={() => {
+              const newTitle = selectedCardTitle === "Under Review" ? null : "Under Review";
+              setSelectedCardTitle(newTitle);
+              onCardTitleChange?.(newTitle);
+              onStatusFilterChange?.(newTitle ? "UNDER_REVIEW" : null);
+            }}
+            isSelected={selectedCardTitle === "Under Review"}
           />
 
           {isMospiApprover && (
@@ -169,6 +198,13 @@ export const MospiApproverMinistryOverviewCards = ({
               description="Need Revision"
               borderColor="border-yellow-500"
               iconColor="bg-yellow-50"
+              onClick={() => {
+                const newTitle = selectedCardTitle === "Returned to Ministry Approver" ? null : "Returned to Ministry Approver";
+                setSelectedCardTitle(newTitle);
+                onCardTitleChange?.(newTitle);
+                onStatusFilterChange?.(newTitle ? "RETURNED_TO_MINISTRY" : null);
+              }}
+              isSelected={selectedCardTitle === "Returned to Ministry Approver"}
             />
           )}
 

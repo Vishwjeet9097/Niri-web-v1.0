@@ -20,11 +20,13 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
 import { MospiApproverMinistryOverviewCards } from "./components/approver/MospiApproverMinistryOverviewCards";
 import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
+import { getMospiMinistrySubmissionDetails } from "@/services/ministry.service";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [ministrySubmissions, setMinistrySubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,9 +38,57 @@ export const MospiApproverDashboardPage = () => {
   const [activeTab, setActiveTab] = useState<"state" | "ministry">("state");
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // Load ministry submissions when ministry tab is active
+  useEffect(() => {
+    const loadMinistrySubmissions = async () => {
+      if (activeTab !== "ministry" || !user?.id) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await getMospiMinistrySubmissionDetails(user.id);
+        
+        if (response.status && response.data?.submissions) {
+          // Map the ministry submission data to match the expected structure
+          const mappedSubmissions = response.data.submissions.map((sub: any) => ({
+            ...sub,
+            // Use formStatus for status filtering
+            status: sub.formStatus || sub.status,
+            // Map user data
+            user: sub.user || {},
+            stateUt: null, // Ministry submissions don't have stateUt
+            ministryId: sub.user?.ministryId,
+            ministryName: sub.user?.ministryName,
+          }));
+          
+          setMinistrySubmissions(mappedSubmissions);
+        } else {
+          setMinistrySubmissions([]);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load ministry submissions:", error);
+        notificationService.error(
+          "Failed to load ministry submissions. Please try again.",
+          "Load Error"
+        );
+        setMinistrySubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMinistrySubmissions();
+  }, [activeTab, user?.id]);
+
   // Initial load - no status filter (keep existing behavior)
   useEffect(() => {
     const loadSubmissions = async () => {
+      // Skip if ministry tab is active (ministry submissions loaded separately)
+      if (activeTab === "ministry") {
+        return;
+      }
+
       try {
         setLoading(true);
         // TODO: Replace 'mospi_approver' with actual user role from auth context/store
@@ -97,13 +147,129 @@ export const MospiApproverDashboardPage = () => {
       }
     };
 
-    // Only load on initial mount
-    loadSubmissions();
-  }, []);
+    // Only load on initial mount or when switching back to state tab
+    if (activeTab === "state") {
+      loadSubmissions();
+    }
+  }, [activeTab]);
 
   // Load submissions with status filter when card is clicked
   useEffect(() => {
     const loadSubmissionsByStatus = async () => {
+      // Handle ministry tab separately
+      if (activeTab === "ministry") {
+        if (!selectedStatus) {
+          // Reload all ministry submissions
+          if (user?.id) {
+            try {
+              setLoading(true);
+              setIsFilteredByCard(false);
+              const response = await getMospiMinistrySubmissionDetails(user.id);
+              
+              if (response.status && response.data?.submissions) {
+                const mappedSubmissions = response.data.submissions.map((sub: any) => ({
+                  ...sub,
+                  status: sub.formStatus || sub.status,
+                  user: sub.user || {},
+                  stateUt: null,
+                  ministryId: sub.user?.ministryId,
+                  ministryName: sub.user?.ministryName,
+                }));
+                setMinistrySubmissions(mappedSubmissions);
+              } else {
+                setMinistrySubmissions([]);
+              }
+            } catch (error) {
+              console.error("❌ Failed to reload ministry submissions:", error);
+              notificationService.error(
+                "Failed to reload ministry submissions. Please try again.",
+                "Load Error"
+              );
+            } finally {
+              setLoading(false);
+            }
+          }
+          return;
+        }
+
+        // Filter ministry submissions by formStatus based on card clicked
+        try {
+          setLoading(true);
+          setIsFilteredByCard(true);
+          
+          if (!user?.id) return;
+          
+          const response = await getMospiMinistrySubmissionDetails(user.id);
+          
+          if (response.status && response.data?.submissions) {
+            let filteredSubmissions = response.data.submissions;
+            
+            // Filter by formStatus based on selectedStatus (card title)
+            if (selectedCardTitle === "Approved") {
+              // For "Approved" card: filter by formStatus in [ACCEPTED_BY_MOSPI, APPROVED]
+              filteredSubmissions = response.data.submissions.filter((sub: any) => {
+                const formStatus = sub.formStatus || sub.status;
+                return [
+                  "ACCEPTED_BY_MOSPI",
+                  "APPROVED"
+                ].includes(formStatus);
+              });
+            } else if (selectedCardTitle === "Under Review") {
+              // Filter for under review statuses
+              filteredSubmissions = response.data.submissions.filter((sub: any) => {
+                const formStatus = sub.formStatus || sub.status;
+                return formStatus === "SUBMITTED_TO_MOSPI_REVIEWER" || 
+                       formStatus === "SUBMITTED_TO_MOSPI_APPROVER";
+              });
+            } else if (selectedCardTitle === "Returned to Ministry Approver") {
+              // Filter for returned status
+              filteredSubmissions = response.data.submissions.filter((sub: any) => {
+                const formStatus = sub.formStatus || sub.status;
+                return formStatus === "RETURNED_FROM_MOSPI";
+              });
+            } else if (selectedCardTitle === "Full Submission") {
+              // Filter for full submission status
+              filteredSubmissions = response.data.submissions.filter((sub: any) => {
+                const formStatus = sub.formStatus || sub.status;
+                return formStatus === "SUBMITTED_TO_MOSPI_APPROVER";
+              });
+            }
+            
+            // Map the filtered submissions
+            const mappedSubmissions = filteredSubmissions.map((sub: any) => ({
+              ...sub,
+              status: sub.formStatus || sub.status,
+              user: sub.user || {},
+              stateUt: null,
+              ministryId: sub.user?.ministryId,
+              ministryName: sub.user?.ministryName,
+            }));
+            
+            setMinistrySubmissions(mappedSubmissions);
+            
+            // Smooth scroll to table after loading filtered submissions
+            setTimeout(() => {
+              tableRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }, 100);
+          } else {
+            setMinistrySubmissions([]);
+          }
+        } catch (error) {
+          console.error("❌ Failed to load filtered ministry submissions:", error);
+          notificationService.error(
+            "Failed to load filtered ministry submissions. Please try again.",
+            "Load Error"
+          );
+          setMinistrySubmissions([]);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       if (!selectedStatus) {
         // If status is cleared, reload all submissions (reset to initial state)
         const loadAllSubmissions = async () => {
@@ -239,10 +405,10 @@ export const MospiApproverDashboardPage = () => {
       }
     };
 
-    // Only call when status changes (card clicked or cleared)
+    // Only call when status changes (card clicked or cleared) or tab changes
     loadSubmissionsByStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus]);
+  }, [selectedStatus, activeTab, selectedCardTitle, user?.id]);
 
   // Filter submissions for the "Recent Submissions" card - show only SUBMITTED_TO_MOSPI_APPROVER
   // Note: The latest submissions table should show all statuses (handled separately)
@@ -261,21 +427,44 @@ export const MospiApproverDashboardPage = () => {
   // All submissions for the latest submissions table
   // When filtered by card, submissions are already filtered by API, so just apply local filters
   const allSubmissionsForTable = useMemo(() => {
-    return submissions.filter((submission) => {
-      // Filter by tab (State vs Ministry)
+    // Use ministry submissions when ministry tab is active
+    const sourceSubmissions = activeTab === "ministry" ? ministrySubmissions : submissions;
+    
+    return sourceSubmissions.filter((submission) => {
+      // For ministry tab, all submissions are already ministry submissions
+      if (activeTab === "ministry") {
+        // State filter doesn't apply to ministry tab
+        // Search filter
+        const searchMatch =
+          !searchQuery ||
+          submission.submissionId
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          submission.user?.ministryName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          submission.user?.ministry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          submission.user?.firstName
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          submission.user?.lastName
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          submission.status?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          submission.formStatus?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        return searchMatch;
+      }
+
+      // For state tab, use existing logic
       const isMinistrySubmission = 
         submission.user?.ministryId || 
         submission.ministryId || 
         (submission.user?.ministry && submission.user.ministry !== null);
       const isStateSubmission = submission.stateUt && !isMinistrySubmission;
       
-      const tabMatch = activeTab === "ministry" 
-        ? isMinistrySubmission 
-        : isStateSubmission;
+      const tabMatch = isStateSubmission;
 
       // State filter (only for state tab)
       const stateMatch =
-        activeTab === "ministry" ||
         selectedState === "All" ||
         submission.stateUt === selectedState;
 
@@ -298,7 +487,7 @@ export const MospiApproverDashboardPage = () => {
 
       return tabMatch && stateMatch && searchMatch;
     });
-  }, [submissions, selectedState, searchQuery, activeTab]);
+  }, [submissions, ministrySubmissions, selectedState, searchQuery, activeTab]);
 
   // Get unique states for filter (only for state tab)
   const states = useMemo(() => {
@@ -322,6 +511,7 @@ export const MospiApproverDashboardPage = () => {
         return "bg-red-100 text-red-800 border-red-200";
       case "approved":
       case "APPROVED":
+      case "ACCEPTED_BY_MOSPI":
         return "bg-green-100 text-green-800 border-green-200";
       case "SUBMITTED_TO_MOSPI_REVIEWER":
         return "bg-blue-100 text-blue-800 border-blue-200";
@@ -348,6 +538,7 @@ export const MospiApproverDashboardPage = () => {
       case "SUBMITTED_TO_MOSPI_REVIEWER":
         return "Under MoSPI Review";
       case "APPROVED":
+      case "ACCEPTED_BY_MOSPI":
         return "Approved";
       case "DRAFT":
         return "Draft";
@@ -355,6 +546,8 @@ export const MospiApproverDashboardPage = () => {
         return "Under State Review";
       case "REJECTED_FINAL":
         return "Rejected";
+      case "RETURNED_FROM_MOSPI":
+        return "Returned from MoSPI";
       default:
         return status;
     }
@@ -416,7 +609,13 @@ export const MospiApproverDashboardPage = () => {
         </div>
 
         {/* Tabs for State and Ministry */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value as "state" | "ministry");
+          // Reset filters when switching tabs
+          setSelectedStatus(null);
+          setSelectedCardTitle(null);
+          setIsFilteredByCard(false);
+        }} className="w-full">
           <TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
             <TabsTrigger 
               value="state" 
@@ -677,12 +876,17 @@ export const MospiApproverDashboardPage = () => {
                             <td className="px-3 py-2 border-b">
                               <span
                                 className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
-                                  submission.status
+                                  activeTab === "ministry" ? (submission.formStatus || submission.status) : submission.status
                                 )}`}
                               >
-                                {getStatusText(submission.status) ||
-                                  submission.status?.replace(/_/g, " ") ||
-                                  "Unknown"}
+                                {activeTab === "ministry" 
+                                  ? (submission.formStatusLabel || 
+                                     getStatusText(submission.formStatus || submission.status) ||
+                                     (submission.formStatus || submission.status)?.replace(/_/g, " ") ||
+                                     "Unknown")
+                                  : (getStatusText(submission.status) ||
+                                     submission.status?.replace(/_/g, " ") ||
+                                     "Unknown")}
                               </span>
                             </td>
                             <td className="px-3 py-2 border-b">
@@ -697,11 +901,22 @@ export const MospiApproverDashboardPage = () => {
                             </td>
                             <td className="px-3 py-2 border-b text-center">
                               <Button
-                                onClick={() =>
-                                  navigate(
-                                    `/data-submission/review/${submission.id}`
-                                  )
-                                }
+                                onClick={() => {
+                                  // For ministry tab, navigate to ministry review page
+                                  if (activeTab === "ministry") {
+                                    // Use submission.id for the route, and pass isConsolidated=true for consolidated API
+                                    const userId = submission.userId || submission.user?.id;
+                                    const url = userId 
+                                      ? `/ministry/review-submissions/form-review/${submission.id}?userId=${userId}&isConsolidated=true`
+                                      : `/ministry/review-submissions/form-review/${submission.id}?isConsolidated=true`;
+                                    navigate(url);
+                                  } else {
+                                    // For state tab, use existing navigation
+                                    navigate(
+                                      `/data-submission/review/${submission.id}`
+                                    );
+                                  }
+                                }}
                                 size="sm"
                                 variant="outline"
                                 className="gap-2"

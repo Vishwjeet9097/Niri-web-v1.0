@@ -362,6 +362,74 @@ export async function mospiMinisteryTab(userId?: string): Promise<{
     }
 }
 
+/**
+ * Get Ministry Submission Details for MOSPI Dashboard
+ * Fetches ministry submissions for the MOSPI Approver/Reviewer dashboard table
+ * @param userId - The user ID (MOSPI Approver/Reviewer) to fetch submissions for
+ * @returns Promise with submissions array
+ */
+export async function getMospiMinistrySubmissionDetails(userId: string): Promise<{
+    status: boolean;
+    data: {
+        submissions: Array<{
+            id: string;
+            submissionId: string;
+            userId: string;
+            formId: string;
+            status: string;
+            createdAt: string;
+            updatedAt: string;
+            user: {
+                id: string;
+                firstName: string;
+                lastName: string;
+                email: string;
+                ministryId: string;
+                ministryName: string;
+            };
+            formStatus: string;
+            formStatusLabel: string;
+        }>;
+    };
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/dashboard/submission-details/${userId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        
+        // Handle different response structures
+        const apiResponse = response?.data || response;
+        
+        if (apiResponse?.status && apiResponse?.data) {
+            return {
+                status: apiResponse.status,
+                data: apiResponse.data,
+                message: apiResponse.message || '',
+            };
+        }
+        
+        // Fallback structure
+        return {
+            status: true,
+            data: {
+                submissions: Array.isArray(apiResponse?.data?.submissions) 
+                    ? apiResponse.data.submissions 
+                    : Array.isArray(apiResponse?.submissions)
+                    ? apiResponse.submissions
+                    : [],
+            },
+            message: apiResponse?.message || '',
+        };
+    } catch (error) {
+        console.error('[getMospiMinistrySubmissionDetails] API Error:', error);
+        return {
+            status: false,
+            data: { submissions: [] },
+            message: 'Failed to load ministry submissions',
+        };
+    }
+}
+
 
 /**
  * Retrieve submission details with indicators, subsections, and input fields
@@ -464,6 +532,86 @@ export async function getMinistrySubmissionDetails(userId: string): Promise<{
         return { status: false, data: [], message: 'Unexpected response structure' };
     } catch (error) {
         console.error('[getMinistrySubmissionDetails] API Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Retrieve consolidated ministry submission details by submission ID (for MOSPI Approver/Reviewer)
+ * @param submissionId - The ID of the submission
+ * @returns Promise with submission form structure
+ */
+export async function getMinistrySubmissionDetailsConsolidated(submissionId: string): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+    submissionId?: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/consolidated/${submissionId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        
+        console.log('[getMinistrySubmissionDetailsConsolidated] Raw axios response:', {
+            hasData: !!response.data,
+            dataType: typeof response.data,
+            isArray: Array.isArray(response.data),
+            dataKeys: response.data && typeof response.data === 'object' && !Array.isArray(response.data) ? Object.keys(response.data) : 'N/A',
+        });
+        
+        let apiResponse = response.data;
+        
+        // Handle nested response structure
+        if (apiResponse?.data && typeof apiResponse.data === 'object' && 'status' in apiResponse && Array.isArray(apiResponse.data)) {
+            console.log('[getMinistrySubmissionDetailsConsolidated] Found nested structure with status');
+        } else if (Array.isArray(apiResponse)) {
+            if (response?.data?.data && Array.isArray(response.data.data)) {
+                apiResponse = response.data;
+                console.log('[getMinistrySubmissionDetailsConsolidated] Found nested data structure');
+            }
+        }
+        
+        // If the response has the expected structure
+        if (apiResponse && typeof apiResponse === 'object' && !Array.isArray(apiResponse) && 'status' in apiResponse) {
+            console.log('[getMinistrySubmissionDetailsConsolidated] API Response structure:', {
+                hasStatus: 'status' in apiResponse,
+                hasData: 'data' in apiResponse,
+                hasSubmissionId: 'submissionId' in apiResponse,
+                submissionId: apiResponse.submissionId,
+            });
+            
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data || [],
+                message: apiResponse.message || '',
+                submissionId: apiResponse.submissionId || submissionId
+            };
+        }
+        
+        // Fallback: if response.data is directly the array
+        if (Array.isArray(apiResponse)) {
+            console.warn('[getMinistrySubmissionDetailsConsolidated] Response is directly an array');
+            return {
+                status: true,
+                data: apiResponse,
+                message: 'Retrieved indicators for review',
+                submissionId: submissionId
+            };
+        }
+        
+        // Fallback: if response.data.data exists
+        if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+            return {
+                status: apiResponse.status ?? true,
+                data: apiResponse.data,
+                message: apiResponse.message || '',
+                submissionId: apiResponse.submissionId || submissionId
+            };
+        }
+        
+        console.error('[getMinistrySubmissionDetailsConsolidated] Unexpected response structure:', apiResponse);
+        return { status: false, data: [], message: 'Unexpected response structure' };
+    } catch (error) {
+        console.error('[getMinistrySubmissionDetailsConsolidated] API Error:', error);
         throw error;
     }
 }

@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { getDropdownOptions } from "../constants/dropdownMappings";
-import { getMinistrySubmissionDetailsForReview } from "@/services/ministry.service";
+import { getMinistrySubmissionDetailsForReview, getMinistrySubmissionDetailsConsolidated } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
@@ -13,11 +13,15 @@ import type { AssignedIndicator } from "../components/FormBuilder/types";
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
   userId?: string; // Optional: user ID to fetch data for
+  useConsolidatedApi?: boolean; // If true, use consolidated API with submissionId instead of userId
+  submissionId?: string; // Submission ID for consolidated API
 }
 
 export function MinistrySubmissionReviewWrapper({
   submission,
   userId,
+  useConsolidatedApi = false,
+  submissionId: propSubmissionId,
 }: MinistrySubmissionReviewWrapperProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -28,26 +32,54 @@ export function MinistrySubmissionReviewWrapper({
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
-  }, [submission?.id, userId]);
+  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId]);
 
   const loadSubmissionData = async () => {
     try {
       setLoading(true);
-      const targetUserId = userId || submission?.user?.id;
       
-      if (!targetUserId) {
-        console.error("No user ID available for review");
-        toast({
-          title: "Error",
-          description: "User ID is required to load submission data.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
+      let response;
+      
+      //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
+      // Used for mospi reviewer and approver to review the submission
+      // Use consolidated API if coming from MOSPI dashboard
+      if (useConsolidatedApi && useConsolidatedApi === true) {
+        const targetSubmissionId = propSubmissionId || submission?.id;
+        
+        if (!targetSubmissionId) {
+          console.error("No submission ID available for consolidated API");
+          toast({
+            title: "Error",
+            description: "Submission ID is required to load submission data.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
 
-      console.log("📋 Loading submission data for review, userId:", targetUserId);
-      const response = await getMinistrySubmissionDetailsForReview(targetUserId);
+        console.log("📋 Loading consolidated submission data for review, submissionId:", targetSubmissionId);
+        response = await getMinistrySubmissionDetailsConsolidated(targetSubmissionId);
+      } else {
+        // Use existing API with userId
+        const targetUserId = userId || submission?.user?.id;
+
+        //Need to use this now.
+        //const targetUserId = submission?.id;
+        
+        if (!targetUserId) {
+          console.error("No user ID available for review");
+          toast({
+            title: "Error",
+            description: "User ID is required to load submission data.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        console.log("📋 Loading submission data for review, userId:", targetUserId);
+        response = await getMinistrySubmissionDetailsForReview(targetUserId);
+      }
 
       if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
         console.log("✅ Loaded submission indicators for review:", response.data.length);
@@ -70,11 +102,20 @@ export function MinistrySubmissionReviewWrapper({
         setFormData(initialFormData);
         
         // Extract submission ID
-        const extractedId = await extractSubmissionId(response, targetUserId, toast);
-        if (extractedId) {
-          setSubmissionId(extractedId);
-        } else if (submission?.id) {
-          setSubmissionId(submission.id);
+        if (useConsolidatedApi) {
+          // For consolidated API, use the submissionId from response or prop
+          const extractedId = response.submissionId || propSubmissionId || submission?.id;
+          if (extractedId) {
+            setSubmissionId(extractedId);
+          }
+        } else {
+          const targetUserId = userId || submission?.user?.id;
+          const extractedId = await extractSubmissionId(response, targetUserId, toast);
+          if (extractedId) {
+            setSubmissionId(extractedId);
+          } else if (submission?.id) {
+            setSubmissionId(submission.id);
+          }
         }
       } else {
         console.warn("No indicators found for review");
