@@ -330,7 +330,9 @@ export const FileUploadSection = ({
       setShowConfirmDialog(true);
     } else {
       // If unchecking, just update state
-      console.log("🔘 FileUploadSection: Unchecking, calling onNoDocumentChange(false)");
+      console.log(
+        "🔘 FileUploadSection: Unchecking, calling onNoDocumentChange(false)"
+      );
       onNoDocumentChange?.(false);
     }
   };
@@ -491,7 +493,9 @@ export const FileUploadSection = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const replaceInput = document.getElementById(`replace-${fileInputId}`) as HTMLInputElement;
+                    const replaceInput = document.getElementById(
+                      `replace-${fileInputId}`
+                    ) as HTMLInputElement;
                     if (replaceInput) {
                       replaceInput.click();
                     }
@@ -529,10 +533,14 @@ export const FileUploadSection = ({
           // Only handle closing, not opening (opening is handled by handleNoDocumentCheck)
           // Don't cancel if we're in the process of confirming
           if (!open && !isConfirmingRef.current) {
-            console.log("🔔 FileUploadSection: Calling handleCancelNoDocument from onOpenChange");
+            console.log(
+              "🔔 FileUploadSection: Calling handleCancelNoDocument from onOpenChange"
+            );
             handleCancelNoDocument();
           } else if (!open && isConfirmingRef.current) {
-            console.log("🔔 FileUploadSection: Dialog closing after confirmation, skipping cancel");
+            console.log(
+              "🔔 FileUploadSection: Dialog closing after confirmation, skipping cancel"
+            );
           }
         }}
       >
