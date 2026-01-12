@@ -1670,13 +1670,19 @@ export const InfraFinancingStep = () => {
       setValidatingIndicator(null);
       setIndicatorValidationErrors({});
 
-      // Sanitize files and remove unwanted keys before submission
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
-
-      // Create sanitized data with status for the submitted indicator
+      // ✅ FIX: Only include the section for the indicator being submitted
+      // This prevents empty sections from other indicators from being included in the payload
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Filter formData to only include the section being submitted
+      const filteredFormData = {
+        [sectionKey]: formData[sectionKey],
+      };
+
+      // Remove unwanted keys before submission (preserve File objects for upload)
+      // Note: Do NOT call sanitizeFilesInFormData here - it can cause File objects to be serialized
+      // The API service (submitSectionToStateApprover) will handle file detection and upload
+      const sanitizedFormData = deepRemoveUnwantedKeys(filteredFormData);
 
       // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
       const currentStatus = getIndicatorStatus(indicatorCode);
@@ -1853,6 +1859,7 @@ export const InfraFinancingStep = () => {
   };
 
   // Remove unwanted keys and sanitize files before submit
+  // CRITICAL: Preserves File and Blob instances (they cannot be serialized to JSON)
   function deepRemoveUnwantedKeys(obj: any): any {
     const keysToRemove = [
       "sectionStatus",
@@ -1861,24 +1868,59 @@ export const InfraFinancingStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
+
+    // Preserve File and Blob instances - return them as-is
+    if (obj instanceof File || obj instanceof Blob) {
+      return obj;
+    }
+
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+
     if (obj && typeof obj === "object") {
       const newObj: any = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
-          if (
-            key === "normalizedFormData" &&
-            obj[key] &&
-            typeof obj[key] === "object"
+          const value = obj[key];
+
+          // Preserve File and Blob instances
+          if (value instanceof File || value instanceof Blob) {
+            newObj[key] = value; // Keep File/Blob instance as-is
+          }
+          // Preserve FileUpload objects with File instances
+          else if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            (value.file instanceof File || value.file instanceof Blob)
           ) {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            // Preserve the FileUpload object structure, including the File instance
+            const fileUploadObj: any = {};
+            for (const prop in value) {
+              if (
+                prop === "file" &&
+                (value.file instanceof File || value.file instanceof Blob)
+              ) {
+                fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
+              } else {
+                fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
+              }
+            }
+            newObj[key] = fileUploadObj;
+          }
+          // Special handling for normalizedFormData and its 'original' property
+          else if (
+            key === "normalizedFormData" &&
+            value &&
+            typeof value === "object"
+          ) {
+            newObj[key] = deepRemoveUnwantedKeys(value);
             if (newObj[key].original) {
               newObj[key].original = deepRemoveUnwantedKeys(
                 newObj[key].original
               );
             }
           } else {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            newObj[key] = deepRemoveUnwantedKeys(value);
           }
         }
       }
@@ -2299,10 +2341,16 @@ export const InfraFinancingStep = () => {
       const currentStatus = getIndicatorStatus(indicatorCode);
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
 
-      // Sanitize files and remove unwanted keys before saving
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // ✅ FIX: Only include the section for the indicator being saved
+      // This prevents empty sections from other indicators from being included in the payload
+      const filteredFormData = {
+        [sectionKey]: formData[sectionKey],
+      };
+
+      // Remove unwanted keys before saving (preserve File objects for upload)
+      // Note: Do NOT call sanitizeFilesInFormData here - it can cause File objects to be serialized
+      // The API service (submitSectionToStateApprover) will handle file detection and upload
+      const sanitizedFormData = deepRemoveUnwantedKeys(filteredFormData);
 
       // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
       // Both Save and Submit buttons should change REVERTED to RESUBMITTED
@@ -2463,10 +2511,16 @@ export const InfraFinancingStep = () => {
         );
       }
 
-      // Sanitize files and remove unwanted keys before saving
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // ✅ FIX: Only include the section for the indicator being saved as draft
+      // This prevents empty sections from other indicators from being included in the payload
+      const filteredFormData = {
+        [sectionKey]: formData[sectionKey],
+      };
+
+      // Remove unwanted keys before saving (preserve File objects for upload)
+      // Note: Do NOT call sanitizeFilesInFormData here - it can cause File objects to be serialized
+      // The API service (submitSectionToStateApprover) will handle file detection and upload
+      const sanitizedFormData = deepRemoveUnwantedKeys(filteredFormData);
 
       // Prepare data with SAVE_AS_DRAFT status
       const sectionDataWithStatus = {

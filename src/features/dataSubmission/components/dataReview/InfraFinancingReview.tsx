@@ -1745,6 +1745,38 @@ export const InfraFinancingReview = ({
     return isEditable(sectionId);
   };
 
+  // Helper function to check if section is in REVERTED or RESUBMITTED status (for deferring file deletion)
+  const isSectionRevertedOrResubmitted = (sectionId: string): boolean => {
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+
+    // Check submission.section_status first (most reliable)
+    let sectionStatusValue: string | undefined;
+    if (
+      submission?.section_status &&
+      typeof submission.section_status === "object"
+    ) {
+      sectionStatusValue = (submission.section_status as any)[sectionKey];
+    }
+
+    // Fallback to formData or submissionData
+    if (!sectionStatusValue) {
+      const sectionData =
+        (formData && formData[sectionKey]) ||
+        (submissionData && submissionData[sectionKey]) ||
+        getSectionData(sectionKey);
+
+      if (sectionData) {
+        sectionStatusValue = Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status;
+      }
+    }
+
+    return (
+      sectionStatusValue === "REVERTED" || sectionStatusValue === "RESUBMITTED"
+    );
+  };
+
   // Helper function to check if section CAN be edited (permission check, not state check)
   const canEditSection = (sectionId: string): boolean => {
     const userRole = getUserRole();
@@ -5785,6 +5817,10 @@ export const InfraFinancingReview = ({
               resetKey={selectResetKey}
               validationErrors={validation.errors}
               getFieldError={getFieldError}
+              submissionId={submissionId}
+              deferFileDeletion={
+                shouldBeEditable("1.3") && isSectionRevertedOrResubmitted("1.3")
+              }
             />
           </SectionCard>
         )}
