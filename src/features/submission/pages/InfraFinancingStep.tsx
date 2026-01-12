@@ -21,6 +21,7 @@ import { Plus, Trash2, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
+import { FileUploadSection } from "../components/FileUploadSection";
 import { FormActions } from "../components/FormActions";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
@@ -206,6 +207,8 @@ export const InfraFinancingStep = () => {
           ulb: "",
           ratingDate: "",
           rating: "",
+          file: null,
+          noDocumentAvailable: false,
         },
       ],
     },
@@ -252,7 +255,11 @@ export const InfraFinancingStep = () => {
         ulbList:
           Array.isArray(data.section1_3?.ulbList) &&
           data.section1_3.ulbList.length > 0
-            ? data.section1_3.ulbList
+            ? data.section1_3.ulbList.map((ulb: any) => ({
+                ...ulb,
+                file: ulb.file || null,
+                noDocumentAvailable: ulb.noDocumentAvailable || false,
+              }))
             : defaultData.section1_3.ulbList,
         // Preserve status field
         status: (data.section1_3 as any)?.status,
@@ -1224,6 +1231,8 @@ export const InfraFinancingStep = () => {
       ulb: "",
       ratingDate: "",
       rating: "",
+      file: null,
+      noDocumentAvailable: false,
     };
 
     setFormData((prev) => ({
@@ -3485,6 +3494,92 @@ export const InfraFinancingStep = () => {
                         <Trash2 className="h-6 w-6" />
                       </Button>
                     </div>
+                    {/* File Upload Section for each ULB entry */}
+                    <div className="col-span-12 mt-2">
+                      <FileUploadSection
+                        label="Upload File"
+                        required
+                        value={ulb.file ?? null}
+                        onChange={(fileUpload) => {
+                          showErrorsIfNeeded();
+                          // Clear validation error when file is uploaded or checkbox is changed
+                          setIndicatorValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors[
+                              `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                                (p) => p.id === ulb.id
+                              )}.file`
+                            ];
+                            return newErrors;
+                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? {
+                                      ...item,
+                                      file: fileUpload,
+                                      // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                                      // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                                      noDocumentAvailable: fileUpload
+                                        ? false
+                                        : item.noDocumentAvailable || false,
+                                    }
+                                  : item
+                              ),
+                            },
+                          }));
+                        }}
+                        submissionId={currentSubmissionId || undefined}
+                        disabled={isIndicatorSubmitted("1.3")}
+                        deferFileDeletion={editingIndicators.has("1.3")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={ulb.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          showErrorsIfNeeded();
+                          // Clear validation error when checkbox is changed
+                          setIndicatorValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors[
+                              `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                                (p) => p.id === ulb.id
+                              )}.file`
+                            ];
+                            return newErrors;
+                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? {
+                                      ...item,
+                                      noDocumentAvailable: noDocument,
+                                      // Clear file if "No Document Available" is checked
+                                      file: noDocument ? null : item.file,
+                                    }
+                                  : item
+                              ),
+                            },
+                          }));
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                              (p) => p.id === ulb.id
+                            )}.file`
+                          )
+                        )}
+                      />
+                      {renderFieldError(
+                        `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                          (p) => p.id === ulb.id
+                        )}.file`
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -3529,6 +3624,9 @@ export const InfraFinancingStep = () => {
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Rating
                           </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File
+                          </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action
                           </th>
@@ -3558,6 +3656,19 @@ export const InfraFinancingStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {ulb.rating}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.noDocumentAvailable ? (
+                                <span className="text-muted-foreground italic">
+                                  No Document Available
+                                </span>
+                              ) : ulb.file?.fileName ? (
+                                <span className="text-primary">
+                                  {ulb.file.fileName}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </td>
                             <td className="py-3 px-4">
                               <button

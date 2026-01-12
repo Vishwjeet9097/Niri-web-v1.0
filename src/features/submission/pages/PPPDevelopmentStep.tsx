@@ -2922,9 +2922,9 @@ export const PPPDevelopmentStep = () => {
                   />
 
                   {renderFieldError("section3_4.totalProjectCostAwarded")}
-                  <p className="text-xs text-muted-foreground mt-1">
+                  {/* <p className="text-xs text-muted-foreground mt-1">
                     Automatically calculated from sum of all project costs
-                  </p>
+                  </p> */}
                 </div>
                 <div>
                   <Label className="block min-h-[40px] leading-snug">

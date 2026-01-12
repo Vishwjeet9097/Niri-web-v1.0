@@ -54,6 +54,8 @@ export interface InfraFinancingData {
       ulb: string;
       ratingDate: string;
       rating: string;
+      file?: FileUpload | null;
+      noDocumentAvailable?: boolean;
     }>;
   };
   section1_4: {
