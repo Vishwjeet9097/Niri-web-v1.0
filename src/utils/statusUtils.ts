@@ -53,6 +53,14 @@ export const STATUS_MAP: Record<string, StatusInfo> = {
     borderClass: "border-l-green-400",
     bgClass: "bg-green-50",
   },
+  ACCEPTED_BY_MOSPI: {
+    label: "Approved",
+    description: "Approved by Mospi Approver",
+    className: "bg-green-100 text-green-800 border-green-200",
+    badgeClass: "bg-green-100 text-green-800 border-green-200",
+    borderClass: "border-l-green-400",
+    bgClass: "bg-green-50",
+  },
   REJECTED: {
     label: "Rejected",
     description: "Rejected and returned for corrections",

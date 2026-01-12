@@ -53,7 +53,8 @@ export interface UnifiedSubmissionCardProps {
     | "RETURNED_FROM_STATE"
     | "SUBMITTED_TO_MOSPI_REVIEWER"
     | "SUBMITTED_TO_MOSPI_APPROVER"
-    | "REJECTED_FINAL";
+    | "REJECTED_FINAL"
+    | "ACCEPTED_BY_MOSPI";
   referenceId: string;
   updatedDate: string;
   dueDate: string;
@@ -167,6 +168,12 @@ const statusConfig = {
     label: "Returned from State",
     badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
     borderClass: "border-l-orange-500",
+    bgClass: "bg-white",
+  },
+  ACCEPTED_BY_MOSPI: {
+    label: "Approved",
+    badgeClass: "bg-green-100 text-green-800 border-green-200",
+    borderClass: "border-l-green-500",
     bgClass: "bg-white",
   },
 };

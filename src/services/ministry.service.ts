@@ -368,7 +368,7 @@ export async function mospiMinisteryTab(userId?: string): Promise<{
  * @param userId - The user ID (MOSPI Approver/Reviewer) to fetch submissions for
  * @returns Promise with submissions array
  */
-export async function getMospiMinistrySubmissionDetails(userId: string): Promise<{
+export async function getMospiMinistrySubmissionDetails(submissionId: string): Promise<{
     status: boolean;
     data: {
         submissions: Array<{
@@ -394,7 +394,7 @@ export async function getMospiMinistrySubmissionDetails(userId: string): Promise
     message: string;
 }> {
     try {
-        const url = getApiUrl(`/ministry/dashboard/submission-details/${userId}`);
+        const url = getApiUrl(`/ministry/dashboard/submission-details/${submissionId}`);
         const response = await apiService.get(url, { withCredentials: true });
         
         // Handle different response structures
@@ -408,15 +408,21 @@ export async function getMospiMinistrySubmissionDetails(userId: string): Promise
             };
         }
         
-        // Fallback structure
+        // Fallback structure - handle if API returns single submission or array
+        const submissions = Array.isArray(apiResponse?.data?.submissions) 
+            ? apiResponse.data.submissions 
+            : Array.isArray(apiResponse?.submissions)
+            ? apiResponse.submissions
+            : Array.isArray(apiResponse?.data)
+            ? apiResponse.data
+            : apiResponse?.data
+            ? [apiResponse.data] // If single submission, wrap in array
+            : [];
+        
         return {
             status: true,
             data: {
-                submissions: Array.isArray(apiResponse?.data?.submissions) 
-                    ? apiResponse.data.submissions 
-                    : Array.isArray(apiResponse?.submissions)
-                    ? apiResponse.submissions
-                    : [],
+                submissions: submissions,
             },
             message: apiResponse?.message || '',
         };

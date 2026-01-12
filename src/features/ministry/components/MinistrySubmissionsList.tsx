@@ -36,6 +36,8 @@ export function MinistrySubmissionsList({ userId }: MinistrySubmissionsListProps
     try {
       setLoading(true);
       console.log('🔍 Loading ministry submissions for MOSPI user:', userId);
+      // Using userId as submissionId parameter for the API endpoint
+      // The API endpoint: /ministry/dashboard/submission-details/{submissionId}
       const response = await getMospiMinistrySubmissionDetails(userId);
       
       if (response?.status && response?.data?.submissions) {
