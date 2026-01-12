@@ -8,6 +8,7 @@ import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
 
 interface MinistrySubmissionReviewWrapperProps {
@@ -96,7 +97,7 @@ export function MinistrySubmissionReviewWrapper({
     }
   };
 
-  // Extract categories from assignedIndicators
+  // Extract categories from assignedIndicators and sort them according to MINISTRY_SUBMISSION_STEPS order
   const categories = useMemo(() => {
     const categoryMap = new Map<string, AssignedIndicator>();
     
@@ -107,9 +108,33 @@ export function MinistrySubmissionReviewWrapper({
       }
     });
     
-    const categoriesList = Array.from(categoryMap.values());
-    console.log("📋 Extracted categories:", categoriesList.map(cat => Object.keys(cat)[0]));
-    return categoriesList;
+    // Sort categories according to the order defined in MINISTRY_SUBMISSION_STEPS
+    // Filter out the review-submit step and get only category steps
+    const categorySteps = MINISTRY_SUBMISSION_STEPS.filter(
+      (step) => step.key !== "review-submit"
+    );
+    
+    // Create ordered categories list based on MINISTRY_SUBMISSION_STEPS order
+    const orderedCategories: AssignedIndicator[] = [];
+    categorySteps.forEach((step) => {
+      const categoryIndicator = categoryMap.get(step.title);
+      if (categoryIndicator) {
+        orderedCategories.push(categoryIndicator);
+      }
+    });
+    
+    // Add any categories that exist in the data but not in MINISTRY_SUBMISSION_STEPS (fallback)
+    categoryMap.forEach((indicator, categoryName) => {
+      const exists = orderedCategories.some(
+        (cat) => Object.keys(cat)[0] === categoryName
+      );
+      if (!exists) {
+        orderedCategories.push(indicator);
+      }
+    });
+    
+    console.log("📋 Extracted categories (ordered):", orderedCategories.map(cat => Object.keys(cat)[0]));
+    return orderedCategories;
   }, [assignedIndicators]);
 
   // Calculate progress for each category
