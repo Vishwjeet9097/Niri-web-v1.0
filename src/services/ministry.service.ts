@@ -31,26 +31,33 @@ export async function getAllMinistries() {
 }
 
 // Fetch all ministryId values from the user table
-export async function getAllAssignedMinistryIds() {
+export async function getAllAssignedMinistryIds(role?: string) {
     try {
         const url = getApiUrl("/users");
-        try {
-            const response = await apiService.get(url);
-            const data = response.data;
-            const users = Array.isArray(data?.data)
-                ? data.data
-                : Array.isArray(data)
-                ? data
-                : [];
-             return users.map((user: any) => user.ministryId);
-        } catch (error) {
-            return [];
-        }
+        const response = await apiService.get(url);
+        const data = response.data;
+
+        const users = Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data)
+            ? data
+            : [];
+
+        return users
+            .filter((user: any) =>
+                role ? user.role === role && user.ministryId : user.ministryId
+            )
+            .flatMap((user: any) =>
+                String(user.ministryId)
+                    .split(",")
+                    .map((id) => id.trim())
+                    .filter(Boolean)
+            );
     } catch (error) {
         return [];
     }
-
 }
+
  
 // Fetch indicators for ministry form creation
 export async function getMinistryFormIndicators() {

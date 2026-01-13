@@ -74,9 +74,10 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
         }, {} as Record<string, MultiSelectOption[]>)
       : { All: filteredOptions };
 
-  // Check if all options are selected
-  const allSelected = options.length > 0 && value.length === options.length;
-  const someSelected = value.length > 0 && value.length < options.length;
+  // Only consider enabled options for select all logic
+  const enabledOptions = options.filter(opt => !opt.disabled);
+  const allSelected = enabledOptions.length > 0 && enabledOptions.every(opt => value.includes(opt.value));
+  const someSelected = value.length > 0 && !allSelected && enabledOptions.some(opt => value.includes(opt.value));
 
   // Handle select all
   const handleSelectAll = () => {

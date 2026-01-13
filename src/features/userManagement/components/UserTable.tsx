@@ -104,11 +104,24 @@ export function UserTable({
   }, []);
 
   // Helper to get ministry name by id
+
   const getMinistryName = (id?: string) => {
-    if (!id) return "";
-    const ministry = ministries.find((m: any) => m.id === id);
-    return ministry ? ministry.name : "";
-  };
+  if (!id) return "";
+
+  const ids = id
+    .split(",")
+    .map((i) => i.trim())
+    .filter(Boolean);
+
+  const names = ids
+    .map((ministryId) =>
+      ministries.find((m: any) => m.id === ministryId)?.name
+    )
+    .filter(Boolean);
+
+  return names.join(", ");
+};
+
 
   return (
     <div className="border rounded-lg bg-card">
@@ -161,8 +174,9 @@ export function UserTable({
                 {officer.role === "MOSPI_REVIEWER" && (
                   <>
                     {officer.stateId || officer.state}
+                    {(officer.state && officer.ministryId) ?  '/' : ""} 
                     {officer.ministryId && getMinistryName(officer.ministryId)
-                      ? ` / ${getMinistryName(officer.ministryId)}`
+                      ? `  ${getMinistryName(officer.ministryId)}`
                       : ""}
                   </>
                 )}
