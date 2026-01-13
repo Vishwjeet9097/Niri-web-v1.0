@@ -252,16 +252,18 @@ export function MinistryDocumentsTab({
         return;
       }
 
-      // If we don't have a user ID, can't load formData
+      // Prioritize submissionId prop, then from submission object, then userId as fallback
+      const targetSubmissionId = submissionId || submission?.id || submission?.submissionId;
       const targetUserId = submission?.user?.id;
-      if (!targetUserId) {
+      
+      if (!targetSubmissionId && !targetUserId) {
         return;
       }
 
       try {
         setLoadingFormData(true);
-        console.log("📋 Loading formData for documents tab, userId:", targetUserId);
-        const response = await getMinistrySubmissionDetailsForReview(targetUserId);
+        console.log("📋 Loading formData for documents tab, submissionId:", targetSubmissionId, "userId:", targetUserId);
+        const response = await getMinistrySubmissionDetailsForReview(targetSubmissionId, targetUserId);
 
         if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
           const transformedFormData = transformApiResponseToFormData(response.data, {});
@@ -276,7 +278,7 @@ export function MinistryDocumentsTab({
     };
 
     loadFormData();
-  }, [formData, submission?.formData, submission?.user?.id]);
+  }, [formData, submission?.formData, submissionId, submission?.id, submission?.submissionId, submission?.user?.id]);
 
   // Extract formData from submission if not provided directly, or use loaded formData
   const actualFormData = formData || submission?.formData || loadedFormData;
@@ -619,3 +621,4 @@ export function MinistryDocumentsTab({
     </SectionCard>
   );
 }
+

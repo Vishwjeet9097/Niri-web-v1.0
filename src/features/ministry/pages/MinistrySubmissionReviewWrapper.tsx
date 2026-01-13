@@ -34,21 +34,23 @@ export function MinistrySubmissionReviewWrapper({
   const loadSubmissionData = async () => {
     try {
       setLoading(true);
+      // Prioritize submissionId from submission object
+      const targetSubmissionId = submission?.id || submission?.submissionId;
       const targetUserId = userId || submission?.user?.id;
       
-      if (!targetUserId) {
-        console.error("No user ID available for review");
+      if (!targetSubmissionId && !targetUserId) {
+        console.error("No submission ID or user ID available for review");
         toast({
           title: "Error",
-          description: "User ID is required to load submission data.",
+          description: "Submission ID or User ID is required to load submission data.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      console.log("📋 Loading submission data for review, userId:", targetUserId);
-      const response = await getMinistrySubmissionDetailsForReview(targetUserId);
+      console.log("📋 Loading submission data for review, submissionId:", targetSubmissionId, "userId:", targetUserId);
+      const response = await getMinistrySubmissionDetailsForReview(targetSubmissionId, targetUserId);
 
       if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
         console.log("✅ Loaded submission indicators for review:", response.data.length);
@@ -70,8 +72,11 @@ export function MinistrySubmissionReviewWrapper({
         });
         setFormData(initialFormData);
         
-        // Extract submission ID
-        const extractedId = await extractSubmissionId(response, targetUserId, toast);
+        // Extract submission ID - prioritize from response, then from submission object
+        let extractedId = response.submissionId || targetSubmissionId;
+        if (!extractedId && targetUserId) {
+          extractedId = await extractSubmissionId(response, targetUserId, toast);
+        }
         if (extractedId) {
           setSubmissionId(extractedId);
         } else if (submission?.id) {

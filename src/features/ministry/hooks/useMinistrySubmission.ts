@@ -54,14 +54,70 @@ export function useMinistrySubmission(
     
     const checkExistingSubmission = async () => {
       if (submissionIdFromParams) {
+        // If we have submissionId from params, use it directly
         setSubmissionId(submissionIdFromParams);
-        setChecking(false);
-        setNoSubmissionFound(false);
-        setSubmissionError(null);
-        hasCheckedSubmissionRef.current = true;
-        return;
+        try {
+          setLoading(true);
+          const response = await getMinistrySubmissionDetails(submissionIdFromParams);
+          
+          if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
+            console.log("✅ Found existing submission with indicators:", response.data.length);
+            setAssignedIndicators(response.data);
+            
+            const initialFormData = transformApiResponseToFormData(response.data, persistedFormData);
+            setFormData(initialFormData);
+            
+            const submittedIndicatorsSet = new Set<string>();
+            response.data.forEach((indicatorObj: any) => {
+              Object.entries(indicatorObj).forEach(([categoryName, sections]: [string, any]) => {
+                if (Array.isArray(sections)) {
+                  sections.forEach((sectionObj: any) => {
+                    Object.entries(sectionObj).forEach(([sectionName, section]: [string, any]) => {
+                      if (section.status && section.status !== null) {
+                        submittedIndicatorsSet.add(section.sNo);
+                      }
+                    });
+                  });
+                }
+              });
+            });
+            setSubmittedIndicators(submittedIndicatorsSet);
+            setSubmittedIndicatorsVersion(prev => prev + 1);
+            
+            isInitialLoadRef.current = true;
+            prevFormDataRef.current = { ...initialFormData };
+            
+            setChecking(false);
+            setLoading(false);
+            setNoSubmissionFound(false);
+            setSubmissionError(null);
+            hasCheckedSubmissionRef.current = true;
+            return;
+          } else {
+            console.log("🆕 No previous submission found for submissionId - no data returned");
+            setChecking(false);
+            setLoading(false);
+            setNoSubmissionFound(true);
+            setSubmissionError(null);
+            hasCheckedSubmissionRef.current = true;
+            return;
+          }
+        } catch (err: any) {
+          setLoading(false);
+          console.error("⚠️ Error loading submission by ID:", err);
+          setChecking(false);
+          setNoSubmissionFound(true);
+          setSubmissionError(
+            err?.response?.data?.message ||
+            err?.message ||
+            "Failed to load submission. Please try again."
+          );
+          hasCheckedSubmissionRef.current = true;
+          return;
+        }
       }
 
+      // If no submissionId in params, use userId (function will fetch submissionId internally)
       const targetUserId = reviewUserId || user?.id;
 
       try {
@@ -98,7 +154,8 @@ export function useMinistrySubmission(
         hasCheckedSubmissionRef.current = true;
         console.log("🔍 Checking existing submission for Ministry Approver using ministry API:", targetUserId);
         setLoading(true);
-        const response = await getMinistrySubmissionDetails(targetUserId);
+        // Pass userId, function will fetch submissionId internally
+        const response = await getMinistrySubmissionDetails(undefined, targetUserId);
 
         if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
           console.log("✅ Found existing submission with indicators:", response.data.length);
@@ -204,6 +261,7 @@ export function useMinistrySubmission(
 
     try {
       setLoading(true);
+      setChecking(true);
       console.log("🆕 Creating new ministry submission for user:", user.id);
       
       const newSubmission = await minstryRegistrationForm(
@@ -212,18 +270,85 @@ export function useMinistrySubmission(
         user.ministryId
       );
       
-      if (newSubmission?.id || newSubmission?.submissionId) {
-        const createdSubmissionId = newSubmission.id || newSubmission.submissionId;
+      console.log("📦 Create submission response:", newSubmission);
+      
+      // Extract submissionId - prefer submissionId (SUB- format) over id (UUID)
+      const createdSubmissionId = newSubmission?.submissionId || newSubmission?.id;
+      
+      if (createdSubmissionId) {
         console.log("✅ Created new submission:", createdSubmissionId);
+        console.log("📋 SubmissionId type:", typeof createdSubmissionId);
+        console.log("📋 SubmissionId value:", createdSubmissionId);
         setSubmissionId(createdSubmissionId);
         setNoSubmissionFound(false);
         setSubmissionError(null);
+        
+        // Reload form data after creating submission using submission-with-data endpoint
+        // This endpoint shows all indicators with their submitted data and status
+        try {
+          console.log("🔄 Loading form data with submitted indicators for new submission");
+          console.log("📡 Will call: /ministry/form/retrieve/submission-with-data/" + createdSubmissionId);
+          console.log("📋 Passing submissionId to getMinistrySubmissionDetails:", createdSubmissionId);
+          
+          // Call the submission-with-data endpoint to get indicators with submitted data
+          // IMPORTANT: Pass submissionId (not userId) to ensure it calls submission-with-data endpoint
+          const response = await getMinistrySubmissionDetails(createdSubmissionId, undefined);
+          
+          console.log("📦 Response from submission-with-data:", {
+            status: response?.status,
+            hasData: !!response?.data,
+            dataLength: Array.isArray(response?.data) ? response.data.length : 0,
+            submissionId: response?.submissionId
+          });
+          
+          if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
+            console.log("✅ Loaded form data with indicators:", response.data.length);
+            setAssignedIndicators(response.data);
+            
+            const initialFormData = transformApiResponseToFormData(response.data, persistedFormData);
+            setFormData(initialFormData);
+            
+            // Extract submitted indicators by checking section status
+            // The submission-with-data endpoint includes status for each section
+            const submittedIndicatorsSet = new Set<string>();
+            response.data.forEach((indicatorObj: any) => {
+              Object.entries(indicatorObj).forEach(([categoryName, sections]: [string, any]) => {
+                if (Array.isArray(sections)) {
+                  sections.forEach((sectionObj: any) => {
+                    Object.entries(sectionObj).forEach(([sectionName, section]: [string, any]) => {
+                      // Check if section has been submitted (status is not null)
+                      if (section.status && section.status !== null) {
+                        submittedIndicatorsSet.add(section.sNo);
+                        console.log(`✅ Found submitted indicator: ${section.sNo} - ${sectionName} (status: ${section.status})`);
+                      }
+                    });
+                  });
+                }
+              });
+            });
+            
+            console.log(`📊 Total submitted indicators: ${submittedIndicatorsSet.size}`, Array.from(submittedIndicatorsSet));
+            setSubmittedIndicators(submittedIndicatorsSet);
+            setSubmittedIndicatorsVersion(prev => prev + 1);
+            
+            isInitialLoadRef.current = true;
+            prevFormDataRef.current = { ...initialFormData };
+          } else {
+            console.warn("⚠️ No indicators returned for new submission");
+          }
+        } catch (loadError: any) {
+          console.error("⚠️ Error loading form data after creation:", loadError);
+          // Don't fail the entire operation if loading form data fails
+          // The form will be empty but submission is created
+        }
+        
         toast({
           title: "Success",
           description: "Submission created successfully.",
           variant: "default",
         });
       } else {
+        console.error("❌ No submission ID found in response:", newSubmission);
         throw new Error("Submission creation failed - no ID returned");
       }
     } catch (error: any) {
@@ -240,6 +365,7 @@ export function useMinistrySubmission(
       );
     } finally {
       setLoading(false);
+      setChecking(false);
     }
   };
 
