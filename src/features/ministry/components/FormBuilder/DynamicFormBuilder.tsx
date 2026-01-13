@@ -22,6 +22,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
   validationErrors,
   onValidateField,
   onClearFieldError,
+  renderSectionActionButtons,
 }) => {
   const generateItemId = useCallback(() => crypto.randomUUID(), []);
 
@@ -117,6 +118,11 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                 : [];
               const hasIndicatorErrors = indicatorErrors.length > 0;
 
+              // Get action buttons for this section if in review mode
+              const sectionActionButtons = mode === 'review' && renderSectionActionButtons
+                ? renderSectionActionButtons(section.sNo, sectionName, indicatorId)
+                : undefined;
+
               return (
                 <MinistrySectionCard
                   key={section.sNo}
@@ -124,6 +130,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   onSave={onSectionSubmit ? () => onSectionSubmit(indicatorId) : undefined}
                   indicatorCode={indicatorId}
                   isSaving={submittingIndicator === indicatorId}
+                  reviewModeActionButtons={sectionActionButtons}
                 >
                   {/* Show general error message above all fields if validation failed */}
                   {hasIndicatorErrors && (() => {

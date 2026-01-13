@@ -10,6 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { MinistryApproverActionButtons } from "../components/actionButtons/MinistryApproverActionButtons";
+import { MospiReviewerActionButtons } from "../components/actionButtons/MospiReviewerActionButtons";
+import { MospiApproverActionButtons } from "../components/actionButtons/MospiApproverActionButtons";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -25,6 +29,7 @@ export function MinistrySubmissionReviewWrapper({
   submissionId: propSubmissionId,
 }: MinistrySubmissionReviewWrapperProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [assignedIndicators, setAssignedIndicators] = useState<AssignedIndicator[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -306,6 +311,92 @@ export function MinistrySubmissionReviewWrapper({
                       validationErrors={{}}
                       onValidateField={() => {}} // No validation in review
                       onClearFieldError={() => {}} // No error clearing in review
+                      renderSectionActionButtons={(sectionId, sectionName, indicatorCode) => {
+                        // Render role-based action buttons for each section
+                        if (user?.role === "MINISTRY_APPROVER") {
+                          return (
+                            <MinistryApproverActionButtons
+                              sectionId={sectionId}
+                              onAccept={() => {
+                                // TODO: Implement accept action
+                                toast({
+                                  title: "Accept",
+                                  description: `Accept action for section ${sectionId}`,
+                                });
+                              }}
+                              onSendToMospi={() => {
+                                // TODO: Implement send to MoSPI action
+                                toast({
+                                  title: "Send to MoSPI",
+                                  description: `Send section ${sectionId} to MoSPI`,
+                                });
+                              }}
+                              onTimeline={() => {
+                                // TODO: Implement timeline action
+                                toast({
+                                  title: "Timeline",
+                                  description: `View timeline for section ${sectionId}`,
+                                });
+                              }}
+                              timelineCount={0}
+                              isAccepted={false}
+                            />
+                          );
+                        }
+                        if (user?.role === "MOSPI_REVIEWER") {
+                          return (
+                            <MospiReviewerActionButtons
+                              sectionId={sectionId}
+                              onAddComment={() => {
+                                // TODO: Implement add comment action
+                                toast({
+                                  title: "Add Comment",
+                                  description: `Add comment for section ${sectionId}`,
+                                });
+                              }}
+                              onTimeline={() => {
+                                // TODO: Implement timeline action
+                                toast({
+                                  title: "Timeline",
+                                  description: `View timeline for section ${sectionId}`,
+                                });
+                              }}
+                              timelineCount={0}
+                            />
+                          );
+                        }
+                        if (user?.role === "MOSPI_APPROVER") {
+                          return (
+                            <MospiApproverActionButtons
+                              sectionId={sectionId}
+                              onAccept={() => {
+                                // TODO: Implement accept action
+                                toast({
+                                  title: "Accept",
+                                  description: `Accept action for section ${sectionId}`,
+                                });
+                              }}
+                              onSendBack={() => {
+                                // TODO: Implement send back action
+                                toast({
+                                  title: "Send Back",
+                                  description: `Send back section ${sectionId}`,
+                                });
+                              }}
+                              onTimeline={() => {
+                                // TODO: Implement timeline action
+                                toast({
+                                  title: "Timeline",
+                                  description: `View timeline for section ${sectionId}`,
+                                });
+                              }}
+                              timelineCount={0}
+                              isAccepted={false}
+                            />
+                          );
+                        }
+                        return null;
+                      }}
                     />
                   </div>
                 </div>

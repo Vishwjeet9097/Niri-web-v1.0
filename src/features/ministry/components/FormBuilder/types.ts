@@ -1,3 +1,5 @@
+import React from 'react';
+
 export interface InputField {
   id: string;
   sectionId: string;
@@ -54,6 +56,7 @@ export interface DynamicFormBuilderProps {
   validationErrors?: Record<string, string>; // Validation errors to display general message
   onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
   onClearFieldError?: (path: string) => void; // Clear error when user starts typing
+  renderSectionActionButtons?: (sectionId: string, sectionName: string, indicatorCode: string) => React.ReactNode; // Action buttons for each section in review mode
 }
 
 export interface FieldRendererProps {

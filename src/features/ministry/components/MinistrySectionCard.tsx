@@ -17,6 +17,7 @@ interface MinistrySectionCardProps {
   onSave?: () => void; // Callback when Save/Submit button is clicked
   onCancel?: () => void; // Callback when Cancel button is clicked
   isSaving?: boolean; // Whether save/submit is in progress
+  reviewModeActionButtons?: ReactNode; // Action buttons for review mode (role-based)
 }
 
 export const MinistrySectionCard = ({
@@ -31,6 +32,7 @@ export const MinistrySectionCard = ({
   onSave,
   onCancel,
   isSaving = false,
+  reviewModeActionButtons,
 }: MinistrySectionCardProps) => {
   // Get status badge
   const getStatusBadge = () => {
@@ -138,8 +140,16 @@ export const MinistrySectionCard = ({
         <CardTitle className="text-base font-semibold bg-[#E9EDFB] px-6 py-2 flex items-center justify-between">
           <div className="flex-1">{title}</div>
           <div className="flex items-center gap-2">
-            {getStatusBadge()}
-            {getActionButtons()}
+            {reviewModeActionButtons ? (
+              // Show review mode action buttons (role-based)
+              reviewModeActionButtons
+            ) : (
+              // Show regular action buttons (for edit mode)
+              <>
+                {getStatusBadge()}
+                {getActionButtons()}
+              </>
+            )}
           </div>
         </CardTitle>
         {subtitle && (
