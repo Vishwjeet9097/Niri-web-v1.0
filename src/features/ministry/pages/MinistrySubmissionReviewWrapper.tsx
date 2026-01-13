@@ -44,9 +44,12 @@ export function MinistrySubmissionReviewWrapper({
       //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
+      
+      // Define targetSubmissionId in outer scope so it's accessible later
+      const targetSubmissionId = submission?.id || submission?.submissionId || propSubmissionId;
+      const targetUserId = userId || submission?.user?.id;
+      
       if (useConsolidatedApi && useConsolidatedApi === true) {
-        const targetSubmissionId = propSubmissionId || submission?.id;
-        
         if (!targetSubmissionId) {
           console.error("No submission ID available for consolidated API");
           toast({
@@ -63,9 +66,7 @@ export function MinistrySubmissionReviewWrapper({
       } else {
         // Use existing API with userId
         // Prioritize submissionId from submission object
-      const targetSubmissionId = submission?.id || submission?.submissionId;
-      const targetUserId = userId || submission?.user?.id;
-
+        
         //Need to use this now.
         //const targetUserId = submission?.id;
         
@@ -112,12 +113,11 @@ export function MinistrySubmissionReviewWrapper({
             setSubmissionId(extractedId);
           }
         } else {
-          const targetUserId = userId || submission?.user?.id;
           let extractedId = response.submissionId || targetSubmissionId;
-        if (!extractedId && targetUserId) {
-          extractedId = await extractSubmissionId(response, targetUserId, toast);
+          if (!extractedId && targetUserId) {
+            extractedId = await extractSubmissionId(response, targetUserId, toast);
           }
-        if (extractedId) {
+          if (extractedId) {
             setSubmissionId(extractedId);
           } else if (submission?.id) {
             setSubmissionId(submission.id);
