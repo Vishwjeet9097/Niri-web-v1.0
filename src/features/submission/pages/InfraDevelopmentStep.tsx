@@ -428,7 +428,6 @@ export const InfraDevelopmentStep = () => {
             legacy.section2_1,
             "2.1"
           );
-         
 
           const newFormData: InfraDevelopmentData =
             safeInfraDevelopmentFormData({
@@ -3075,7 +3074,6 @@ export const InfraDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("2.1")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("2.1", submittingIndicator)}
@@ -3484,7 +3482,6 @@ export const InfraDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("2.2")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("2.2", submittingIndicator)}
@@ -3954,7 +3951,6 @@ export const InfraDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("2.3")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("2.3", submittingIndicator)}
@@ -4419,7 +4415,6 @@ export const InfraDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("2.4")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("2.4", submittingIndicator)}
@@ -4933,7 +4928,6 @@ export const InfraDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("2.5")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("2.5", submittingIndicator)}

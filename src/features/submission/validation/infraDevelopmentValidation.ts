@@ -294,12 +294,7 @@ export const validateInfraDevelopment = (
           section24.investmentReadyArray.length > 0
         ) {
           section24.investmentReadyArray.forEach((entry, index) => {
-            if (entry.projectName && entry.projectName.trim() !== "") {
-              if (!isAlphabetsOnly(entry.projectName)) {
-                errors[`section2_4.investmentReadyArray.${index}.projectName`] =
-                  "Project name should contain only letters, spaces, hyphens, and apostrophes.";
-              }
-            }
+            // Project name validation removed - no alphabet-only restriction
             const projectSizeStr =
               entry.projectSize != null ? String(entry.projectSize) : "";
             if (projectSizeStr && projectSizeStr.trim() !== "") {
@@ -346,14 +341,7 @@ export const validateInfraDevelopment = (
           section25.assetMonetizationArray.length > 0
         ) {
           section25.assetMonetizationArray.forEach((entry, index) => {
-            if (entry.projectName && entry.projectName.trim() !== "") {
-              if (!isAlphabetsOnly(entry.projectName)) {
-                errors[
-                  `section2_5.assetMonetizationArray.${index}.projectName`
-                ] =
-                  "Project name should contain only letters, spaces, hyphens, and apostrophes.";
-              }
-            }
+            // Project name validation removed - no alphabet-only restriction
             if (entry.location && entry.location.trim() !== "") {
               if (!isAlphabetsOnly(entry.location)) {
                 errors[`section2_5.assetMonetizationArray.${index}.location`] =

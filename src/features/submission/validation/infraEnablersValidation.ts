@@ -119,9 +119,6 @@ export const validateInfraEnablers = (
           if (!project.projectName || project.projectName.trim() === "") {
             errors[`section4_2.projects.${index}.projectName`] =
               "Project name is required.";
-          } else if (!isAlphabetsOnly(project.projectName)) {
-            errors[`section4_2.projects.${index}.projectName`] =
-              "Project name should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!project.sector || project.sector.trim() === "") {
             errors[`section4_2.projects.${index}.sector`] =

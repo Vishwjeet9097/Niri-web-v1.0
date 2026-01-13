@@ -3,12 +3,14 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Plus, Check, X, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/config/endpoints";
+import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 
 interface Section1_3Props {
   formData: any;
@@ -17,6 +19,8 @@ interface Section1_3Props {
   resetKey?: number;
   validationErrors?: { [key: string]: string };
   getFieldError?: (fieldPath: string) => string | undefined;
+  submissionId?: string;
+  deferFileDeletion?: boolean; // If true, don't call DELETE API immediately (for editing sent-back indicators)
 }
 
 export const Section_1_3 = ({
@@ -26,7 +30,30 @@ export const Section_1_3 = ({
   resetKey,
   validationErrors = {},
   getFieldError,
+  submissionId,
+  deferFileDeletion = false,
 }: Section1_3Props) => {
+  // Helper function to extract original name from UUID-prefixed fileName
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
+    if (originalName && originalName.trim()) return originalName;
+
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, "");
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+
+    return fileName;
+  };
+
   const getError = (fieldPath: string) => {
     // Check local duplicate errors first, then validation errors
     return (
@@ -103,6 +130,8 @@ export const Section_1_3 = ({
     ulb: "",
     ratingDate: "",
     rating: "",
+    file: null,
+    noDocumentAvailable: false,
   });
 
   // Local state for duplicate validation errors
@@ -119,6 +148,8 @@ export const Section_1_3 = ({
         ulb: "",
         ratingDate: "",
         rating: "",
+        file: null,
+        noDocumentAvailable: false,
       });
       setDuplicateErrors({});
     }
@@ -298,6 +329,8 @@ export const Section_1_3 = ({
           ulb: "",
           ratingDate: "",
           rating: "",
+          file: null,
+          noDocumentAvailable: false,
         },
       ];
     }
@@ -456,6 +489,8 @@ export const Section_1_3 = ({
       ulb: "",
       ratingDate: "",
       rating: "",
+      file: null,
+      noDocumentAvailable: false,
     });
     setShowAddULBForm(false);
   };
@@ -467,6 +502,8 @@ export const Section_1_3 = ({
       ulb: "",
       ratingDate: "",
       rating: "",
+      file: null,
+      noDocumentAvailable: false,
     });
     setShowAddULBForm(false);
   };
@@ -540,6 +577,9 @@ export const Section_1_3 = ({
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Rating
+              </th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                Uploaded File
               </th>
               {isEditable("1.3") && (
                 <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
@@ -707,6 +747,104 @@ export const Section_1_3 = ({
                       item.rating || "N/A"
                     )}
                   </td>
+                  <td className="py-3 px-4 text-sm font-normal">
+                    {isEditable("1.3") ? (
+                      <div className="space-y-1.5">
+                        {/* No Document Available Checkbox */}
+                        <div className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`no-doc-1.3-${index}`}
+                            checked={item.noDocumentAvailable || false}
+                            onCheckedChange={(checked) => {
+                              const noDocument = checked as boolean;
+                              const updatedUlbList = [...ulbList];
+                              updatedUlbList[index] = {
+                                ...updatedUlbList[index],
+                                noDocumentAvailable: noDocument,
+                                file: noDocument
+                                  ? null
+                                  : updatedUlbList[index].file,
+                              };
+                              if (setSectionState) {
+                                setSectionState({
+                                  totalULBs,
+                                  ulbList: updatedUlbList,
+                                });
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`no-doc-1.3-${index}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            No document available
+                          </label>
+                        </div>
+
+                        {/* File Upload Section - only show if noDocumentAvailable is false */}
+                        {item.noDocumentAvailable &&
+                        !(
+                          item.file?.file ||
+                          item.file?.fileName ||
+                          item.file?.filePath ||
+                          item.file?.fileUrl
+                        ) ? (
+                          <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                            No document available
+                          </div>
+                        ) : (
+                          <FileUploadSection
+                            label="Upload File"
+                            required
+                            value={item.file ?? null}
+                            onChange={(fileUpload) => {
+                              const updatedUlbList = [...ulbList];
+                              updatedUlbList[index] = {
+                                ...updatedUlbList[index],
+                                file: fileUpload,
+                                noDocumentAvailable: fileUpload
+                                  ? false
+                                  : updatedUlbList[index].noDocumentAvailable ||
+                                    false,
+                              };
+                              if (setSectionState) {
+                                setSectionState({
+                                  totalULBs,
+                                  ulbList: updatedUlbList,
+                                });
+                              }
+                            }}
+                            submissionId={submissionId}
+                            disabled={false}
+                            deferFileDeletion={deferFileDeletion}
+                            showNoDocumentOption={false}
+                            className={cn(
+                              getError(`section1_3.ulbList.${index}.file`) &&
+                                "border-red-500"
+                            )}
+                          />
+                        )}
+                        {getError(`section1_3.ulbList.${index}.file`) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_3.ulbList.${index}.file`)}
+                          </p>
+                        )}
+                      </div>
+                    ) : item.noDocumentAvailable ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
+                    ) : item.file?.fileName ? (
+                      <span className="text-primary">
+                        {extractOriginalName(
+                          item.file.fileName || "",
+                          (item.file as any)?.originalName
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </td>
                   {isEditable("1.3") && (
                     <td className="py-3 px-4 text-sm font-normal">
                       <Button
@@ -742,7 +880,7 @@ export const Section_1_3 = ({
             ) : (
               <tr>
                 <td
-                  colSpan={isEditable("1.3") ? 5 : 4}
+                  colSpan={isEditable("1.3") ? 6 : 5}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No ULB data available
@@ -771,7 +909,7 @@ export const Section_1_3 = ({
       {showAddULBForm && isEditable("1.3") && (
         <div className="border rounded-lg p-4 bg-gray-50">
           <h4 className="font-medium mb-3">Add New ULB Entry</h4>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <Label>ULB</Label>
               <Dropdown
@@ -910,6 +1048,42 @@ export const Section_1_3 = ({
                 </p>
               )}
             </div>
+          </div>
+          <div className="mb-4">
+            <FileUploadSection
+              label="Upload File"
+              required
+              value={newULBEntry.file ?? null}
+              onChange={(fileUpload) => {
+                setNewULBEntry({
+                  ...newULBEntry,
+                  file: fileUpload,
+                  noDocumentAvailable: fileUpload
+                    ? false
+                    : newULBEntry.noDocumentAvailable || false,
+                });
+              }}
+              submissionId={submissionId}
+              disabled={false}
+              deferFileDeletion={deferFileDeletion}
+              showNoDocumentOption={true}
+              noDocumentAvailable={newULBEntry.noDocumentAvailable || false}
+              onNoDocumentChange={(noDocument) => {
+                setNewULBEntry({
+                  ...newULBEntry,
+                  noDocumentAvailable: noDocument,
+                  file: noDocument ? null : newULBEntry.file,
+                });
+              }}
+              className={cn(
+                getError("section1_3.ulbList.new.file") && "border-red-500"
+              )}
+            />
+            {getError("section1_3.ulbList.new.file") && (
+              <p className="text-sm text-red-500 mt-1">
+                {getError("section1_3.ulbList.new.file")}
+              </p>
+            )}
           </div>
           <div className="flex gap-2 mt-4">
             <Button

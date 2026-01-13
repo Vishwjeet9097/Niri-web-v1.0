@@ -25,6 +25,7 @@ import {
   Edit3,
   Eye,
   Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -86,6 +87,15 @@ import {
   TRAINING_TYPE_OPTIONS,
   SECTOR_OPTIONS,
 } from "@/features/submission/constants/steps";
+import { useToast } from "@/hooks/use-toast";
+import {
+  parseCapacityBuildingExcel,
+  generateCapacityBuildingTemplate,
+} from "@/utils/excelParser";
+import {
+  getCurrentFinancialYear,
+  countOfficersTrainedInCurrentFY,
+} from "@/utils/dateUtils";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -650,7 +660,7 @@ export const InfraEnablersReview = ({
     file: null as FileUpload | null,
   });
 
-  // State for adding new capacity building entry in section 4.6
+  // State for adding new capacity building entry in section 4.5
   const [showAddCapacityForm, setShowAddCapacityForm] = useState(false);
   const [newCapacityEntry, setNewCapacityEntry] = useState({
     officerName: "",
@@ -660,6 +670,11 @@ export const InfraEnablersReview = ({
     trainingType: "",
     trainingPeriod: "",
   });
+
+  // Excel upload functionality for Section 4.5
+  const excelFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
+  const { toast } = useToast();
 
   // Helper function to check user role
   const getUserRole = () => {
@@ -2160,7 +2175,8 @@ export const InfraEnablersReview = ({
           break;
         }
 
-        case "4.5": { // Use local state for section 4.5 data
+        case "4.5": {
+          // Use local state for section 4.5 data
           const capacityArray4_5 = (
             formDataState?.section4_5?.capacityArray || []
           ).map((item: any) => ({
@@ -3287,6 +3303,140 @@ export const InfraEnablersReview = ({
       trainingPeriod: "",
     });
     setShowAddCapacityForm(false);
+  };
+
+  // Clear all officers function for review component
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
+
+  const handleClearAll = () => {
+    setFormDataState((prev: any) => ({
+      ...prev,
+      section4_5: {
+        ...prev?.section4_5,
+        capacityArray: [],
+      },
+    }));
+    setShowClearAllDialog(false);
+    toast({
+      title: "All entries cleared",
+      description: "All officer entries have been removed.",
+    });
+  };
+
+  // Excel upload handlers for Section 4.5
+  const handleExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validExtensions = [".xlsx", ".xls"];
+    const fileExtension = file.name
+      .toLowerCase()
+      .substring(file.name.lastIndexOf("."));
+    if (!validExtensions.includes(fileExtension)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an Excel file (.xlsx or .xls)",
+        variant: "destructive",
+      });
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setIsUploadingExcel(true);
+    try {
+      const result = await parseCapacityBuildingExcel(file);
+
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (result.data.length === 0) {
+        toast({
+          title: "No data found",
+          description: "The Excel file does not contain valid data rows",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Merge with existing entries (avoid duplicates based on ID)
+      setFormDataState((prev: any) => {
+        const existingIds = new Set(
+          (prev?.section4_5?.capacityArray || []).map((e: any) => e.id)
+        );
+        const newEntries = result.data!.filter((e) => !existingIds.has(e.id));
+
+        return {
+          ...prev,
+          section4_5: {
+            ...prev?.section4_5,
+            capacityArray: [
+              ...(prev?.section4_5?.capacityArray || []),
+              ...newEntries,
+            ],
+          },
+        };
+      });
+
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} officer ${
+          result.data.length === 1 ? "entry" : "entries"
+        }.${
+          result.warnings && result.warnings.length > 0
+            ? ` ${result.warnings.length} row(s) were skipped due to missing data.`
+            : ""
+        }`,
+      });
+
+      if (result.warnings && result.warnings.length > 0) {
+        console.warn("Excel upload warnings:", result.warnings);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description:
+          error.message || "An error occurred while processing the Excel file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingExcel(false);
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    try {
+      generateCapacityBuildingTemplate();
+      toast({
+        title: "Template downloaded",
+        description:
+          "Excel template has been downloaded. Please fill it with your data and upload it.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExcelUploadClick = () => {
+    if (!shouldBeEditable("4.5")) return;
+    excelFileInputRef.current?.click();
   };
 
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
@@ -5920,8 +6070,28 @@ export const InfraEnablersReview = ({
             {renderMOSPIReviewerComments("4.5")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.5")}
-            <div className="flex gap-6 items-start justify-between">
-              <div className="flex-1 space-y-4">
+            <div className="space-y-4">
+              {/* --- FY Count Display --- */}
+              {formDataState?.section4_5?.participated === "yes" && (
+                <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <Label className="text-base font-semibold text-gray-700 leading-none">
+                      Total Number of Officers Trained (FY{" "}
+                      {getCurrentFinancialYear()}):
+                    </Label>
+                    <span className="text-base font-semibold text-blue-600 leading-none">
+                      {countOfficersTrainedInCurrentFY(
+                        formDataState?.section4_5?.capacityArray || []
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Count based on training dates within the current financial
+                    year
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label className="mb-3 block">
                   Capacity Building – Officer Participation*
@@ -6207,18 +6377,107 @@ export const InfraEnablersReview = ({
                 </div>
               )}
 
-              {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
+              {/* Add More and Excel Upload Buttons - Only visible when in edit mode and "yes" is selected */}
               {shouldBeEditable("4.5") && !showAddCapacityForm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddCapacityForm(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More
-                </Button>
+                <div className="flex gap-2 flex-wrap items-center justify-between w-full">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddCapacityForm(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExcelUploadClick}
+                      disabled={isUploadingExcel}
+                      className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {isUploadingExcel ? "Uploading..." : "Upload Excel"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadTemplate}
+                      className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Template
+                    </Button>
+                  </div>
+
+                  {(formDataState?.section4_5?.capacityArray || []).length >
+                    0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowClearAllDialog(true)}
+                      className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <X className="w-4 h-4" />
+                      Clear All
+                    </Button>
+                  )}
+
+                  <input
+                    ref={excelFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleExcelUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
               )}
+
+              {/* Clear All Confirmation Dialog */}
+              <AlertDialog
+                open={showClearAllDialog}
+                onOpenChange={setShowClearAllDialog}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to clear all officer entries? This
+                      action cannot be undone.
+                      {(formDataState?.section4_5?.capacityArray || []).length >
+                        0 && (
+                        <span className="block mt-2 font-semibold text-destructive">
+                          This will remove{" "}
+                          {
+                            (formDataState?.section4_5?.capacityArray || [])
+                              .length
+                          }{" "}
+                          {(formDataState?.section4_5?.capacityArray || [])
+                            .length === 1
+                            ? "entry"
+                            : "entries"}
+                          .
+                        </span>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleClearAll}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Clear All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
               {showAddCapacityForm && shouldBeEditable("4.5") && (

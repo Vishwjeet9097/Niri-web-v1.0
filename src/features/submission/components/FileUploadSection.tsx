@@ -330,7 +330,9 @@ export const FileUploadSection = ({
       setShowConfirmDialog(true);
     } else {
       // If unchecking, just update state
-      console.log("🔘 FileUploadSection: Unchecking, calling onNoDocumentChange(false)");
+      console.log(
+        "🔘 FileUploadSection: Unchecking, calling onNoDocumentChange(false)"
+      );
       onNoDocumentChange?.(false);
     }
   };
@@ -477,12 +479,41 @@ export const FileUploadSection = ({
             >
               <Download className="w-4 h-4" />
             </Button>
+            {!disabled && (
+              <>
+                <input
+                  id={`replace-${fileInputId}`}
+                  type="file"
+                  accept={accept}
+                  onChange={handleChange}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const replaceInput = document.getElementById(
+                      `replace-${fileInputId}`
+                    ) as HTMLInputElement;
+                    if (replaceInput) {
+                      replaceInput.click();
+                    }
+                  }}
+                  className="h-8 w-8 p-0"
+                  title="Replace file"
+                >
+                  <Upload className="w-4 h-4" />
+                </Button>
+              </>
+            )}
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={handleRemoveFile}
               disabled={disabled}
+              title="Remove file"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -502,10 +533,14 @@ export const FileUploadSection = ({
           // Only handle closing, not opening (opening is handled by handleNoDocumentCheck)
           // Don't cancel if we're in the process of confirming
           if (!open && !isConfirmingRef.current) {
-            console.log("🔔 FileUploadSection: Calling handleCancelNoDocument from onOpenChange");
+            console.log(
+              "🔔 FileUploadSection: Calling handleCancelNoDocument from onOpenChange"
+            );
             handleCancelNoDocument();
           } else if (!open && isConfirmingRef.current) {
-            console.log("🔔 FileUploadSection: Dialog closing after confirmation, skipping cancel");
+            console.log(
+              "🔔 FileUploadSection: Dialog closing after confirmation, skipping cancel"
+            );
           }
         }}
       >

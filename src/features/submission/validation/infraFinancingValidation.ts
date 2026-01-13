@@ -231,6 +231,12 @@ export const validateInfraFinancing = (
           if (!ulb.rating) {
             errors[`${basePath}.rating`] = "Rating is required.";
           }
+          // Validate file upload - either file must be uploaded or "No Document Available" must be checked
+          const hasFile = ulb.file && (ulb.file.fileName || ulb.file.file);
+          const noDocumentAvailable = ulb.noDocumentAvailable === true;
+          if (!hasFile && !noDocumentAvailable) {
+            errors[`${basePath}.file`] = "Upload file is required.";
+          }
         });
       }
 

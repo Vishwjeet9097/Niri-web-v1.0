@@ -54,6 +54,8 @@ export interface InfraFinancingData {
       ulb: string;
       ratingDate: string;
       rating: string;
+      file?: FileUpload | null;
+      noDocumentAvailable?: boolean;
     }>;
   };
   section1_4: {
@@ -61,6 +63,7 @@ export interface InfraFinancingData {
     bondList: Array<{
       id: string;
       bondType: string;
+      ulb: string;
       cityName: string;
       issuingAuthority: string;
       value: string;

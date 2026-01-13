@@ -164,9 +164,6 @@ export const validatePPPDevelopment = (
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section3_3.VGFArray.${index}.projectName`] =
             "Project name is required.";
-        } else if (!isAlphabetsOnly(entry.projectName)) {
-          errors[`section3_3.VGFArray.${index}.projectName`] =
-            "Project name should contain only letters, spaces, hyphens, and apostrophes.";
         }
         if (!entry.sector || entry.sector.trim() === "") {
           errors[`section3_3.VGFArray.${index}.sector`] = "Sector is required.";
@@ -231,12 +228,7 @@ export const validatePPPDevelopment = (
       if (section34.projects && section34.projects.length > 0) {
         section34.projects.forEach((project, index) => {
           // Validate project name if it has a value
-          if (project.nameOfProject && project.nameOfProject.trim() !== "") {
-            if (!isAlphabetsOnly(project.nameOfProject)) {
-              errors[`section3_4.projects.${index}.nameOfProject`] =
-                "Project name should contain only letters, spaces, hyphens, and apostrophes.";
-            }
-          }
+          // Project name validation removed - no alphabet-only restriction
           // Validate infrastructureSector (required)
           if (
             !project.infrastructureSector ||

@@ -621,6 +621,28 @@ export const PPPDevelopmentStep = () => {
     return sum > 0 ? sum.toFixed(2) : "";
   }, [formData.section3_4?.projects]);
 
+  // Auto-calculate percentage: % = (Total of TPC of PPP Projects * 100) / Total Budgeted capital allocation
+  const calculatedPercentage = useMemo(() => {
+    const totalTPC = parseFloat(calculatedTotalProjectCostAwarded || "0");
+    const totalBudgetedCapital = parseFloat(
+      formData.section3_4?.totalProjectsAwarded || "0"
+    );
+
+    if (
+      totalBudgetedCapital === 0 ||
+      isNaN(totalBudgetedCapital) ||
+      isNaN(totalTPC)
+    ) {
+      return "";
+    }
+
+    const percentage = (totalTPC * 100) / totalBudgetedCapital;
+    return percentage.toFixed(2);
+  }, [
+    calculatedTotalProjectCostAwarded,
+    formData.section3_4?.totalProjectsAwarded,
+  ]);
+
   // Update totalProjectCostAwarded when calculated value changes
   useEffect(() => {
     if (calculatedTotalProjectCostAwarded !== "") {
@@ -2022,7 +2044,6 @@ export const PPPDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("3.1")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("3.1", submittingIndicator)}
@@ -2256,7 +2277,6 @@ export const PPPDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("3.2")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("3.2", submittingIndicator)}
@@ -2797,7 +2817,6 @@ export const PPPDevelopmentStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("3.3")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
                   {getSubmitButtonText("3.3", submittingIndicator)}
@@ -2849,7 +2868,7 @@ export const PPPDevelopmentStep = () => {
             {renderSectionValidationMessage("3.4")}
             <div className="flex flex-col gap-6">
               {/* ✅ Single-instance summary fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
                     Total Budgeted capital allocation (INR-CRORE)
@@ -2903,9 +2922,34 @@ export const PPPDevelopmentStep = () => {
                   />
 
                   {renderFieldError("section3_4.totalProjectCostAwarded")}
-                  <p className="text-xs text-muted-foreground mt-1">
+                  {/* <p className="text-xs text-muted-foreground mt-1">
                     Automatically calculated from sum of all project costs
-                  </p>
+                  </p> */}
+                </div>
+                <div>
+                  <Label className="block min-h-[40px] leading-snug">
+                    % of TPC of PPP Projects
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Auto-calculated"
+                    value={
+                      calculatedPercentage !== ""
+                        ? `${calculatedPercentage}%`
+                        : ""
+                    }
+                    readOnly
+                    disabled
+                    className={cn(
+                      "bg-gray-50 cursor-not-allowed",
+                      isIndicatorSubmitted("3.4") &&
+                        "bg-gray-50 cursor-not-allowed"
+                    )}
+                  />
+                  {/* <p className="text-xs text-muted-foreground mt-1">
+                    Auto-calculated: (Total of TPC × 100) / Total Budgeted
+                    capital allocation
+                  </p> */}
                 </div>
               </div>
 
@@ -3185,7 +3229,7 @@ export const PPPDevelopmentStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("3.4")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("3.4", submittingIndicator)}

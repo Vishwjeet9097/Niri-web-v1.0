@@ -59,12 +59,16 @@ export function MonthYearPicker({
   // Use local state to track selections independently
   const [localMonth, setLocalMonth] = React.useState(parsed.month);
   const [localYear, setLocalYear] = React.useState(parsed.year);
+  // Track if user has made a new selection (to prevent auto-close on edit)
+  const [hasNewSelection, setHasNewSelection] = React.useState(false);
 
   // Sync local state with value prop when it changes externally
   React.useEffect(() => {
     const parsed = parseValue(value);
     setLocalMonth(parsed.month);
     setLocalYear(parsed.year);
+    // Reset selection flag when value changes externally
+    setHasNewSelection(false);
   }, [value]);
 
   const selectedMonth = localMonth;
@@ -100,6 +104,7 @@ export function MonthYearPicker({
 
   const handleMonthChange = (month: string) => {
     setLocalMonth(month);
+    setHasNewSelection(true); // Mark that user made a selection
     if (localYear) {
       // If year is already selected, update the value immediately
       const newValue = `${month}/${localYear}`;
@@ -111,6 +116,7 @@ export function MonthYearPicker({
 
   const handleYearChange = (year: string) => {
     setLocalYear(year);
+    setHasNewSelection(true); // Mark that user made a selection
     if (localMonth) {
       // If month is already selected, update the value immediately
       const newValue = `${localMonth}/${year}`;
@@ -120,21 +126,31 @@ export function MonthYearPicker({
     // The value will be updated when month is selected
   };
 
-  // Auto-close when both month and year are selected
+  // Auto-close only when both month and year are selected AND user made a new selection
+  // This prevents auto-closing when opening the picker to edit an existing value
   React.useEffect(() => {
-    if (selectedMonth && selectedYear && open) {
+    if (selectedMonth && selectedYear && open && hasNewSelection) {
       // Small delay to allow the value to update
       const timer = setTimeout(() => {
         setOpen(false);
+        setHasNewSelection(false); // Reset after closing
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [selectedMonth, selectedYear, open]);
+  }, [selectedMonth, selectedYear, open, hasNewSelection]);
+
+  // Reset selection flag when popover closes
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setHasNewSelection(false);
+    }
+  };
 
   const displayValue = value || placeholder;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

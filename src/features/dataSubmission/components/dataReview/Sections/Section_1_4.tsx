@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import axios from "axios";
+import { API_ENDPOINTS } from "@/config/endpoints";
 
 interface Section1_4Props {
   formData: any;
@@ -37,6 +40,53 @@ export const Section_1_4 = ({
   const bondList = formData?.section1_4?.bondList || [];
   const totalULBs = formData?.section1_4?.totalULBs || 0;
 
+  // Get state name from formData or fallback to logged-in user
+  const { user } = useAuth();
+  const stateName = user?.state || user?.stateName || "";
+
+  // State for fetched ULBs
+  const [ulbDropdownOptions, setUlbDropdownOptions] = useState([]);
+  const [ulbLoading, setUlbLoading] = useState(false);
+  const [ulbError, setUlbError] = useState("");
+  
+  // Fetch ULBs for the logged-in user's state
+  useEffect(() => {
+    const fetchULBs = async () => {
+      setUlbLoading(true);
+      setUlbError("");
+      try {
+        const url = API_ENDPOINTS.ulb.byState(stateName);
+        const res = await axios.get(url);
+        console.log("ULB API response:", res.data);
+        // API returns { status, data: { total, data: [ ... ] } }
+        const ulbArray = res.data?.data?.data || [];
+        const options = ulbArray.map((ulb) => {
+          // Compose label as 'ulb_name - city_name (ulb_type)'
+          const ulbName = ulb.ulb_name || ulb.name || "";
+          const cityName = ulb.city_name || ulb.city || "";
+          const ulbType = ulb.ulb_type || ulb.type || "";
+          let label = ulbName;
+          if (cityName) label += ` - ${cityName}`;
+          if (ulbType) label += ` (${ulbType})`;
+          return {
+            label: label,
+            value: String(ulb.id), // Ensure value is a string
+          };
+        });
+        console.log("ULB dropdown options:", options);
+        setUlbDropdownOptions(options);
+      } catch (err) {
+        setUlbError("Failed to load ULBs");
+        console.error("ULB API error:", err);
+      } finally {
+        setUlbLoading(false);
+      }
+    };
+    if (stateName) {
+      fetchULBs();
+    }
+  }, [stateName]);
+
   // Debug: Log component render and editability
   const isSectionEditable = isEditable("1.4");
   console.log(
@@ -56,6 +106,7 @@ export const Section_1_4 = ({
   const [showAddBondForm, setShowAddBondForm] = useState(false);
   const [newBondEntry, setNewBondEntry] = useState({
     bondType: "",
+    ulb: "",
     cityName: "",
     issuingAuthority: "",
     value: "",
@@ -71,6 +122,7 @@ export const Section_1_4 = ({
       setShowAddBondForm(false);
       setNewBondEntry({
         bondType: "",
+        ulb: "",
         cityName: "",
         issuingAuthority: "",
         value: "",
@@ -109,7 +161,38 @@ export const Section_1_4 = ({
   // Update parent state on change
   const handleBondChange = (index: number, field: string, value: any) => {
     const updatedBondList = [...bondList];
-    updatedBondList[index] = { ...updatedBondList[index], [field]: value };
+    // If ULB is changed, auto-fill city name and store ULB details
+    if (field === "ulb") {
+      const stringValue = value ? String(value) : "";
+      const selectedULB = ulbDropdownOptions.find(
+        (u) => String(u.value) === stringValue
+      );
+      // Try to get city name from label (format: ulb_name - city_name (ulb_type))
+      let cityName = "";
+      let ulbName = "";
+      let ulbType = "";
+      
+      if (selectedULB && selectedULB.label) {
+        // Parse the label to extract ULB name, city name, and type
+        const match = selectedULB.label.match(/^([^-]+)(?:-\s([^()]+))?(?:\s\(([^)]+)\))?$/);
+        if (match) {
+          ulbName = match[1].trim();
+          cityName = match[2] ? match[2].trim() : "";
+          ulbType = match[3] ? match[3].trim() : "";
+        }
+      }
+      
+      updatedBondList[index] = {
+        ...updatedBondList[index],
+        [field]: stringValue,
+        cityName,
+        // Store ULB details for display even if dropdown options aren't loaded later
+        ulb_name: ulbName,
+        ulb_type: ulbType,
+      };
+    } else {
+      updatedBondList[index] = { ...updatedBondList[index], [field]: value };
+    }
     if (setSectionState) {
       setSectionState({ totalULBs, bondList: updatedBondList });
     }
@@ -129,6 +212,7 @@ export const Section_1_4 = ({
         {
           id: `bond-${Date.now()}`,
           bondType: "",
+          ulb: "",
           cityName: "",
           issuingAuthority: "",
           value: "",
@@ -256,6 +340,7 @@ export const Section_1_4 = ({
     // Reset form
     setNewBondEntry({
       bondType: "",
+      ulb: "",
       cityName: "",
       issuingAuthority: "",
       value: "",
@@ -268,6 +353,7 @@ export const Section_1_4 = ({
   const handleCancelAddBondEntry = () => {
     setNewBondEntry({
       bondType: "",
+      ulb: "",
       cityName: "",
       issuingAuthority: "",
       value: "",
@@ -339,6 +425,7 @@ export const Section_1_4 = ({
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                 Bond Type
               </th>
+              <th className="py-3 px-4 text-left text-sm font-normal">ULB</th>
               <th className="py-3 px-4 text-left text-sm font-normal">City</th>
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Issuing Authority
@@ -389,16 +476,96 @@ export const Section_1_4 = ({
                     {isEditable("1.4") ? (
                       <div>
                         <Dropdown
-                          options={dropdownValues.cityList.map((opt) => ({
-                            label: opt,
-                            value: opt,
-                          }))}
-                          value={item.cityName || ""}
+                          options={ulbDropdownOptions.filter((option) => {
+                            // Filter out ULBs already selected in other rows (unless it's the current row's selection)
+                            const isAlreadySelected = bondList.some(
+                              (bond, idx) =>
+                                idx !== index &&
+                                bond.ulb === option.value &&
+                                bond.ulb !== ""
+                            );
+                            return (
+                              !isAlreadySelected || option.value === item.ulb
+                            );
+                          })}
+                          value={item.ulb ? String(item.ulb) : ""}
                           onChange={(value) =>
-                            handleBondChange(index, "cityName", value)
+                            handleBondChange(index, "ulb", value)
                           }
-                          placeholder="Select City"
-                          isEditable={true}
+                          placeholder={
+                            ulbLoading
+                              ? "Loading..."
+                              : ulbError
+                              ? "Failed to load ULBs"
+                              : "Select ULB"
+                          }
+                          isEditable={isEditable("1.4")}
+                          isSearchable={true}
+                        />
+                        {getError(`section1_4.bondList.${index}.ulb`) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_4.bondList.${index}.ulb`)}
+                          </p>
+                        )}
+                        {ulbError && (
+                          <div className="text-xs text-red-500 mt-1">
+                            {ulbError}
+                          </div>
+                        )}
+                        {ulbLoading && (
+                          <div className="text-xs text-blue-500 mt-1">
+                            Loading ULBs...
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      (() => {
+                        // Try to show best available name from item itself first
+                        let label = "";
+                        
+                        // First, check if we have the ULB ID and dropdown options are loaded
+                        if (item.ulb) {
+                          // Try to find in dropdown options (convert both to string for comparison)
+                          if (ulbDropdownOptions.length > 0) {
+                            const found = ulbDropdownOptions.find(
+                              (u) => String(u.value) === String(item.ulb)
+                            );
+                            if (found) {
+                              label = found.label;
+                            }
+                          }
+                          
+                          // If not found in dropdown options, check if item has ULB name stored
+                          if (!label && item.ulb_name) {
+                            const cityName = item.cityName || item.city_name || "";
+                            const ulbType = item.ulb_type || item.type || "";
+                            label = item.ulb_name;
+                            if (cityName) label += ` - ${cityName}`;
+                            if (ulbType) label += ` (${ulbType})`;
+                          }
+                          
+                          // Last resort: if we have ULB ID but no name, show ID
+                          if (!label) {
+                            label = `ULB ID: ${item.ulb}`;
+                          }
+                        }
+                        
+                        return label && label.trim() !== "" ? label : "N/A";
+                      })()
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-sm font-normal">
+                    {isEditable("1.4") ? (
+                      <div>
+                        <Input
+                          value={item.cityName || ""}
+                          readOnly
+                          className={
+                            getError(`section1_4.bondList.${index}.cityName`)
+                              ? "w-full bg-gray-100 cursor-not-allowed border-red-500"
+                              : "w-full bg-gray-100 cursor-not-allowed"
+                          }
+                          placeholder="City name auto-filled"
                         />
                         {getError(`section1_4.bondList.${index}.cityName`) && (
                           <p className="text-sm text-red-500 mt-1">
@@ -543,7 +710,7 @@ export const Section_1_4 = ({
             ) : (
               <tr>
                 <td
-                  colSpan={isEditable("1.4") ? 6 : 5}
+                  colSpan={isEditable("1.4") ? 7 : 6}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No bond data available
@@ -594,18 +761,73 @@ export const Section_1_4 = ({
               )}
             </div>
             <div>
-              <Label>City</Label>
+              <Label>ULB</Label>
               <Dropdown
-                options={dropdownValues.cityList.map((opt) => ({
-                  label: opt,
-                  value: opt,
-                }))}
-                value={newBondEntry.cityName}
-                onChange={(value) =>
-                  setNewBondEntry({ ...newBondEntry, cityName: value })
+                options={ulbDropdownOptions.filter((option) => {
+                  // Filter out ULBs already selected in existing rows
+                  const isAlreadySelected = bondList.some(
+                    (bond) => bond.ulb === option.value && bond.ulb !== ""
+                  );
+                  return !isAlreadySelected;
+                })}
+                value={newBondEntry.ulb ? String(newBondEntry.ulb) : ""}
+                onChange={(value) => {
+                  // Auto-fill city name from selected ULB and store ULB details
+                  const selectedULB = ulbDropdownOptions.find(
+                    (u) => String(u.value) === String(value)
+                  );
+                  let cityName = "";
+                  let ulbName = "";
+                  let ulbType = "";
+                  
+                  if (selectedULB && selectedULB.label) {
+                    // Parse the label to extract ULB name, city name, and type
+                    const match = selectedULB.label.match(/^([^-]+)(?:-\s([^()]+))?(?:\s\(([^)]+)\))?$/);
+                    if (match) {
+                      ulbName = match[1].trim();
+                      cityName = match[2] ? match[2].trim() : "";
+                      ulbType = match[3] ? match[3].trim() : "";
+                    }
+                  }
+                  
+                  setNewBondEntry({ 
+                    ...newBondEntry, 
+                    ulb: value, 
+                    cityName,
+                    ulb_name: ulbName,
+                    ulb_type: ulbType,
+                  });
+                }}
+                placeholder={
+                  ulbLoading
+                    ? "Loading..."
+                    : ulbError
+                    ? "Failed to load ULBs"
+                    : "Select ULB"
                 }
-                placeholder="Select City"
-                isEditable={true}
+                isEditable={!ulbLoading && !ulbError}
+                isSearchable={true}
+              />
+              {getError("section1_4.bondList.new.ulb") && (
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_4.bondList.new.ulb")}
+                </p>
+              )}
+              {ulbError && (
+                <div className="text-xs text-red-500 mt-1">{ulbError}</div>
+              )}
+            </div>
+            <div>
+              <Label>City Name</Label>
+              <Input
+                value={newBondEntry.cityName}
+                readOnly
+                className={
+                  getError("section1_4.bondList.new.cityName")
+                    ? "w-full bg-gray-100 cursor-not-allowed border-red-500"
+                    : "w-full bg-gray-100 cursor-not-allowed"
+                }
+                placeholder="City name auto-filled"
               />
               {getError("section1_4.bondList.new.cityName") && (
                 <p className="text-sm text-red-500 mt-1">

@@ -38,7 +38,7 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
                     {
                       "bg-gray-100 text-gray-800 group-focus:bg-gray-200":
                         !isCurrent && !isCompleted,
-                      "bg-blue-600 text-white": isCurrent,
+                      "bg-primary text-primary-foreground": isCurrent,
                       "bg-green-500 text-white group-focus:bg-green-600":
                         isCompleted,
                       "cursor-pointer hover:bg-gray-200": isClickable,
@@ -54,7 +54,7 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
                 <span
                   className={cn(
                     "ms-2 text-sm font-medium text-gray-800",
-                    isClickable && "hover:text-blue-600 transition-colors"
+                    isClickable && "hover:text-primary transition-colors"
                   )}
                 >
                   {step.title}

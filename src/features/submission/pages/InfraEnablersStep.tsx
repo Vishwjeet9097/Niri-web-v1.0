@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { Plus, Trash2, Info } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { Plus, Trash2, Info, Upload, Download, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  parseCapacityBuildingExcel,
+  generateCapacityBuildingTemplate,
+} from "@/utils/excelParser";
+import {
+  getCurrentFinancialYear,
+  countOfficersTrainedInCurrentFY,
+} from "@/utils/dateUtils";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -775,6 +783,24 @@ export const InfraEnablersStep = () => {
     }));
   };
 
+  // Clear all officers function
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
+
+  const handleClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_5: {
+        ...prev.section4_5,
+        capacityArray: [],
+      },
+    }));
+    setShowClearAllDialog(false);
+    toast({
+      title: "All entries cleared",
+      description: "All officer entries have been removed.",
+    });
+  };
+
   const updateTraining = (
     id: string,
     field:
@@ -795,6 +821,125 @@ export const InfraEnablersStep = () => {
         ),
       },
     }));
+  };
+
+  // Excel upload functionality
+  const excelFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
+
+  const handleExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validExtensions = [".xlsx", ".xls"];
+    const fileExtension = file.name
+      .toLowerCase()
+      .substring(file.name.lastIndexOf("."));
+    if (!validExtensions.includes(fileExtension)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an Excel file (.xlsx or .xls)",
+        variant: "destructive",
+      });
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setIsUploadingExcel(true);
+    try {
+      const result = await parseCapacityBuildingExcel(file);
+
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (result.data.length === 0) {
+        toast({
+          title: "No data found",
+          description: "The Excel file does not contain valid data rows",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Merge with existing entries (avoid duplicates based on ID)
+      setFormData((prev) => {
+        const existingIds = new Set(
+          (prev.section4_5?.capacityArray || []).map((e) => e.id)
+        );
+        const newEntries = result.data!.filter((e) => !existingIds.has(e.id));
+
+        return {
+          ...prev,
+          section4_5: {
+            ...prev.section4_5,
+            capacityArray: [
+              ...(prev.section4_5?.capacityArray || []),
+              ...newEntries,
+            ],
+          },
+        };
+      });
+
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} officer ${
+          result.data.length === 1 ? "entry" : "entries"
+        }.${
+          result.warnings && result.warnings.length > 0
+            ? ` ${result.warnings.length} row(s) were skipped due to missing data.`
+            : ""
+        }`,
+      });
+
+      if (result.warnings && result.warnings.length > 0) {
+        console.warn("Excel upload warnings:", result.warnings);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description:
+          error.message || "An error occurred while processing the Excel file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingExcel(false);
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    try {
+      generateCapacityBuildingTemplate();
+      toast({
+        title: "Template downloaded",
+        description:
+          "Excel template has been downloaded. Please fill it with your data and upload it.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExcelUploadClick = () => {
+    if (isIndicatorSubmitted("4.5")) return;
+    excelFileInputRef.current?.click();
   };
 
   // Navigation / Save
@@ -2005,7 +2150,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.1")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.1", submittingIndicator)}
@@ -2546,7 +2690,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.2")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.2", submittingIndicator)}
@@ -2769,7 +2912,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.3")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.3", submittingIndicator)}
@@ -3145,7 +3287,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.4")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.4", submittingIndicator)}
@@ -3196,6 +3337,27 @@ export const InfraEnablersStep = () => {
         >
           {renderSectionValidationMessage("4.5")}
           <div className="flex flex-col gap-4">
+            {/* --- FY Count Display --- */}
+            {formData.section4_5.participated === "yes" && (
+              <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <Label className="text-base font-semibold text-gray-700 leading-none">
+                    Total Number of Officers Trained (FY{" "}
+                    {getCurrentFinancialYear()}):
+                  </Label>
+                  <span className="text-2xl font-bold text-blue-600 leading-none">
+                    {countOfficersTrainedInCurrentFY(
+                      formData.section4_5?.capacityArray || []
+                    )}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Count based on training dates within the current financial
+                  year
+                </p>
+              </div>
+            )}
+
             {/* --- Toggle --- */}
             <div className="w-[60%]">
               <Label>
@@ -3535,19 +3697,104 @@ export const InfraEnablersStep = () => {
                   )
                 )}
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addTraining}
-                  disabled={isIndicatorSubmitted("4.5")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Officer
-                </Button>
+                <div className="flex gap-2 flex-wrap items-center justify-between w-full">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addTraining}
+                      disabled={isIndicatorSubmitted("4.5")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Officer
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExcelUploadClick}
+                      disabled={isIndicatorSubmitted("4.5") || isUploadingExcel}
+                      className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {isUploadingExcel ? "Uploading..." : "Upload Excel"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadTemplate}
+                      disabled={isIndicatorSubmitted("4.5")}
+                      className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Template
+                    </Button>
+                  </div>
+
+                  {(formData.section4_5?.capacityArray || []).length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowClearAllDialog(true)}
+                      disabled={isIndicatorSubmitted("4.5")}
+                      className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <X className="w-4 h-4" />
+                      Clear All
+                    </Button>
+                  )}
+
+                  <input
+                    ref={excelFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleExcelUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
               </div>
             )}
+
+            {/* Clear All Confirmation Dialog */}
+            <AlertDialog
+              open={showClearAllDialog}
+              onOpenChange={setShowClearAllDialog}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to clear all officer entries? This
+                    action cannot be undone.
+                    {(formData.section4_5?.capacityArray || []).length > 0 && (
+                      <span className="block mt-2 font-semibold text-destructive">
+                        This will remove{" "}
+                        {(formData.section4_5?.capacityArray || []).length}{" "}
+                        {formData.section4_5?.capacityArray?.length === 1
+                          ? "entry"
+                          : "entries"}
+                        .
+                      </span>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleClearAll}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Clear All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {/* ✅ Table view for Section 4.5 – Officer Participation */}
             {formData.section4_5.participated === "yes" && (
               <div className="overflow-x-auto rounded-xl mt-4">
@@ -3666,7 +3913,6 @@ export const InfraEnablersStep = () => {
                 disabled={
                   submittingIndicator !== null || isIndicatorSubmitted("4.5")
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
                 {getSubmitButtonText("4.5", submittingIndicator)}

@@ -21,6 +21,7 @@ import { Plus, Trash2, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
+import { FileUploadSection } from "../components/FileUploadSection";
 import { FormActions } from "../components/FormActions";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
@@ -206,6 +207,8 @@ export const InfraFinancingStep = () => {
           ulb: "",
           ratingDate: "",
           rating: "",
+          file: null,
+          noDocumentAvailable: false,
         },
       ],
     },
@@ -215,6 +218,7 @@ export const InfraFinancingStep = () => {
         {
           id: Math.random().toString(36).substr(2, 9),
           bondType: "",
+          ulb: "",
           cityName: "",
           issuingAuthority: "",
           value: "",
@@ -252,7 +256,11 @@ export const InfraFinancingStep = () => {
         ulbList:
           Array.isArray(data.section1_3?.ulbList) &&
           data.section1_3.ulbList.length > 0
-            ? data.section1_3.ulbList
+            ? data.section1_3.ulbList.map((ulb: any) => ({
+                ...ulb,
+                file: ulb.file || null,
+                noDocumentAvailable: ulb.noDocumentAvailable || false,
+              }))
             : defaultData.section1_3.ulbList,
         // Preserve status field
         status: (data.section1_3 as any)?.status,
@@ -328,6 +336,7 @@ export const InfraFinancingStep = () => {
             {
               id: Math.random().toString(36).substr(2, 9),
               bondType: "",
+              ulb: "",
               cityName: "",
               issuingAuthority: "",
               value: "",
@@ -1224,6 +1233,8 @@ export const InfraFinancingStep = () => {
       ulb: "",
       ratingDate: "",
       rating: "",
+      file: null,
+      noDocumentAvailable: false,
     };
 
     setFormData((prev) => ({
@@ -1322,6 +1333,7 @@ export const InfraFinancingStep = () => {
     const newBond = {
       id: Date.now().toString(),
       bondType: "",
+      ulb: "",
       cityName: "",
       issuingAuthority: "",
       value: "",
@@ -1661,13 +1673,19 @@ export const InfraFinancingStep = () => {
       setValidatingIndicator(null);
       setIndicatorValidationErrors({});
 
-      // Sanitize files and remove unwanted keys before submission
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
-
-      // Create sanitized data with status for the submitted indicator
+      // ✅ FIX: Only include the section for the indicator being submitted
+      // This prevents empty sections from other indicators from being included in the payload
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Filter formData to only include the section being submitted
+      const filteredFormData = {
+        [sectionKey]: formData[sectionKey],
+      };
+
+      // Remove unwanted keys before submission (preserve File objects for upload)
+      // Note: Do NOT call sanitizeFilesInFormData here - it can cause File objects to be serialized
+      // The API service (submitSectionToStateApprover) will handle file detection and upload
+      const sanitizedFormData = deepRemoveUnwantedKeys(filteredFormData);
 
       // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
       const currentStatus = getIndicatorStatus(indicatorCode);
@@ -1844,6 +1862,7 @@ export const InfraFinancingStep = () => {
   };
 
   // Remove unwanted keys and sanitize files before submit
+  // CRITICAL: Preserves File and Blob instances (they cannot be serialized to JSON)
   function deepRemoveUnwantedKeys(obj: any): any {
     const keysToRemove = [
       "sectionStatus",
@@ -1852,24 +1871,59 @@ export const InfraFinancingStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
+
+    // Preserve File and Blob instances - return them as-is
+    if (obj instanceof File || obj instanceof Blob) {
+      return obj;
+    }
+
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+
     if (obj && typeof obj === "object") {
       const newObj: any = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
-          if (
-            key === "normalizedFormData" &&
-            obj[key] &&
-            typeof obj[key] === "object"
+          const value = obj[key];
+
+          // Preserve File and Blob instances
+          if (value instanceof File || value instanceof Blob) {
+            newObj[key] = value; // Keep File/Blob instance as-is
+          }
+          // Preserve FileUpload objects with File instances
+          else if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            (value.file instanceof File || value.file instanceof Blob)
           ) {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            // Preserve the FileUpload object structure, including the File instance
+            const fileUploadObj: any = {};
+            for (const prop in value) {
+              if (
+                prop === "file" &&
+                (value.file instanceof File || value.file instanceof Blob)
+              ) {
+                fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
+              } else {
+                fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
+              }
+            }
+            newObj[key] = fileUploadObj;
+          }
+          // Special handling for normalizedFormData and its 'original' property
+          else if (
+            key === "normalizedFormData" &&
+            value &&
+            typeof value === "object"
+          ) {
+            newObj[key] = deepRemoveUnwantedKeys(value);
             if (newObj[key].original) {
               newObj[key].original = deepRemoveUnwantedKeys(
                 newObj[key].original
               );
             }
           } else {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            newObj[key] = deepRemoveUnwantedKeys(value);
           }
         }
       }
@@ -2290,10 +2344,16 @@ export const InfraFinancingStep = () => {
       const currentStatus = getIndicatorStatus(indicatorCode);
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
 
-      // Sanitize files and remove unwanted keys before saving
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // ✅ FIX: Only include the section for the indicator being saved
+      // This prevents empty sections from other indicators from being included in the payload
+      const filteredFormData = {
+        [sectionKey]: formData[sectionKey],
+      };
+
+      // Remove unwanted keys before saving (preserve File objects for upload)
+      // Note: Do NOT call sanitizeFilesInFormData here - it can cause File objects to be serialized
+      // The API service (submitSectionToStateApprover) will handle file detection and upload
+      const sanitizedFormData = deepRemoveUnwantedKeys(filteredFormData);
 
       // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
       // Both Save and Submit buttons should change REVERTED to RESUBMITTED
@@ -2454,10 +2514,16 @@ export const InfraFinancingStep = () => {
         );
       }
 
-      // Sanitize files and remove unwanted keys before saving
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // ✅ FIX: Only include the section for the indicator being saved as draft
+      // This prevents empty sections from other indicators from being included in the payload
+      const filteredFormData = {
+        [sectionKey]: formData[sectionKey],
+      };
+
+      // Remove unwanted keys before saving (preserve File objects for upload)
+      // Note: Do NOT call sanitizeFilesInFormData here - it can cause File objects to be serialized
+      // The API service (submitSectionToStateApprover) will handle file detection and upload
+      const sanitizedFormData = deepRemoveUnwantedKeys(filteredFormData);
 
       // Prepare data with SAVE_AS_DRAFT status
       const sectionDataWithStatus = {
@@ -2735,7 +2801,7 @@ export const InfraFinancingStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("1.1")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
                   {getSubmitButtonText("1.1", submittingIndicator)}
@@ -2938,7 +3004,7 @@ export const InfraFinancingStep = () => {
                   disabled={
                     submittingIndicator !== null || isIndicatorSubmitted("1.2")
                   }
-                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
                   {getSubmitButtonText("1.2", submittingIndicator)}
@@ -3485,6 +3551,92 @@ export const InfraFinancingStep = () => {
                         <Trash2 className="h-6 w-6" />
                       </Button>
                     </div>
+                    {/* File Upload Section for each ULB entry */}
+                    <div className="col-span-12 mt-2">
+                      <FileUploadSection
+                        label="Upload File"
+                        required
+                        value={ulb.file ?? null}
+                        onChange={(fileUpload) => {
+                          showErrorsIfNeeded();
+                          // Clear validation error when file is uploaded or checkbox is changed
+                          setIndicatorValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors[
+                              `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                                (p) => p.id === ulb.id
+                              )}.file`
+                            ];
+                            return newErrors;
+                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? {
+                                      ...item,
+                                      file: fileUpload,
+                                      // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                                      // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                                      noDocumentAvailable: fileUpload
+                                        ? false
+                                        : item.noDocumentAvailable || false,
+                                    }
+                                  : item
+                              ),
+                            },
+                          }));
+                        }}
+                        submissionId={currentSubmissionId || undefined}
+                        disabled={isIndicatorSubmitted("1.3")}
+                        deferFileDeletion={editingIndicators.has("1.3")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={ulb.noDocumentAvailable || false}
+                        onNoDocumentChange={(noDocument) => {
+                          showErrorsIfNeeded();
+                          // Clear validation error when checkbox is changed
+                          setIndicatorValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors[
+                              `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                                (p) => p.id === ulb.id
+                              )}.file`
+                            ];
+                            return newErrors;
+                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? {
+                                      ...item,
+                                      noDocumentAvailable: noDocument,
+                                      // Clear file if "No Document Available" is checked
+                                      file: noDocument ? null : item.file,
+                                    }
+                                  : item
+                              ),
+                            },
+                          }));
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                              (p) => p.id === ulb.id
+                            )}.file`
+                          )
+                        )}
+                      />
+                      {renderFieldError(
+                        `section1_3.ulbList.${formData.section1_3.ulbList.findIndex(
+                          (p) => p.id === ulb.id
+                        )}.file`
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -3529,6 +3681,9 @@ export const InfraFinancingStep = () => {
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Rating
                           </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File
+                          </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action
                           </th>
@@ -3559,6 +3714,19 @@ export const InfraFinancingStep = () => {
                             <td className="py-3 px-4 text-sm font-normal">
                               {ulb.rating}
                             </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.noDocumentAvailable ? (
+                                <span className="text-muted-foreground italic">
+                                  No Document Available
+                                </span>
+                              ) : ulb.file?.fileName ? (
+                                <span className="text-primary">
+                                  {ulb.file.fileName}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
                             <td className="py-3 px-4">
                               <button
                                 type="button"
@@ -3585,7 +3753,7 @@ export const InfraFinancingStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("1.3")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("1.3", submittingIndicator)}
@@ -3675,6 +3843,7 @@ export const InfraFinancingStep = () => {
                               {
                                 id: Date.now().toString(),
                                 bondType: "",
+                                ulb: "",
                                 cityName: "",
                                 issuingAuthority: "",
                                 value: "",
@@ -3743,7 +3912,7 @@ export const InfraFinancingStep = () => {
                 {formData.section1_4.bondList.map((bond, index) => (
                   <div
                     key={bond.id}
-                    className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center"
+                    className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center"
                   >
                     <div>
                       <Label>
@@ -3790,42 +3959,194 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
+                        ULB<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Select
+                          value={bond.ulb}
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.4");
+
+                            // Find selected ULB object
+                            const selectedULB = ulbOptions.find(
+                              (u) => u.id === value
+                            );
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_4: {
+                                ...prev.section1_4,
+                                bondList: prev.section1_4.bondList.map((item) =>
+                                  item.id === bond.id
+                                    ? {
+                                        ...item,
+                                        ulb: value,
+                                        cityName: selectedULB?.city_name || "",
+                                      }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setUlbSearchMap((prev) => ({
+                                ...prev,
+                                [bond.id]: "",
+                              }));
+                              setUlbVisibleCountMap((prev) => ({
+                                ...prev,
+                                [bond.id]: 10,
+                              }));
+                            }
+                          }}
+                          disabled={isIndicatorSubmitted("1.4")}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_4.bondList.${index}.ulb`
+                              ),
+                              "cursor-pointer"
+                            )}
+                            tabIndex={0}
+                          >
+                            <SelectValue placeholder="Select ULB" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="px-2 py-1 transition-all duration-200 ease-in-out">
+                              <Input
+                                placeholder="Search by ULB name, city, or type..."
+                                value={ulbSearchMap[bond.id] || ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setUlbSearchMap((prev) => ({
+                                    ...prev,
+                                    [bond.id]: value,
+                                  }));
+                                  setUlbVisibleCountMap((prev) => ({
+                                    ...prev,
+                                    [bond.id]: 10,
+                                  }));
+                                }}
+                                className="mb-2 focus:shadow-lg focus:border-blue-400 transition-all duration-200 ease-in-out"
+                                disabled={isIndicatorSubmitted("1.4")}
+                                autoFocus
+                                onClick={(e) => {
+                                  e.currentTarget.focus();
+                                }}
+                              />
+                            </div>
+                            {(ulbSearchMap[bond.id] || "").trim() ? (
+                              <div>
+                                {(() => {
+                                  const filtered = ulbOptions.filter((u) => {
+                                    // Filter by search term
+                                    const matchesSearch =
+                                      `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
+                                        .toLowerCase()
+                                        .includes(
+                                          (
+                                            ulbSearchMap[bond.id] || ""
+                                          ).toLowerCase()
+                                        );
+                                    return matchesSearch;
+                                  });
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="px-3 py-2 text-gray-500 text-sm">
+                                        No results found
+                                      </div>
+                                    );
+                                  }
+                                  return filtered.map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                      )
+                                    </SelectItem>
+                                  ));
+                                })()}
+                              </div>
+                            ) : (
+                              <div
+                                style={{ maxHeight: 240, overflowY: "auto" }}
+                                onScroll={(e) => {
+                                  const el = e.currentTarget;
+                                  if (
+                                    el.scrollTop + el.clientHeight >=
+                                      el.scrollHeight - 10 &&
+                                    (ulbVisibleCountMap[bond.id] || 10) <
+                                      ulbOptions.length
+                                  ) {
+                                    setUlbVisibleCountMap((prev) => ({
+                                      ...prev,
+                                      [bond.id]: Math.min(
+                                        (prev[bond.id] || 10) + 10,
+                                        ulbOptions.length
+                                      ),
+                                    }));
+                                  }
+                                }}
+                              >
+                                {ulbOptions
+                                  .slice(0, ulbVisibleCountMap[bond.id] || 10)
+                                  .map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                      )
+                                    </SelectItem>
+                                  ))}
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {renderFieldError(`section1_4.bondList.${index}.ulb`)}
+                    </div>
+
+                    <div>
+                      <Label>
                         City Name<span className="text-red-500">*</span>
                       </Label>
-                      <Select
+                      <Input
+                        placeholder="City Name"
                         value={bond.cityName}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_4: {
-                              ...prev.section1_4,
-                              bondList: prev.section1_4.bondList.map((item) =>
-                                item.id === bond.id
-                                  ? { ...item, cityName: value }
-                                  : item
-                              ),
-                            },
-                          }));
+                        readOnly={!!bond.ulb}
+                        onChange={(e) => {
+                          if (!bond.ulb) {
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.4");
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_4: {
+                                ...prev.section1_4,
+                                bondList: prev.section1_4.bondList.map((item) =>
+                                  item.id === bond.id
+                                    ? { ...item, cityName: value }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }
                         }}
                         disabled={isIndicatorSubmitted("1.4")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_4.bondList.${index}.cityName`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select city" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Mumbai">Mumbai</SelectItem>
-                          <SelectItem value="Pune">Pune</SelectItem>
-                          <SelectItem value="Nagpur">Nagpur</SelectItem>
-                          <SelectItem value="Nashik">Nashik</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_4.bondList.${index}.cityName`
+                          ),
+                          (isIndicatorSubmitted("1.4") || bond.ulb) &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
                       {renderFieldError(
                         `section1_4.bondList.${index}.cityName`
                       )}
@@ -4045,6 +4366,9 @@ export const InfraFinancingStep = () => {
                             Bond Type
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
+                            ULB
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             City
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -4069,6 +4393,16 @@ export const InfraFinancingStep = () => {
                           >
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.bondType}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {(() => {
+                                const found = ulbOptions?.find(
+                                  (u) => u.id === bond.ulb
+                                );
+                                return found
+                                  ? found.ulb_name
+                                  : bond.ulb || "N/A";
+                              })()}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.cityName}
@@ -4108,7 +4442,7 @@ export const InfraFinancingStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("1.4")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("1.4", submittingIndicator)}
@@ -4611,7 +4945,7 @@ export const InfraFinancingStep = () => {
                       submittingIndicator !== null ||
                       isIndicatorSubmitted("1.5")
                     }
-                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {getSubmitButtonText("1.5", submittingIndicator)}
