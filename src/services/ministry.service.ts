@@ -82,8 +82,32 @@ export async function minstryRegistrationForm(userId: string, userRole: string, 
     };
     try {
         const response = await apiService.post(url, payload, { withCredentials: true });
-        // Try to return the most useful data
-        return response.data?.data || response.data || response;
+        const apiData = response.data?.data || response.data || response;
+        
+        // Backend returns: { status, data: { form, submission: { id, submissionId, ... }, ... }, message }
+        // Extract and flatten submission data for frontend compatibility
+        if (apiData?.submission) {
+            return {
+                ...apiData,
+                id: apiData.submission.id,
+                submissionId: apiData.submission.submissionId,
+                // Keep the full submission object for any other use cases
+                submission: apiData.submission
+            };
+        }
+        
+        // If structure is different, try to extract from nested data
+        if (apiData?.data?.submission) {
+            return {
+                ...apiData,
+                id: apiData.data.submission.id,
+                submissionId: apiData.data.submission.submissionId,
+                submission: apiData.data.submission
+            };
+        }
+        
+        // Return as-is if structure doesn't match expected format
+        return apiData;
     } catch (error) {
         console.error('❌ Error in minstryRegistrationForm:', error);
         throw error;
@@ -162,46 +186,51 @@ export async function getMinistrySubmissionId(userId: string): Promise<string | 
     try {
         const url = getApiUrl(`/ministry/form/retrieve/submission/${userId}`);
         const response = await apiService.get(url, { withCredentials: true });
-        const apiResponse = response.data;
         
+        // Axios interceptor already unwraps to response.data, so 'response' is the backend object
+        // Backend returns: { status: true, data: [...], message: "...", submissionId: "SUB-..." }
         console.log('[getMinistrySubmissionId] Response structure:', {
-            isArray: Array.isArray(apiResponse),
-            type: typeof apiResponse,
-            keys: apiResponse && typeof apiResponse === 'object' && !Array.isArray(apiResponse) ? Object.keys(apiResponse) : 'N/A',
-            hasSubmissionId: !!apiResponse?.submissionId,
-            submissionId: apiResponse?.submissionId,
-            sampleData: Array.isArray(apiResponse) ? 'Array of ' + apiResponse.length + ' items' : apiResponse
+            isArray: Array.isArray(response),
+            type: typeof response,
+            keys: response && typeof response === 'object' && !Array.isArray(response) ? Object.keys(response) : 'N/A',
+            hasSubmissionId: !!response?.submissionId,
+            submissionId: response?.submissionId,
+            hasStatus: !!response?.status,
+            hasData: !!response?.data,
+            sampleData: Array.isArray(response) ? 'Array of ' + response.length + ' items' : (response?.data ? 'Has data array' : 'No data')
         });
         
-        // The simpler endpoint should return { status, data, message, submissionId }
-        // But if backend hasn't been restarted, it might return just the data array
-        if (apiResponse?.submissionId) {
-            return apiResponse.submissionId;
-        }
-        if (apiResponse?.submission?.id) {
-            return apiResponse.submission.id;
-        }
-        if (apiResponse?.id) {
-            return apiResponse.id;
-        }
-        if (apiResponse?.data?.submissionId) {
-            return apiResponse.data.submissionId;
-        }
-        if (apiResponse?.data?.id) {
-            return apiResponse.data.id;
-        }
-        if (apiResponse?.data?.submission?.id) {
-            return apiResponse.data.submission.id;
+        // Backend returns: { status, data: [...], message, submissionId }
+        // Check top level (axios interceptor already unwrapped)
+        if (response?.submissionId) {
+            console.log('[getMinistrySubmissionId] ✅ Found submissionId:', response.submissionId);
+            return response.submissionId;
         }
         
-        // If response is an array, backend hasn't been restarted with the new code
-        if (Array.isArray(apiResponse)) {
-            console.warn('[getMinistrySubmissionId] Response is an array - backend needs restart to return submissionId');
+        // If response is directly an array (unexpected - backend should return object)
+        if (Array.isArray(response)) {
+            console.error('[getMinistrySubmissionId] ❌ Response is directly an array - backend should return { status, data, submissionId }');
+            console.error('[getMinistrySubmissionId] This indicates the backend response structure is incorrect');
+            // Cannot extract submissionId from array of indicators
+            return null;
         }
         
+        // Check if response has nested structure (shouldn't happen with interceptor, but handle it)
+        if (response?.data && Array.isArray(response.data) && !response.submissionId) {
+            console.warn('[getMinistrySubmissionId] Response has data array but no submissionId found');
+            console.warn('[getMinistrySubmissionId] Full response keys:', Object.keys(response));
+            return null;
+        }
+        
+        console.error('[getMinistrySubmissionId] ❌ Could not extract submissionId from response');
         return null;
-    } catch (error) {
+    } catch (error: any) {
         console.error('[getMinistrySubmissionId] API Error:', error);
+        // If it's a 404, that's okay - no submission exists
+        if (error?.response?.status === 404) {
+            console.log('[getMinistrySubmissionId] No submission found (404)');
+            return null;
+        }
         return null;
     }
 }
@@ -439,18 +468,195 @@ export async function getMospiMinistrySubmissionDetails(submissionId: string): P
 
 /**
  * Retrieve submission details with indicators, subsections, and input fields
- * @param userId - The ID of the user (Ministry Approver)
+ * @param submissionId - The ID of the submission (preferred)
+ * @param userId - Optional: The ID of the user (fallback if submissionId not available)
  * @returns Promise with submission form structure
  */
-export async function getMinistrySubmissionDetails(userId: string): Promise<{
+export async function getMinistrySubmissionDetails(
+  submissionId?: string, 
+  userId?: string
+): Promise<{
     status: boolean;
     data: any[];
     message: string;
     submissionId?: string;
+    id?: string; // UUID of the submission (for calling submission-with-data endpoint)
 }> {
     try {
-        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${userId}`);
+        console.log('[getMinistrySubmissionDetails] Called with:', { submissionId, userId });
+        
+        // If submissionId is provided, use it directly
+        let targetSubmissionId = submissionId;
+        
+        console.log('[getMinistrySubmissionDetails] targetSubmissionId:', targetSubmissionId);
+        
+        // If submissionId is not provided but userId is, use the endpoint that returns data directly
+        if (!targetSubmissionId && userId) {
+            console.log('[getMinistrySubmissionDetails] No submissionId, using userId path');
+            console.log('[getMinistrySubmissionDetails] No submissionId provided, fetching from userId:', userId);
+            
+            // Call the endpoint that returns submission details with data
+            // Backend returns: { status, data: [...], message, submissionId }
+            // Axios interceptor returns response.data, so 'response' is already the backend object
+            const url = getApiUrl(`/ministry/form/retrieve/submission/${userId}`);
+            const response = await apiService.get(url, { withCredentials: true });
+            
+            // Axios interceptor already unwraps to response.data, so 'response' is the backend object
+            // Backend returns: { status: true, data: [...], message: "...", submissionId: "SUB-..." }
+            console.log('[getMinistrySubmissionDetails] Response from /submission/:userId:', {
+                isArray: Array.isArray(response),
+                type: typeof response,
+                keys: response && typeof response === 'object' && !Array.isArray(response) ? Object.keys(response) : 'N/A',
+                hasStatus: !!response?.status,
+                hasData: !!response?.data,
+                hasSubmissionId: !!response?.submissionId,
+                submissionId: response?.submissionId,
+                dataIsArray: Array.isArray(response?.data),
+                dataLength: Array.isArray(response?.data) ? response.data.length : 'not array'
+            });
+            
+            // If response has the expected structure with submissionId
+            if (response && typeof response === 'object' && !Array.isArray(response)) {
+                if (response.submissionId && response.data && Array.isArray(response.data)) {
+                    console.log('[getMinistrySubmissionDetails] ✅ Got submissionId from userId endpoint:', response.submissionId);
+                    console.log('[getMinistrySubmissionDetails] ✅ Got UUID id from userId endpoint:', response.id);
+                    
+                    // Check if we have UUID to call submission-with-data endpoint
+                    if (response.id) {
+                        console.log('[getMinistrySubmissionDetails] 🔄 Now calling submission-with-data endpoint to get submitted indicators');
+                        
+                        // Call the submission-with-data endpoint using UUID
+                        const submissionWithDataUrl = getApiUrl(`/ministry/form/retrieve/submission-with-data/${response.id}`);
+                        console.log('[getMinistrySubmissionDetails] 📡 Calling submission-with-data:', submissionWithDataUrl);
+                        
+                        try {
+                            const submissionWithDataResponse = await apiService.get(submissionWithDataUrl, { withCredentials: true });
+                            console.log('[getMinistrySubmissionDetails] ✅ Got response from submission-with-data endpoint');
+                            
+                            // Handle the response from submission-with-data endpoint
+                            let apiResponse = submissionWithDataResponse.data;
+                            
+                            // Handle nested response structure
+                            if (apiResponse?.data && typeof apiResponse.data === 'object' && 'status' in apiResponse && Array.isArray(apiResponse.data)) {
+                                console.log('[getMinistrySubmissionDetails] Found nested structure with status in submission-with-data response');
+                            } else if (Array.isArray(apiResponse)) {
+                                if (submissionWithDataResponse?.data?.data && Array.isArray(submissionWithDataResponse.data.data)) {
+                                    apiResponse = submissionWithDataResponse.data;
+                                    console.log('[getMinistrySubmissionDetails] Found nested data structure in submission-with-data response');
+                                }
+                            }
+                            
+                            // If the response has the expected structure
+                            if (apiResponse && typeof apiResponse === 'object' && !Array.isArray(apiResponse) && 'status' in apiResponse) {
+                                console.log('[getMinistrySubmissionDetails] ✅ Using submission-with-data response with submitted indicators');
+                                return {
+                                    status: apiResponse.status ?? true,
+                                    data: apiResponse.data || [],
+                                    message: apiResponse.message || '',
+                                    submissionId: apiResponse.submissionId || response.submissionId,
+                                    id: response.id // Preserve UUID
+                                };
+                            }
+                            
+                            // Fallback: if response.data is directly the array
+                            if (Array.isArray(apiResponse)) {
+                                console.log('[getMinistrySubmissionDetails] ✅ Using submission-with-data response (array format)');
+                                return {
+                                    status: true,
+                                    data: apiResponse,
+                                    message: 'Retrieved indicators with submitted data',
+                                    submissionId: response.submissionId,
+                                    id: response.id // Preserve UUID
+                                };
+                            }
+                            
+                            // Fallback: if response.data.data exists
+                            if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+                                console.log('[getMinistrySubmissionDetails] ✅ Using submission-with-data response (nested data)');
+                                return {
+                                    status: apiResponse.status ?? true,
+                                    data: apiResponse.data,
+                                    message: apiResponse.message || '',
+                                    submissionId: apiResponse.submissionId || response.submissionId,
+                                    id: response.id // Preserve UUID
+                                };
+                            }
+                            
+                            // If submission-with-data response is unexpected, fall back to original response
+                            console.warn('[getMinistrySubmissionDetails] ⚠️ Unexpected submission-with-data response structure, using original response');
+                            return {
+                                status: response.status ?? true,
+                                data: response.data,
+                                message: response.message || '',
+                                submissionId: response.submissionId,
+                                id: response.id
+                            };
+                        } catch (submissionWithDataError: any) {
+                            console.error('[getMinistrySubmissionDetails] ⚠️ Error calling submission-with-data endpoint:', submissionWithDataError);
+                            console.warn('[getMinistrySubmissionDetails] ⚠️ Falling back to original response without submitted data');
+                            // Fall back to original response if submission-with-data fails
+                            return {
+                                status: response.status ?? true,
+                                data: response.data,
+                                message: response.message || '',
+                                submissionId: response.submissionId,
+                                id: response.id
+                            };
+                        }
+                    } else {
+                        console.warn('[getMinistrySubmissionDetails] ⚠️ No UUID (id) in response, cannot call submission-with-data endpoint');
+                        // Return the blank form structure if UUID is missing
+                        return {
+                            status: response.status ?? true,
+                            data: response.data,
+                            message: response.message || '',
+                            submissionId: response.submissionId
+                        };
+                    }
+                }
+                
+                // If submissionId is missing but we have data, the backend might not be including it
+                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                    console.warn('[getMinistrySubmissionDetails] ⚠️ Response has data but no submissionId in response object');
+                    console.warn('[getMinistrySubmissionDetails] This suggests the backend response structure is missing submissionId');
+                    // We can't proceed without submissionId for the submission-with-data endpoint
+                    throw new Error('Backend response missing submissionId. Cannot proceed without submission ID.');
+                }
+            }
+            
+            // If response is directly an array (unexpected - backend should return object)
+            if (Array.isArray(response) && response.length > 0) {
+                console.error('[getMinistrySubmissionDetails] ❌ Response is directly an array - backend should return { status, data, submissionId }');
+                console.error('[getMinistrySubmissionDetails] This indicates the backend response structure is incorrect');
+                throw new Error('Backend returned array instead of object with submissionId. Please check backend implementation.');
+            }
+            
+            // If we still don't have submissionId, throw error
+            const errorMsg = 'Could not retrieve submissionId from userId. The submission may not exist or the backend response format is unexpected.';
+            console.error('[getMinistrySubmissionDetails] ❌', errorMsg);
+            throw new Error(errorMsg);
+        }
+        
+        if (!targetSubmissionId) {
+            console.error('[getMinistrySubmissionDetails] ❌ No targetSubmissionId found');
+            throw new Error('Either submissionId or userId must be provided');
+        }
+        
+        // Call the submission-with-data endpoint to get indicators with submitted data
+        // This is the endpoint that shows submitted indicators with their data
+        console.log('[getMinistrySubmissionDetails] ✅ SubmissionId provided - will call submission-with-data endpoint');
+        console.log('[getMinistrySubmissionDetails] 📋 targetSubmissionId:', targetSubmissionId);
+        console.log('[getMinistrySubmissionDetails] 📋 targetSubmissionId type:', typeof targetSubmissionId);
+        console.log('[getMinistrySubmissionDetails] 📋 targetSubmissionId truthy?', !!targetSubmissionId);
+        
+        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${targetSubmissionId}`);
+        console.log('[getMinistrySubmissionDetails] 📡 Calling submission-with-data endpoint');
+        console.log('[getMinistrySubmissionDetails] 📡 Full URL:', url);
+        console.log('[getMinistrySubmissionDetails] 📡 Endpoint: GET /ministry/form/retrieve/submission-with-data/' + targetSubmissionId);
+        
         const response = await apiService.get(url, { withCredentials: true });
+        
+        console.log('[getMinistrySubmissionDetails] ✅ Successfully called submission-with-data endpoint');
         
         console.log('[getMinistrySubmissionDetails] Raw axios response:', {
             hasData: !!response.data,
@@ -624,17 +830,42 @@ export async function getMinistrySubmissionDetailsConsolidated(submissionId: str
 
 /**
  * Retrieve submission details with indicators for review (read-only mode)
- * @param userId - The ID of the user (Ministry Approver)
+ * @param submissionId - The ID of the submission (preferred)
+ * @param userId - Optional: The ID of the user (fallback if submissionId not available)
  * @returns Promise with submission form structure
  */
-export async function getMinistrySubmissionDetailsForReview(userId: string): Promise<{
+export async function getMinistrySubmissionDetailsForReview(
+  submissionId?: string,
+  userId?: string
+): Promise<{
     status: boolean;
     data: any[];
     message: string;
     submissionId?: string;
 }> {
     try {
-        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${userId}?forReview=true`);
+        // If submissionId is provided, use it directly
+        let targetSubmissionId = submissionId;
+        
+        // If submissionId is not provided but userId is, fetch submissionId first
+        if (!targetSubmissionId && userId) {
+            console.log('[getMinistrySubmissionDetailsForReview] No submissionId provided, fetching from userId:', userId);
+            targetSubmissionId = await getMinistrySubmissionId(userId);
+            
+            // If we still don't have submissionId, we cannot proceed
+            // The backend endpoint requires submissionId, not userId
+            if (!targetSubmissionId) {
+                const errorMsg = 'Could not retrieve submissionId from userId. The submission may not exist or the backend response format is unexpected.';
+                console.error('[getMinistrySubmissionDetailsForReview] ❌', errorMsg);
+                throw new Error(errorMsg);
+            }
+        }
+        
+        if (!targetSubmissionId) {
+            throw new Error('Either submissionId or userId must be provided');
+        }
+        
+        const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${targetSubmissionId}?forReview=true`);
         const response = await apiService.get(url, { withCredentials: true });
         
         console.log('[getMinistrySubmissionDetailsForReview] Raw axios response:', {
