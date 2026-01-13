@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSubmissionsForCurrentUser } from '@/services/ministry.service';
+// import { getSubmissionsForCurrentUser } from '@/services/ministry.service'; // Commented out - using new API
+import { getMospiMinistrySubmissionDetails } from '@/services/ministry.service'; // New API
 import { MinistrySubmissionCard } from '../components/MinistrySubmissionCard';
 import { MinistrySubmissionSearchBar } from '../components/MinistrySubmissionSearchBar';
 import { notificationService } from '@/services/notification.service';
@@ -29,48 +30,52 @@ export function MinistryReviewSubmissionsPage() {
   const loadSubmissions = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Loading ministry submissions for current user:', user?.id);
-      const response = await getSubmissionsForCurrentUser();
-      console.log('📋 API Response:', response);
-      console.log('📋 Response type:', typeof response);
-      console.log('📋 Response.data:', response.data);
-      console.log('📋 Response.data type:', typeof response.data);
-      console.log('📋 Is response.data an array?', Array.isArray(response.data));
-      console.log('📋 Response.status:', response.status);
-      console.log('📋 Response.message:', response.message);
       
-      // The API returns {status: true, data: Array(1), message: '...'}
-      // Check if response is directly an array first (arrays are objects in JS)
-      if (Array.isArray(response)) {
-        console.log('📋 Response is directly an array, using it');
-        setSubmissions(response);
-        setError(null);
-        setDebugInfo({
-          rawResponse: response,
-          processedData: response,
-          count: response.length,
-        });
-        
-        if (response.length === 0) {
-          console.warn('⚠️ No submissions found for current user');
-          setError('No submissions found. You have not submitted any indicators yet.');
-        }
+      if (!user?.id) {
+        setError('User ID is required');
+        setLoading(false);
+        return;
       }
-          // Check if response has the expected structure {status, data, message}
-          else if (response && typeof response === 'object' && response.data && Array.isArray(response.data)) {
-            const submissionsData = response.data;
-            
-            console.log('📋 Processed submissions data:', submissionsData);
-            console.log('📋 Submissions count:', submissionsData.length);
-            // Debug: Log first submission's user object to see ministryName
-            if (submissionsData.length > 0) {
-              console.log('📋 First submission:', submissionsData[0]);
-              console.log('📋 First submission user:', submissionsData[0]?.user);
-              console.log('📋 First submission ministryName:', submissionsData[0]?.user?.ministryName);
-              console.log('📋 First submission ministryId:', submissionsData[0]?.user?.ministryId);
-              console.log('📋 First submission user keys:', submissionsData[0]?.user ? Object.keys(submissionsData[0].user) : 'no user');
-            }
-            setSubmissions(submissionsData);
+
+      console.log('🔍 Loading ministry submissions using new API for user:', user?.id);
+      
+      // NEW API: Using getMospiMinistrySubmissionDetails with userId as submissionId parameter
+      // The API endpoint: /ministry/dashboard/submission-details/{submissionId}
+      // We're using userId as the submissionId parameter
+      const response = await getMospiMinistrySubmissionDetails(user.id);
+      
+      console.log('📋 New API Response:', response);
+      console.log('📋 Response status:', response.status);
+      console.log('📋 Response data:', response.data);
+      console.log('📋 Submissions array:', response.data?.submissions);
+      
+      // OLD API IMPLEMENTATION (COMMENTED OUT):
+      // const response = await getSubmissionsForCurrentUser();
+      // console.log('📋 API Response:', response);
+      // console.log('📋 Response type:', typeof response);
+      // console.log('📋 Response.data:', response.data);
+      // console.log('📋 Response.data type:', typeof response.data);
+      // console.log('📋 Is response.data an array?', Array.isArray(response.data));
+      // console.log('📋 Response.status:', response.status);
+      // console.log('📋 Response.message:', response.message);
+      
+      // Handle new API response structure: { status, data: { submissions: [...] }, message }
+      if (response?.status && response?.data?.submissions && Array.isArray(response.data.submissions)) {
+        const submissionsData = response.data.submissions;
+        
+        console.log('📋 Processed submissions data:', submissionsData);
+        console.log('📋 Submissions count:', submissionsData.length);
+        
+        // Debug: Log first submission's user object to see ministryName
+        if (submissionsData.length > 0) {
+          console.log('📋 First submission:', submissionsData[0]);
+          console.log('📋 First submission user:', submissionsData[0]?.user);
+          console.log('📋 First submission ministryName:', submissionsData[0]?.user?.ministryName);
+          console.log('📋 First submission ministryId:', submissionsData[0]?.user?.ministryId);
+          console.log('📋 First submission user keys:', submissionsData[0]?.user ? Object.keys(submissionsData[0].user) : 'no user');
+        }
+        
+        setSubmissions(submissionsData);
         setError(null);
         setDebugInfo({
           rawResponse: response,
@@ -82,39 +87,8 @@ export function MinistryReviewSubmissionsPage() {
           console.warn('⚠️ No submissions found for current user');
           setError('No submissions found. You have not submitted any indicators yet.');
         }
-      }
-      // If response.data exists but is not an array
-      else if (response && typeof response === 'object' && response.data && !Array.isArray(response.data)) {
-        console.warn('⚠️ Response.data exists but is not an array:', {
-          response,
-          dataType: typeof response.data,
-          dataValue: response.data
-        });
-        setSubmissions([]);
-        setError('Unexpected response format: data is not an array.');
-        setDebugInfo({
-          rawResponse: response,
-          error: 'Response.data is not an array',
-          dataType: typeof response.data,
-          dataValue: response.data
-        });
-      }
-      // If response is an object but doesn't have data property
-      else if (response && typeof response === 'object' && !response.data) {
-        console.warn('⚠️ Response is an object but missing data property:', {
-          response,
-          responseKeys: Object.keys(response)
-        });
-        setSubmissions([]);
-        setError('Unexpected response format: missing data property.');
-        setDebugInfo({
-          rawResponse: response,
-          error: 'Response missing data property',
-          responseKeys: Object.keys(response)
-        });
-      }
-      else {
-        console.warn('⚠️ Unexpected response structure:', response);
+      } else {
+        console.warn('⚠️ Unexpected response structure from new API:', response);
         setSubmissions([]);
         setError('Unexpected response format from server.');
         setDebugInfo({
