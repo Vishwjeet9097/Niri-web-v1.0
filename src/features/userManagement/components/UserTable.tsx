@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useCallback } from "react";
+import { useAuth } from "@/features/auth/AuthProvider";
 import {
   Table,
   TableBody,
@@ -27,6 +29,7 @@ import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
 import { getRoleDisplayName } from "@/utils/roles";
 import { apiService } from "@/services/api.service";
+import { getRemainingMinistryIndicators } from "@/services/ministry.service";
 
 interface UserTableProps {
   officers: NodalOfficer[];
@@ -51,6 +54,7 @@ export function UserTable({
   sortDirection,
   onSort,
 }: UserTableProps) {
+  const { user } = useAuth();
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       onSelectionChange(new Set(officers.map((o) => o.id)));
@@ -123,6 +127,54 @@ export function UserTable({
 };
 
 
+
+
+// State to hold assigned indicators for all officers
+
+
+type AssignedIndicatorsMap = { [userId: string]: string };
+type AssignedIndicatorsLoadingMap = { [userId: string]: boolean };
+
+// In the UserTable component:
+
+const [assignedIndicators, setAssignedIndicators] = useState<AssignedIndicatorsMap>({});
+const [assignedIndicatorsLoading, setAssignedIndicatorsLoading] = useState<AssignedIndicatorsLoadingMap>({});
+const fetchedRef = useRef<Set<string>>(new Set());
+
+useEffect(() => {
+  // Reset fetchedRef when officers list changes (to handle dynamic lists)
+  fetchedRef.current = new Set();
+  setAssignedIndicators({});
+  officers.forEach((officer) => {
+    if (!officer.id) return;
+    fetchedRef.current.add(officer.id);
+    setAssignedIndicatorsLoading((prev) => ({ ...prev, [officer.id]: true }));
+    getRemainingMinistryIndicators(officer.id).then((result) => {
+      let sNoString = "";
+       // result is the data object directly (not wrapped in .data)
+      if (result && typeof result === "object") {
+        const allSnos: string[] = [];
+        Object.values(result).forEach((sectionArr) => {
+          if (Array.isArray(sectionArr)) {
+            sectionArr.forEach((item) => {
+              if (item && item.sNo) allSnos.push(String(item.sNo));
+            });
+          }
+        });
+        // Add extra spacing between sNo values (e.g., 1.2      2.3      4.3)
+        sNoString = allSnos.join("      ");
+      }
+      setAssignedIndicators((prev) => ({ ...prev, [officer.id]: sNoString }));
+      setAssignedIndicatorsLoading((prev) => ({ ...prev, [officer.id]: false }));
+    }).catch((err) => {
+      console.error("[ERROR] getRemainingMinistryIndicators failed for", officer.id, err);
+      setAssignedIndicators((prev) => ({ ...prev, [officer.id]: "" }));
+      setAssignedIndicatorsLoading((prev) => ({ ...prev, [officer.id]: false }));
+    });
+  });
+}, [officers]);
+
+
   return (
     <div className="border rounded-lg bg-card">
       <Table>
@@ -140,6 +192,10 @@ export function UserTable({
             <SortableHeader field="state">State UT/Ministry</SortableHeader>
             <TableHead className="text-[#212121] text-xs font-semibold">Contact Number</TableHead>
             <SortableHeader field="email">Email</SortableHeader>
+            
+            {user?.role === "MINISTRY_APPROVER" && (
+              <SortableHeader field="email">Assigned Indicators</SortableHeader>
+            )}
             {/* <TableHead>Assigned Indicator</TableHead> */}
             <TableHead className="w-24 text-[#212121] text-xs font-semibold">Action</TableHead>
           </TableRow>
@@ -185,6 +241,33 @@ export function UserTable({
               </TableCell>
               <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
               <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                {user?.role === "MINISTRY_APPROVER" ? (
+                  assignedIndicatorsLoading[officer.id] ? (
+                    <span style={{ color: '#888' }}>Loading...</span>
+                  ) : assignedIndicators[officer.id] ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {assignedIndicators[officer.id].split(/\s+/).filter(Boolean).map((sNo, idx) => (
+                        <span
+                          key={sNo + idx}
+                          style={{
+                            background: '#E0E7FF',
+                            color: '#3730A3',
+                            borderRadius: '12px',
+                            padding: '2px 10px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            display: 'inline-block',
+                          }}
+                        >
+                          {sNo}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null
+                ) : null}
+              </TableCell>
+              
               {/* ...existing code... */}
               <TableCell>
                 <DropdownMenu>
