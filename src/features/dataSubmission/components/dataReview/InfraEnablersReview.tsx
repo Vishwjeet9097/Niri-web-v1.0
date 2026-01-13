@@ -4400,133 +4400,133 @@ export const InfraEnablersReview = ({
             {renderSectionValidationMessage("4.1")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div>
-                <Label className="mb-3 block">
-                  Availability & Use of State/UT PMG{" "}
-                  <span className="text-red-500">*</span>
-                </Label>
-                {shouldBeEditable("4.1") ? (
-                  <RadioGroup
-                    value={
-                      formDataState?.section4_1?.available
-                        ? String(
-                            formDataState.section4_1.available
-                          ).toLowerCase()
-                        : ""
-                    }
-                    onValueChange={(value) =>
-                      handleFieldUpdate("4.1", "available", value)
-                    }
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="4.1-yes" />
-                      <Label htmlFor="4.1-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="4.1-no" />
-                      <Label htmlFor="4.1-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        formDataState?.section4_1?.available === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+                <div>
+                  <Label className="mb-3 block">
+                    Availability & Use of State/UT PMG{" "}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  {shouldBeEditable("4.1") ? (
+                    <RadioGroup
+                      value={
+                        formDataState?.section4_1?.available
+                          ? String(
+                              formDataState.section4_1.available
+                            ).toLowerCase()
+                          : ""
+                      }
+                      onValueChange={(value) =>
+                        handleFieldUpdate("4.1", "available", value)
+                      }
+                      className="flex flex-row gap-6"
                     >
-                      {formDataState?.section4_1?.available === "yes"
-                        ? "Yes"
-                        : "No"}
-                    </span>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="4.1-yes" />
+                        <Label htmlFor="4.1-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="4.1-no" />
+                        <Label htmlFor="4.1-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          formDataState?.section4_1?.available === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {formDataState?.section4_1?.available === "yes"
+                          ? "Yes"
+                          : "No"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {formDataState?.section4_1?.available === "yes" && (
+                  <div>
+                    {shouldBeEditable("4.1") && (
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Checkbox
+                          id="no-doc-4.1"
+                          checked={
+                            formDataState?.section4_1?.noDocumentAvailable ||
+                            false
+                          }
+                          onCheckedChange={(checked) => {
+                            const noDocument = checked as boolean;
+                            setFormDataState((prev: any) => ({
+                              ...prev,
+                              section4_1: {
+                                ...prev.section4_1,
+                                noDocumentAvailable: noDocument,
+                                file: noDocument ? null : prev.section4_1?.file,
+                              },
+                            }));
+                          }}
+                        />
+                        <label
+                          htmlFor="no-doc-4.1"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          No document available
+                        </label>
+                      </div>
+                    )}
+
+                    {formDataState?.section4_1?.noDocumentAvailable &&
+                    !(
+                      formDataState?.section4_1?.file?.file ||
+                      formDataState?.section4_1?.file?.fileName ||
+                      formDataState?.section4_1?.file?.filePath
+                    ) ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
+                    ) : (
+                      <>
+                        <Label className="mb-2 block">Upload File</Label>
+                        <EditableFileDisplay
+                          files={formDataState?.section4_1?.file || null}
+                          isEditable={shouldBeEditable("4.1")}
+                          submissionId={submissionId}
+                          onFilesChange={(updatedFiles) =>
+                            handleFileUpdate("4.1", updatedFiles)
+                          }
+                          label="Uploaded File"
+                          multiple={false}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
 
-              {formDataState?.section4_1?.available === "yes" && (
-                <div>
-                  {shouldBeEditable("4.1") && (
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Checkbox
-                        id="no-doc-4.1"
-                        checked={
-                          formDataState?.section4_1?.noDocumentAvailable ||
-                          false
+                {formDataState?.section4_1?.available === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("4.1") ? (
+                      <Textarea
+                        value={formDataState?.section4_1?.comment || ""}
+                        onChange={(e) =>
+                          handleFieldUpdate("4.1", "comment", e.target.value)
                         }
-                        onCheckedChange={(checked) => {
-                          const noDocument = checked as boolean;
-                          setFormDataState((prev: any) => ({
-                            ...prev,
-                            section4_1: {
-                              ...prev.section4_1,
-                              noDocumentAvailable: noDocument,
-                              file: noDocument ? null : prev.section4_1?.file,
-                            },
-                          }));
-                        }}
+                        placeholder="Please provide a comment..."
+                        className="min-h-[100px]"
                       />
-                      <label
-                        htmlFor="no-doc-4.1"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        No document available
-                      </label>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {formDataState?.section4_1?.comment ||
+                          "No comment provided"}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                  {formDataState?.section4_1?.noDocumentAvailable &&
-                  !(
-                    formDataState?.section4_1?.file?.file ||
-                    formDataState?.section4_1?.file?.fileName ||
-                    formDataState?.section4_1?.file?.filePath
-                  ) ? (
-                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                      No document available
-                    </div>
-                  ) : (
-                    <>
-                      <Label className="mb-2 block">Upload File</Label>
-                      <EditableFileDisplay
-                        files={formDataState?.section4_1?.file || null}
-                        isEditable={shouldBeEditable("4.1")}
-                        submissionId={submissionId}
-                        onFilesChange={(updatedFiles) =>
-                          handleFileUpdate("4.1", updatedFiles)
-                        }
-                        label="Uploaded File"
-                        multiple={false}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-
-              {formDataState?.section4_1?.available === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {shouldBeEditable("4.1") ? (
-                    <Textarea
-                      value={formDataState?.section4_1?.comment || ""}
-                      onChange={(e) =>
-                        handleFieldUpdate("4.1", "comment", e.target.value)
-                      }
-                      placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {formDataState?.section4_1?.comment ||
-                        "No comment provided"}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                Upload documentation of State/UT PMG portal
-              </p>
+                <p className="text-xs text-muted-foreground">
+                  Upload documentation of State/UT PMG portal
+                </p>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -4566,712 +4566,725 @@ export const InfraEnablersReview = ({
             {renderSectionValidationMessage("4.2")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div>
-                <Label className="mb-3 block">
-                  Adoption of PM GatiShakti?*
-                </Label>
-                {shouldBeEditable("4.2") ? (
-                  <RadioGroup
-                    value={
-                      formDataState?.section4_2?.adopted
-                        ? String(formDataState.section4_2.adopted).toLowerCase()
-                        : ""
-                    }
-                    onValueChange={(value) =>
-                      handleFieldUpdate("4.2", "adopted", value)
-                    }
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="4.2-yes" />
-                      <Label htmlFor="4.2-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="4.2-no" />
-                      <Label htmlFor="4.2-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        formDataState?.section4_2?.adopted === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+                <div>
+                  <Label className="mb-3 block">
+                    Adoption of PM GatiShakti?*
+                  </Label>
+                  {shouldBeEditable("4.2") ? (
+                    <RadioGroup
+                      value={
+                        formDataState?.section4_2?.adopted
+                          ? String(
+                              formDataState.section4_2.adopted
+                            ).toLowerCase()
+                          : ""
+                      }
+                      onValueChange={(value) =>
+                        handleFieldUpdate("4.2", "adopted", value)
+                      }
+                      className="flex flex-row gap-6"
                     >
-                      {formDataState?.section4_2?.adopted === "yes"
-                        ? "Yes"
-                        : "No"}
-                    </span>
-                  </div>
-                )}
-              </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="4.2-yes" />
+                        <Label htmlFor="4.2-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="4.2-no" />
+                        <Label htmlFor="4.2-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          formDataState?.section4_2?.adopted === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {formDataState?.section4_2?.adopted === "yes"
+                          ? "Yes"
+                          : "No"}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-              {formDataState?.section4_2?.adopted === "yes" && (
-                <div className="space-y-4">
-                  {/* Projects Table */}
-                  <div className="overflow-x-auto rounded-xl">
-                    <table className="min-w-full border-separate border-spacing-0">
-                      <thead>
-                        <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Project Name
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Sector
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Status of Project
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Uploaded File
-                          </th>
-                          {shouldBeEditable("4.2") && (
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
+                {formDataState?.section4_2?.adopted === "yes" && (
+                  <div className="space-y-4">
+                    {/* Projects Table */}
+                    <div className="overflow-x-auto rounded-xl">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Project Name
                             </th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const projects = Array.isArray(
-                            formDataState?.section4_2?.projects
-                          )
-                            ? formDataState.section4_2.projects
-                            : [];
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Sector
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Status of Project
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Uploaded File
+                            </th>
+                            {shouldBeEditable("4.2") && (
+                              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                Action
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const projects = Array.isArray(
+                              formDataState?.section4_2?.projects
+                            )
+                              ? formDataState.section4_2.projects
+                              : [];
 
-                          if (!projects.length) {
-                            return (
-                              <tr>
-                                <td
-                                  colSpan={shouldBeEditable("4.2") ? 5 : 4}
-                                  className="py-8 text-center text-muted-foreground"
-                                >
-                                  No projects available
-                                </td>
-                              </tr>
-                            );
-                          }
+                            if (!projects.length) {
+                              return (
+                                <tr>
+                                  <td
+                                    colSpan={shouldBeEditable("4.2") ? 5 : 4}
+                                    className="py-8 text-center text-muted-foreground"
+                                  >
+                                    No projects available
+                                  </td>
+                                </tr>
+                              );
+                            }
 
-                          return projects.map((project: any, idx: number) => {
-                            const extractOriginalName = (
-                              fileName: string,
-                              originalName?: string
-                            ): string => {
-                              if (originalName && originalName.trim())
-                                return originalName;
+                            return projects.map((project: any, idx: number) => {
+                              const extractOriginalName = (
+                                fileName: string,
+                                originalName?: string
+                              ): string => {
+                                if (originalName && originalName.trim())
+                                  return originalName;
 
-                              const uuidPattern =
-                                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+                                const uuidPattern =
+                                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
 
-                              if (uuidPattern.test(fileName)) {
-                                const extracted = fileName.replace(
-                                  uuidPattern,
-                                  ""
-                                );
-                                if (extracted && extracted.trim().length > 0) {
-                                  return extracted;
+                                if (uuidPattern.test(fileName)) {
+                                  const extracted = fileName.replace(
+                                    uuidPattern,
+                                    ""
+                                  );
+                                  if (
+                                    extracted &&
+                                    extracted.trim().length > 0
+                                  ) {
+                                    return extracted;
+                                  }
                                 }
-                              }
 
-                              return fileName;
-                            };
+                                return fileName;
+                              };
 
-                            return (
-                              <tr key={project.id || idx} className="border-b">
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("4.2") ? (
-                                    <Input
-                                      value={project.projectName || ""}
-                                      onChange={(e) =>
-                                        handleProjectFieldUpdate(
-                                          idx,
-                                          "projectName",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-full"
-                                      placeholder="Enter project name"
-                                    />
-                                  ) : (
-                                    project.projectName || "N/A"
-                                  )}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("4.2") ? (
-                                    <Dropdown
-                                      value={project.sector || ""}
-                                      onChange={(value) =>
-                                        handleProjectFieldUpdate(
-                                          idx,
-                                          "sector",
-                                          value
-                                        )
-                                      }
-                                      options={dropdownValues.sector.map(
-                                        (opt) => ({
-                                          label: opt,
-                                          value: opt,
-                                        })
-                                      )}
-                                      placeholder="Select sector"
-                                    />
-                                  ) : (
-                                    project.sector || "N/A"
-                                  )}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("4.2") ? (
-                                    <Select
-                                      value={project.statusOfProject || ""}
-                                      onValueChange={(value) =>
-                                        handleProjectFieldUpdate(
-                                          idx,
-                                          "statusOfProject",
-                                          value
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select status" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="Ongoing">
-                                          Ongoing
-                                        </SelectItem>
-                                        <SelectItem value="Under Implementation">
-                                          Under Implementation
-                                        </SelectItem>
-                                        <SelectItem value="Completed">
-                                          Completed
-                                        </SelectItem>
-                                        <SelectItem value="Under Planning">
-                                          Under Planning
-                                        </SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  ) : (
-                                    project.statusOfProject || "N/A"
-                                  )}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {shouldBeEditable("4.2") ? (
-                                    <div className="space-y-1.5">
-                                      {/* No Document Available Checkbox */}
-                                      <div className="flex items-center space-x-2 py-1">
-                                        <Checkbox
-                                          id={`no-doc-4.2-${idx}`}
-                                          checked={
-                                            project.noDocumentAvailable || false
-                                          }
-                                          onCheckedChange={(checked) => {
-                                            const noDocument =
-                                              checked as boolean;
-                                            // Update noDocumentAvailable and clear file if checked
-                                            setFormDataState((prev: any) => {
-                                              const projects =
-                                                prev?.section4_2?.projects ||
-                                                [];
-                                              const updatedProjects =
-                                                projects.map(
-                                                  (p: any, index: number) =>
-                                                    index === idx
-                                                      ? {
-                                                          ...p,
-                                                          noDocumentAvailable:
-                                                            noDocument,
-                                                          file: noDocument
-                                                            ? null
-                                                            : p.file,
+                              return (
+                                <tr
+                                  key={project.id || idx}
+                                  className="border-b"
+                                >
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.2") ? (
+                                      <Input
+                                        value={project.projectName || ""}
+                                        onChange={(e) =>
+                                          handleProjectFieldUpdate(
+                                            idx,
+                                            "projectName",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="w-full"
+                                        placeholder="Enter project name"
+                                      />
+                                    ) : (
+                                      project.projectName || "N/A"
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.2") ? (
+                                      <Dropdown
+                                        value={project.sector || ""}
+                                        onChange={(value) =>
+                                          handleProjectFieldUpdate(
+                                            idx,
+                                            "sector",
+                                            value
+                                          )
+                                        }
+                                        options={dropdownValues.sector.map(
+                                          (opt) => ({
+                                            label: opt,
+                                            value: opt,
+                                          })
+                                        )}
+                                        placeholder="Select sector"
+                                      />
+                                    ) : (
+                                      project.sector || "N/A"
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.2") ? (
+                                      <Select
+                                        value={project.statusOfProject || ""}
+                                        onValueChange={(value) =>
+                                          handleProjectFieldUpdate(
+                                            idx,
+                                            "statusOfProject",
+                                            value
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger className="w-full">
+                                          <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="Ongoing">
+                                            Ongoing
+                                          </SelectItem>
+                                          <SelectItem value="Under Implementation">
+                                            Under Implementation
+                                          </SelectItem>
+                                          <SelectItem value="Completed">
+                                            Completed
+                                          </SelectItem>
+                                          <SelectItem value="Under Planning">
+                                            Under Planning
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      project.statusOfProject || "N/A"
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.2") ? (
+                                      <div className="space-y-1.5">
+                                        {/* No Document Available Checkbox */}
+                                        <div className="flex items-center space-x-2 py-1">
+                                          <Checkbox
+                                            id={`no-doc-4.2-${idx}`}
+                                            checked={
+                                              project.noDocumentAvailable ||
+                                              false
+                                            }
+                                            onCheckedChange={(checked) => {
+                                              const noDocument =
+                                                checked as boolean;
+                                              // Update noDocumentAvailable and clear file if checked
+                                              setFormDataState((prev: any) => {
+                                                const projects =
+                                                  prev?.section4_2?.projects ||
+                                                  [];
+                                                const updatedProjects =
+                                                  projects.map(
+                                                    (p: any, index: number) =>
+                                                      index === idx
+                                                        ? {
+                                                            ...p,
+                                                            noDocumentAvailable:
+                                                              noDocument,
+                                                            file: noDocument
+                                                              ? null
+                                                              : p.file,
+                                                          }
+                                                        : p
+                                                  );
+                                                return {
+                                                  ...prev,
+                                                  section4_2: {
+                                                    ...prev.section4_2,
+                                                    projects: updatedProjects,
+                                                  },
+                                                };
+                                              });
+                                            }}
+                                          />
+                                          <label
+                                            htmlFor={`no-doc-4.2-${idx}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                          >
+                                            No document available
+                                          </label>
+                                        </div>
+
+                                        {project.noDocumentAvailable &&
+                                        !(
+                                          project.file?.file ||
+                                          project.file?.fileName ||
+                                          project.file?.filePath ||
+                                          project.file?.fileUrl
+                                        ) ? (
+                                          <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                            No document available
+                                          </div>
+                                        ) : (
+                                          <>
+                                            {project.file ? (
+                                              <Badge
+                                                variant="secondary"
+                                                className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                                title={
+                                                  extractOriginalName(
+                                                    project.file.fileName || "",
+                                                    (project.file as any)
+                                                      ?.originalName
+                                                  ) || "Unknown file"
+                                                }
+                                              >
+                                                <Upload className="w-3 h-3 flex-shrink-0" />
+                                                <span className="truncate">
+                                                  {extractOriginalName(
+                                                    project.file.fileName || "",
+                                                    (project.file as any)
+                                                      ?.originalName
+                                                  ) || "Unknown file"}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    handleProjectFileUpdate(
+                                                      idx,
+                                                      null
+                                                    );
+                                                  }}
+                                                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                  <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                                </button>
+                                              </Badge>
+                                            ) : (
+                                              <span className="text-muted-foreground text-xs">
+                                                No file
+                                              </span>
+                                            )}
+                                            <div className="flex items-center">
+                                              <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx"
+                                                onChange={async (e) => {
+                                                  const selectedFile =
+                                                    e.target.files?.[0];
+                                                  if (selectedFile) {
+                                                    try {
+                                                      const response =
+                                                        await apiService.uploadFile(
+                                                          submissionId,
+                                                          selectedFile
+                                                        );
+                                                      const fileData =
+                                                        response?.data ||
+                                                        response;
+
+                                                      const newFile: FileUpload =
+                                                        {
+                                                          id:
+                                                            fileData.id ??
+                                                            crypto.randomUUID(),
+                                                          file: null,
+                                                          fileName:
+                                                            fileData.fileName ||
+                                                            fileData.filename ||
+                                                            selectedFile.name,
+                                                          fileSize: Number(
+                                                            fileData.fileSize ??
+                                                              fileData.size ??
+                                                              selectedFile.size ??
+                                                              0
+                                                          ),
+                                                          uploadedAt: Number(
+                                                            fileData.uploadedAt ??
+                                                              Date.now()
+                                                          ),
+                                                          filePath:
+                                                            fileData.filePath ??
+                                                            fileData.file ??
+                                                            fileData.url ??
+                                                            fileData.path,
+                                                          fileUrl:
+                                                            fileData.fileUrl ||
+                                                            fileData.url,
+                                                          mimeType:
+                                                            fileData.mimeType,
+                                                        };
+
+                                                      // Update file and clear noDocumentAvailable
+                                                      setFormDataState(
+                                                        (prev: any) => {
+                                                          const projects =
+                                                            prev?.section4_2
+                                                              ?.projects || [];
+                                                          const updatedProjects =
+                                                            projects.map(
+                                                              (
+                                                                p: any,
+                                                                index: number
+                                                              ) =>
+                                                                index === idx
+                                                                  ? {
+                                                                      ...p,
+                                                                      file: newFile,
+                                                                      noDocumentAvailable:
+                                                                        false,
+                                                                    }
+                                                                  : p
+                                                            );
+                                                          return {
+                                                            ...prev,
+                                                            section4_2: {
+                                                              ...prev.section4_2,
+                                                              projects:
+                                                                updatedProjects,
+                                                            },
+                                                          };
                                                         }
-                                                      : p
-                                                );
-                                              return {
-                                                ...prev,
-                                                section4_2: {
-                                                  ...prev.section4_2,
-                                                  projects: updatedProjects,
-                                                },
-                                              };
-                                            });
-                                          }}
-                                        />
-                                        <label
-                                          htmlFor={`no-doc-4.2-${idx}`}
-                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                        >
-                                          No document available
-                                        </label>
+                                                      );
+                                                      e.target.value = "";
+                                                    } catch (error: any) {
+                                                      console.error(
+                                                        "Failed to upload file:",
+                                                        error
+                                                      );
+                                                    }
+                                                  }
+                                                }}
+                                                className="hidden"
+                                                id={`file-input-4.2-${idx}`}
+                                              />
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                  document
+                                                    .getElementById(
+                                                      `file-input-4.2-${idx}`
+                                                    )
+                                                    ?.click()
+                                                }
+                                                className="h-6 px-2 text-xs"
+                                              >
+                                                <Plus className="w-3 h-3 mr-1" />
+                                                Add
+                                              </Button>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
-
-                                      {project.noDocumentAvailable &&
+                                    ) : project.noDocumentAvailable &&
                                       !(
                                         project.file?.file ||
                                         project.file?.fileName ||
                                         project.file?.filePath ||
                                         project.file?.fileUrl
                                       ) ? (
-                                        <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                          No document available
-                                        </div>
-                                      ) : (
-                                        <>
-                                          {project.file ? (
-                                            <Badge
-                                              variant="secondary"
-                                              className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                              title={
-                                                extractOriginalName(
-                                                  project.file.fileName || "",
-                                                  (project.file as any)
-                                                    ?.originalName
-                                                ) || "Unknown file"
-                                              }
-                                            >
-                                              <Upload className="w-3 h-3 flex-shrink-0" />
-                                              <span className="truncate">
-                                                {extractOriginalName(
-                                                  project.file.fileName || "",
-                                                  (project.file as any)
-                                                    ?.originalName
-                                                ) || "Unknown file"}
-                                              </span>
-                                              <button
+                                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                        No document available
+                                      </div>
+                                    ) : project.file ? (
+                                      <div className="flex items-center gap-1">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                          title={
+                                            extractOriginalName(
+                                              project.file.fileName || "",
+                                              (project.file as any)
+                                                ?.originalName
+                                            ) || "Unknown file"
+                                          }
+                                        >
+                                          <Upload className="w-3 h-3" />
+                                          <span className="truncate">
+                                            {extractOriginalName(
+                                              project.file.fileName || "",
+                                              (project.file as any)
+                                                ?.originalName
+                                            ) || "Unknown file"}
+                                          </span>
+                                        </Badge>
+                                        {(() => {
+                                          const fileKey = `section4_2.projects.${idx}.file`;
+                                          const hasFileAccess = !(
+                                            project.file.filePath ||
+                                            project.file.file ||
+                                            project.file.fileUrl
+                                          );
+                                          return hasFileAccess ? (
+                                            <>
+                                              <Button
                                                 type="button"
-                                                onClick={() => {
-                                                  handleProjectFileUpdate(
-                                                    idx,
-                                                    null
-                                                  );
-                                                }}
-                                                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                              >
-                                                <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                              </button>
-                                            </Badge>
-                                          ) : (
-                                            <span className="text-muted-foreground text-xs">
-                                              No file
-                                            </span>
-                                          )}
-                                          <div className="flex items-center">
-                                            <input
-                                              type="file"
-                                              accept=".pdf,.doc,.docx"
-                                              onChange={async (e) => {
-                                                const selectedFile =
-                                                  e.target.files?.[0];
-                                                if (selectedFile) {
-                                                  try {
-                                                    const response =
-                                                      await apiService.uploadFile(
-                                                        submissionId,
-                                                        selectedFile
-                                                      );
-                                                    const fileData =
-                                                      response?.data ||
-                                                      response;
-
-                                                    const newFile: FileUpload =
-                                                      {
-                                                        id:
-                                                          fileData.id ??
-                                                          crypto.randomUUID(),
-                                                        file: null,
-                                                        fileName:
-                                                          fileData.fileName ||
-                                                          fileData.filename ||
-                                                          selectedFile.name,
-                                                        fileSize: Number(
-                                                          fileData.fileSize ??
-                                                            fileData.size ??
-                                                            selectedFile.size ??
-                                                            0
-                                                        ),
-                                                        uploadedAt: Number(
-                                                          fileData.uploadedAt ??
-                                                            Date.now()
-                                                        ),
-                                                        filePath:
-                                                          fileData.filePath ??
-                                                          fileData.file ??
-                                                          fileData.url ??
-                                                          fileData.path,
-                                                        fileUrl:
-                                                          fileData.fileUrl ||
-                                                          fileData.url,
-                                                        mimeType:
-                                                          fileData.mimeType,
-                                                      };
-
-                                                    // Update file and clear noDocumentAvailable
-                                                    setFormDataState(
-                                                      (prev: any) => {
-                                                        const projects =
-                                                          prev?.section4_2
-                                                            ?.projects || [];
-                                                        const updatedProjects =
-                                                          projects.map(
-                                                            (
-                                                              p: any,
-                                                              index: number
-                                                            ) =>
-                                                              index === idx
-                                                                ? {
-                                                                    ...p,
-                                                                    file: newFile,
-                                                                    noDocumentAvailable:
-                                                                      false,
-                                                                  }
-                                                                : p
-                                                          );
-                                                        return {
-                                                          ...prev,
-                                                          section4_2: {
-                                                            ...prev.section4_2,
-                                                            projects:
-                                                              updatedProjects,
-                                                          },
-                                                        };
-                                                      }
-                                                    );
-                                                    e.target.value = "";
-                                                  } catch (error: any) {
-                                                    console.error(
-                                                      "Failed to upload file:",
-                                                      error
-                                                    );
-                                                  }
-                                                }
-                                              }}
-                                              className="hidden"
-                                              id={`file-input-4.2-${idx}`}
-                                            />
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() =>
-                                                document
-                                                  .getElementById(
-                                                    `file-input-4.2-${idx}`
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                  handleViewFile(
+                                                    project.file,
+                                                    fileKey
                                                   )
-                                                  ?.click()
-                                              }
-                                              className="h-6 px-2 text-xs"
-                                            >
-                                              <Plus className="w-3 h-3 mr-1" />
-                                              Add
-                                            </Button>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
-                                  ) : project.noDocumentAvailable &&
-                                    !(
-                                      project.file?.file ||
-                                      project.file?.fileName ||
-                                      project.file?.filePath ||
-                                      project.file?.fileUrl
-                                    ) ? (
+                                                }
+                                                disabled={false}
+                                                className="h-7 w-7 p-0"
+                                                title="View file"
+                                              >
+                                                <Eye className="w-3 h-3" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                  handleDownloadFile(
+                                                    project.file,
+                                                    fileKey
+                                                  )
+                                                }
+                                                disabled={false}
+                                                className="h-7 w-7 p-0"
+                                                title="Download file"
+                                              >
+                                                <Download className="w-3 h-3" />
+                                              </Button>
+                                            </>
+                                          ) : null;
+                                        })()}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
+                                    )}
+                                  </td>
+                                  {shouldBeEditable("4.2") && (
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => {
+                                          handleRemoveProject(
+                                            project.id || idx
+                                          );
+                                        }}
+                                        disabled={!shouldBeEditable("4.2")}
+                                        className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label="Delete"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Add Project Form */}
+                    {shouldBeEditable("4.2") && (
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        {!showAddProjectForm ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddProjectForm(true)}
+                            className="w-fit"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add More Project
+                          </Button>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div>
+                                <Label>
+                                  Project Name{" "}
+                                  <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                  value={newProject.projectName}
+                                  onChange={(e) =>
+                                    setNewProject({
+                                      ...newProject,
+                                      projectName: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Enter project name"
+                                  className="bg-white"
+                                />
+                              </div>
+                              <div>
+                                <Label>
+                                  Sector <span className="text-red-500">*</span>
+                                </Label>
+                                <Select
+                                  value={newProject.sector}
+                                  onValueChange={(value) =>
+                                    setNewProject({
+                                      ...newProject,
+                                      sector: value,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="bg-white">
+                                    <SelectValue placeholder="Select sector" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {SECTOR_OPTIONS.map((option) => (
+                                      <SelectItem key={option} value={option}>
+                                        {option}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>Status of Project</Label>
+                                <Select
+                                  value={newProject.statusOfProject}
+                                  onValueChange={(value) =>
+                                    setNewProject({
+                                      ...newProject,
+                                      statusOfProject: value,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="bg-white">
+                                    <SelectValue placeholder="Select status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Ongoing">
+                                      Ongoing
+                                    </SelectItem>
+                                    <SelectItem value="Under Implementation">
+                                      Under Implementation
+                                    </SelectItem>
+                                    <SelectItem value="Completed">
+                                      Completed
+                                    </SelectItem>
+                                    <SelectItem value="Under Planning">
+                                      Under Planning
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>
+                                  Upload File{" "}
+                                  <span className="text-red-500">*</span>
+                                </Label>
+                                <div className="space-y-2">
+                                  {/* No Document Available Checkbox */}
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="no-doc-add-project-4.2"
+                                      checked={newProject.noDocumentAvailable}
+                                      onCheckedChange={(checked) => {
+                                        const noDocument = checked as boolean;
+                                        setNewProject({
+                                          ...newProject,
+                                          noDocumentAvailable: noDocument,
+                                          file: noDocument
+                                            ? null
+                                            : newProject.file,
+                                        });
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor="no-doc-add-project-4.2"
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      No document available
+                                    </label>
+                                  </div>
+
+                                  {newProject.noDocumentAvailable &&
+                                  !(
+                                    newProject.file?.file ||
+                                    newProject.file?.fileName ||
+                                    newProject.file?.filePath ||
+                                    newProject.file?.fileUrl
+                                  ) ? (
                                     <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
                                       No document available
                                     </div>
-                                  ) : project.file ? (
-                                    <div className="flex items-center gap-1">
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                        title={
-                                          extractOriginalName(
-                                            project.file.fileName || "",
-                                            (project.file as any)?.originalName
-                                          ) || "Unknown file"
-                                        }
-                                      >
-                                        <Upload className="w-3 h-3" />
-                                        <span className="truncate">
-                                          {extractOriginalName(
-                                            project.file.fileName || "",
-                                            (project.file as any)?.originalName
-                                          ) || "Unknown file"}
-                                        </span>
-                                      </Badge>
-                                      {(() => {
-                                        const fileKey = `section4_2.projects.${idx}.file`;
-                                        const hasFileAccess = !(
-                                          project.file.filePath ||
-                                          project.file.file ||
-                                          project.file.fileUrl
-                                        );
-                                        return hasFileAccess ? (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleViewFile(
-                                                  project.file,
-                                                  fileKey
-                                                )
-                                              }
-                                              disabled={false}
-                                              className="h-7 w-7 p-0"
-                                              title="View file"
-                                            >
-                                              <Eye className="w-3 h-3" />
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleDownloadFile(
-                                                  project.file,
-                                                  fileKey
-                                                )
-                                              }
-                                              disabled={false}
-                                              className="h-7 w-7 p-0"
-                                              title="Download file"
-                                            >
-                                              <Download className="w-3 h-3" />
-                                            </Button>
-                                          </>
-                                        ) : null;
-                                      })()}
-                                    </div>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      No file
-                                    </span>
+                                    <FileUploadSection
+                                      label=""
+                                      value={newProject.file}
+                                      onChange={(file) =>
+                                        setNewProject({
+                                          ...newProject,
+                                          file,
+                                          noDocumentAvailable: false,
+                                        })
+                                      }
+                                      submissionId={submissionId}
+                                      required={!newProject.noDocumentAvailable}
+                                      multiple={false}
+                                    />
                                   )}
-                                </td>
-                                {shouldBeEditable("4.2") && (
-                                  <td className="py-3 px-4 text-sm font-normal">
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={() => {
-                                        handleRemoveProject(project.id || idx);
-                                      }}
-                                      disabled={!shouldBeEditable("4.2")}
-                                      className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      aria-label="Delete"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          });
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Add Project Form */}
-                  {shouldBeEditable("4.2") && (
-                    <div className="border rounded-lg p-4 bg-gray-50">
-                      {!showAddProjectForm ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowAddProjectForm(true)}
-                          className="w-fit"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add More Project
-                        </Button>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                              <Label>
-                                Project Name{" "}
-                                <span className="text-red-500">*</span>
-                              </Label>
-                              <Input
-                                value={newProject.projectName}
-                                onChange={(e) =>
-                                  setNewProject({
-                                    ...newProject,
-                                    projectName: e.target.value,
-                                  })
-                                }
-                                placeholder="Enter project name"
-                                className="bg-white"
-                              />
-                            </div>
-                            <div>
-                              <Label>
-                                Sector <span className="text-red-500">*</span>
-                              </Label>
-                              <Select
-                                value={newProject.sector}
-                                onValueChange={(value) =>
-                                  setNewProject({
-                                    ...newProject,
-                                    sector: value,
-                                  })
-                                }
-                              >
-                                <SelectTrigger className="bg-white">
-                                  <SelectValue placeholder="Select sector" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SECTOR_OPTIONS.map((option) => (
-                                    <SelectItem key={option} value={option}>
-                                      {option}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Status of Project</Label>
-                              <Select
-                                value={newProject.statusOfProject}
-                                onValueChange={(value) =>
-                                  setNewProject({
-                                    ...newProject,
-                                    statusOfProject: value,
-                                  })
-                                }
-                              >
-                                <SelectTrigger className="bg-white">
-                                  <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Ongoing">
-                                    Ongoing
-                                  </SelectItem>
-                                  <SelectItem value="Under Implementation">
-                                    Under Implementation
-                                  </SelectItem>
-                                  <SelectItem value="Completed">
-                                    Completed
-                                  </SelectItem>
-                                  <SelectItem value="Under Planning">
-                                    Under Planning
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>
-                                Upload File{" "}
-                                <span className="text-red-500">*</span>
-                              </Label>
-                              <div className="space-y-2">
-                                {/* No Document Available Checkbox */}
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="no-doc-add-project-4.2"
-                                    checked={newProject.noDocumentAvailable}
-                                    onCheckedChange={(checked) => {
-                                      const noDocument = checked as boolean;
-                                      setNewProject({
-                                        ...newProject,
-                                        noDocumentAvailable: noDocument,
-                                        file: noDocument
-                                          ? null
-                                          : newProject.file,
-                                      });
-                                    }}
-                                  />
-                                  <label
-                                    htmlFor="no-doc-add-project-4.2"
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                  >
-                                    No document available
-                                  </label>
                                 </div>
-
-                                {newProject.noDocumentAvailable &&
-                                !(
-                                  newProject.file?.file ||
-                                  newProject.file?.fileName ||
-                                  newProject.file?.filePath ||
-                                  newProject.file?.fileUrl
-                                ) ? (
-                                  <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                    No document available
-                                  </div>
-                                ) : (
-                                  <FileUploadSection
-                                    label=""
-                                    value={newProject.file}
-                                    onChange={(file) =>
-                                      setNewProject({
-                                        ...newProject,
-                                        file,
-                                        noDocumentAvailable: false,
-                                      })
-                                    }
-                                    submissionId={submissionId}
-                                    required={!newProject.noDocumentAvailable}
-                                    multiple={false}
-                                  />
-                                )}
                               </div>
                             </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleAddNewProject}
+                                disabled={
+                                  !newProject.projectName ||
+                                  !newProject.sector ||
+                                  (!newProject.file &&
+                                    !newProject.noDocumentAvailable)
+                                }
+                              >
+                                Add
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelAddProject}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={handleAddNewProject}
-                              disabled={
-                                !newProject.projectName ||
-                                !newProject.sector ||
-                                (!newProject.file &&
-                                  !newProject.noDocumentAvailable)
-                              }
-                            >
-                              Add
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCancelAddProject}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {formDataState?.section4_2?.adopted === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {shouldBeEditable("4.2") ? (
-                    <Textarea
-                      value={formDataState?.section4_2?.comment || ""}
-                      onChange={(e) =>
-                        handleFieldUpdate("4.2", "comment", e.target.value)
-                      }
-                      placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {formDataState?.section4_2?.comment ||
-                        "No comment provided"}
-                    </div>
-                  )}
-                </div>
-              )}
+                {formDataState?.section4_2?.adopted === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("4.2") ? (
+                      <Textarea
+                        value={formDataState?.section4_2?.comment || ""}
+                        onChange={(e) =>
+                          handleFieldUpdate("4.2", "comment", e.target.value)
+                        }
+                        placeholder="Please provide a comment..."
+                        className="min-h-[100px]"
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {formDataState?.section4_2?.comment ||
+                          "No comment provided"}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -5310,124 +5323,126 @@ export const InfraEnablersReview = ({
             {renderSectionValidationMessage("4.3")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div>
-                <Label className="mb-3 block">Adoption of ADR?*</Label>
-                {shouldBeEditable("4.3") ? (
-                  <RadioGroup
-                    value={
-                      formDataState?.section4_3?.adopted
-                        ? String(formDataState.section4_3.adopted).toLowerCase()
-                        : ""
-                    }
-                    onValueChange={(value) =>
-                      handleFieldUpdate("4.3", "adopted", value)
-                    }
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="4.3-yes" />
-                      <Label htmlFor="4.3-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="4.3-no" />
-                      <Label htmlFor="4.3-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        formDataState?.section4_3?.adopted === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+                <div>
+                  <Label className="mb-3 block">Adoption of ADR?*</Label>
+                  {shouldBeEditable("4.3") ? (
+                    <RadioGroup
+                      value={
+                        formDataState?.section4_3?.adopted
+                          ? String(
+                              formDataState.section4_3.adopted
+                            ).toLowerCase()
+                          : ""
+                      }
+                      onValueChange={(value) =>
+                        handleFieldUpdate("4.3", "adopted", value)
+                      }
+                      className="flex flex-row gap-6"
                     >
-                      {formDataState?.section4_3?.adopted === "yes"
-                        ? "Yes"
-                        : "No"}
-                    </span>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="4.3-yes" />
+                        <Label htmlFor="4.3-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="4.3-no" />
+                        <Label htmlFor="4.3-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          formDataState?.section4_3?.adopted === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {formDataState?.section4_3?.adopted === "yes"
+                          ? "Yes"
+                          : "No"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {formDataState?.section4_3?.adopted === "yes" && (
+                  <div>
+                    {shouldBeEditable("4.3") && (
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Checkbox
+                          id="no-doc-4.3"
+                          checked={
+                            formDataState?.section4_3?.noDocumentAvailable ||
+                            false
+                          }
+                          onCheckedChange={(checked) => {
+                            const noDocument = checked as boolean;
+                            setFormDataState((prev: any) => ({
+                              ...prev,
+                              section4_3: {
+                                ...prev.section4_3,
+                                noDocumentAvailable: noDocument,
+                                file: noDocument ? null : prev.section4_3?.file,
+                              },
+                            }));
+                          }}
+                        />
+                        <label
+                          htmlFor="no-doc-4.3"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          No document available
+                        </label>
+                      </div>
+                    )}
+
+                    {formDataState?.section4_3?.noDocumentAvailable &&
+                    !(
+                      formDataState?.section4_3?.file?.file ||
+                      formDataState?.section4_3?.file?.fileName ||
+                      formDataState?.section4_3?.file?.filePath
+                    ) ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
+                    ) : (
+                      <>
+                        <Label className="mb-2 block">Upload File</Label>
+                        <EditableFileDisplay
+                          files={formDataState?.section4_3?.file || null}
+                          isEditable={shouldBeEditable("4.3")}
+                          submissionId={submissionId}
+                          onFilesChange={(updatedFiles) =>
+                            handleFileUpdate("4.3", updatedFiles)
+                          }
+                          label="Uploaded File"
+                          multiple={false}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
 
-              {formDataState?.section4_3?.adopted === "yes" && (
-                <div>
-                  {shouldBeEditable("4.3") && (
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Checkbox
-                        id="no-doc-4.3"
-                        checked={
-                          formDataState?.section4_3?.noDocumentAvailable ||
-                          false
+                {formDataState?.section4_3?.adopted === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("4.3") ? (
+                      <Textarea
+                        value={formDataState?.section4_3?.comment || ""}
+                        onChange={(e) =>
+                          handleFieldUpdate("4.3", "comment", e.target.value)
                         }
-                        onCheckedChange={(checked) => {
-                          const noDocument = checked as boolean;
-                          setFormDataState((prev: any) => ({
-                            ...prev,
-                            section4_3: {
-                              ...prev.section4_3,
-                              noDocumentAvailable: noDocument,
-                              file: noDocument ? null : prev.section4_3?.file,
-                            },
-                          }));
-                        }}
+                        placeholder="Please provide a comment..."
+                        className="min-h-[100px]"
                       />
-                      <label
-                        htmlFor="no-doc-4.3"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        No document available
-                      </label>
-                    </div>
-                  )}
-
-                  {formDataState?.section4_3?.noDocumentAvailable &&
-                  !(
-                    formDataState?.section4_3?.file?.file ||
-                    formDataState?.section4_3?.file?.fileName ||
-                    formDataState?.section4_3?.file?.filePath
-                  ) ? (
-                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                      No document available
-                    </div>
-                  ) : (
-                    <>
-                      <Label className="mb-2 block">Upload File</Label>
-                      <EditableFileDisplay
-                        files={formDataState?.section4_3?.file || null}
-                        isEditable={shouldBeEditable("4.3")}
-                        submissionId={submissionId}
-                        onFilesChange={(updatedFiles) =>
-                          handleFileUpdate("4.3", updatedFiles)
-                        }
-                        label="Uploaded File"
-                        multiple={false}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-
-              {formDataState?.section4_3?.adopted === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {shouldBeEditable("4.3") ? (
-                    <Textarea
-                      value={formDataState?.section4_3?.comment || ""}
-                      onChange={(e) =>
-                        handleFieldUpdate("4.3", "comment", e.target.value)
-                      }
-                      placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {formDataState?.section4_3?.comment ||
-                        "No comment provided"}
-                    </div>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {formDataState?.section4_3?.comment ||
+                          "No comment provided"}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -5483,556 +5498,577 @@ export const InfraEnablersReview = ({
           </CardHeader> */}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div>
-                <Label className="mb-3 block">Innovation Practices </Label>
-                {shouldBeEditable("4.4") ? (
-                  <RadioGroup
-                    value={
-                      formDataState?.section4_4?.implemented
-                        ? String(
-                            formDataState.section4_4.implemented
-                          ).toLowerCase()
-                        : ""
-                    }
-                    onValueChange={(value) =>
-                      handleFieldUpdate("4.4", "implemented", value)
-                    }
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="4.4-yes" />
-                      <Label htmlFor="4.4-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="4.4-no" />
-                      <Label htmlFor="4.4-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        formDataState?.section4_4?.implemented === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {state?.section4_4?.implemented === "yes" ? "Yes" : "No"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {state?.section4_4?.implemented === "yes" && (
-                <>
-                  {/* Practices Table */}
-                  <div className="overflow-x-auto rounded-xl">
-                    <table className="min-w-full border-separate border-spacing-0">
-                      <thead>
-                        <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Practice Name
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Impact
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Uploaded File
-                          </th>
-                          {shouldBeEditable("4.4") && (
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
-                            </th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const practices = Array.isArray(
-                            formDataState?.section4_4?.practices
-                          )
-                            ? formDataState.section4_4.practices
-                            : [];
-
-                          if (!practices.length) {
-                            return (
-                              <tr>
-                                <td
-                                  colSpan={shouldBeEditable("4.4") ? 4 : 3}
-                                  className="py-8 text-center text-muted-foreground"
-                                >
-                                  No practices available
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          return practices.map((practice: any, idx: number) => (
-                            <tr key={practice.id || idx} className="border-b">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("4.4") ? (
-                                  <Input
-                                    value={practice.practiceName || ""}
-                                    onChange={(e) =>
-                                      handlePracticeFieldUpdate(
-                                        idx,
-                                        "practiceName",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full"
-                                    placeholder="Enter practice name"
-                                  />
-                                ) : (
-                                  practice.practiceName || "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("4.4") ? (
-                                  <Dropdown
-                                    resetKey={idx}
-                                    value={practice.impact || ""}
-                                    onChange={(value) =>
-                                      handlePracticeFieldUpdate(
-                                        idx,
-                                        "impact",
-                                        value
-                                      )
-                                    }
-                                    options={IMPACT_OPTIONS.map((opt) => ({
-                                      label: opt,
-                                      value: opt,
-                                    }))}
-                                    placeholder="Select impact"
-                                  />
-                                ) : (
-                                  practice.impact || "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("4.4") ? (
-                                  <div className="space-y-1.5">
-                                    {/* No Document Available Checkbox */}
-                                    <div className="flex items-center space-x-2 py-1">
-                                      <Checkbox
-                                        id={`no-doc-4.4-${idx}`}
-                                        checked={
-                                          practice.noDocumentAvailable || false
-                                        }
-                                        onCheckedChange={(checked) => {
-                                          const noDocument = checked as boolean;
-                                          // Update noDocumentAvailable and clear file if checked
-                                          setFormDataState((prev: any) => {
-                                            const practices =
-                                              prev?.section4_4?.practices || [];
-                                            const updatedPractices =
-                                              practices.map(
-                                                (p: any, index: number) =>
-                                                  index === idx
-                                                    ? {
-                                                        ...p,
-                                                        noDocumentAvailable:
-                                                          noDocument,
-                                                        file: noDocument
-                                                          ? null
-                                                          : p.file,
-                                                      }
-                                                    : p
-                                              );
-                                            return {
-                                              ...prev,
-                                              section4_4: {
-                                                ...prev.section4_4,
-                                                practices: updatedPractices,
-                                              },
-                                            };
-                                          });
-                                        }}
-                                      />
-                                      <label
-                                        htmlFor={`no-doc-4.4-${idx}`}
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                      >
-                                        No document available
-                                      </label>
-                                    </div>
-
-                                    {practice.noDocumentAvailable &&
-                                    !(
-                                      practice.file?.file ||
-                                      practice.file?.fileName ||
-                                      practice.file?.filePath ||
-                                      practice.file?.fileUrl
-                                    ) ? (
-                                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                        No document available
-                                      </div>
-                                    ) : (
-                                      <>
-                                        {practice.file ? (
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                            title={
-                                              extractOriginalName(
-                                                practice.file.fileName || "",
-                                                (practice.file as any)
-                                                  ?.originalName
-                                              ) || "Unknown file"
-                                            }
-                                          >
-                                            <Upload className="w-3 h-3 flex-shrink-0" />
-                                            <span className="truncate">
-                                              {extractOriginalName(
-                                                practice.file.fileName || "",
-                                                (practice.file as any)
-                                                  ?.originalName
-                                              ) || "Unknown file"}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                handlePracticeFileUpdate(
-                                                  idx,
-                                                  null
-                                                );
-                                              }}
-                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                            </button>
-                                          </Badge>
-                                        ) : (
-                                          <span className="text-muted-foreground text-xs">
-                                            No file
-                                          </span>
-                                        )}
-                                        <div className="flex items-center">
-                                          <input
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            onChange={async (e) => {
-                                              const selectedFile =
-                                                e.target.files?.[0];
-                                              if (selectedFile) {
-                                                // Upload file immediately (same as create submission)
-                                                try {
-                                                  const response =
-                                                    await apiService.uploadFile(
-                                                      submissionId,
-                                                      selectedFile
-                                                    );
-                                                  const fileData =
-                                                    response?.data || response;
-
-                                                  const newFile: FileUpload = {
-                                                    id:
-                                                      fileData.id ??
-                                                      crypto.randomUUID(),
-                                                    file: null, // File not stored locally when backend handles upload
-                                                    fileName:
-                                                      fileData.fileName ||
-                                                      fileData.filename ||
-                                                      selectedFile.name,
-                                                    fileSize: Number(
-                                                      fileData.fileSize ??
-                                                        fileData.size ??
-                                                        selectedFile.size ??
-                                                        0
-                                                    ),
-                                                    uploadedAt: Number(
-                                                      fileData.uploadedAt ??
-                                                        Date.now()
-                                                    ),
-                                                    filePath:
-                                                      fileData.filePath ??
-                                                      fileData.file ??
-                                                      fileData.url ??
-                                                      fileData.path,
-                                                    fileUrl:
-                                                      fileData.fileUrl ||
-                                                      fileData.url,
-                                                    mimeType: fileData.mimeType,
-                                                  };
-
-                                                  // Update file and clear noDocumentAvailable
-                                                  setFormDataState(
-                                                    (prev: any) => {
-                                                      const practices =
-                                                        prev?.section4_4
-                                                          ?.practices || [];
-                                                      const updatedPractices =
-                                                        practices.map(
-                                                          (
-                                                            p: any,
-                                                            index: number
-                                                          ) =>
-                                                            index === idx
-                                                              ? {
-                                                                  ...p,
-                                                                  file: newFile,
-                                                                  noDocumentAvailable:
-                                                                    false,
-                                                                }
-                                                              : p
-                                                        );
-                                                      return {
-                                                        ...prev,
-                                                        section4_4: {
-                                                          ...prev.section4_4,
-                                                          practices:
-                                                            updatedPractices,
-                                                        },
-                                                      };
-                                                    }
-                                                  );
-                                                  e.target.value = ""; // Reset input
-                                                } catch (error: any) {
-                                                  console.error(
-                                                    "Failed to upload file:",
-                                                    error
-                                                  );
-                                                }
-                                              }
-                                            }}
-                                            className="hidden"
-                                            id={`file-input-4.4-${idx}`}
-                                          />
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                              document
-                                                .getElementById(
-                                                  `file-input-4.4-${idx}`
-                                                )
-                                                ?.click()
-                                            }
-                                            className="h-6 px-2 text-xs"
-                                          >
-                                            <Plus className="w-3 h-3 mr-1" />
-                                            Add
-                                          </Button>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                ) : practice.noDocumentAvailable &&
-                                  !(
-                                    practice.file?.file ||
-                                    practice.file?.fileName ||
-                                    practice.file?.filePath ||
-                                    practice.file?.fileUrl
-                                  ) ? (
-                                  <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                    No document available
-                                  </div>
-                                ) : practice.file ? (
-                                  <div className="flex items-center gap-1">
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={
-                                        extractOriginalName(
-                                          practice.file.fileName || "",
-                                          (practice.file as any)?.originalName
-                                        ) || "Unknown file"
-                                      }
-                                    >
-                                      <Upload className="w-3 h-3" />
-                                      <span className="truncate">
-                                        {extractOriginalName(
-                                          practice.file.fileName || "",
-                                          (practice.file as any)?.originalName
-                                        ) || "Unknown file"}
-                                      </span>
-                                    </Badge>
-                                    {(() => {
-                                      const fileKey = `4.4-${idx}`;
-                                      const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(
-                                        practice.file.filePath ||
-                                        practice.file.file ||
-                                        practice.file.fileUrl
-                                      );
-                                      return hasFileAccess ? (
-                                        <>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                              handleViewFile(
-                                                practice.file,
-                                                fileKey
-                                              )
-                                            }
-                                            disabled={isLoading}
-                                            className="h-7 w-7 p-0"
-                                            title="View file"
-                                          >
-                                            <Eye className="w-3 h-3" />
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                              handleDownloadFile(
-                                                practice.file,
-                                                fileKey
-                                              )
-                                            }
-                                            disabled={isLoading}
-                                            className="h-7 w-7 p-0"
-                                            title="Download file"
-                                          >
-                                            <Download className="w-3 h-3" />
-                                          </Button>
-                                        </>
-                                      ) : null;
-                                    })()}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    No file
-                                  </span>
-                                )}
-                              </td>
-                              {shouldBeEditable("4.4") && (
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => {
-                                      // Use index for deletion since items may not have IDs
-                                      handleRemovePractice(idx);
-                                    }}
-                                    className="text-red-500 hover:text-red-700 border-none bg-none"
-                                  >
-                                    <Trash2 className="h-5 w-5" />
-                                  </Button>
-                                </td>
-                              )}
-                            </tr>
-                          ));
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Add More Practice Button - Only visible when in edit mode */}
-                  {shouldBeEditable("4.4") && !showAddPracticeForm && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                      onClick={() => setShowAddPracticeForm(true)}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add More Practice
-                    </Button>
-                  )}
-
-                  {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
-                  {showAddPracticeForm && shouldBeEditable("4.4") && (
-                    <div className="border rounded-lg p-4 bg-gray-50">
-                      <h4 className="font-medium mb-3">Add New Practice</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Practice Name</Label>
-                          <Input
-                            value={newPractice.practiceName}
-                            onChange={(e) =>
-                              setNewPractice({
-                                ...newPractice,
-                                practiceName: e.target.value,
-                              })
-                            }
-                            className="bg-white"
-                            placeholder="Enter practice name"
-                          />
-                        </div>
-                        <div>
-                          <Label>Impact</Label>
-                          <Dropdown
-                            value={newPractice.impact}
-                            onChange={(value) =>
-                              setNewPractice({ ...newPractice, impact: value })
-                            }
-                            options={IMPACT_OPTIONS.map((opt) => ({
-                              label: opt,
-                              value: opt,
-                            }))}
-                            placeholder="Select impact"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label>Upload File</Label>
-                          <EditableFileDisplay
-                            files={newPractice.file}
-                            isEditable={true}
-                            submissionId={submissionId}
-                            onFilesChange={(updatedFile) => {
-                              setNewPractice({
-                                ...newPractice,
-                                file: updatedFile as FileUpload | null,
-                              });
-                            }}
-                            label=""
-                            multiple={false}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleAddNewPractice}
-                          className="flex items-center gap-2"
-                        >
-                          <Check className="w-4 h-4" />
-                          Save Practice
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCancelAddPractice}
-                          className="flex items-center gap-2"
-                        >
-                          <X className="w-4 h-4" />
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {state?.section4_4?.implemented === "no" && (
                 <div>
-                  <Label className="mb-2 block">Comment</Label>
+                  <Label className="mb-3 block">Innovation Practices </Label>
                   {shouldBeEditable("4.4") ? (
-                    <Textarea
-                      value={state?.section4_4?.comment || ""}
-                      onChange={(e) =>
-                        handleFieldUpdate("4.4", "comment", e.target.value)
+                    <RadioGroup
+                      value={
+                        formDataState?.section4_4?.implemented
+                          ? String(
+                              formDataState.section4_4.implemented
+                            ).toLowerCase()
+                          : ""
                       }
-                      placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
-                    />
+                      onValueChange={(value) =>
+                        handleFieldUpdate("4.4", "implemented", value)
+                      }
+                      className="flex flex-row gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="4.4-yes" />
+                        <Label htmlFor="4.4-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="4.4-no" />
+                        <Label htmlFor="4.4-no">No</Label>
+                      </div>
+                    </RadioGroup>
                   ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {state?.section4_4?.comment || "No comment provided"}
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          formDataState?.section4_4?.implemented === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {state?.section4_4?.implemented === "yes"
+                          ? "Yes"
+                          : "No"}
+                      </span>
                     </div>
                   )}
                 </div>
-              )}
 
-              <p className="text-xs text-muted-foreground">
-                Upload documentation of innovative practices
-              </p>
+                {state?.section4_4?.implemented === "yes" && (
+                  <>
+                    {/* Practices Table */}
+                    <div className="overflow-x-auto rounded-xl">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Practice Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Impact
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Uploaded File
+                            </th>
+                            {shouldBeEditable("4.4") && (
+                              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                Action
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const practices = Array.isArray(
+                              formDataState?.section4_4?.practices
+                            )
+                              ? formDataState.section4_4.practices
+                              : [];
+
+                            if (!practices.length) {
+                              return (
+                                <tr>
+                                  <td
+                                    colSpan={shouldBeEditable("4.4") ? 4 : 3}
+                                    className="py-8 text-center text-muted-foreground"
+                                  >
+                                    No practices available
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return practices.map(
+                              (practice: any, idx: number) => (
+                                <tr
+                                  key={practice.id || idx}
+                                  className="border-b"
+                                >
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.4") ? (
+                                      <Input
+                                        value={practice.practiceName || ""}
+                                        onChange={(e) =>
+                                          handlePracticeFieldUpdate(
+                                            idx,
+                                            "practiceName",
+                                            e.target.value
+                                          )
+                                        }
+                                        className="w-full"
+                                        placeholder="Enter practice name"
+                                      />
+                                    ) : (
+                                      practice.practiceName || "N/A"
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.4") ? (
+                                      <Dropdown
+                                        resetKey={idx}
+                                        value={practice.impact || ""}
+                                        onChange={(value) =>
+                                          handlePracticeFieldUpdate(
+                                            idx,
+                                            "impact",
+                                            value
+                                          )
+                                        }
+                                        options={IMPACT_OPTIONS.map((opt) => ({
+                                          label: opt,
+                                          value: opt,
+                                        }))}
+                                        placeholder="Select impact"
+                                      />
+                                    ) : (
+                                      practice.impact || "N/A"
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {shouldBeEditable("4.4") ? (
+                                      <div className="space-y-1.5">
+                                        {/* No Document Available Checkbox */}
+                                        <div className="flex items-center space-x-2 py-1">
+                                          <Checkbox
+                                            id={`no-doc-4.4-${idx}`}
+                                            checked={
+                                              practice.noDocumentAvailable ||
+                                              false
+                                            }
+                                            onCheckedChange={(checked) => {
+                                              const noDocument =
+                                                checked as boolean;
+                                              // Update noDocumentAvailable and clear file if checked
+                                              setFormDataState((prev: any) => {
+                                                const practices =
+                                                  prev?.section4_4?.practices ||
+                                                  [];
+                                                const updatedPractices =
+                                                  practices.map(
+                                                    (p: any, index: number) =>
+                                                      index === idx
+                                                        ? {
+                                                            ...p,
+                                                            noDocumentAvailable:
+                                                              noDocument,
+                                                            file: noDocument
+                                                              ? null
+                                                              : p.file,
+                                                          }
+                                                        : p
+                                                  );
+                                                return {
+                                                  ...prev,
+                                                  section4_4: {
+                                                    ...prev.section4_4,
+                                                    practices: updatedPractices,
+                                                  },
+                                                };
+                                              });
+                                            }}
+                                          />
+                                          <label
+                                            htmlFor={`no-doc-4.4-${idx}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                          >
+                                            No document available
+                                          </label>
+                                        </div>
+
+                                        {practice.noDocumentAvailable &&
+                                        !(
+                                          practice.file?.file ||
+                                          practice.file?.fileName ||
+                                          practice.file?.filePath ||
+                                          practice.file?.fileUrl
+                                        ) ? (
+                                          <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                            No document available
+                                          </div>
+                                        ) : (
+                                          <>
+                                            {practice.file ? (
+                                              <Badge
+                                                variant="secondary"
+                                                className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                                title={
+                                                  extractOriginalName(
+                                                    practice.file.fileName ||
+                                                      "",
+                                                    (practice.file as any)
+                                                      ?.originalName
+                                                  ) || "Unknown file"
+                                                }
+                                              >
+                                                <Upload className="w-3 h-3 flex-shrink-0" />
+                                                <span className="truncate">
+                                                  {extractOriginalName(
+                                                    practice.file.fileName ||
+                                                      "",
+                                                    (practice.file as any)
+                                                      ?.originalName
+                                                  ) || "Unknown file"}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    handlePracticeFileUpdate(
+                                                      idx,
+                                                      null
+                                                    );
+                                                  }}
+                                                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                  <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                                </button>
+                                              </Badge>
+                                            ) : (
+                                              <span className="text-muted-foreground text-xs">
+                                                No file
+                                              </span>
+                                            )}
+                                            <div className="flex items-center">
+                                              <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx"
+                                                onChange={async (e) => {
+                                                  const selectedFile =
+                                                    e.target.files?.[0];
+                                                  if (selectedFile) {
+                                                    // Upload file immediately (same as create submission)
+                                                    try {
+                                                      const response =
+                                                        await apiService.uploadFile(
+                                                          submissionId,
+                                                          selectedFile
+                                                        );
+                                                      const fileData =
+                                                        response?.data ||
+                                                        response;
+
+                                                      const newFile: FileUpload =
+                                                        {
+                                                          id:
+                                                            fileData.id ??
+                                                            crypto.randomUUID(),
+                                                          file: null, // File not stored locally when backend handles upload
+                                                          fileName:
+                                                            fileData.fileName ||
+                                                            fileData.filename ||
+                                                            selectedFile.name,
+                                                          fileSize: Number(
+                                                            fileData.fileSize ??
+                                                              fileData.size ??
+                                                              selectedFile.size ??
+                                                              0
+                                                          ),
+                                                          uploadedAt: Number(
+                                                            fileData.uploadedAt ??
+                                                              Date.now()
+                                                          ),
+                                                          filePath:
+                                                            fileData.filePath ??
+                                                            fileData.file ??
+                                                            fileData.url ??
+                                                            fileData.path,
+                                                          fileUrl:
+                                                            fileData.fileUrl ||
+                                                            fileData.url,
+                                                          mimeType:
+                                                            fileData.mimeType,
+                                                        };
+
+                                                      // Update file and clear noDocumentAvailable
+                                                      setFormDataState(
+                                                        (prev: any) => {
+                                                          const practices =
+                                                            prev?.section4_4
+                                                              ?.practices || [];
+                                                          const updatedPractices =
+                                                            practices.map(
+                                                              (
+                                                                p: any,
+                                                                index: number
+                                                              ) =>
+                                                                index === idx
+                                                                  ? {
+                                                                      ...p,
+                                                                      file: newFile,
+                                                                      noDocumentAvailable:
+                                                                        false,
+                                                                    }
+                                                                  : p
+                                                            );
+                                                          return {
+                                                            ...prev,
+                                                            section4_4: {
+                                                              ...prev.section4_4,
+                                                              practices:
+                                                                updatedPractices,
+                                                            },
+                                                          };
+                                                        }
+                                                      );
+                                                      e.target.value = ""; // Reset input
+                                                    } catch (error: any) {
+                                                      console.error(
+                                                        "Failed to upload file:",
+                                                        error
+                                                      );
+                                                    }
+                                                  }
+                                                }}
+                                                className="hidden"
+                                                id={`file-input-4.4-${idx}`}
+                                              />
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                  document
+                                                    .getElementById(
+                                                      `file-input-4.4-${idx}`
+                                                    )
+                                                    ?.click()
+                                                }
+                                                className="h-6 px-2 text-xs"
+                                              >
+                                                <Plus className="w-3 h-3 mr-1" />
+                                                Add
+                                              </Button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    ) : practice.noDocumentAvailable &&
+                                      !(
+                                        practice.file?.file ||
+                                        practice.file?.fileName ||
+                                        practice.file?.filePath ||
+                                        practice.file?.fileUrl
+                                      ) ? (
+                                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                        No document available
+                                      </div>
+                                    ) : practice.file ? (
+                                      <div className="flex items-center gap-1">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                          title={
+                                            extractOriginalName(
+                                              practice.file.fileName || "",
+                                              (practice.file as any)
+                                                ?.originalName
+                                            ) || "Unknown file"
+                                          }
+                                        >
+                                          <Upload className="w-3 h-3" />
+                                          <span className="truncate">
+                                            {extractOriginalName(
+                                              practice.file.fileName || "",
+                                              (practice.file as any)
+                                                ?.originalName
+                                            ) || "Unknown file"}
+                                          </span>
+                                        </Badge>
+                                        {(() => {
+                                          const fileKey = `4.4-${idx}`;
+                                          const isLoading =
+                                            !!fileLoading[fileKey];
+                                          const hasFileAccess = !!(
+                                            practice.file.filePath ||
+                                            practice.file.file ||
+                                            practice.file.fileUrl
+                                          );
+                                          return hasFileAccess ? (
+                                            <>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                  handleViewFile(
+                                                    practice.file,
+                                                    fileKey
+                                                  )
+                                                }
+                                                disabled={isLoading}
+                                                className="h-7 w-7 p-0"
+                                                title="View file"
+                                              >
+                                                <Eye className="w-3 h-3" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                  handleDownloadFile(
+                                                    practice.file,
+                                                    fileKey
+                                                  )
+                                                }
+                                                disabled={isLoading}
+                                                className="h-7 w-7 p-0"
+                                                title="Download file"
+                                              >
+                                                <Download className="w-3 h-3" />
+                                              </Button>
+                                            </>
+                                          ) : null;
+                                        })()}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
+                                    )}
+                                  </td>
+                                  {shouldBeEditable("4.4") && (
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => {
+                                          // Use index for deletion since items may not have IDs
+                                          handleRemovePractice(idx);
+                                        }}
+                                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                                      >
+                                        <Trash2 className="h-5 w-5" />
+                                      </Button>
+                                    </td>
+                                  )}
+                                </tr>
+                              )
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Add More Practice Button - Only visible when in edit mode */}
+                    {shouldBeEditable("4.4") && !showAddPracticeForm && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                        onClick={() => setShowAddPracticeForm(true)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add More Practice
+                      </Button>
+                    )}
+
+                    {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
+                    {showAddPracticeForm && shouldBeEditable("4.4") && (
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <h4 className="font-medium mb-3">Add New Practice</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Practice Name</Label>
+                            <Input
+                              value={newPractice.practiceName}
+                              onChange={(e) =>
+                                setNewPractice({
+                                  ...newPractice,
+                                  practiceName: e.target.value,
+                                })
+                              }
+                              className="bg-white"
+                              placeholder="Enter practice name"
+                            />
+                          </div>
+                          <div>
+                            <Label>Impact</Label>
+                            <Dropdown
+                              value={newPractice.impact}
+                              onChange={(value) =>
+                                setNewPractice({
+                                  ...newPractice,
+                                  impact: value,
+                                })
+                              }
+                              options={IMPACT_OPTIONS.map((opt) => ({
+                                label: opt,
+                                value: opt,
+                              }))}
+                              placeholder="Select impact"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label>Upload File</Label>
+                            <EditableFileDisplay
+                              files={newPractice.file}
+                              isEditable={true}
+                              submissionId={submissionId}
+                              onFilesChange={(updatedFile) => {
+                                setNewPractice({
+                                  ...newPractice,
+                                  file: updatedFile as FileUpload | null,
+                                });
+                              }}
+                              label=""
+                              multiple={false}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleAddNewPractice}
+                            className="flex items-center gap-2"
+                          >
+                            <Check className="w-4 h-4" />
+                            Save Practice
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancelAddPractice}
+                            className="flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {state?.section4_4?.implemented === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("4.4") ? (
+                      <Textarea
+                        value={state?.section4_4?.comment || ""}
+                        onChange={(e) =>
+                          handleFieldUpdate("4.4", "comment", e.target.value)
+                        }
+                        placeholder="Please provide a comment..."
+                        className="min-h-[100px]"
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {state?.section4_4?.comment || "No comment provided"}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Upload documentation of innovative practices
+                </p>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -6611,18 +6647,17 @@ export const InfraEnablersReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload capacity building participation data
               </p>
-              </div>
-              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
-              {getUserRole() === "MOSPI_APPROVER" && (
-                <div className="flex-shrink-0 self-start ml-auto">
-                  <IndicatorScoreDisplay
-                    submissionId={submissionId}
-                    indicatorCode="4.5"
-                    toggleState={indicatorScoreToggleState["4.5"] || "score"}
-                  />
-                </div>
-              )}
             </div>
+            {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+            {getUserRole() === "MOSPI_APPROVER" && (
+              <div className="flex-shrink-0 self-start ml-auto">
+                <IndicatorScoreDisplay
+                  submissionId={submissionId}
+                  indicatorCode="4.5"
+                  toggleState={indicatorScoreToggleState["4.5"] || "score"}
+                />
+              </div>
+            )}
           </SectionCard>
         )}
       </div>

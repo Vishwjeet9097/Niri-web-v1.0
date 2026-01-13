@@ -5182,23 +5182,155 @@ export const InfraFinancingReview = ({
                   />
                   {renderFieldError("section1_1.year")}
                 </div>
-              <div>
-                <Label>
-                  Capital Allocation for FY{" "}
-                  <span className="text-xs text-muted-foreground">
-                    (INR-CRORE)
-                  </span>
-                </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={
-                    shouldBeEditable("1.1")
-                      ? capitalAllocation
-                      : (() => {
-                          // When not editable, prefer submissionData (updated after save) over formData
+                <div>
+                  <Label>
+                    Capital Allocation for FY{" "}
+                    <span className="text-xs text-muted-foreground">
+                      (INR-CRORE)
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={
+                      shouldBeEditable("1.1")
+                        ? capitalAllocation
+                        : (() => {
+                            // When not editable, prefer submissionData (updated after save) over formData
+                            const section1_1 =
+                              submissionData?.section1_1 ||
+                              formData?.section1_1 ||
+                              (formData as any)?.infraFinancing?.section1_1;
+                            if (
+                              section1_1?.capitalAllocation !== undefined &&
+                              section1_1?.capitalAllocation !== null
+                            ) {
+                              let val: string;
+                              if (
+                                typeof section1_1.capitalAllocation === "string"
+                              ) {
+                                val = section1_1.capitalAllocation
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim();
+                              } else {
+                                // If it's a number, convert to string without adding unnecessary decimals
+                                const num = Number(
+                                  section1_1.capitalAllocation
+                                );
+                                val =
+                                  num % 1 === 0
+                                    ? num.toString()
+                                    : num.toString().replace(/\.?0+$/, "");
+                              }
+                              return val;
+                            }
+                            return capitalAllocation; // Fallback to state
+                          })()
+                    }
+                    onChange={createOnChangeHandler(
+                      "section1_1.capitalAllocation",
+                      (e) => {
+                        const value = e.target.value;
+                        // Only allow numbers and decimal point
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          setCapitalAllocation(value);
+                          // Mark percentage field as touched to ensure error display if validation fails
+                          markFieldAsTouched("section1_1.allocationToGSDP");
+                          setShowValidationErrors(true);
+                        }
+                      }
+                    )}
+                    placeholder="Enter Capital Allocation value"
+                    readOnly={!shouldBeEditable("1.1")}
+                    className={cn(
+                      shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
+                      shouldBeEditable("1.1") &&
+                        getInputValidationClass("section1_1.capitalAllocation")
+                    )}
+                  />
+                  {shouldBeEditable("1.1") &&
+                    renderFieldError("section1_1.capitalAllocation")}
+                </div>
+                <div>
+                  <Label>
+                    GSDP for FY{" "}
+                    <span className="text-xs text-muted-foreground">
+                      (INR-CRORE)
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={
+                      shouldBeEditable("1.1")
+                        ? gsdpForFY
+                        : (() => {
+                            // When not editable, prefer submissionData (updated after save) over formData
+                            const section1_1 =
+                              submissionData?.section1_1 ||
+                              formData?.section1_1 ||
+                              (formData as any)?.infraFinancing?.section1_1;
+                            if (
+                              section1_1?.gsdpForFY !== undefined &&
+                              section1_1?.gsdpForFY !== null
+                            ) {
+                              let val: string;
+                              if (typeof section1_1.gsdpForFY === "string") {
+                                val = section1_1.gsdpForFY
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim();
+                              } else {
+                                // If it's a number, convert to string without adding unnecessary decimals
+                                const num = Number(section1_1.gsdpForFY);
+                                val =
+                                  num % 1 === 0
+                                    ? num.toString()
+                                    : num.toString().replace(/\.?0+$/, "");
+                              }
+                              return val;
+                            }
+                            return gsdpForFY; // Fallback to state
+                          })()
+                    }
+                    onChange={createOnChangeHandler(
+                      "section1_1.gsdpForFY",
+                      (e) => {
+                        const value = e.target.value;
+                        // Only allow numbers and decimal point
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          setGsdpForFY(value);
+                          // Mark percentage field as touched to ensure error display if validation fails
+                          markFieldAsTouched("section1_1.allocationToGSDP");
+                          setShowValidationErrors(true);
+                        }
+                      }
+                    )}
+                    placeholder="Enter GSDP value"
+                    readOnly={!shouldBeEditable("1.1")}
+                    className={cn(
+                      shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
+                      shouldBeEditable("1.1") &&
+                        getInputValidationClass("section1_1.gsdpForFY")
+                    )}
+                  />
+                  {shouldBeEditable("1.1") &&
+                    renderFieldError("section1_1.gsdpForFY")}
+                </div>
+                <div>
+                  <Label>% Allocation to GSDP</Label>
+                  <div className="relative">
+                    <Input
+                      value={(() => {
+                        // Get values from local state if in edit mode, otherwise from submissionData/formData
+                        let capitalAllocationValue = capitalAllocation;
+                        let gsdpForFYValue = gsdpForFY;
+
+                        if (!shouldBeEditable("1.1")) {
+                          // In review mode, prefer submissionData (updated after save) over formData
                           const section1_1 =
                             submissionData?.section1_1 ||
                             formData?.section1_1 ||
@@ -5207,268 +5339,140 @@ export const InfraFinancingReview = ({
                             section1_1?.capitalAllocation !== undefined &&
                             section1_1?.capitalAllocation !== null
                           ) {
-                            let val: string;
                             if (
                               typeof section1_1.capitalAllocation === "string"
                             ) {
-                              val = section1_1.capitalAllocation
-                                .replace(/[₹,Crores\s]/g, "")
-                                .trim();
+                              capitalAllocationValue =
+                                section1_1.capitalAllocation
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim();
                             } else {
                               // If it's a number, convert to string without adding unnecessary decimals
                               const num = Number(section1_1.capitalAllocation);
-                              val =
+                              capitalAllocationValue =
                                 num % 1 === 0
                                   ? num.toString()
                                   : num.toString().replace(/\.?0+$/, "");
                             }
-                            return val;
                           }
-                          return capitalAllocation; // Fallback to state
-                        })()
-                  }
-                  onChange={createOnChangeHandler(
-                    "section1_1.capitalAllocation",
-                    (e) => {
-                      const value = e.target.value;
-                      // Only allow numbers and decimal point
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        setCapitalAllocation(value);
-                        // Mark percentage field as touched to ensure error display if validation fails
-                        markFieldAsTouched("section1_1.allocationToGSDP");
-                        setShowValidationErrors(true);
-                      }
-                    }
-                  )}
-                  placeholder="Enter Capital Allocation value"
-                  readOnly={!shouldBeEditable("1.1")}
-                  className={cn(
-                    shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
-                    shouldBeEditable("1.1") &&
-                      getInputValidationClass("section1_1.capitalAllocation")
-                  )}
-                />
-                {shouldBeEditable("1.1") &&
-                  renderFieldError("section1_1.capitalAllocation")}
-              </div>
-              <div>
-                <Label>
-                  GSDP for FY{" "}
-                  <span className="text-xs text-muted-foreground">
-                    (INR-CRORE)
-                  </span>
-                </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={
-                    shouldBeEditable("1.1")
-                      ? gsdpForFY
-                      : (() => {
-                          // When not editable, prefer submissionData (updated after save) over formData
-                          const section1_1 =
-                            submissionData?.section1_1 ||
-                            formData?.section1_1 ||
-                            (formData as any)?.infraFinancing?.section1_1;
                           if (
                             section1_1?.gsdpForFY !== undefined &&
                             section1_1?.gsdpForFY !== null
                           ) {
-                            let val: string;
                             if (typeof section1_1.gsdpForFY === "string") {
-                              val = section1_1.gsdpForFY
+                              gsdpForFYValue = section1_1.gsdpForFY
                                 .replace(/[₹,Crores\s]/g, "")
                                 .trim();
                             } else {
                               // If it's a number, convert to string without adding unnecessary decimals
                               const num = Number(section1_1.gsdpForFY);
-                              val =
+                              gsdpForFYValue =
                                 num % 1 === 0
                                   ? num.toString()
                                   : num.toString().replace(/\.?0+$/, "");
                             }
-                            return val;
-                          }
-                          return gsdpForFY; // Fallback to state
-                        })()
-                  }
-                  onChange={createOnChangeHandler(
-                    "section1_1.gsdpForFY",
-                    (e) => {
-                      const value = e.target.value;
-                      // Only allow numbers and decimal point
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        setGsdpForFY(value);
-                        // Mark percentage field as touched to ensure error display if validation fails
-                        markFieldAsTouched("section1_1.allocationToGSDP");
-                        setShowValidationErrors(true);
-                      }
-                    }
-                  )}
-                  placeholder="Enter GSDP value"
-                  readOnly={!shouldBeEditable("1.1")}
-                  className={cn(
-                    shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
-                    shouldBeEditable("1.1") &&
-                      getInputValidationClass("section1_1.gsdpForFY")
-                  )}
-                />
-                {shouldBeEditable("1.1") &&
-                  renderFieldError("section1_1.gsdpForFY")}
-              </div>
-              <div>
-                <Label>% Allocation to GSDP</Label>
-                <div className="relative">
-                  <Input
-                    value={(() => {
-                      // Get values from local state if in edit mode, otherwise from submissionData/formData
-                      let capitalAllocationValue = capitalAllocation;
-                      let gsdpForFYValue = gsdpForFY;
-
-                      if (!shouldBeEditable("1.1")) {
-                        // In review mode, prefer submissionData (updated after save) over formData
-                        const section1_1 =
-                          submissionData?.section1_1 ||
-                          formData?.section1_1 ||
-                          (formData as any)?.infraFinancing?.section1_1;
-                        if (
-                          section1_1?.capitalAllocation !== undefined &&
-                          section1_1?.capitalAllocation !== null
-                        ) {
-                          if (
-                            typeof section1_1.capitalAllocation === "string"
-                          ) {
-                            capitalAllocationValue =
-                              section1_1.capitalAllocation
-                                .replace(/[₹,Crores\s]/g, "")
-                                .trim();
-                          } else {
-                            // If it's a number, convert to string without adding unnecessary decimals
-                            const num = Number(section1_1.capitalAllocation);
-                            capitalAllocationValue =
-                              num % 1 === 0
-                                ? num.toString()
-                                : num.toString().replace(/\.?0+$/, "");
                           }
                         }
+
+                        const capitalAllocationNum =
+                          parseFloat(capitalAllocationValue) || 0;
+                        const gsdpForFYNum = parseFloat(gsdpForFYValue) || 0;
+
                         if (
-                          section1_1?.gsdpForFY !== undefined &&
-                          section1_1?.gsdpForFY !== null
+                          isNaN(capitalAllocationNum) ||
+                          isNaN(gsdpForFYNum) ||
+                          gsdpForFYNum === 0 ||
+                          capitalAllocationValue === "" ||
+                          gsdpForFYValue === ""
                         ) {
-                          if (typeof section1_1.gsdpForFY === "string") {
-                            gsdpForFYValue = section1_1.gsdpForFY
-                              .replace(/[₹,Crores\s]/g, "")
-                              .trim();
-                          } else {
-                            // If it's a number, convert to string without adding unnecessary decimals
-                            const num = Number(section1_1.gsdpForFY);
-                            gsdpForFYValue =
-                              num % 1 === 0
-                                ? num.toString()
-                                : num.toString().replace(/\.?0+$/, "");
-                          }
-                        }
-                      }
-
-                      const capitalAllocationNum =
-                        parseFloat(capitalAllocationValue) || 0;
-                      const gsdpForFYNum = parseFloat(gsdpForFYValue) || 0;
-
-                      if (
-                        isNaN(capitalAllocationNum) ||
-                        isNaN(gsdpForFYNum) ||
-                        gsdpForFYNum === 0 ||
-                        capitalAllocationValue === "" ||
-                        gsdpForFYValue === ""
-                      ) {
-                        // If no values, check if there's a saved percentage in submissionData/formData
-                        if (!shouldBeEditable("1.1")) {
-                          const section1_1 =
-                            submissionData?.section1_1 ||
-                            formData?.section1_1 ||
-                            (formData as any)?.infraFinancing?.section1_1;
-                          if (
-                            section1_1?.allocationToGSDP !== undefined &&
-                            section1_1?.allocationToGSDP !== null
-                          ) {
-                            const savedPercentage =
-                              typeof section1_1.allocationToGSDP === "string"
-                                ? parseFloat(
-                                    section1_1.allocationToGSDP
-                                      .replace("%", "")
-                                      .trim()
-                                  )
-                                : Number(section1_1.allocationToGSDP);
-                            if (!isNaN(savedPercentage)) {
-                              return savedPercentage.toFixed(1) + "%";
+                          // If no values, check if there's a saved percentage in submissionData/formData
+                          if (!shouldBeEditable("1.1")) {
+                            const section1_1 =
+                              submissionData?.section1_1 ||
+                              formData?.section1_1 ||
+                              (formData as any)?.infraFinancing?.section1_1;
+                            if (
+                              section1_1?.allocationToGSDP !== undefined &&
+                              section1_1?.allocationToGSDP !== null
+                            ) {
+                              const savedPercentage =
+                                typeof section1_1.allocationToGSDP === "string"
+                                  ? parseFloat(
+                                      section1_1.allocationToGSDP
+                                        .replace("%", "")
+                                        .trim()
+                                    )
+                                  : Number(section1_1.allocationToGSDP);
+                              if (!isNaN(savedPercentage)) {
+                                return savedPercentage.toFixed(1) + "%";
+                              }
                             }
                           }
+                          return "";
                         }
-                        return "";
-                      }
 
-                      const percentage =
-                        (capitalAllocationNum / gsdpForFYNum) * 100;
+                        const percentage =
+                          (capitalAllocationNum / gsdpForFYNum) * 100;
 
-                      // Show negative percentage if calculated (for error display)
-                      if (percentage < 0) {
-                        return percentage.toFixed(1) + "%";
-                      }
-                      // Cap at 100% if it exceeds (but validation will prevent saving)
-                      const cappedPercentage = Math.min(percentage, 100);
-                      return cappedPercentage.toFixed(1) + "%";
-                    })()}
-                    readOnly
-                    className={(() => {
-                      // Only show error styling in edit mode
-                      if (!shouldBeEditable("1.1")) {
+                        // Show negative percentage if calculated (for error display)
+                        if (percentage < 0) {
+                          return percentage.toFixed(1) + "%";
+                        }
+                        // Cap at 100% if it exceeds (but validation will prevent saving)
+                        const cappedPercentage = Math.min(percentage, 100);
+                        return cappedPercentage.toFixed(1) + "%";
+                      })()}
+                      readOnly
+                      className={(() => {
+                        // Only show error styling in edit mode
+                        if (!shouldBeEditable("1.1")) {
+                          return cn(
+                            "bg-gray-50 cursor-not-allowed pr-8",
+                            getInputValidationClass(
+                              "section1_1.allocationToGSDP"
+                            )
+                          );
+                        }
                         return cn(
                           "bg-gray-50 cursor-not-allowed pr-8",
                           getInputValidationClass("section1_1.allocationToGSDP")
                         );
-                      }
-                      return cn(
-                        "bg-gray-50 cursor-not-allowed pr-8",
-                        getInputValidationClass("section1_1.allocationToGSDP")
-                      );
+                      })()}
+                      placeholder="Auto-calculated"
+                    />
+                    {(() => {
+                      const capitalAllocationNum =
+                        parseFloat(capitalAllocation) || 0;
+                      const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                      const isValid =
+                        !isNaN(capitalAllocationNum) &&
+                        !isNaN(gsdpForFYNum) &&
+                        capitalAllocationNum > 0 &&
+                        gsdpForFYNum > 0 &&
+                        capitalAllocationNum <= gsdpForFYNum &&
+                        capitalAllocation !== "" &&
+                        gsdpForFY !== "";
+                      return isValid ? (
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
+                          ✓
+                        </div>
+                      ) : null;
                     })()}
-                    placeholder="Auto-calculated"
-                  />
-                  {(() => {
-                    const capitalAllocationNum =
-                      parseFloat(capitalAllocation) || 0;
-                    const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
-                    const isValid =
-                      !isNaN(capitalAllocationNum) &&
-                      !isNaN(gsdpForFYNum) &&
-                      capitalAllocationNum > 0 &&
-                      gsdpForFYNum > 0 &&
-                      capitalAllocationNum <= gsdpForFYNum &&
-                      capitalAllocation !== "" &&
-                      gsdpForFY !== "";
-                    return isValid ? (
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
-                        ✓
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-                {/* Only show error message in edit mode */}
-                {shouldBeEditable("1.1") &&
-                  (() => {
-                    const capitalAllocationNum =
-                      parseFloat(capitalAllocation) || 0;
-                    const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
-                    const isNegative =
-                      capitalAllocationNum < 0 || gsdpForFYNum < 0;
-                    const exceedsLimit =
-                      gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
+                  </div>
+                  {/* Only show error message in edit mode */}
+                  {shouldBeEditable("1.1") &&
+                    (() => {
+                      const capitalAllocationNum =
+                        parseFloat(capitalAllocation) || 0;
+                      const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                      const isNegative =
+                        capitalAllocationNum < 0 || gsdpForFYNum < 0;
+                      const exceedsLimit =
+                        gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
 
-                    return renderFieldError("section1_1.allocationToGSDP");
-                  })()}
-              </div>
+                      return renderFieldError("section1_1.allocationToGSDP");
+                    })()}
+                </div>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -5524,252 +5528,252 @@ export const InfraFinancingReview = ({
                   />
                   {renderFieldError("section1_2.year")}
                 </div>
-              <div>
-                <Label>
-                  State Capex Utilisation{" "}
-                  <span className="text-xs text-muted-foreground">
-                    (INR-CRORE)
-                  </span>
-                </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={
-                    shouldBeEditable("1.2")
-                      ? actualCapex
-                      : (() => {
-                          // When not editable, prefer submissionData (updated after save) over formData
-                          const section1_2 =
-                            submissionData?.section1_2 ||
-                            formData?.section1_2 ||
-                            (formData as any)?.infraFinancing?.section1_2;
-                          if (
-                            section1_2?.actualCapex !== undefined &&
-                            section1_2?.actualCapex !== null
-                          ) {
-                            let val: string;
-                            if (typeof section1_2.actualCapex === "string") {
-                              val = section1_2.actualCapex
-                                .replace(/[₹,Crores\s]/g, "")
-                                .trim();
-                            } else {
-                              // If it's a number, convert to string without adding unnecessary decimals
-                              const num = Number(section1_2.actualCapex);
-                              val =
-                                num % 1 === 0
-                                  ? num.toString()
-                                  : num.toString().replace(/\.?0+$/, "");
-                            }
-                            return val;
-                          }
-                          return actualCapex; // Fallback to state
-                        })()
-                  }
-                  onChange={createOnChangeHandler(
-                    "section1_2.actualCapex",
-                    (e) => {
-                      const value = e.target.value;
-                      // Only allow numbers and decimal point
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        setActualCapex(value);
-                        markFieldAsTouched("section1_2.capexActualsToGSDP");
-                        setShowValidationErrors(true);
-                      }
-                    }
-                  )}
-                  placeholder="Enter State Capex Utilisation value"
-                  readOnly={!isEditable("1.2")}
-                  className={cn(
-                    isEditable("1.2") ? "bg-white" : "bg-gray-50",
-                    isEditable("1.2") &&
-                      getInputValidationClass("section1_2.actualCapex")
-                  )}
-                />
-                {isEditable("1.2") &&
-                  renderFieldError("section1_2.actualCapex")}
-                {isEditable("1.2") && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Current value: "{actualCapex}"
-                  </div>
-                )}
-              </div>
-              <div>
-                <Label>
-                  Capital Allocation for FY{" "}
-                  <span className="text-xs text-muted-foreground">
-                    (INR-CRORE)
-                  </span>
-                </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={
-                    shouldBeEditable("1.2")
-                      ? stateCapexUtilisation
-                      : (() => {
-                          // When not editable, prefer submissionData (updated after save) over formData
-                          const section1_2 =
-                            submissionData?.section1_2 ||
-                            formData?.section1_2 ||
-                            (formData as any)?.infraFinancing?.section1_2;
-                          if (
-                            section1_2?.stateCapexUtilisation !== undefined &&
-                            section1_2?.stateCapexUtilisation !== null
-                          ) {
-                            let val: string;
+                <div>
+                  <Label>
+                    State Capex Utilisation{" "}
+                    <span className="text-xs text-muted-foreground">
+                      (INR-CRORE)
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={
+                      shouldBeEditable("1.2")
+                        ? actualCapex
+                        : (() => {
+                            // When not editable, prefer submissionData (updated after save) over formData
+                            const section1_2 =
+                              submissionData?.section1_2 ||
+                              formData?.section1_2 ||
+                              (formData as any)?.infraFinancing?.section1_2;
                             if (
-                              typeof section1_2.stateCapexUtilisation ===
-                              "string"
+                              section1_2?.actualCapex !== undefined &&
+                              section1_2?.actualCapex !== null
                             ) {
-                              val = section1_2.stateCapexUtilisation
-                                .replace(/[₹,Crores\s]/g, "")
-                                .trim();
-                            } else {
-                              // If it's a number, convert to string without adding unnecessary decimals
-                              const num = Number(
-                                section1_2.stateCapexUtilisation
-                              );
-                              val =
-                                num % 1 === 0
-                                  ? num.toString()
-                                  : num.toString().replace(/\.?0+$/, "");
+                              let val: string;
+                              if (typeof section1_2.actualCapex === "string") {
+                                val = section1_2.actualCapex
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim();
+                              } else {
+                                // If it's a number, convert to string without adding unnecessary decimals
+                                const num = Number(section1_2.actualCapex);
+                                val =
+                                  num % 1 === 0
+                                    ? num.toString()
+                                    : num.toString().replace(/\.?0+$/, "");
+                              }
+                              return val;
                             }
-                            return val;
-                          }
-                          return stateCapexUtilisation; // Fallback to state
-                        })()
-                  }
-                  onChange={createOnChangeHandler(
-                    "section1_2.stateCapexUtilisation",
-                    (e) => {
-                      const value = e.target.value;
-                      // Only allow numbers and decimal point
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        setStateCapexUtilisation(value);
-                        markFieldAsTouched("section1_2.capexActualsToGSDP");
-                        setShowValidationErrors(true);
-                      }
+                            return actualCapex; // Fallback to state
+                          })()
                     }
-                  )}
-                  placeholder="Enter Capital Allocation for FY value"
-                  readOnly={!isEditable("1.2")}
-                  className={cn(
-                    isEditable("1.2") ? "bg-white" : "bg-gray-50",
-                    isEditable("1.2") &&
-                      getInputValidationClass(
-                        "section1_2.stateCapexUtilisation"
-                      )
-                  )}
-                />
-                {isEditable("1.2") &&
-                  renderFieldError("section1_2.stateCapexUtilisation")}
-                {isEditable("1.2") && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Current value: "{stateCapexUtilisation}"
-                  </div>
-                )}
-              </div>
-              <div className="">
-                <Label>% Capex Actuals</Label>
-                <Input
-                  value={(() => {
-                    // Get values from local state if in edit mode, otherwise from formData
-                    let actualCapexValue = actualCapex;
-                    let stateCapexUtilisationValue = stateCapexUtilisation;
-
-                    if (!shouldBeEditable("1.2")) {
-                      // In review mode, prefer submissionData (updated after save) over formData
-                      const section1_2 =
-                        submissionData?.section1_2 ||
-                        formData?.section1_2 ||
-                        (formData as any)?.infraFinancing?.section1_2;
-                      if (
-                        section1_2?.actualCapex !== undefined &&
-                        section1_2?.actualCapex !== null
-                      ) {
-                        actualCapexValue =
-                          typeof section1_2.actualCapex === "string"
-                            ? section1_2.actualCapex
-                                .replace(/[₹,Crores\s]/g, "")
-                                .trim()
-                            : String(section1_2.actualCapex);
+                    onChange={createOnChangeHandler(
+                      "section1_2.actualCapex",
+                      (e) => {
+                        const value = e.target.value;
+                        // Only allow numbers and decimal point
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          setActualCapex(value);
+                          markFieldAsTouched("section1_2.capexActualsToGSDP");
+                          setShowValidationErrors(true);
+                        }
                       }
-                      if (
-                        section1_2?.stateCapexUtilisation !== undefined &&
-                        section1_2?.stateCapexUtilisation !== null
-                      ) {
-                        stateCapexUtilisationValue =
-                          typeof section1_2.stateCapexUtilisation === "string"
-                            ? section1_2.stateCapexUtilisation
-                                .replace(/[₹,Crores\s]/g, "")
-                                .trim()
-                            : String(section1_2.stateCapexUtilisation);
-                      }
+                    )}
+                    placeholder="Enter State Capex Utilisation value"
+                    readOnly={!isEditable("1.2")}
+                    className={cn(
+                      isEditable("1.2") ? "bg-white" : "bg-gray-50",
+                      isEditable("1.2") &&
+                        getInputValidationClass("section1_2.actualCapex")
+                    )}
+                  />
+                  {isEditable("1.2") &&
+                    renderFieldError("section1_2.actualCapex")}
+                  {isEditable("1.2") && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Current value: "{actualCapex}"
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label>
+                    Capital Allocation for FY{" "}
+                    <span className="text-xs text-muted-foreground">
+                      (INR-CRORE)
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={
+                      shouldBeEditable("1.2")
+                        ? stateCapexUtilisation
+                        : (() => {
+                            // When not editable, prefer submissionData (updated after save) over formData
+                            const section1_2 =
+                              submissionData?.section1_2 ||
+                              formData?.section1_2 ||
+                              (formData as any)?.infraFinancing?.section1_2;
+                            if (
+                              section1_2?.stateCapexUtilisation !== undefined &&
+                              section1_2?.stateCapexUtilisation !== null
+                            ) {
+                              let val: string;
+                              if (
+                                typeof section1_2.stateCapexUtilisation ===
+                                "string"
+                              ) {
+                                val = section1_2.stateCapexUtilisation
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim();
+                              } else {
+                                // If it's a number, convert to string without adding unnecessary decimals
+                                const num = Number(
+                                  section1_2.stateCapexUtilisation
+                                );
+                                val =
+                                  num % 1 === 0
+                                    ? num.toString()
+                                    : num.toString().replace(/\.?0+$/, "");
+                              }
+                              return val;
+                            }
+                            return stateCapexUtilisation; // Fallback to state
+                          })()
                     }
+                    onChange={createOnChangeHandler(
+                      "section1_2.stateCapexUtilisation",
+                      (e) => {
+                        const value = e.target.value;
+                        // Only allow numbers and decimal point
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          setStateCapexUtilisation(value);
+                          markFieldAsTouched("section1_2.capexActualsToGSDP");
+                          setShowValidationErrors(true);
+                        }
+                      }
+                    )}
+                    placeholder="Enter Capital Allocation for FY value"
+                    readOnly={!isEditable("1.2")}
+                    className={cn(
+                      isEditable("1.2") ? "bg-white" : "bg-gray-50",
+                      isEditable("1.2") &&
+                        getInputValidationClass(
+                          "section1_2.stateCapexUtilisation"
+                        )
+                    )}
+                  />
+                  {isEditable("1.2") &&
+                    renderFieldError("section1_2.stateCapexUtilisation")}
+                  {isEditable("1.2") && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Current value: "{stateCapexUtilisation}"
+                    </div>
+                  )}
+                </div>
+                <div className="">
+                  <Label>% Capex Actuals</Label>
+                  <Input
+                    value={(() => {
+                      // Get values from local state if in edit mode, otherwise from formData
+                      let actualCapexValue = actualCapex;
+                      let stateCapexUtilisationValue = stateCapexUtilisation;
 
-                    const actualCapexNum = parseFloat(actualCapexValue) || 0;
-                    const stateCapexUtilisationNum =
-                      parseFloat(stateCapexUtilisationValue) || 0;
-
-                    if (
-                      isNaN(actualCapexNum) ||
-                      isNaN(stateCapexUtilisationNum) ||
-                      stateCapexUtilisationNum === 0 ||
-                      actualCapexValue === "" ||
-                      stateCapexUtilisationValue === ""
-                    ) {
-                      // If no values, check if there's a saved percentage in submissionData/formData
                       if (!shouldBeEditable("1.2")) {
+                        // In review mode, prefer submissionData (updated after save) over formData
                         const section1_2 =
                           submissionData?.section1_2 ||
                           formData?.section1_2 ||
                           (formData as any)?.infraFinancing?.section1_2;
                         if (
-                          section1_2?.capexActualsToGSDP !== undefined &&
-                          section1_2?.capexActualsToGSDP !== null
+                          section1_2?.actualCapex !== undefined &&
+                          section1_2?.actualCapex !== null
                         ) {
-                          const savedPercentage =
-                            typeof section1_2.capexActualsToGSDP === "string"
-                              ? parseFloat(
-                                  section1_2.capexActualsToGSDP
-                                    .replace("%", "")
-                                    .trim()
-                                )
-                              : Number(section1_2.capexActualsToGSDP);
-                          if (!isNaN(savedPercentage)) {
-                            return savedPercentage.toFixed(1) + "%";
-                          }
+                          actualCapexValue =
+                            typeof section1_2.actualCapex === "string"
+                              ? section1_2.actualCapex
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim()
+                              : String(section1_2.actualCapex);
+                        }
+                        if (
+                          section1_2?.stateCapexUtilisation !== undefined &&
+                          section1_2?.stateCapexUtilisation !== null
+                        ) {
+                          stateCapexUtilisationValue =
+                            typeof section1_2.stateCapexUtilisation === "string"
+                              ? section1_2.stateCapexUtilisation
+                                  .replace(/[₹,Crores\s]/g, "")
+                                  .trim()
+                              : String(section1_2.stateCapexUtilisation);
                         }
                       }
-                      return "";
-                    }
 
-                    const percentage =
-                      (actualCapexNum / stateCapexUtilisationNum) * 100;
+                      const actualCapexNum = parseFloat(actualCapexValue) || 0;
+                      const stateCapexUtilisationNum =
+                        parseFloat(stateCapexUtilisationValue) || 0;
 
-                    // Show negative percentage if calculated (for error display)
-                    if (percentage < 0) {
-                      return percentage.toFixed(1) + "%";
-                    }
-                    // Cap at 100% if it exceeds (but validation will prevent saving)
-                    const cappedPercentage = Math.min(percentage, 100);
-                    return cappedPercentage.toFixed(1) + "%";
-                  })()}
-                  readOnly
-                  className={cn(
-                    "bg-gray-50 cursor-not-allowed",
-                    shouldBeEditable("1.2") &&
-                      getInputValidationClass("section1_2.capexActualsToGSDP")
-                  )}
-                  placeholder="Auto-calculated"
-                />
-                {shouldBeEditable("1.2") &&
-                  renderFieldError("section1_2.capexActualsToGSDP")}
-              </div>
+                      if (
+                        isNaN(actualCapexNum) ||
+                        isNaN(stateCapexUtilisationNum) ||
+                        stateCapexUtilisationNum === 0 ||
+                        actualCapexValue === "" ||
+                        stateCapexUtilisationValue === ""
+                      ) {
+                        // If no values, check if there's a saved percentage in submissionData/formData
+                        if (!shouldBeEditable("1.2")) {
+                          const section1_2 =
+                            submissionData?.section1_2 ||
+                            formData?.section1_2 ||
+                            (formData as any)?.infraFinancing?.section1_2;
+                          if (
+                            section1_2?.capexActualsToGSDP !== undefined &&
+                            section1_2?.capexActualsToGSDP !== null
+                          ) {
+                            const savedPercentage =
+                              typeof section1_2.capexActualsToGSDP === "string"
+                                ? parseFloat(
+                                    section1_2.capexActualsToGSDP
+                                      .replace("%", "")
+                                      .trim()
+                                  )
+                                : Number(section1_2.capexActualsToGSDP);
+                            if (!isNaN(savedPercentage)) {
+                              return savedPercentage.toFixed(1) + "%";
+                            }
+                          }
+                        }
+                        return "";
+                      }
+
+                      const percentage =
+                        (actualCapexNum / stateCapexUtilisationNum) * 100;
+
+                      // Show negative percentage if calculated (for error display)
+                      if (percentage < 0) {
+                        return percentage.toFixed(1) + "%";
+                      }
+                      // Cap at 100% if it exceeds (but validation will prevent saving)
+                      const cappedPercentage = Math.min(percentage, 100);
+                      return cappedPercentage.toFixed(1) + "%";
+                    })()}
+                    readOnly
+                    className={cn(
+                      "bg-gray-50 cursor-not-allowed",
+                      shouldBeEditable("1.2") &&
+                        getInputValidationClass("section1_2.capexActualsToGSDP")
+                    )}
+                    placeholder="Auto-calculated"
+                  />
+                  {shouldBeEditable("1.2") &&
+                    renderFieldError("section1_2.capexActualsToGSDP")}
+                </div>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -5809,9 +5813,9 @@ export const InfraFinancingReview = ({
             {renderSectionValidationMessage("1.3")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1">
-            {/* <div className="space-y-4">
+                {/* <div className="space-y-4">
               {/* ✅ Show Total ULBs at the top */}
-            {/* {formData?.section1_3?.totalULBs !== undefined && (
+                {/* {formData?.section1_3?.totalULBs !== undefined && (
                 <div className="max-w-xs">
                   <Label>Total Number of ULBs</Label>
                   <Input
@@ -5823,8 +5827,8 @@ export const InfraFinancingReview = ({
                 </div>
               )} */}
 
-            {/* Existing ULB List */}
-            {/* {formData?.section1_3?.ulbList?.length > 0 ? (
+                {/* Existing ULB List */}
+                {/* {formData?.section1_3?.ulbList?.length > 0 ? (
                 formData.section1_3.ulbList.map((item: any, index: number) => (
                   <div key={item.id || index}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -5837,12 +5841,12 @@ export const InfraFinancingReview = ({
                       </div>
                       <div>
                         <Label>ULB</Label> */}
-            {/* <Input
+                {/* <Input
                          value={item.ulb || ""}  
                          readOnly={!isEditable('1.3')}
                          className={isEditable('1.3') ? 'bg-white' : 'bg-gray-50'}
                          /> */}
-            {/* {getDropdown(
+                {/* {getDropdown(
   dropdownValues.ulbList,
   item.ulb || "",
   (value) => {
@@ -5859,7 +5863,7 @@ export const InfraFinancingReview = ({
   "Select ULB",
   isEditable('1.3') // Pass the editable state
 )} */
-            /* }
+                /* }
                       </div>
                       <div>
                         <Label>Rating Date</Label>
@@ -5911,18 +5915,20 @@ export const InfraFinancingReview = ({
                   No ULB data available
                 </div>
               )} */}
-            {/* </div> */}
+                {/* </div> */}
 
-            <Section_1_3
-              formData={{ section1_3: section13State }}
-              isEditable={shouldBeEditable}
-              setSectionState={setSection13State}
-              resetKey={selectResetKey}
-              validationErrors={validation.errors}
-              getFieldError={getFieldError}
-              submissionId={submissionId}
-              deferFileDeletion={shouldBeEditable("1.3")}
-            />
+                <Section_1_3
+                  formData={{ section1_3: section13State }}
+                  isEditable={shouldBeEditable}
+                  setSectionState={setSection13State}
+                  resetKey={selectResetKey}
+                  validationErrors={validation.errors}
+                  getFieldError={getFieldError}
+                  submissionId={submissionId}
+                  deferFileDeletion={shouldBeEditable("1.3")}
+                />
+              </div>
+            </div>
           </SectionCard>
         )}
 
@@ -5950,8 +5956,8 @@ export const InfraFinancingReview = ({
             {renderSectionValidationMessage("1.4")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1">
-              {/* ✅ Show Total ULBs at top */}
-              {/* {formData?.section1_4?.totalULBs !== undefined && (
+                {/* ✅ Show Total ULBs at top */}
+                {/* {formData?.section1_4?.totalULBs !== undefined && (
                 <div className="max-w-xs">
                   <Label>Total Number of ULBs</Label>
                   <Input
@@ -5963,8 +5969,8 @@ export const InfraFinancingReview = ({
                 </div>
               )} */}
 
-              {/* ✅ Bond List */}
-              {/* {formData?.section1_4?.bondList?.length > 0 ? (
+                {/* ✅ Bond List */}
+                {/* {formData?.section1_4?.bondList?.length > 0 ? (
                 formData.section1_4.bondList.map((item: any, index: number) => (
                   <div key={item.id || index}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -6055,613 +6061,624 @@ export const InfraFinancingReview = ({
             {renderSectionValidationMessage("1.5")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              {/* RadioGroup for hasIntermediary */}
-              <div>
-                <Label className="mb-3 block">
-                  Has Functional Financial Intermediary?*
-                </Label>
-                {shouldBeEditable("1.5") ? (
-                  <RadioGroup
-                    value={section15State?.hasIntermediary || ""}
-                    onValueChange={(value) => {
-                      if (value === "no") {
-                        // When switching to "no", clear ffiArray and comment
-                        // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
-                        const updatedState = {
-                          ...section15State,
-                          hasIntermediary: value,
-                          ffiArray: [], // Clear the array (files are in the array items)
-                          comment: "", // Clear comment - user should enter fresh comment for new "no" selection
-                        };
-                        setSection15State(updatedState);
-                        // Also update formDataState to ensure persistence and document tab updates
-                        setFormDataForSection("section1_5", updatedState);
-                      } else if (value === "yes") {
-                        // When switching to "yes", clear comment but keep ffiArray
-                        setSection15State({
-                          ...section15State,
-                          hasIntermediary: value,
-                          comment: undefined, // Clear comment
-                        });
-                      } else {
-                        setSection15State({
-                          ...section15State,
-                          hasIntermediary: value,
-                        });
-                      }
-                    }}
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="1.5-yes" />
-                      <Label htmlFor="1.5-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="1.5-no" />
-                      <Label htmlFor="1.5-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        section15State?.hasIntermediary === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : section15State?.hasIntermediary === "no"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {section15State?.hasIntermediary === "yes"
-                        ? "Yes"
-                        : section15State?.hasIntermediary === "no"
-                        ? "No"
-                        : "Not specified"}
-                    </span>
-                  </div>
-                )}
-                {renderFieldError("section1_5.hasIntermediary")}
-              </div>
-
-              {/* Show table and Add More button if hasIntermediary is "yes" */}
-              {section15State?.hasIntermediary === "yes" && (
-                <>
-                  {/* Validation error for ffiArray */}
-                  {renderFieldError("section1_5.ffiArray")}
-
-                  {/* Table Display */}
-                  <div className="overflow-x-auto rounded-xl">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Organisation Name
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Organisation Type
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Year of Establishment
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Total Funding (₹ Crores)
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Website
-                          </th>
-                          {shouldBeEditable("1.5") && (
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
-                            </th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const ffiArray = Array.isArray(
-                            section15State?.ffiArray
-                          )
-                            ? section15State.ffiArray
-                            : [];
-
-                          if (!ffiArray.length) {
-                            return (
-                              <tr>
-                                <td
-                                  colSpan={shouldBeEditable("1.5") ? 6 : 5}
-                                  className="py-8 text-center text-muted-foreground"
-                                >
-                                  No financial intermediary data available
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          return ffiArray.map((item: any, index: number) => (
-                            <tr key={item.id || index} className="border-b">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("1.5") ? (
-                                  <div>
-                                    <Input
-                                      value={item.organisationName || ""}
-                                      onChange={createOnChangeHandler(
-                                        `section1_5.ffiArray.${index}.organisationName`,
-                                        (e) => {
-                                          const updatedArray = [...ffiArray];
-                                          updatedArray[index] = {
-                                            ...updatedArray[index],
-                                            organisationName: e.target.value,
-                                          };
-                                          setSection15State({
-                                            ...section15State,
-                                            ffiArray: updatedArray,
-                                          });
-                                          setShowValidationErrors(true);
-                                        }
-                                      )}
-                                      className={cn(
-                                        "w-full",
-                                        getInputValidationClass(
-                                          `section1_5.ffiArray.${index}.organisationName`
-                                        )
-                                      )}
-                                      placeholder="Enter organisation name"
-                                    />
-                                    {renderFieldError(
-                                      `section1_5.ffiArray.${index}.organisationName`
-                                    )}
-                                  </div>
-                                ) : (
-                                  item.organisationName || "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("1.5") ? (
-                                  <div>
-                                    <Dropdown
-                                      options={dropdownValues.issuingAuthorityList.map(
-                                        (opt) => ({ label: opt, value: opt })
-                                      )}
-                                      value={item.organisationType || ""}
-                                      onChange={createOnValueChangeHandler(
-                                        `section1_5.ffiArray.${index}.organisationType`,
-                                        (value) => {
-                                          const updatedArray = [...ffiArray];
-                                          updatedArray[index] = {
-                                            ...updatedArray[index],
-                                            organisationType: value,
-                                          };
-                                          setSection15State({
-                                            ...section15State,
-                                            ffiArray: updatedArray,
-                                          });
-                                          setShowValidationErrors(true);
-                                        }
-                                      )}
-                                      placeholder="Select Type"
-                                      isEditable={true}
-                                      resetKey={selectResetKey}
-                                    />
-                                    {renderFieldError(
-                                      `section1_5.ffiArray.${index}.organisationType`
-                                    )}
-                                  </div>
-                                ) : (
-                                  item.organisationType || "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("1.5") ? (
-                                  <div>
-                                    <Input
-                                      type="number"
-                                      inputMode="numeric"
-                                      min="1900"
-                                      max="2100"
-                                      value={item.yearEstablished || ""}
-                                      onChange={createOnChangeHandler(
-                                        `section1_5.ffiArray.${index}.yearEstablished`,
-                                        (e) => {
-                                          const value = e.target.value;
-                                          // Only allow 4-digit years
-                                          if (
-                                            value === "" ||
-                                            /^\d{0,4}$/.test(value)
-                                          ) {
-                                            const updatedArray = [...ffiArray];
-                                            updatedArray[index] = {
-                                              ...updatedArray[index],
-                                              yearEstablished: value,
-                                            };
-                                            setSection15State({
-                                              ...section15State,
-                                              ffiArray: updatedArray,
-                                            });
-                                            setShowValidationErrors(true);
-                                          }
-                                        }
-                                      )}
-                                      className={cn(
-                                        "w-full",
-                                        getInputValidationClass(
-                                          `section1_5.ffiArray.${index}.yearEstablished`
-                                        )
-                                      )}
-                                      placeholder="Enter year (YYYY)"
-                                    />
-                                    {renderFieldError(
-                                      `section1_5.ffiArray.${index}.yearEstablished`
-                                    )}
-                                  </div>
-                                ) : (
-                                  item.yearEstablished || "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("1.5") ? (
-                                  <div>
-                                    <Input
-                                      type="number"
-                                      inputMode="decimal"
-                                      step="0.01"
-                                      min="0"
-                                      value={item.totalFunding || ""}
-                                      onChange={createOnChangeHandler(
-                                        `section1_5.ffiArray.${index}.totalFunding`,
-                                        (e) => {
-                                          const value = e.target.value;
-                                          // Only allow numbers and decimal point
-                                          if (
-                                            value === "" ||
-                                            /^\d*\.?\d*$/.test(value)
-                                          ) {
-                                            const updatedArray = [...ffiArray];
-                                            updatedArray[index] = {
-                                              ...updatedArray[index],
-                                              totalFunding: value,
-                                            };
-                                            setSection15State({
-                                              ...section15State,
-                                              ffiArray: updatedArray,
-                                            });
-                                            setShowValidationErrors(true);
-                                          }
-                                        }
-                                      )}
-                                      className={cn(
-                                        "w-full",
-                                        getInputValidationClass(
-                                          `section1_5.ffiArray.${index}.totalFunding`
-                                        )
-                                      )}
-                                      placeholder="Enter funding"
-                                    />
-                                    {renderFieldError(
-                                      `section1_5.ffiArray.${index}.totalFunding`
-                                    )}
-                                  </div>
-                                ) : (
-                                  item.totalFunding || "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {shouldBeEditable("1.5") ? (
-                                  <div>
-                                    <Input
-                                      type="url"
-                                      value={item.website || ""}
-                                      onChange={createOnChangeHandler(
-                                        `section1_5.ffiArray.${index}.website`,
-                                        (e) => {
-                                          const updatedArray = [...ffiArray];
-                                          updatedArray[index] = {
-                                            ...updatedArray[index],
-                                            website: e.target.value,
-                                          };
-                                          setSection15State({
-                                            ...section15State,
-                                            ffiArray: updatedArray,
-                                          });
-                                          setShowValidationErrors(true);
-                                        }
-                                      )}
-                                      className={cn(
-                                        "w-full",
-                                        getInputValidationClass(
-                                          `section1_5.ffiArray.${index}.website`
-                                        )
-                                      )}
-                                      placeholder="Enter website"
-                                    />
-                                    {renderFieldError(
-                                      `section1_5.ffiArray.${index}.website`
-                                    )}
-                                  </div>
-                                ) : (
-                                  item.website || "N/A"
-                                )}
-                              </td>
-                              {shouldBeEditable("1.5") && (
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      console.log(
-                                        `[Section_1_5] Delete button clicked for item:`,
-                                        item
-                                      );
-                                      console.log(
-                                        `[Section_1_5] isEditable("1.5"):`,
-                                        shouldBeEditable("1.5")
-                                      );
-                                      console.log(
-                                        `[Section_1_5] Current ffiArray:`,
-                                        ffiArray
-                                      );
-
-                                      // Handle deletion: Always use index-based deletion for reliability
-                                      // This prevents issues when multiple items have the same ID or no ID
-                                      const updatedArray = ffiArray.filter(
-                                        (ffiItem, idx) => {
-                                          // Always compare by index to ensure we only delete the intended item
-                                          const shouldKeep = idx !== index;
-                                          console.log(
-                                            `[Section_1_5] Comparing by index - idx:`,
-                                            idx,
-                                            `target index:`,
-                                            index,
-                                            `shouldKeep:`,
-                                            shouldKeep
-                                          );
-                                          return shouldKeep;
-                                        }
-                                      );
-
-                                      console.log(
-                                        `[Section_1_5] Updated ffiArray:`,
-                                        updatedArray
-                                      );
-                                      setSection15State({
-                                        ...section15State,
-                                        ffiArray: updatedArray,
-                                      });
-                                    }}
-                                    className="text-red-500 hover:text-red-700 border-none bg-none"
-                                  >
-                                    <Trash2 className="h-5 w-5" />
-                                  </Button>
-                                </td>
-                              )}
-                            </tr>
-                          ));
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Add More Button - Only visible when in edit mode */}
-                  {shouldBeEditable("1.5") && !showAddForm1_5 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                      onClick={() => setShowAddForm1_5(true)}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add More
-                    </Button>
-                  )}
-
-                  {/* Add Entry Form - Only visible when showAddForm1_5 is true */}
-                  {showAddForm1_5 && shouldBeEditable("1.5") && (
-                    <div className="border rounded-lg p-4 bg-gray-50">
-                      <h4 className="font-medium mb-3">Add New Organization</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div>
-                          <Label>Organisation Name</Label>
-                          <Input
-                            value={newEntry1_5.organisationName}
-                            onChange={createOnChangeHandler(
-                              "section1_5.ffiArray.new.organisationName",
-                              (e) => {
-                                setNewEntry1_5({
-                                  ...newEntry1_5,
-                                  organisationName: e.target.value,
-                                });
-                                setShowValidationErrors(true);
-                              }
-                            )}
-                            className={cn(
-                              "bg-white",
-                              getInputValidationClass(
-                                "section1_5.ffiArray.new.organisationName"
-                              )
-                            )}
-                            placeholder="Enter organisation name"
-                          />
-                          {renderFieldError(
-                            "section1_5.ffiArray.new.organisationName"
-                          )}
-                        </div>
-                        <div>
-                          <Label>Organisation Type</Label>
-                          <Dropdown
-                            options={dropdownValues.issuingAuthorityList.map(
-                              (opt) => ({ label: opt, value: opt })
-                            )}
-                            value={newEntry1_5.organisationType}
-                            onChange={createOnValueChangeHandler(
-                              "section1_5.ffiArray.new.organisationType",
-                              (value) => {
-                                setNewEntry1_5({
-                                  ...newEntry1_5,
-                                  organisationType: value,
-                                });
-                                setShowValidationErrors(true);
-                              }
-                            )}
-                            placeholder="Select Type"
-                            isEditable={true}
-                          />
-                          {renderFieldError(
-                            "section1_5.ffiArray.new.organisationType"
-                          )}
-                        </div>
-                        <div>
-                          <Label>Year of Establishment</Label>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            min="1900"
-                            max="2100"
-                            value={newEntry1_5.yearEstablished}
-                            onChange={createOnChangeHandler(
-                              "section1_5.ffiArray.new.yearEstablished",
-                              (e) => {
-                                const value = e.target.value;
-                                // Only allow 4-digit years
-                                if (value === "" || /^\d{0,4}$/.test(value)) {
-                                  setNewEntry1_5({
-                                    ...newEntry1_5,
-                                    yearEstablished: value,
-                                  });
-                                  setShowValidationErrors(true);
-                                }
-                              }
-                            )}
-                            className="bg-white"
-                            placeholder="Enter year (YYYY)"
-                          />
-                        </div>
-                        <div>
-                          <Label>Total Funding (₹ Crores)</Label>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            min="0"
-                            value={newEntry1_5.totalFunding}
-                            onChange={createOnChangeHandler(
-                              "section1_5.ffiArray.new.totalFunding",
-                              (e) => {
-                                const value = e.target.value;
-                                // Only allow numbers and decimal point
-                                if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                                  setNewEntry1_5({
-                                    ...newEntry1_5,
-                                    totalFunding: value,
-                                  });
-                                  setShowValidationErrors(true);
-                                }
-                              }
-                            )}
-                            className={cn(
-                              "bg-white",
-                              getInputValidationClass(
-                                "section1_5.ffiArray.new.totalFunding"
-                              )
-                            )}
-                            placeholder="Enter funding"
-                          />
-                          {renderFieldError(
-                            "section1_5.ffiArray.new.totalFunding"
-                          )}
-                        </div>
-                        <div>
-                          <Label>Website</Label>
-                          <Input
-                            type="url"
-                            value={newEntry1_5.website}
-                            onChange={createOnChangeHandler(
-                              "section1_5.ffiArray.new.website",
-                              (e) => {
-                                setNewEntry1_5({
-                                  ...newEntry1_5,
-                                  website: e.target.value,
-                                });
-                                setShowValidationErrors(true);
-                              }
-                            )}
-                            className={cn(
-                              "bg-white",
-                              getInputValidationClass(
-                                "section1_5.ffiArray.new.website"
-                              )
-                            )}
-                            placeholder="Enter website"
-                          />
-                          {renderFieldError("section1_5.ffiArray.new.website")}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleAddNewEntry1_5}
-                          className="flex items-center gap-2"
-                        >
-                          <Check className="w-4 h-4" />
-                          Save Entry
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setShowAddForm1_5(false);
-                            setNewEntry1_5({
-                              organisationName: "",
-                              organisationType: "",
-                              yearEstablished: "",
-                              totalFunding: "",
-                              website: "",
-                            });
-                          }}
-                          className="flex items-center gap-2"
-                        >
-                          <X className="w-4 h-4" />
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Show comment field if hasIntermediary is "no" */}
-              {section15State?.hasIntermediary === "no" && (
+                {/* RadioGroup for hasIntermediary */}
                 <div>
-                  <Label>Comment</Label>
+                  <Label className="mb-3 block">
+                    Has Functional Financial Intermediary?*
+                  </Label>
                   {shouldBeEditable("1.5") ? (
-                    <Textarea
-                      value={section15State?.comment || ""}
-                      onChange={createOnChangeHandler(
-                        "section1_5.comment",
-                        (e) => {
+                    <RadioGroup
+                      value={section15State?.hasIntermediary || ""}
+                      onValueChange={(value) => {
+                        if (value === "no") {
+                          // When switching to "no", clear ffiArray and comment
+                          // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
+                          const updatedState = {
+                            ...section15State,
+                            hasIntermediary: value,
+                            ffiArray: [], // Clear the array (files are in the array items)
+                            comment: "", // Clear comment - user should enter fresh comment for new "no" selection
+                          };
+                          setSection15State(updatedState);
+                          // Also update formDataState to ensure persistence and document tab updates
+                          setFormDataForSection("section1_5", updatedState);
+                        } else if (value === "yes") {
+                          // When switching to "yes", clear comment but keep ffiArray
                           setSection15State({
                             ...section15State,
-                            comment: e.target.value,
+                            hasIntermediary: value,
+                            comment: undefined, // Clear comment
                           });
-                          setShowValidationErrors(true);
+                        } else {
+                          setSection15State({
+                            ...section15State,
+                            hasIntermediary: value,
+                          });
                         }
-                      )}
-                      className={cn(
-                        "bg-white mt-2",
-                        getInputValidationClass("section1_5.comment")
-                      )}
-                      placeholder="Enter comment"
-                      rows={4}
-                    />
+                      }}
+                      className="flex flex-row gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="1.5-yes" />
+                        <Label htmlFor="1.5-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="1.5-no" />
+                        <Label htmlFor="1.5-no">No</Label>
+                      </div>
+                    </RadioGroup>
                   ) : (
-                    <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                      {section15State?.comment || "No comment provided"}
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          section15State?.hasIntermediary === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : section15State?.hasIntermediary === "no"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {section15State?.hasIntermediary === "yes"
+                          ? "Yes"
+                          : section15State?.hasIntermediary === "no"
+                          ? "No"
+                          : "Not specified"}
+                      </span>
                     </div>
                   )}
-                  {renderFieldError("section1_5.comment")}
+                  {renderFieldError("section1_5.hasIntermediary")}
                 </div>
-              )}
+
+                {/* Show table and Add More button if hasIntermediary is "yes" */}
+                {section15State?.hasIntermediary === "yes" && (
+                  <>
+                    {/* Validation error for ffiArray */}
+                    {renderFieldError("section1_5.ffiArray")}
+
+                    {/* Table Display */}
+                    <div className="overflow-x-auto rounded-xl">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Organisation Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Organisation Type
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Year of Establishment
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Total Funding (₹ Crores)
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Website
+                            </th>
+                            {shouldBeEditable("1.5") && (
+                              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                Action
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const ffiArray = Array.isArray(
+                              section15State?.ffiArray
+                            )
+                              ? section15State.ffiArray
+                              : [];
+
+                            if (!ffiArray.length) {
+                              return (
+                                <tr>
+                                  <td
+                                    colSpan={shouldBeEditable("1.5") ? 6 : 5}
+                                    className="py-8 text-center text-muted-foreground"
+                                  >
+                                    No financial intermediary data available
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return ffiArray.map((item: any, index: number) => (
+                              <tr key={item.id || index} className="border-b">
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("1.5") ? (
+                                    <div>
+                                      <Input
+                                        value={item.organisationName || ""}
+                                        onChange={createOnChangeHandler(
+                                          `section1_5.ffiArray.${index}.organisationName`,
+                                          (e) => {
+                                            const updatedArray = [...ffiArray];
+                                            updatedArray[index] = {
+                                              ...updatedArray[index],
+                                              organisationName: e.target.value,
+                                            };
+                                            setSection15State({
+                                              ...section15State,
+                                              ffiArray: updatedArray,
+                                            });
+                                            setShowValidationErrors(true);
+                                          }
+                                        )}
+                                        className={cn(
+                                          "w-full",
+                                          getInputValidationClass(
+                                            `section1_5.ffiArray.${index}.organisationName`
+                                          )
+                                        )}
+                                        placeholder="Enter organisation name"
+                                      />
+                                      {renderFieldError(
+                                        `section1_5.ffiArray.${index}.organisationName`
+                                      )}
+                                    </div>
+                                  ) : (
+                                    item.organisationName || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("1.5") ? (
+                                    <div>
+                                      <Dropdown
+                                        options={dropdownValues.issuingAuthorityList.map(
+                                          (opt) => ({ label: opt, value: opt })
+                                        )}
+                                        value={item.organisationType || ""}
+                                        onChange={createOnValueChangeHandler(
+                                          `section1_5.ffiArray.${index}.organisationType`,
+                                          (value) => {
+                                            const updatedArray = [...ffiArray];
+                                            updatedArray[index] = {
+                                              ...updatedArray[index],
+                                              organisationType: value,
+                                            };
+                                            setSection15State({
+                                              ...section15State,
+                                              ffiArray: updatedArray,
+                                            });
+                                            setShowValidationErrors(true);
+                                          }
+                                        )}
+                                        placeholder="Select Type"
+                                        isEditable={true}
+                                        resetKey={selectResetKey}
+                                      />
+                                      {renderFieldError(
+                                        `section1_5.ffiArray.${index}.organisationType`
+                                      )}
+                                    </div>
+                                  ) : (
+                                    item.organisationType || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("1.5") ? (
+                                    <div>
+                                      <Input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="1900"
+                                        max="2100"
+                                        value={item.yearEstablished || ""}
+                                        onChange={createOnChangeHandler(
+                                          `section1_5.ffiArray.${index}.yearEstablished`,
+                                          (e) => {
+                                            const value = e.target.value;
+                                            // Only allow 4-digit years
+                                            if (
+                                              value === "" ||
+                                              /^\d{0,4}$/.test(value)
+                                            ) {
+                                              const updatedArray = [
+                                                ...ffiArray,
+                                              ];
+                                              updatedArray[index] = {
+                                                ...updatedArray[index],
+                                                yearEstablished: value,
+                                              };
+                                              setSection15State({
+                                                ...section15State,
+                                                ffiArray: updatedArray,
+                                              });
+                                              setShowValidationErrors(true);
+                                            }
+                                          }
+                                        )}
+                                        className={cn(
+                                          "w-full",
+                                          getInputValidationClass(
+                                            `section1_5.ffiArray.${index}.yearEstablished`
+                                          )
+                                        )}
+                                        placeholder="Enter year (YYYY)"
+                                      />
+                                      {renderFieldError(
+                                        `section1_5.ffiArray.${index}.yearEstablished`
+                                      )}
+                                    </div>
+                                  ) : (
+                                    item.yearEstablished || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("1.5") ? (
+                                    <div>
+                                      <Input
+                                        type="number"
+                                        inputMode="decimal"
+                                        step="0.01"
+                                        min="0"
+                                        value={item.totalFunding || ""}
+                                        onChange={createOnChangeHandler(
+                                          `section1_5.ffiArray.${index}.totalFunding`,
+                                          (e) => {
+                                            const value = e.target.value;
+                                            // Only allow numbers and decimal point
+                                            if (
+                                              value === "" ||
+                                              /^\d*\.?\d*$/.test(value)
+                                            ) {
+                                              const updatedArray = [
+                                                ...ffiArray,
+                                              ];
+                                              updatedArray[index] = {
+                                                ...updatedArray[index],
+                                                totalFunding: value,
+                                              };
+                                              setSection15State({
+                                                ...section15State,
+                                                ffiArray: updatedArray,
+                                              });
+                                              setShowValidationErrors(true);
+                                            }
+                                          }
+                                        )}
+                                        className={cn(
+                                          "w-full",
+                                          getInputValidationClass(
+                                            `section1_5.ffiArray.${index}.totalFunding`
+                                          )
+                                        )}
+                                        placeholder="Enter funding"
+                                      />
+                                      {renderFieldError(
+                                        `section1_5.ffiArray.${index}.totalFunding`
+                                      )}
+                                    </div>
+                                  ) : (
+                                    item.totalFunding || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("1.5") ? (
+                                    <div>
+                                      <Input
+                                        type="url"
+                                        value={item.website || ""}
+                                        onChange={createOnChangeHandler(
+                                          `section1_5.ffiArray.${index}.website`,
+                                          (e) => {
+                                            const updatedArray = [...ffiArray];
+                                            updatedArray[index] = {
+                                              ...updatedArray[index],
+                                              website: e.target.value,
+                                            };
+                                            setSection15State({
+                                              ...section15State,
+                                              ffiArray: updatedArray,
+                                            });
+                                            setShowValidationErrors(true);
+                                          }
+                                        )}
+                                        className={cn(
+                                          "w-full",
+                                          getInputValidationClass(
+                                            `section1_5.ffiArray.${index}.website`
+                                          )
+                                        )}
+                                        placeholder="Enter website"
+                                      />
+                                      {renderFieldError(
+                                        `section1_5.ffiArray.${index}.website`
+                                      )}
+                                    </div>
+                                  ) : (
+                                    item.website || "N/A"
+                                  )}
+                                </td>
+                                {shouldBeEditable("1.5") && (
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log(
+                                          `[Section_1_5] Delete button clicked for item:`,
+                                          item
+                                        );
+                                        console.log(
+                                          `[Section_1_5] isEditable("1.5"):`,
+                                          shouldBeEditable("1.5")
+                                        );
+                                        console.log(
+                                          `[Section_1_5] Current ffiArray:`,
+                                          ffiArray
+                                        );
+
+                                        // Handle deletion: Always use index-based deletion for reliability
+                                        // This prevents issues when multiple items have the same ID or no ID
+                                        const updatedArray = ffiArray.filter(
+                                          (ffiItem, idx) => {
+                                            // Always compare by index to ensure we only delete the intended item
+                                            const shouldKeep = idx !== index;
+                                            console.log(
+                                              `[Section_1_5] Comparing by index - idx:`,
+                                              idx,
+                                              `target index:`,
+                                              index,
+                                              `shouldKeep:`,
+                                              shouldKeep
+                                            );
+                                            return shouldKeep;
+                                          }
+                                        );
+
+                                        console.log(
+                                          `[Section_1_5] Updated ffiArray:`,
+                                          updatedArray
+                                        );
+                                        setSection15State({
+                                          ...section15State,
+                                          ffiArray: updatedArray,
+                                        });
+                                      }}
+                                      className="text-red-500 hover:text-red-700 border-none bg-none"
+                                    >
+                                      <Trash2 className="h-5 w-5" />
+                                    </Button>
+                                  </td>
+                                )}
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Add More Button - Only visible when in edit mode */}
+                    {shouldBeEditable("1.5") && !showAddForm1_5 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                        onClick={() => setShowAddForm1_5(true)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add More
+                      </Button>
+                    )}
+
+                    {/* Add Entry Form - Only visible when showAddForm1_5 is true */}
+                    {showAddForm1_5 && shouldBeEditable("1.5") && (
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <h4 className="font-medium mb-3">
+                          Add New Organization
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                          <div>
+                            <Label>Organisation Name</Label>
+                            <Input
+                              value={newEntry1_5.organisationName}
+                              onChange={createOnChangeHandler(
+                                "section1_5.ffiArray.new.organisationName",
+                                (e) => {
+                                  setNewEntry1_5({
+                                    ...newEntry1_5,
+                                    organisationName: e.target.value,
+                                  });
+                                  setShowValidationErrors(true);
+                                }
+                              )}
+                              className={cn(
+                                "bg-white",
+                                getInputValidationClass(
+                                  "section1_5.ffiArray.new.organisationName"
+                                )
+                              )}
+                              placeholder="Enter organisation name"
+                            />
+                            {renderFieldError(
+                              "section1_5.ffiArray.new.organisationName"
+                            )}
+                          </div>
+                          <div>
+                            <Label>Organisation Type</Label>
+                            <Dropdown
+                              options={dropdownValues.issuingAuthorityList.map(
+                                (opt) => ({ label: opt, value: opt })
+                              )}
+                              value={newEntry1_5.organisationType}
+                              onChange={createOnValueChangeHandler(
+                                "section1_5.ffiArray.new.organisationType",
+                                (value) => {
+                                  setNewEntry1_5({
+                                    ...newEntry1_5,
+                                    organisationType: value,
+                                  });
+                                  setShowValidationErrors(true);
+                                }
+                              )}
+                              placeholder="Select Type"
+                              isEditable={true}
+                            />
+                            {renderFieldError(
+                              "section1_5.ffiArray.new.organisationType"
+                            )}
+                          </div>
+                          <div>
+                            <Label>Year of Establishment</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              min="1900"
+                              max="2100"
+                              value={newEntry1_5.yearEstablished}
+                              onChange={createOnChangeHandler(
+                                "section1_5.ffiArray.new.yearEstablished",
+                                (e) => {
+                                  const value = e.target.value;
+                                  // Only allow 4-digit years
+                                  if (value === "" || /^\d{0,4}$/.test(value)) {
+                                    setNewEntry1_5({
+                                      ...newEntry1_5,
+                                      yearEstablished: value,
+                                    });
+                                    setShowValidationErrors(true);
+                                  }
+                                }
+                              )}
+                              className="bg-white"
+                              placeholder="Enter year (YYYY)"
+                            />
+                          </div>
+                          <div>
+                            <Label>Total Funding (₹ Crores)</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              step="0.01"
+                              min="0"
+                              value={newEntry1_5.totalFunding}
+                              onChange={createOnChangeHandler(
+                                "section1_5.ffiArray.new.totalFunding",
+                                (e) => {
+                                  const value = e.target.value;
+                                  // Only allow numbers and decimal point
+                                  if (
+                                    value === "" ||
+                                    /^\d*\.?\d*$/.test(value)
+                                  ) {
+                                    setNewEntry1_5({
+                                      ...newEntry1_5,
+                                      totalFunding: value,
+                                    });
+                                    setShowValidationErrors(true);
+                                  }
+                                }
+                              )}
+                              className={cn(
+                                "bg-white",
+                                getInputValidationClass(
+                                  "section1_5.ffiArray.new.totalFunding"
+                                )
+                              )}
+                              placeholder="Enter funding"
+                            />
+                            {renderFieldError(
+                              "section1_5.ffiArray.new.totalFunding"
+                            )}
+                          </div>
+                          <div>
+                            <Label>Website</Label>
+                            <Input
+                              type="url"
+                              value={newEntry1_5.website}
+                              onChange={createOnChangeHandler(
+                                "section1_5.ffiArray.new.website",
+                                (e) => {
+                                  setNewEntry1_5({
+                                    ...newEntry1_5,
+                                    website: e.target.value,
+                                  });
+                                  setShowValidationErrors(true);
+                                }
+                              )}
+                              className={cn(
+                                "bg-white",
+                                getInputValidationClass(
+                                  "section1_5.ffiArray.new.website"
+                                )
+                              )}
+                              placeholder="Enter website"
+                            />
+                            {renderFieldError(
+                              "section1_5.ffiArray.new.website"
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleAddNewEntry1_5}
+                            className="flex items-center gap-2"
+                          >
+                            <Check className="w-4 h-4" />
+                            Save Entry
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowAddForm1_5(false);
+                              setNewEntry1_5({
+                                organisationName: "",
+                                organisationType: "",
+                                yearEstablished: "",
+                                totalFunding: "",
+                                website: "",
+                              });
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Show comment field if hasIntermediary is "no" */}
+                {section15State?.hasIntermediary === "no" && (
+                  <div>
+                    <Label>Comment</Label>
+                    {shouldBeEditable("1.5") ? (
+                      <Textarea
+                        value={section15State?.comment || ""}
+                        onChange={createOnChangeHandler(
+                          "section1_5.comment",
+                          (e) => {
+                            setSection15State({
+                              ...section15State,
+                              comment: e.target.value,
+                            });
+                            setShowValidationErrors(true);
+                          }
+                        )}
+                        className={cn(
+                          "bg-white mt-2",
+                          getInputValidationClass("section1_5.comment")
+                        )}
+                        placeholder="Enter comment"
+                        rows={4}
+                      />
+                    ) : (
+                      <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                        {section15State?.comment || "No comment provided"}
+                      </div>
+                    )}
+                    {renderFieldError("section1_5.comment")}
+                  </div>
+                )}
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (

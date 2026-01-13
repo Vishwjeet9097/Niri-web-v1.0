@@ -1340,7 +1340,7 @@ export const PPPDevelopmentReview = ({
         }
       }
 
-      // Also check if section exists in formData
+      // Also check if section exists in formData AND has been submitted (has status other than NOT_STARTED)
       if (!wasSubmitted && formData && typeof formData === "object") {
         const pppDev = (formData as any).pppDevelopment;
         if (
@@ -1349,7 +1349,20 @@ export const PPPDevelopmentReview = ({
           pppDev[sectionKey] !== undefined &&
           pppDev[sectionKey] !== null
         ) {
-          wasSubmitted = true;
+          // Check if the section has a status indicating it was actually submitted
+          const section = pppDev[sectionKey];
+          const sectionStatus = section?.status;
+
+          // Only mark as submitted if status exists and is not NOT_STARTED/null/undefined
+          if (
+            sectionStatus &&
+            sectionStatus !== "NOT_STARTED" &&
+            sectionStatus !== null &&
+            sectionStatus !== undefined &&
+            sectionStatus !== ""
+          ) {
+            wasSubmitted = true;
+          }
         }
       }
 
@@ -1393,6 +1406,7 @@ export const PPPDevelopmentReview = ({
       }
 
       // PRIORITY 3: Check original formData prop (from backend) - fallback check
+      // Only consider it submitted if it has a status indicating submission
       const pppDevFromFormData =
         formData &&
         typeof formData === "object" &&
@@ -1400,13 +1414,24 @@ export const PPPDevelopmentReview = ({
           ? (formData as any).pppDevelopment
           : null;
 
-      const inFormData =
-        pppDevFromFormData &&
-        typeof pppDevFromFormData === "object" &&
-        (pppDevFromFormData as any)[sectionKey] !== undefined &&
-        (pppDevFromFormData as any)[sectionKey] !== null;
+      if (pppDevFromFormData && typeof pppDevFromFormData === "object") {
+        const section = (pppDevFromFormData as any)[sectionKey];
+        if (section && section !== null && section !== undefined) {
+          const sectionStatus = section?.status;
+          // Only return true if section has a status indicating it was submitted
+          if (
+            sectionStatus &&
+            sectionStatus !== "NOT_STARTED" &&
+            sectionStatus !== null &&
+            sectionStatus !== undefined &&
+            sectionStatus !== ""
+          ) {
+            return true;
+          }
+        }
+      }
 
-      return inFormData;
+      return false;
     },
     [formData, submission]
   );
@@ -4150,163 +4175,165 @@ export const PPPDevelopmentReview = ({
             {renderSectionValidationMessage("3.1")}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div>
-                <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
-                {shouldBeEditable("3.1") ? (
-                  <RadioGroup
-                    value={state?.section3_1?.available || ""}
-                    onValueChange={(value) => {
-                      handleFieldUpdate("3.1", "available", value);
-                      markFieldAsTouched("section3_1.available");
-                      setShowValidationErrors(true);
-                    }}
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="3.1-yes" />
-                      <Label htmlFor="3.1-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="3.1-no" />
-                      <Label htmlFor="3.1-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        state?.section3_1?.available === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+                <div>
+                  <Label className="mb-3 block">
+                    PPP Act/Policy Available?*
+                  </Label>
+                  {shouldBeEditable("3.1") ? (
+                    <RadioGroup
+                      value={state?.section3_1?.available || ""}
+                      onValueChange={(value) => {
+                        handleFieldUpdate("3.1", "available", value);
+                        markFieldAsTouched("section3_1.available");
+                        setShowValidationErrors(true);
+                      }}
+                      className="flex flex-row gap-6"
                     >
-                      {state?.section3_1?.available === "yes" ? "Yes" : "No"}
-                    </span>
-                  </div>
-                )}
-                {renderFieldError("section3_1.available")}
-              </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="3.1-yes" />
+                        <Label htmlFor="3.1-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="3.1-no" />
+                        <Label htmlFor="3.1-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          state?.section3_1?.available === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {state?.section3_1?.available === "yes" ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  )}
+                  {renderFieldError("section3_1.available")}
+                </div>
 
-              {state?.section3_1?.available === "yes" && (
-                <div className="space-y-2">
-                  {/* No Document Available Checkbox */}
-                  {shouldBeEditable("3.1") && (
-                    <div className="flex items-center space-x-2 py-1">
-                      <Checkbox
-                        id="no-doc-3.1"
-                        checked={
-                          state?.section3_1?.noDocumentAvailable || false
-                        }
-                        onCheckedChange={(checked) => {
-                          const noDocument = checked as boolean;
-                          setFormDataState((prev: any) => ({
-                            ...prev,
-                            section3_1: {
-                              ...prev.section3_1,
-                              noDocumentAvailable: noDocument,
-                              file: noDocument ? null : prev.section3_1?.file,
-                            },
-                          }));
+                {state?.section3_1?.available === "yes" && (
+                  <div className="space-y-2">
+                    {/* No Document Available Checkbox */}
+                    {shouldBeEditable("3.1") && (
+                      <div className="flex items-center space-x-2 py-1">
+                        <Checkbox
+                          id="no-doc-3.1"
+                          checked={
+                            state?.section3_1?.noDocumentAvailable || false
+                          }
+                          onCheckedChange={(checked) => {
+                            const noDocument = checked as boolean;
+                            setFormDataState((prev: any) => ({
+                              ...prev,
+                              section3_1: {
+                                ...prev.section3_1,
+                                noDocumentAvailable: noDocument,
+                                file: noDocument ? null : prev.section3_1?.file,
+                              },
+                            }));
 
-                          // Also update submissionData
-                          setSubmissionState((prevSubmission: any) => {
-                            if (!prevSubmission) return prevSubmission;
-                            const pppDev =
-                              prevSubmission?.formData?.pppDevelopment || {};
-                            return {
-                              ...prevSubmission,
-                              formData: {
-                                ...prevSubmission.formData,
-                                pppDevelopment: {
-                                  ...pppDev,
-                                  section3_1: {
-                                    ...pppDev.section3_1,
-                                    noDocumentAvailable: noDocument,
-                                    file: noDocument
-                                      ? null
-                                      : pppDev.section3_1?.file,
+                            // Also update submissionData
+                            setSubmissionState((prevSubmission: any) => {
+                              if (!prevSubmission) return prevSubmission;
+                              const pppDev =
+                                prevSubmission?.formData?.pppDevelopment || {};
+                              return {
+                                ...prevSubmission,
+                                formData: {
+                                  ...prevSubmission.formData,
+                                  pppDevelopment: {
+                                    ...pppDev,
+                                    section3_1: {
+                                      ...pppDev.section3_1,
+                                      noDocumentAvailable: noDocument,
+                                      file: noDocument
+                                        ? null
+                                        : pppDev.section3_1?.file,
+                                    },
                                   },
                                 },
-                              },
-                            };
-                          });
-
-                          // Clear validation error
-                          if (getFieldError("section3_1.file")) {
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section3_1.file"];
-                              return updated;
+                              };
                             });
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor="no-doc-3.1"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
+
+                            // Clear validation error
+                            if (getFieldError("section3_1.file")) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated["section3_1.file"];
+                                return updated;
+                              });
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor="no-doc-3.1"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          No document available
+                        </label>
+                      </div>
+                    )}
+
+                    {state?.section3_1?.noDocumentAvailable &&
+                    !(
+                      state?.section3_1?.file?.file ||
+                      state?.section3_1?.file?.fileName ||
+                      state?.section3_1?.file?.filePath
+                    ) ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
                         No document available
-                      </label>
-                    </div>
-                  )}
+                      </div>
+                    ) : (
+                      <EditableFileDisplay
+                        files={state?.section3_1?.file ?? null}
+                        isEditable={shouldBeEditable("3.1")}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFile) => {
+                          handleFileUpdate("3.1", updatedFile);
+                          markFieldAsTouched("section3_1.file");
+                          setShowValidationErrors(true);
+                        }}
+                        label="Uploaded File"
+                        multiple={false}
+                      />
+                    )}
+                    {renderFieldError("section3_1.file")}
+                  </div>
+                )}
 
-                  {state?.section3_1?.noDocumentAvailable &&
-                  !(
-                    state?.section3_1?.file?.file ||
-                    state?.section3_1?.file?.fileName ||
-                    state?.section3_1?.file?.filePath
-                  ) ? (
-                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                      No document available
-                    </div>
-                  ) : (
-                    <EditableFileDisplay
-                      files={state?.section3_1?.file ?? null}
-                      isEditable={shouldBeEditable("3.1")}
-                      submissionId={submissionId}
-                      onFilesChange={(updatedFile) => {
-                        handleFileUpdate("3.1", updatedFile);
-                        markFieldAsTouched("section3_1.file");
-                        setShowValidationErrors(true);
-                      }}
-                      label="Uploaded File"
-                      multiple={false}
-                    />
-                  )}
-                  {renderFieldError("section3_1.file")}
-                </div>
-              )}
+                {state?.section3_1?.available === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("3.1") ? (
+                      <Textarea
+                        value={state?.section3_1?.comment || ""}
+                        onChange={(e) => {
+                          handleFieldUpdate("3.1", "comment", e.target.value);
+                          markFieldAsTouched("section3_1.comment");
+                          setShowValidationErrors(true);
+                        }}
+                        placeholder="Please provide a comment..."
+                        className={
+                          getFieldError("section3_1.comment")
+                            ? "min-h-[100px] border-red-500"
+                            : "min-h-[100px]"
+                        }
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {state?.section3_1?.comment || "No comment provided"}
+                      </div>
+                    )}
+                    {renderFieldError("section3_1.comment")}
+                  </div>
+                )}
 
-              {state?.section3_1?.available === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {shouldBeEditable("3.1") ? (
-                    <Textarea
-                      value={state?.section3_1?.comment || ""}
-                      onChange={(e) => {
-                        handleFieldUpdate("3.1", "comment", e.target.value);
-                        markFieldAsTouched("section3_1.comment");
-                        setShowValidationErrors(true);
-                      }}
-                      placeholder="Please provide a comment..."
-                      className={
-                        getFieldError("section3_1.comment")
-                          ? "min-h-[100px] border-red-500"
-                          : "min-h-[100px]"
-                      }
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {state?.section3_1?.comment || "No comment provided"}
-                    </div>
-                  )}
-                  {renderFieldError("section3_1.comment")}
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                Upload copy of Act/Policy
-              </p>
+                <p className="text-xs text-muted-foreground">
+                  Upload copy of Act/Policy
+                </p>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -4364,96 +4391,131 @@ export const PPPDevelopmentReview = ({
           </CardHeader> */}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div>
-                <Label className="mb-3 block">
-                  Functional State/UT PPP Cell/Unit*
-                </Label>
-                {shouldBeEditable("3.2") ? (
-                  <RadioGroup
-                    value={state?.section3_2?.available || ""}
-                    onValueChange={(value) => {
-                      handleFieldUpdate("3.2", "available", value);
-                      // Clear validation error when user selects
-                      if (getFieldError("section3_2.available")) {
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section3_2.available"];
-                          return updated;
-                        });
-                      }
-                    }}
-                    className="flex flex-row gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="yes" id="3.2-yes" />
-                      <Label htmlFor="3.2-yes">Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="no" id="3.2-no" />
-                      <Label htmlFor="3.2-no">No</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        state?.section3_2?.available === "yes"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {state?.section3_2?.available === "yes" ? "Yes" : "No"}
-                    </span>
-                  </div>
-                )}
-                {renderFieldError("section3_2.available")}
-              </div>
-
-              {state?.section3_2?.available === "yes" && (
-                <div className="space-y-2">
-                  {/* No Document Available Checkbox */}
-                  {shouldBeEditable("3.2") && (
-                    <div className="flex items-center space-x-2 py-1">
-                      <Checkbox
-                        id="no-doc-3.2"
-                        checked={
-                          state?.section3_2?.noDocumentAvailable || false
+                <div>
+                  <Label className="mb-3 block">
+                    Functional State/UT PPP Cell/Unit*
+                  </Label>
+                  {shouldBeEditable("3.2") ? (
+                    <RadioGroup
+                      value={state?.section3_2?.available || ""}
+                      onValueChange={(value) => {
+                        handleFieldUpdate("3.2", "available", value);
+                        // Clear validation error when user selects
+                        if (getFieldError("section3_2.available")) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated["section3_2.available"];
+                            return updated;
+                          });
                         }
-                        onCheckedChange={(checked) => {
-                          const noDocument = checked as boolean;
-                          setFormDataState((prev: any) => ({
-                            ...prev,
-                            section3_2: {
-                              ...prev.section3_2,
-                              noDocumentAvailable: noDocument,
-                              file: noDocument ? null : prev.section3_2?.file,
-                            },
-                          }));
+                      }}
+                      className="flex flex-row gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="3.2-yes" />
+                        <Label htmlFor="3.2-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="3.2-no" />
+                        <Label htmlFor="3.2-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          state?.section3_2?.available === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {state?.section3_2?.available === "yes" ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  )}
+                  {renderFieldError("section3_2.available")}
+                </div>
 
-                          // Also update submissionData
-                          setSubmissionState((prevSubmission: any) => {
-                            if (!prevSubmission) return prevSubmission;
-                            const pppDev =
-                              prevSubmission?.formData?.pppDevelopment || {};
-                            return {
-                              ...prevSubmission,
-                              formData: {
-                                ...prevSubmission.formData,
-                                pppDevelopment: {
-                                  ...pppDev,
-                                  section3_2: {
-                                    ...pppDev.section3_2,
-                                    noDocumentAvailable: noDocument,
-                                    file: noDocument
-                                      ? null
-                                      : pppDev.section3_2?.file,
+                {state?.section3_2?.available === "yes" && (
+                  <div className="space-y-2">
+                    {/* No Document Available Checkbox */}
+                    {shouldBeEditable("3.2") && (
+                      <div className="flex items-center space-x-2 py-1">
+                        <Checkbox
+                          id="no-doc-3.2"
+                          checked={
+                            state?.section3_2?.noDocumentAvailable || false
+                          }
+                          onCheckedChange={(checked) => {
+                            const noDocument = checked as boolean;
+                            setFormDataState((prev: any) => ({
+                              ...prev,
+                              section3_2: {
+                                ...prev.section3_2,
+                                noDocumentAvailable: noDocument,
+                                file: noDocument ? null : prev.section3_2?.file,
+                              },
+                            }));
+
+                            // Also update submissionData
+                            setSubmissionState((prevSubmission: any) => {
+                              if (!prevSubmission) return prevSubmission;
+                              const pppDev =
+                                prevSubmission?.formData?.pppDevelopment || {};
+                              return {
+                                ...prevSubmission,
+                                formData: {
+                                  ...prevSubmission.formData,
+                                  pppDevelopment: {
+                                    ...pppDev,
+                                    section3_2: {
+                                      ...pppDev.section3_2,
+                                      noDocumentAvailable: noDocument,
+                                      file: noDocument
+                                        ? null
+                                        : pppDev.section3_2?.file,
+                                    },
                                   },
                                 },
-                              },
-                            };
-                          });
+                              };
+                            });
 
-                          // Clear validation error
+                            // Clear validation error
+                            if (getFieldError("section3_2.file")) {
+                              setIndicatorValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated["section3_2.file"];
+                                return updated;
+                              });
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor="no-doc-3.2"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          No document available
+                        </label>
+                      </div>
+                    )}
+
+                    {state?.section3_2?.noDocumentAvailable &&
+                    !(
+                      state?.section3_2?.file?.file ||
+                      state?.section3_2?.file?.fileName ||
+                      state?.section3_2?.file?.filePath
+                    ) ? (
+                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                        No document available
+                      </div>
+                    ) : (
+                      <EditableFileDisplay
+                        files={state?.section3_2?.file ?? null}
+                        isEditable={shouldBeEditable("3.2")}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFile) => {
+                          handleFileUpdate("3.2", updatedFile);
+                          // Clear validation error when file is uploaded
                           if (getFieldError("section3_2.file")) {
                             setIndicatorValidationErrors((prev) => {
                               const updated = { ...prev };
@@ -4462,85 +4524,50 @@ export const PPPDevelopmentReview = ({
                             });
                           }
                         }}
+                        label="Uploaded File"
+                        multiple={false}
                       />
-                      <label
-                        htmlFor="no-doc-3.2"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        No document available
-                      </label>
-                    </div>
-                  )}
+                    )}
+                    {renderFieldError("section3_2.file")}
+                  </div>
+                )}
 
-                  {state?.section3_2?.noDocumentAvailable &&
-                  !(
-                    state?.section3_2?.file?.file ||
-                    state?.section3_2?.file?.fileName ||
-                    state?.section3_2?.file?.filePath
-                  ) ? (
-                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                      No document available
-                    </div>
-                  ) : (
-                    <EditableFileDisplay
-                      files={state?.section3_2?.file ?? null}
-                      isEditable={shouldBeEditable("3.2")}
-                      submissionId={submissionId}
-                      onFilesChange={(updatedFile) => {
-                        handleFileUpdate("3.2", updatedFile);
-                        // Clear validation error when file is uploaded
-                        if (getFieldError("section3_2.file")) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated["section3_2.file"];
-                            return updated;
-                          });
+                {state?.section3_2?.available === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("3.2") ? (
+                      <Textarea
+                        value={state?.section3_2?.comment || ""}
+                        onChange={(e) => {
+                          handleFieldUpdate("3.2", "comment", e.target.value);
+                          // Clear validation error when user starts typing
+                          if (getFieldError("section3_2.comment")) {
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section3_2.comment"];
+                              return updated;
+                            });
+                          }
+                        }}
+                        placeholder="Please provide a comment..."
+                        className={
+                          getFieldError("section3_2.comment")
+                            ? "min-h-[100px] border-red-500"
+                            : "min-h-[100px]"
                         }
-                      }}
-                      label="Uploaded File"
-                      multiple={false}
-                    />
-                  )}
-                  {renderFieldError("section3_2.file")}
-                </div>
-              )}
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {state?.section3_2?.comment || "No comment provided"}
+                      </div>
+                    )}
+                    {renderFieldError("section3_2.comment")}
+                  </div>
+                )}
 
-              {state?.section3_2?.available === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {shouldBeEditable("3.2") ? (
-                    <Textarea
-                      value={state?.section3_2?.comment || ""}
-                      onChange={(e) => {
-                        handleFieldUpdate("3.2", "comment", e.target.value);
-                        // Clear validation error when user starts typing
-                        if (getFieldError("section3_2.comment")) {
-                          setIndicatorValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated["section3_2.comment"];
-                            return updated;
-                          });
-                        }
-                      }}
-                      placeholder="Please provide a comment..."
-                      className={
-                        getFieldError("section3_2.comment")
-                          ? "min-h-[100px] border-red-500"
-                          : "min-h-[100px]"
-                      }
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {state?.section3_2?.comment || "No comment provided"}
-                    </div>
-                  )}
-                  {renderFieldError("section3_2.comment")}
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                Upload notification or mandate
-              </p>
+                <p className="text-xs text-muted-foreground">
+                  Upload notification or mandate
+                </p>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
@@ -4599,901 +4626,914 @@ export const PPPDevelopmentReview = ({
           </CardHeader> */}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              <div className="overflow-x-auto rounded-xl">
-                <table className="min-w-full border-separate border-spacing-0 ">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Project Name
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Sector
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Scheme
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Total Project Cost (INR-CRORE)
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Status of Project
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
-                        Submission Date
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Uploaded File
-                      </th>
-                      {shouldBeEditable("3.3") && (
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                          Action
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="min-w-full border-separate border-spacing-0 ">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Project Name
                         </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody
-                    key={`vgf-table-body-${selectResetKey}-${
-                      state?.section3_3?.VGFArray?.length || 0
-                    }`}
-                  >
-                    {(() => {
-                      const VGFArray = Array.isArray(
-                        state?.section3_3?.VGFArray
-                      )
-                        ? state.section3_3.VGFArray
-                        : [];
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Sector
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Scheme
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Total Project Cost (INR-CRORE)
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Status of Project
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
+                          Submission Date
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Uploaded File
+                        </th>
+                        {shouldBeEditable("3.3") && (
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody
+                      key={`vgf-table-body-${selectResetKey}-${
+                        state?.section3_3?.VGFArray?.length || 0
+                      }`}
+                    >
+                      {(() => {
+                        const VGFArray = Array.isArray(
+                          state?.section3_3?.VGFArray
+                        )
+                          ? state.section3_3.VGFArray
+                          : [];
 
-                      if (!VGFArray.length) {
-                        return (
-                          <tr>
-                            <td
-                              colSpan={shouldBeEditable("3.3") ? 8 : 7}
-                              className="py-8 text-center text-muted-foreground"
-                            >
-                              No VGF/IIPDF proposals data available
-                            </td>
-                          </tr>
-                        );
-                      }
+                        if (!VGFArray.length) {
+                          return (
+                            <tr>
+                              <td
+                                colSpan={shouldBeEditable("3.3") ? 8 : 7}
+                                className="py-8 text-center text-muted-foreground"
+                              >
+                                No VGF/IIPDF proposals data available
+                              </td>
+                            </tr>
+                          );
+                        }
 
-                      return VGFArray.map((item: any, index: number) => {
-                        const isEditable3_3 = shouldBeEditable("3.3");
-                        console.log(
-                          `[PPPDevelopmentReview] Rendering row ${index} for section 3.3:`,
-                          {
-                            itemId: item.id,
-                            index,
-                            isEditable3_3,
-                            willShowDeleteButton: isEditable3_3,
-                          }
-                        );
-                        return (
-                          <tr key={item.id || index} className="border-b">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable3_3 ? (
-                                <div>
-                                  <Input
-                                    value={item.projectName || ""}
-                                    onChange={(e) =>
-                                      handleTableFieldUpdate(
-                                        index,
-                                        "projectName",
-                                        e.target.value
-                                      )
-                                    }
-                                    className={
-                                      getFieldError(
-                                        `section3_3.VGFArray.${index}.projectName`
-                                      )
-                                        ? "w-full border-red-500"
-                                        : "w-full"
-                                    }
-                                  />
-                                  {renderFieldError(
-                                    `section3_3.VGFArray.${index}.projectName`
-                                  )}
-                                </div>
-                              ) : (
-                                item.projectName || ""
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("3.3") ? (
-                                <div>
-                                  <Select
-                                    key={`sector-${index}-${selectResetKey}`}
-                                    value={item.sector || ""}
-                                    onValueChange={(value) =>
-                                      handleTableFieldUpdate(
-                                        index,
-                                        "sector",
-                                        value
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      className={
-                                        getFieldError(
-                                          `section3_3.VGFArray.${index}.sector`
-                                        )
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
-                                    >
-                                      <SelectValue placeholder="Select sector" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {SECTOR_OPTIONS.map((sector) => (
-                                        <SelectItem key={sector} value={sector}>
-                                          {sector}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  {getFieldError(
-                                    `section3_3.VGFArray.${index}.sector`
-                                  ) && (
-                                    <p className="text-sm text-red-500 mt-1">
-                                      {getFieldError(
-                                        `section3_3.VGFArray.${index}.sector`
-                                      )}
-                                    </p>
-                                  )}
-                                </div>
-                              ) : (
-                                item.sector || ""
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("3.3") ? (
-                                <div>
-                                  <Select
-                                    key={`scheme-${index}-${selectResetKey}`}
-                                    value={item.scheme || ""}
-                                    onValueChange={(value) =>
-                                      handleTableFieldUpdate(
-                                        index,
-                                        "scheme",
-                                        value
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      className={
-                                        getFieldError(
-                                          `section3_3.VGFArray.${index}.scheme`
-                                        )
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
-                                    >
-                                      <SelectValue placeholder="Select scheme" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="IIPDF">
-                                        IIPDF
-                                      </SelectItem>
-                                      <SelectItem value="Central VGF">
-                                        Central VGF
-                                      </SelectItem>
-                                      <SelectItem value="State VGF">
-                                        State VGF
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  {getFieldError(
-                                    `section3_3.VGFArray.${index}.scheme`
-                                  ) && (
-                                    <p className="text-sm text-red-500 mt-1">
-                                      {getFieldError(
-                                        `section3_3.VGFArray.${index}.statusOfProject`
-                                      )}
-                                    </p>
-                                  )}
-                                </div>
-                              ) : (
-                                item.scheme || ""
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("3.3") ? (
-                                <div>
-                                  <Input
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="Enter project cost in crores"
-                                    value={item.totalProjectCost || ""}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      if (
-                                        value === "" ||
-                                        /^\d*\.?\d*$/.test(value)
-                                      ) {
+                        return VGFArray.map((item: any, index: number) => {
+                          const isEditable3_3 = shouldBeEditable("3.3");
+                          console.log(
+                            `[PPPDevelopmentReview] Rendering row ${index} for section 3.3:`,
+                            {
+                              itemId: item.id,
+                              index,
+                              isEditable3_3,
+                              willShowDeleteButton: isEditable3_3,
+                            }
+                          );
+                          return (
+                            <tr key={item.id || index} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable3_3 ? (
+                                  <div>
+                                    <Input
+                                      value={item.projectName || ""}
+                                      onChange={(e) =>
                                         handleTableFieldUpdate(
                                           index,
-                                          "totalProjectCost",
-                                          value
-                                        );
+                                          "projectName",
+                                          e.target.value
+                                        )
                                       }
-                                    }}
-                                    className={
-                                      getFieldError(
-                                        `section3_3.VGFArray.${index}.totalProjectCost`
-                                      )
-                                        ? "w-full border-red-500"
-                                        : "w-full"
-                                    }
-                                  />
-                                  {getFieldError(
-                                    `section3_3.VGFArray.${index}.totalProjectCost`
-                                  ) && (
-                                    <p className="text-sm text-red-500 mt-1">
-                                      {getFieldError(
-                                        `section3_3.VGFArray.${index}.totalProjectCost`
-                                      )}
-                                    </p>
-                                  )}
-                                </div>
-                              ) : (
-                                item.totalProjectCost || "-"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("3.3") ? (
-                                <div>
-                                  <Select
-                                    key={`status-${index}-${selectResetKey}`}
-                                    value={item.statusOfProject || ""}
-                                    onValueChange={(value) =>
-                                      handleTableFieldUpdate(
-                                        index,
-                                        "statusOfProject",
-                                        value
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger
                                       className={
                                         getFieldError(
-                                          `section3_3.VGFArray.${index}.statusOfProject`
+                                          `section3_3.VGFArray.${index}.projectName`
                                         )
                                           ? "w-full border-red-500"
                                           : "w-full"
                                       }
-                                    >
-                                      <SelectValue placeholder="Select status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {PROJECT_STATUS_OPTIONS.map((status) => (
-                                        <SelectItem key={status} value={status}>
-                                          {status}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  {getFieldError(
-                                    `section3_3.VGFArray.${index}.statusOfProject`
-                                  ) && (
-                                    <p className="text-sm text-red-500 mt-1">
-                                      {getFieldError(
-                                        `section3_3.VGFArray.${index}.statusOfProject`
-                                      )}
-                                    </p>
-                                  )}
-                                </div>
-                              ) : (
-                                item.statusOfProject || "-"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
-                              {shouldBeEditable("3.3") ? (
-                                <div>
-                                  <Input
-                                    type="date"
-                                    max={new Date().toISOString().split("T")[0]}
-                                    value={
-                                      item.submissionDate
-                                        ? (() => {
-                                            const d = new Date(
-                                              item.submissionDate
-                                            );
-                                            if (isNaN(d.getTime())) return "";
-                                            const year = d.getFullYear();
-                                            const month = String(
-                                              d.getMonth() + 1
-                                            ).padStart(2, "0");
-                                            const day = String(
-                                              d.getDate()
-                                            ).padStart(2, "0");
-                                            return `${year}-${month}-${day}`;
-                                          })()
-                                        : ""
-                                    }
-                                    onChange={(e) => {
-                                      handleTableFieldUpdate(
-                                        index,
-                                        "submissionDate",
-                                        e.target.value
-                                          ? new Date(
-                                              e.target.value
-                                            ).toISOString()
-                                          : ""
-                                      );
-                                    }}
-                                    className={
-                                      getFieldError(
-                                        `section3_3.VGFArray.${index}.submissionDate`
-                                      )
-                                        ? "w-full border-red-500"
-                                        : "w-full"
-                                    }
-                                  />
-                                  {getFieldError(
-                                    `section3_3.VGFArray.${index}.submissionDate`
-                                  ) && (
-                                    <p className="text-sm text-red-500 mt-1">
-                                      {getFieldError(
-                                        `section3_3.VGFArray.${index}.submissionDate`
-                                      )}
-                                    </p>
-                                  )}
-                                </div>
-                              ) : item.submissionDate ? (
-                                new Date(
-                                  item.submissionDate
-                                ).toLocaleDateString()
-                              ) : (
-                                "-"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {shouldBeEditable("3.3") ? (
-                                <div className="space-y-1.5">
-                                  {/* No Document Available Checkbox */}
-                                  <div className="flex items-center space-x-2 py-1">
-                                    <Checkbox
-                                      id={`no-doc-3.3-${index}`}
-                                      checked={
-                                        item.noDocumentAvailable || false
+                                    />
+                                    {renderFieldError(
+                                      `section3_3.VGFArray.${index}.projectName`
+                                    )}
+                                  </div>
+                                ) : (
+                                  item.projectName || ""
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("3.3") ? (
+                                  <div>
+                                    <Select
+                                      key={`sector-${index}-${selectResetKey}`}
+                                      value={item.sector || ""}
+                                      onValueChange={(value) =>
+                                        handleTableFieldUpdate(
+                                          index,
+                                          "sector",
+                                          value
+                                        )
                                       }
-                                      onCheckedChange={(checked) => {
-                                        const noDocument = checked as boolean;
-                                        // Update noDocumentAvailable and clear file if checked
-                                        setFormDataState((prev: any) => {
-                                          const current =
-                                            prev?.section3_3?.VGFArray;
-                                          const rows = Array.isArray(current)
-                                            ? [...current]
-                                            : [];
-                                          const currentRow = {
-                                            ...(rows[index] || {}),
-                                          };
-                                          currentRow.noDocumentAvailable =
-                                            noDocument;
-                                          currentRow.file = noDocument
-                                            ? null
-                                            : currentRow.file;
-                                          rows[index] = currentRow;
-                                          return {
-                                            ...prev,
-                                            section3_3: {
-                                              ...(prev?.section3_3 || {}),
-                                              VGFArray: rows,
-                                            },
-                                          };
-                                        });
-
-                                        // Clear validation error
-                                        if (
+                                    >
+                                      <SelectTrigger
+                                        className={
                                           getFieldError(
-                                            `section3_3.VGFArray.${index}.file`
+                                            `section3_3.VGFArray.${index}.sector`
                                           )
+                                            ? "w-full border-red-500"
+                                            : "w-full"
+                                        }
+                                      >
+                                        <SelectValue placeholder="Select sector" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {SECTOR_OPTIONS.map((sector) => (
+                                          <SelectItem
+                                            key={sector}
+                                            value={sector}
+                                          >
+                                            {sector}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.sector`
+                                    ) && (
+                                      <p className="text-sm text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section3_3.VGFArray.${index}.sector`
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  item.sector || ""
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("3.3") ? (
+                                  <div>
+                                    <Select
+                                      key={`scheme-${index}-${selectResetKey}`}
+                                      value={item.scheme || ""}
+                                      onValueChange={(value) =>
+                                        handleTableFieldUpdate(
+                                          index,
+                                          "scheme",
+                                          value
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className={
+                                          getFieldError(
+                                            `section3_3.VGFArray.${index}.scheme`
+                                          )
+                                            ? "w-full border-red-500"
+                                            : "w-full"
+                                        }
+                                      >
+                                        <SelectValue placeholder="Select scheme" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="IIPDF">
+                                          IIPDF
+                                        </SelectItem>
+                                        <SelectItem value="Central VGF">
+                                          Central VGF
+                                        </SelectItem>
+                                        <SelectItem value="State VGF">
+                                          State VGF
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.scheme`
+                                    ) && (
+                                      <p className="text-sm text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section3_3.VGFArray.${index}.statusOfProject`
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  item.scheme || ""
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("3.3") ? (
+                                  <div>
+                                    <Input
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="Enter project cost in crores"
+                                      value={item.totalProjectCost || ""}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (
+                                          value === "" ||
+                                          /^\d*\.?\d*$/.test(value)
                                         ) {
-                                          setIndicatorValidationErrors(
-                                            (prev) => {
-                                              const updated = { ...prev };
-                                              delete updated[
-                                                `section3_3.VGFArray.${index}.file`
-                                              ];
-                                              return updated;
-                                            }
+                                          handleTableFieldUpdate(
+                                            index,
+                                            "totalProjectCost",
+                                            value
                                           );
                                         }
                                       }}
-                                    />
-                                    <label
-                                      htmlFor={`no-doc-3.3-${index}`}
-                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                    >
-                                      No document available
-                                    </label>
-                                  </div>
-
-                                  {item.noDocumentAvailable ? (
-                                    <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                      No document available
-                                    </div>
-                                  ) : (
-                                    <>
-                                      {/* Only show ONE file (single file upload) */}
-                                      {item.file ? (
-                                        <div className="flex flex-wrap gap-1.5">
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                            title={
-                                              extractOriginalName(
-                                                item.file.fileName || "",
-                                                (item.file as any)?.originalName
-                                              ) || "Unknown file"
-                                            }
-                                          >
-                                            <Upload className="w-3 h-3 flex-shrink-0" />
-                                            <span className="truncate">
-                                              {extractOriginalName(
-                                                item.file.fileName || "",
-                                                (item.file as any)?.originalName
-                                              ) || "Unknown file"}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                handleTableFieldUpdate(
-                                                  index,
-                                                  "file",
-                                                  null
-                                                );
-                                              }}
-                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                            </button>
-                                          </Badge>
-                                        </div>
-                                      ) : (
-                                        <span className="text-muted-foreground text-xs">
-                                          No file
-                                        </span>
-                                      )}
-                                      {/* Upload button for both add and replace */}
-                                      <div className="flex items-center">
-                                        <input
-                                          type="file"
-                                          accept=".pdf,.doc,.docx"
-                                          onChange={async (e) => {
-                                            const selectedFile =
-                                              e.target.files?.[0];
-                                            if (selectedFile) {
-                                              // Upload file immediately (same as create submission)
-                                              try {
-                                                const response =
-                                                  await apiService.uploadFile(
-                                                    submissionId,
-                                                    selectedFile
-                                                  );
-                                                const fileData =
-                                                  response?.data || response;
-
-                                                const newFile: FileUpload = {
-                                                  id:
-                                                    fileData.id ??
-                                                    crypto.randomUUID(),
-                                                  file: null, // File not stored locally when backend handles upload
-                                                  fileName:
-                                                    fileData.fileName ||
-                                                    fileData.filename ||
-                                                    selectedFile.name,
-                                                  originalName:
-                                                    selectedFile.name ||
-                                                    fileData.originalName ||
-                                                    fileData.data?.originalName, // Preserve original file name
-                                                  fileSize: Number(
-                                                    fileData.fileSize ??
-                                                      fileData.size ??
-                                                      selectedFile.size ??
-                                                      0
-                                                  ),
-                                                  uploadedAt: Number(
-                                                    fileData.uploadedAt ??
-                                                      Date.now()
-                                                  ),
-                                                  filePath:
-                                                    fileData.filePath ??
-                                                    fileData.file ??
-                                                    fileData.url ??
-                                                    fileData.path,
-                                                  fileUrl:
-                                                    fileData.fileUrl ||
-                                                    fileData.url,
-                                                  mimeType: fileData.mimeType,
-                                                };
-
-                                                // Update file and clear noDocumentAvailable
-                                                setFormDataState(
-                                                  (prev: any) => {
-                                                    const current =
-                                                      prev?.section3_3
-                                                        ?.VGFArray;
-                                                    const rows = Array.isArray(
-                                                      current
-                                                    )
-                                                      ? [...current]
-                                                      : [];
-                                                    const currentRow = {
-                                                      ...(rows[index] || {}),
-                                                    };
-                                                    currentRow.file = newFile;
-                                                    currentRow.noDocumentAvailable =
-                                                      false;
-                                                    rows[index] = currentRow;
-                                                    return {
-                                                      ...prev,
-                                                      section3_3: {
-                                                        ...(prev?.section3_3 ||
-                                                          {}),
-                                                        VGFArray: rows,
-                                                      },
-                                                    };
-                                                  }
-                                                );
-
-                                                e.target.value = ""; // Reset input
-                                              } catch (error: any) {
-                                                console.error(
-                                                  "Failed to upload file:",
-                                                  error
-                                                );
-                                              }
-                                            }
-                                          }}
-                                          className="hidden"
-                                          id={`file-input-3.3-${index}`}
-                                        />
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() =>
-                                            document
-                                              .getElementById(
-                                                `file-input-3.3-${index}`
-                                              )
-                                              ?.click()
-                                          }
-                                          className="h-6 px-2 text-xs"
-                                        >
-                                          <Upload className="w-3 h-3 mr-1" />
-                                          Upload
-                                        </Button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              ) : item.noDocumentAvailable ? (
-                                <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                  No document available
-                                </div>
-                              ) : item.file ? (
-                                <div className="flex items-center gap-1">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={
-                                      (item.file as any).originalName ||
-                                      item.file.fileName ||
-                                      "Unknown file"
-                                    }
-                                  >
-                                    <Upload className="w-3 h-3" />
-                                    <span className="truncate">
-                                      {(item.file as any).originalName ||
-                                        item.file.fileName ||
-                                        "Unknown file"}
-                                    </span>
-                                  </Badge>
-                                  {(() => {
-                                    const fileKey = `3.3-${index}`;
-                                    const isLoading = !!fileLoading[fileKey];
-                                    const hasFileAccess = !!(
-                                      item.file.filePath ||
-                                      item.file.file ||
-                                      item.file.fileUrl
-                                    );
-                                    return hasFileAccess ? (
-                                      <>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() =>
-                                            handleViewFile(item.file, fileKey)
-                                          }
-                                          disabled={isLoading}
-                                          className="h-7 w-7 p-0"
-                                          title="View file"
-                                        >
-                                          <Eye className="w-3 h-3" />
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() =>
-                                            handleDownloadFile(
-                                              item.file,
-                                              fileKey
-                                            )
-                                          }
-                                          disabled={isLoading}
-                                          className="h-7 w-7 p-0"
-                                          title="Download file"
-                                        >
-                                          <Download className="w-3 h-3" />
-                                        </Button>
-                                      </>
-                                    ) : null;
-                                  })()}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">
-                                  No file
-                                </span>
-                              )}
-                            </td>
-                            {isEditable3_3 && (
-                              <td className="py-3 px-4 text-sm font-normal">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    console.log(
-                                      `[PPPDevelopmentReview] Delete button clicked for item:`,
-                                      {
-                                        itemId: item.id,
-                                        index,
-                                        item,
-                                        timestamp: new Date().toISOString(),
+                                      className={
+                                        getFieldError(
+                                          `section3_3.VGFArray.${index}.totalProjectCost`
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
                                       }
-                                    );
-                                    // Use index for deletion since items may not have IDs
-                                    handleRemoveVGFEntry(index);
-                                  }}
-                                  className="text-red-500 hover:text-red-700 border-none bg-none cursor-pointer"
-                                  disabled={false}
-                                  title="Delete entry"
-                                >
-                                  <Trash2 className="h-5 w-5" />
-                                </Button>
+                                    />
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.totalProjectCost`
+                                    ) && (
+                                      <p className="text-sm text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section3_3.VGFArray.${index}.totalProjectCost`
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  item.totalProjectCost || "-"
+                                )}
                               </td>
-                            )}
-                          </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("3.3") ? (
+                                  <div>
+                                    <Select
+                                      key={`status-${index}-${selectResetKey}`}
+                                      value={item.statusOfProject || ""}
+                                      onValueChange={(value) =>
+                                        handleTableFieldUpdate(
+                                          index,
+                                          "statusOfProject",
+                                          value
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className={
+                                          getFieldError(
+                                            `section3_3.VGFArray.${index}.statusOfProject`
+                                          )
+                                            ? "w-full border-red-500"
+                                            : "w-full"
+                                        }
+                                      >
+                                        <SelectValue placeholder="Select status" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PROJECT_STATUS_OPTIONS.map(
+                                          (status) => (
+                                            <SelectItem
+                                              key={status}
+                                              value={status}
+                                            >
+                                              {status}
+                                            </SelectItem>
+                                          )
+                                        )}
+                                      </SelectContent>
+                                    </Select>
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.statusOfProject`
+                                    ) && (
+                                      <p className="text-sm text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section3_3.VGFArray.${index}.statusOfProject`
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  item.statusOfProject || "-"
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
+                                {shouldBeEditable("3.3") ? (
+                                  <div>
+                                    <Input
+                                      type="date"
+                                      max={
+                                        new Date().toISOString().split("T")[0]
+                                      }
+                                      value={
+                                        item.submissionDate
+                                          ? (() => {
+                                              const d = new Date(
+                                                item.submissionDate
+                                              );
+                                              if (isNaN(d.getTime())) return "";
+                                              const year = d.getFullYear();
+                                              const month = String(
+                                                d.getMonth() + 1
+                                              ).padStart(2, "0");
+                                              const day = String(
+                                                d.getDate()
+                                              ).padStart(2, "0");
+                                              return `${year}-${month}-${day}`;
+                                            })()
+                                          : ""
+                                      }
+                                      onChange={(e) => {
+                                        handleTableFieldUpdate(
+                                          index,
+                                          "submissionDate",
+                                          e.target.value
+                                            ? new Date(
+                                                e.target.value
+                                              ).toISOString()
+                                            : ""
+                                        );
+                                      }}
+                                      className={
+                                        getFieldError(
+                                          `section3_3.VGFArray.${index}.submissionDate`
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                    />
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.submissionDate`
+                                    ) && (
+                                      <p className="text-sm text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section3_3.VGFArray.${index}.submissionDate`
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : item.submissionDate ? (
+                                  new Date(
+                                    item.submissionDate
+                                  ).toLocaleDateString()
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {shouldBeEditable("3.3") ? (
+                                  <div className="space-y-1.5">
+                                    {/* No Document Available Checkbox */}
+                                    <div className="flex items-center space-x-2 py-1">
+                                      <Checkbox
+                                        id={`no-doc-3.3-${index}`}
+                                        checked={
+                                          item.noDocumentAvailable || false
+                                        }
+                                        onCheckedChange={(checked) => {
+                                          const noDocument = checked as boolean;
+                                          // Update noDocumentAvailable and clear file if checked
+                                          setFormDataState((prev: any) => {
+                                            const current =
+                                              prev?.section3_3?.VGFArray;
+                                            const rows = Array.isArray(current)
+                                              ? [...current]
+                                              : [];
+                                            const currentRow = {
+                                              ...(rows[index] || {}),
+                                            };
+                                            currentRow.noDocumentAvailable =
+                                              noDocument;
+                                            currentRow.file = noDocument
+                                              ? null
+                                              : currentRow.file;
+                                            rows[index] = currentRow;
+                                            return {
+                                              ...prev,
+                                              section3_3: {
+                                                ...(prev?.section3_3 || {}),
+                                                VGFArray: rows,
+                                              },
+                                            };
+                                          });
 
-              {/* Add More Project Button - Only visible when in edit mode */}
-              {shouldBeEditable("3.3") && !showAddVGFForm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddVGFForm(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Project
-                </Button>
-              )}
+                                          // Clear validation error
+                                          if (
+                                            getFieldError(
+                                              `section3_3.VGFArray.${index}.file`
+                                            )
+                                          ) {
+                                            setIndicatorValidationErrors(
+                                              (prev) => {
+                                                const updated = { ...prev };
+                                                delete updated[
+                                                  `section3_3.VGFArray.${index}.file`
+                                                ];
+                                                return updated;
+                                              }
+                                            );
+                                          }
+                                        }}
+                                      />
+                                      <label
+                                        htmlFor={`no-doc-3.3-${index}`}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                      >
+                                        No document available
+                                      </label>
+                                    </div>
 
-              {/* Add VGF Form - Only visible when showAddVGFForm is true */}
-              {showAddVGFForm && shouldBeEditable("3.3") && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">
-                    Add New VGF/IIPDF Proposal
-                  </h4>
-                  {/* Row 1: Project Name, Sector, Scheme */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <Label>Project Name</Label>
-                      <Input
-                        value={newVGFItem.projectName}
-                        onChange={(e) =>
-                          setNewVGFItem({
-                            ...newVGFItem,
-                            projectName: e.target.value,
-                          })
-                        }
-                        className="bg-white"
-                        placeholder="Enter project name"
-                      />
-                    </div>
-                    <div>
-                      <Label>Sector</Label>
-                      <Select
-                        value={newVGFItem.sector}
-                        onValueChange={(value) =>
-                          setNewVGFItem({ ...newVGFItem, sector: value })
-                        }
-                      >
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Scheme</Label>
-                      <Select
-                        value={newVGFItem.scheme}
-                        onValueChange={(value) =>
-                          setNewVGFItem({ ...newVGFItem, scheme: value })
-                        }
-                      >
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Select scheme" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="IIPDF">IIPDF</SelectItem>
-                          <SelectItem value="Central VGF">
-                            Central VGF
-                          </SelectItem>
-                          <SelectItem value="State VGF">State VGF</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <Label>Total Project Cost (INR-CRORE)</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        placeholder="Enter project cost in crores"
-                        value={newVGFItem.totalProjectCost}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                    {item.noDocumentAvailable ? (
+                                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                        No document available
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {/* Only show ONE file (single file upload) */}
+                                        {item.file ? (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            <Badge
+                                              variant="secondary"
+                                              className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                              title={
+                                                extractOriginalName(
+                                                  item.file.fileName || "",
+                                                  (item.file as any)
+                                                    ?.originalName
+                                                ) || "Unknown file"
+                                              }
+                                            >
+                                              <Upload className="w-3 h-3 flex-shrink-0" />
+                                              <span className="truncate">
+                                                {extractOriginalName(
+                                                  item.file.fileName || "",
+                                                  (item.file as any)
+                                                    ?.originalName
+                                                ) || "Unknown file"}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  handleTableFieldUpdate(
+                                                    index,
+                                                    "file",
+                                                    null
+                                                  );
+                                                }}
+                                                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                              </button>
+                                            </Badge>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">
+                                            No file
+                                          </span>
+                                        )}
+                                        {/* Upload button for both add and replace */}
+                                        <div className="flex items-center">
+                                          <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            onChange={async (e) => {
+                                              const selectedFile =
+                                                e.target.files?.[0];
+                                              if (selectedFile) {
+                                                // Upload file immediately (same as create submission)
+                                                try {
+                                                  const response =
+                                                    await apiService.uploadFile(
+                                                      submissionId,
+                                                      selectedFile
+                                                    );
+                                                  const fileData =
+                                                    response?.data || response;
+
+                                                  const newFile: FileUpload = {
+                                                    id:
+                                                      fileData.id ??
+                                                      crypto.randomUUID(),
+                                                    file: null, // File not stored locally when backend handles upload
+                                                    fileName:
+                                                      fileData.fileName ||
+                                                      fileData.filename ||
+                                                      selectedFile.name,
+                                                    originalName:
+                                                      selectedFile.name ||
+                                                      fileData.originalName ||
+                                                      fileData.data
+                                                        ?.originalName, // Preserve original file name
+                                                    fileSize: Number(
+                                                      fileData.fileSize ??
+                                                        fileData.size ??
+                                                        selectedFile.size ??
+                                                        0
+                                                    ),
+                                                    uploadedAt: Number(
+                                                      fileData.uploadedAt ??
+                                                        Date.now()
+                                                    ),
+                                                    filePath:
+                                                      fileData.filePath ??
+                                                      fileData.file ??
+                                                      fileData.url ??
+                                                      fileData.path,
+                                                    fileUrl:
+                                                      fileData.fileUrl ||
+                                                      fileData.url,
+                                                    mimeType: fileData.mimeType,
+                                                  };
+
+                                                  // Update file and clear noDocumentAvailable
+                                                  setFormDataState(
+                                                    (prev: any) => {
+                                                      const current =
+                                                        prev?.section3_3
+                                                          ?.VGFArray;
+                                                      const rows =
+                                                        Array.isArray(current)
+                                                          ? [...current]
+                                                          : [];
+                                                      const currentRow = {
+                                                        ...(rows[index] || {}),
+                                                      };
+                                                      currentRow.file = newFile;
+                                                      currentRow.noDocumentAvailable =
+                                                        false;
+                                                      rows[index] = currentRow;
+                                                      return {
+                                                        ...prev,
+                                                        section3_3: {
+                                                          ...(prev?.section3_3 ||
+                                                            {}),
+                                                          VGFArray: rows,
+                                                        },
+                                                      };
+                                                    }
+                                                  );
+
+                                                  e.target.value = ""; // Reset input
+                                                } catch (error: any) {
+                                                  console.error(
+                                                    "Failed to upload file:",
+                                                    error
+                                                  );
+                                                }
+                                              }
+                                            }}
+                                            className="hidden"
+                                            id={`file-input-3.3-${index}`}
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              document
+                                                .getElementById(
+                                                  `file-input-3.3-${index}`
+                                                )
+                                                ?.click()
+                                            }
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Upload className="w-3 h-3 mr-1" />
+                                            Upload
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : item.noDocumentAvailable ? (
+                                  <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                                    No document available
+                                  </div>
+                                ) : item.file ? (
+                                  <div className="flex items-center gap-1">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                      title={
+                                        (item.file as any).originalName ||
+                                        item.file.fileName ||
+                                        "Unknown file"
+                                      }
+                                    >
+                                      <Upload className="w-3 h-3" />
+                                      <span className="truncate">
+                                        {(item.file as any).originalName ||
+                                          item.file.fileName ||
+                                          "Unknown file"}
+                                      </span>
+                                    </Badge>
+                                    {(() => {
+                                      const fileKey = `3.3-${index}`;
+                                      const isLoading = !!fileLoading[fileKey];
+                                      const hasFileAccess = !!(
+                                        item.file.filePath ||
+                                        item.file.file ||
+                                        item.file.fileUrl
+                                      );
+                                      return hasFileAccess ? (
+                                        <>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleViewFile(item.file, fileKey)
+                                            }
+                                            disabled={isLoading}
+                                            className="h-7 w-7 p-0"
+                                            title="View file"
+                                          >
+                                            <Eye className="w-3 h-3" />
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleDownloadFile(
+                                                item.file,
+                                                fileKey
+                                              )
+                                            }
+                                            disabled={isLoading}
+                                            className="h-7 w-7 p-0"
+                                            title="Download file"
+                                          >
+                                            <Download className="w-3 h-3" />
+                                          </Button>
+                                        </>
+                                      ) : null;
+                                    })()}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">
+                                    No file
+                                  </span>
+                                )}
+                              </td>
+                              {isEditable3_3 && (
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log(
+                                        `[PPPDevelopmentReview] Delete button clicked for item:`,
+                                        {
+                                          itemId: item.id,
+                                          index,
+                                          item,
+                                          timestamp: new Date().toISOString(),
+                                        }
+                                      );
+                                      // Use index for deletion since items may not have IDs
+                                      handleRemoveVGFEntry(index);
+                                    }}
+                                    className="text-red-500 hover:text-red-700 border-none bg-none cursor-pointer"
+                                    disabled={false}
+                                    title="Delete entry"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </Button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add More Project Button - Only visible when in edit mode */}
+                {shouldBeEditable("3.3") && !showAddVGFForm && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    onClick={() => setShowAddVGFForm(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More Project
+                  </Button>
+                )}
+
+                {/* Add VGF Form - Only visible when showAddVGFForm is true */}
+                {showAddVGFForm && shouldBeEditable("3.3") && (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <h4 className="font-medium mb-3">
+                      Add New VGF/IIPDF Proposal
+                    </h4>
+                    {/* Row 1: Project Name, Sector, Scheme */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <Label>Project Name</Label>
+                        <Input
+                          value={newVGFItem.projectName}
+                          onChange={(e) =>
                             setNewVGFItem({
                               ...newVGFItem,
-                              totalProjectCost: value,
-                            });
+                              projectName: e.target.value,
+                            })
                           }
-                        }}
-                        className="bg-white"
-                      />
-                    </div>
-                    <div>
-                      <Label>Status of Project</Label>
-                      <Select
-                        value={newVGFItem.statusOfProject}
-                        onValueChange={(value) =>
-                          setNewVGFItem({
-                            ...newVGFItem,
-                            statusOfProject: value,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PROJECT_STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Submission Date</Label>
-                      <Input
-                        type="date"
-                        max={new Date().toISOString().split("T")[0]}
-                        value={formatDateForInput(newVGFItem.submissionDate)}
-                        onChange={(e) => {
-                          setNewVGFItem({
-                            ...newVGFItem,
-                            submissionDate: e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : "",
-                          });
-                        }}
-                        className={cn(
-                          "w-full bg-[#fff] border border-[#C6C6C6]",
-                          !newVGFItem.submissionDate && "text-muted-foreground"
-                        )}
-                      />
-                    </div>
-                  </div>
-                  {/* Row 3: File Upload */}
-                  <div className="mb-4">
-                    {/* No Document Available Checkbox */}
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Checkbox
-                        id="no-doc-3.3-new"
-                        checked={newVGFItem.noDocumentAvailable || false}
-                        onCheckedChange={(checked) => {
-                          const noDocument = checked as boolean;
-                          setNewVGFItem({
-                            ...newVGFItem,
-                            noDocumentAvailable: noDocument,
-                            file: noDocument ? null : newVGFItem.file,
-                          });
-                        }}
-                      />
-                      <label
-                        htmlFor="no-doc-3.3-new"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        No document available
-                      </label>
-                    </div>
-
-                    {newVGFItem.noDocumentAvailable ? (
-                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                        No document available
+                          className="bg-white"
+                          placeholder="Enter project name"
+                        />
                       </div>
-                    ) : (
-                      <>
-                        <Label>Upload File</Label>
-                        <EditableFileDisplay
-                          files={newVGFItem.file}
-                          isEditable={true}
-                          submissionId={submissionId}
-                          onFilesChange={(updatedFile) => {
+                      <div>
+                        <Label>Sector</Label>
+                        <Select
+                          value={newVGFItem.sector}
+                          onValueChange={(value) =>
+                            setNewVGFItem({ ...newVGFItem, sector: value })
+                          }
+                        >
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select sector" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SECTOR_OPTIONS.map((sector) => (
+                              <SelectItem key={sector} value={sector}>
+                                {sector}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Scheme</Label>
+                        <Select
+                          value={newVGFItem.scheme}
+                          onValueChange={(value) =>
+                            setNewVGFItem({ ...newVGFItem, scheme: value })
+                          }
+                        >
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select scheme" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="IIPDF">IIPDF</SelectItem>
+                            <SelectItem value="Central VGF">
+                              Central VGF
+                            </SelectItem>
+                            <SelectItem value="State VGF">State VGF</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <Label>Total Project Cost (INR-CRORE)</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          placeholder="Enter project cost in crores"
+                          value={newVGFItem.totalProjectCost}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                              setNewVGFItem({
+                                ...newVGFItem,
+                                totalProjectCost: value,
+                              });
+                            }
+                          }}
+                          className="bg-white"
+                        />
+                      </div>
+                      <div>
+                        <Label>Status of Project</Label>
+                        <Select
+                          value={newVGFItem.statusOfProject}
+                          onValueChange={(value) =>
                             setNewVGFItem({
                               ...newVGFItem,
-                              file: updatedFile as FileUpload | null,
-                              noDocumentAvailable: false,
+                              statusOfProject: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PROJECT_STATUS_OPTIONS.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Submission Date</Label>
+                        <Input
+                          type="date"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={formatDateForInput(newVGFItem.submissionDate)}
+                          onChange={(e) => {
+                            setNewVGFItem({
+                              ...newVGFItem,
+                              submissionDate: e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : "",
                             });
                           }}
-                          label=""
-                          multiple={false}
+                          className={cn(
+                            "w-full bg-[#fff] border border-[#C6C6C6]",
+                            !newVGFItem.submissionDate &&
+                              "text-muted-foreground"
+                          )}
                         />
-                      </>
-                    )}
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAddNewVGFItem}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Save Proposal
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelAddVGF}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
+                      </div>
+                    </div>
+                    {/* Row 3: File Upload */}
+                    <div className="mb-4">
+                      {/* No Document Available Checkbox */}
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Checkbox
+                          id="no-doc-3.3-new"
+                          checked={newVGFItem.noDocumentAvailable || false}
+                          onCheckedChange={(checked) => {
+                            const noDocument = checked as boolean;
+                            setNewVGFItem({
+                              ...newVGFItem,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : newVGFItem.file,
+                            });
+                          }}
+                        />
+                        <label
+                          htmlFor="no-doc-3.3-new"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          No document available
+                        </label>
+                      </div>
 
-              {/* <p className="text-xs text-muted-foreground">
+                      {newVGFItem.noDocumentAvailable ? (
+                        <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
+                          No document available
+                        </div>
+                      ) : (
+                        <>
+                          <Label>Upload File</Label>
+                          <EditableFileDisplay
+                            files={newVGFItem.file}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFile) => {
+                              setNewVGFItem({
+                                ...newVGFItem,
+                                file: updatedFile as FileUpload | null,
+                                noDocumentAvailable: false,
+                              });
+                            }}
+                            label=""
+                            multiple={false}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleAddNewVGFItem}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Save Proposal
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelAddVGF}
+                        className="flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* <p className="text-xs text-muted-foreground">
                 Annex 7: Provide VGF/IIPDF details
               </p> */}
               </div>
@@ -5554,413 +5594,416 @@ export const PPPDevelopmentReview = ({
           </CardHeader> */}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
-              {/* Summary Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <Label>Total Budgeted capital allocation (INR-CRORE)</Label>
-                  {shouldBeEditable("3.4") ? (
-                    <div>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        step="0.01"
-                        value={state?.section3_4?.totalProjectsAwarded || ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow non-negative numbers with decimals (up to 2 decimal places)
-                          if (value === "" || /^\d+(\.\d{1,2})?$/.test(value)) {
-                            handleSection3_4FieldUpdate(
-                              "totalProjectsAwarded",
-                              value
-                            );
+                {/* Summary Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label>Total Budgeted capital allocation (INR-CRORE)</Label>
+                    {shouldBeEditable("3.4") ? (
+                      <div>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="0.01"
+                          value={state?.section3_4?.totalProjectsAwarded || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Allow non-negative numbers with decimals (up to 2 decimal places)
+                            if (
+                              value === "" ||
+                              /^\d+(\.\d{1,2})?$/.test(value)
+                            ) {
+                              handleSection3_4FieldUpdate(
+                                "totalProjectsAwarded",
+                                value
+                              );
+                            }
+                          }}
+                          className={
+                            getFieldError("section3_4.totalProjectsAwarded")
+                              ? "bg-white border-red-500"
+                              : "bg-white"
                           }
-                        }}
-                        className={
-                          getFieldError("section3_4.totalProjectsAwarded")
-                            ? "bg-white border-red-500"
-                            : "bg-white"
-                        }
-                        placeholder="Enter total budgeted capital allocation"
+                          placeholder="Enter total budgeted capital allocation"
+                        />
+                        {getFieldError("section3_4.totalProjectsAwarded") && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError("section3_4.totalProjectsAwarded")}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        value={state?.section3_4?.totalProjectsAwarded || ""}
+                        readOnly
+                        className="bg-gray-50"
                       />
-                      {getFieldError("section3_4.totalProjectsAwarded") && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {getFieldError("section3_4.totalProjectsAwarded")}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
+                    )}
+                  </div>
+                  <div>
+                    <Label>Total of TPC of PPP Projects (INR-CRORE) </Label>
+                    {/* <p className="text-xs text-muted-foreground mt-1">INR-CRORE </p> */}
                     <Input
-                      value={state?.section3_4?.totalProjectsAwarded || ""}
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      value={calculatedTotalProjectCostAwarded || ""}
                       readOnly
-                      className="bg-gray-50"
+                      disabled
+                      className="bg-gray-50 cursor-not-allowed"
+                      placeholder="Auto-calculated"
                     />
-                  )}
-                </div>
-                <div>
-                  <Label>Total of TPC of PPP Projects (INR-CRORE) </Label>
-                  {/* <p className="text-xs text-muted-foreground mt-1">INR-CRORE </p> */}
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    value={calculatedTotalProjectCostAwarded || ""}
-                    readOnly
-                    disabled
-                    className="bg-gray-50 cursor-not-allowed"
-                    placeholder="Auto-calculated"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Automatically calculated from sum of all project costs
-                  </p>
-                  {getFieldError("section3_4.totalProjectCostAwarded") && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {getFieldError("section3_4.totalProjectCostAwarded")}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Automatically calculated from sum of all project costs
                     </p>
-                  )}
+                    {getFieldError("section3_4.totalProjectCostAwarded") && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError("section3_4.totalProjectCostAwarded")}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Projects Table */}
-              <div className="overflow-x-auto rounded-xl">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
-                        Name of Project
-                      </th>
-                      <th className="py-2 px-2 text-left text-sm font-normal">
-                        Infrastructure Sector
-                      </th>
-                      <th className="py-2 px-2 text-left text-sm font-normal">
-                        Date of Award
-                      </th>
-                      <th className="py-2 px-2 text-left text-sm font-normal">
-                        Total Project Cost
-                      </th>
-                      {shouldBeEditable("3.4") && (
-                        <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
-                          Action
+                {/* Projects Table */}
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="min-w-full border-separate border-spacing-0">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
+                          Name of Project
                         </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody
-                    key={`projects-table-body-${selectResetKey}-${
-                      state?.section3_4?.projects?.length || 0
-                    }`}
-                  >
-                    {(() => {
-                      const projects = Array.isArray(
-                        state?.section3_4?.projects
-                      )
-                        ? state.section3_4.projects
-                        : [];
+                        <th className="py-2 px-2 text-left text-sm font-normal">
+                          Infrastructure Sector
+                        </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
+                          Date of Award
+                        </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
+                          Total Project Cost
+                        </th>
+                        {shouldBeEditable("3.4") && (
+                          <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
+                            Action
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody
+                      key={`projects-table-body-${selectResetKey}-${
+                        state?.section3_4?.projects?.length || 0
+                      }`}
+                    >
+                      {(() => {
+                        const projects = Array.isArray(
+                          state?.section3_4?.projects
+                        )
+                          ? state.section3_4.projects
+                          : [];
 
-                      if (!projects.length) {
-                        return (
-                          <tr>
-                            <td
-                              colSpan={shouldBeEditable("3.4") ? 5 : 4}
-                              className="py-8 text-center text-muted-foreground"
-                            >
-                              No projects available
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return projects.map((project: any, idx: number) => (
-                        <tr key={project.id || idx} className="border-b">
-                          <td className="py-2 px-2 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Input
-                                value={project.nameOfProject || ""}
-                                onChange={(e) =>
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "nameOfProject",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full h-8 text-sm"
-                              />
-                            ) : (
-                              project.nameOfProject || "N/A"
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Select
-                                key={`infrastructureSector-${idx}-${selectResetKey}`}
-                                value={project.infrastructureSector || ""}
-                                onValueChange={(value) =>
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "infrastructureSector",
-                                    value
-                                  )
-                                }
+                        if (!projects.length) {
+                          return (
+                            <tr>
+                              <td
+                                colSpan={shouldBeEditable("3.4") ? 5 : 4}
+                                className="py-8 text-center text-muted-foreground"
                               >
-                                <SelectTrigger
-                                  className={cn(
-                                    "w-full h-8 text-sm",
-                                    getFieldError(
-                                      `section3_4.projects.${idx}.infrastructureSector`
-                                    ) && "border-red-500"
-                                  )}
-                                >
-                                  <SelectValue placeholder="Select sector" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SECTOR_OPTIONS.map((sector) => (
-                                    <SelectItem key={sector} value={sector}>
-                                      {sector}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              project.infrastructureSector || "N/A"
-                            )}
-                            {shouldBeEditable("3.4") &&
-                              getFieldError(
-                                `section3_4.projects.${idx}.infrastructureSector`
-                              ) && (
-                                <p className="text-sm text-red-500 mt-1">
-                                  {getFieldError(
-                                    `section3_4.projects.${idx}.infrastructureSector`
-                                  )}
-                                </p>
-                              )}
-                          </td>
-                          <td className="py-2 px-2 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Input
-                                type="date"
-                                max={new Date().toISOString().split("T")[0]}
-                                value={
-                                  project.dateOfAward
-                                    ? new Date(project.dateOfAward)
-                                        .toISOString()
-                                        .split("T")[0]
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "dateOfAward",
-                                    e.target.value
-                                      ? new Date(e.target.value).toISOString()
-                                      : null
-                                  );
-                                }}
-                                className={cn(
-                                  "w-full h-8 text-sm bg-[#fff] border border-[#C6C6C6]",
-                                  !project.dateOfAward &&
-                                    "text-muted-foreground"
-                                )}
-                              />
-                            ) : project.dateOfAward ? (
-                              format(
-                                new Date(project.dateOfAward),
-                                "dd-MM-yyyy"
-                              )
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-sm font-normal">
-                            {shouldBeEditable("3.4") ? (
-                              <Input
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min="0"
-                                value={project.totalProjectCost || ""}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  // Only allow numbers and decimal point
-                                  if (
-                                    value === "" ||
-                                    /^\d*\.?\d*$/.test(value)
-                                  ) {
+                                No projects available
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return projects.map((project: any, idx: number) => (
+                          <tr key={project.id || idx} className="border-b">
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("3.4") ? (
+                                <Input
+                                  value={project.nameOfProject || ""}
+                                  onChange={(e) =>
                                     handleProjectFieldUpdate(
                                       idx,
-                                      "totalProjectCost",
-                                      value
-                                    );
+                                      "nameOfProject",
+                                      e.target.value
+                                    )
                                   }
-                                }}
-                                className="w-full h-8 text-sm"
-                                placeholder="Enter cost"
-                              />
-                            ) : (
-                              project.totalProjectCost || "N/A"
-                            )}
-                          </td>
-                          {shouldBeEditable("3.4") && (
-                            <td className="py-2 px-2 text-sm font-normal text-center w-12">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  // Use index for deletion since items may not have IDs
-                                  handleRemoveProjectEntry(idx);
-                                }}
-                                className="text-red-500 hover:text-red-700 border-none bg-none h-8 w-8"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                                  className="w-full h-8 text-sm"
+                                />
+                              ) : (
+                                project.nameOfProject || "N/A"
+                              )}
                             </td>
-                          )}
-                        </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("3.4") ? (
+                                <Select
+                                  key={`infrastructureSector-${idx}-${selectResetKey}`}
+                                  value={project.infrastructureSector || ""}
+                                  onValueChange={(value) =>
+                                    handleProjectFieldUpdate(
+                                      idx,
+                                      "infrastructureSector",
+                                      value
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className={cn(
+                                      "w-full h-8 text-sm",
+                                      getFieldError(
+                                        `section3_4.projects.${idx}.infrastructureSector`
+                                      ) && "border-red-500"
+                                    )}
+                                  >
+                                    <SelectValue placeholder="Select sector" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {SECTOR_OPTIONS.map((sector) => (
+                                      <SelectItem key={sector} value={sector}>
+                                        {sector}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                project.infrastructureSector || "N/A"
+                              )}
+                              {shouldBeEditable("3.4") &&
+                                getFieldError(
+                                  `section3_4.projects.${idx}.infrastructureSector`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_4.projects.${idx}.infrastructureSector`
+                                    )}
+                                  </p>
+                                )}
+                            </td>
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("3.4") ? (
+                                <Input
+                                  type="date"
+                                  max={new Date().toISOString().split("T")[0]}
+                                  value={
+                                    project.dateOfAward
+                                      ? new Date(project.dateOfAward)
+                                          .toISOString()
+                                          .split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    handleProjectFieldUpdate(
+                                      idx,
+                                      "dateOfAward",
+                                      e.target.value
+                                        ? new Date(e.target.value).toISOString()
+                                        : null
+                                    );
+                                  }}
+                                  className={cn(
+                                    "w-full h-8 text-sm bg-[#fff] border border-[#C6C6C6]",
+                                    !project.dateOfAward &&
+                                      "text-muted-foreground"
+                                  )}
+                                />
+                              ) : project.dateOfAward ? (
+                                format(
+                                  new Date(project.dateOfAward),
+                                  "dd-MM-yyyy"
+                                )
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("3.4") ? (
+                                <Input
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.01"
+                                  min="0"
+                                  value={project.totalProjectCost || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    // Only allow numbers and decimal point
+                                    if (
+                                      value === "" ||
+                                      /^\d*\.?\d*$/.test(value)
+                                    ) {
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "totalProjectCost",
+                                        value
+                                      );
+                                    }
+                                  }}
+                                  className="w-full h-8 text-sm"
+                                  placeholder="Enter cost"
+                                />
+                              ) : (
+                                project.totalProjectCost || "N/A"
+                              )}
+                            </td>
+                            {shouldBeEditable("3.4") && (
+                              <td className="py-2 px-2 text-sm font-normal text-center w-12">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    // Use index for deletion since items may not have IDs
+                                    handleRemoveProjectEntry(idx);
+                                  }}
+                                  className="text-red-500 hover:text-red-700 border-none bg-none h-8 w-8"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            )}
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Add More Project Button - Only visible when in edit mode */}
-              {shouldBeEditable("3.4") && !showAddProjectForm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddProjectForm(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Project
-                </Button>
-              )}
+                {/* Add More Project Button - Only visible when in edit mode */}
+                {shouldBeEditable("3.4") && !showAddProjectForm && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    onClick={() => setShowAddProjectForm(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More Project
+                  </Button>
+                )}
 
-              {/* Add Project Form - Only visible when showAddProjectForm is true */}
-              {showAddProjectForm && shouldBeEditable("3.4") && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">Add New Project</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Name of Awarded PPP Projects</Label>
-                      <Input
-                        value={newProject.nameOfProject}
-                        onChange={(e) =>
-                          setNewProject({
-                            ...newProject,
-                            nameOfProject: e.target.value,
-                          })
-                        }
-                        className="bg-white"
-                        placeholder="Enter project name"
-                      />
-                    </div>
-                    <div>
-                      <Label>
-                        Infrastructure Sector{" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={newProject.infrastructureSector}
-                        onValueChange={(value) =>
-                          setNewProject({
-                            ...newProject,
-                            infrastructureSector: value,
-                          })
-                        }
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            "bg-white",
-                            getFieldError(
-                              "section3_4.projects.new.infrastructureSector"
-                            ) && "border-red-500"
-                          )}
-                        >
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {getFieldError(
-                        "section3_4.projects.new.infrastructureSector"
-                      ) && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {getFieldError(
-                            "section3_4.projects.new.infrastructureSector"
-                          )}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Date of Award</Label>
-                      <Input
-                        type="date"
-                        max={new Date().toISOString().split("T")[0]}
-                        value={formatDateForInput(newProject.dateOfAward)}
-                        onChange={(e) => {
-                          setNewProject({
-                            ...newProject,
-                            dateOfAward: e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : "",
-                          });
-                        }}
-                        className={cn(
-                          "w-full bg-[#fff] border border-[#C6C6C6]",
-                          !newProject.dateOfAward && "text-muted-foreground"
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <Label>Total Project Cost</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        value={newProject.totalProjectCost}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Only allow numbers and decimal point
-                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                {/* Add Project Form - Only visible when showAddProjectForm is true */}
+                {showAddProjectForm && shouldBeEditable("3.4") && (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <h4 className="font-medium mb-3">Add New Project</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Name of Awarded PPP Projects</Label>
+                        <Input
+                          value={newProject.nameOfProject}
+                          onChange={(e) =>
                             setNewProject({
                               ...newProject,
-                              totalProjectCost: value,
-                            });
+                              nameOfProject: e.target.value,
+                            })
                           }
-                        }}
-                        className="bg-white"
-                        placeholder="Enter total project cost"
-                      />
+                          className="bg-white"
+                          placeholder="Enter project name"
+                        />
+                      </div>
+                      <div>
+                        <Label>
+                          Infrastructure Sector{" "}
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={newProject.infrastructureSector}
+                          onValueChange={(value) =>
+                            setNewProject({
+                              ...newProject,
+                              infrastructureSector: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              "bg-white",
+                              getFieldError(
+                                "section3_4.projects.new.infrastructureSector"
+                              ) && "border-red-500"
+                            )}
+                          >
+                            <SelectValue placeholder="Select sector" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SECTOR_OPTIONS.map((sector) => (
+                              <SelectItem key={sector} value={sector}>
+                                {sector}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {getFieldError(
+                          "section3_4.projects.new.infrastructureSector"
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError(
+                              "section3_4.projects.new.infrastructureSector"
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Date of Award</Label>
+                        <Input
+                          type="date"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={formatDateForInput(newProject.dateOfAward)}
+                          onChange={(e) => {
+                            setNewProject({
+                              ...newProject,
+                              dateOfAward: e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : "",
+                            });
+                          }}
+                          className={cn(
+                            "w-full bg-[#fff] border border-[#C6C6C6]",
+                            !newProject.dateOfAward && "text-muted-foreground"
+                          )}
+                        />
+                      </div>
+                      <div>
+                        <Label>Total Project Cost</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          value={newProject.totalProjectCost}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Only allow numbers and decimal point
+                            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                              setNewProject({
+                                ...newProject,
+                                totalProjectCost: value,
+                              });
+                            }
+                          }}
+                          className="bg-white"
+                          placeholder="Enter total project cost"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleAddNewProject}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Save Project
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelAddProject}
+                        className="flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAddNewProject}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Save Project
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelAddProject}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
+                )}
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
               {getUserRole() === "MOSPI_APPROVER" && (
