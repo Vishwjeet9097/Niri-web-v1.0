@@ -132,7 +132,7 @@ export function useMinistrySubmission(
 
         // Permission checks
         if (reviewUserId && user?.id !== reviewUserId) {
-          if (!['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER'].includes(user?.role || '')) {
+          if (!['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER', 'NODAL_OFFICER'].includes(user?.role || '')) {
             console.log("⚠️ User doesn't have permission to review ministry submissions");
             setChecking(false);
             setNoSubmissionFound(true);
@@ -141,8 +141,8 @@ export function useMinistrySubmission(
             return;
           }
         } else {
-          if (user?.role !== "MINISTRY_APPROVER") {
-            console.log("⚠️ User is not a Ministry Approver");
+          if (!['MINISTRY_APPROVER', 'NODAL_OFFICER'].includes(user?.role || '')) {
+            console.log("⚠️ User is not a Ministry Approver or Nodal Officer");
             setChecking(false);
             setNoSubmissionFound(true);
             setSubmissionError("You don't have permission to access ministry submissions.");
@@ -230,8 +230,8 @@ export function useMinistrySubmission(
       }
     };
 
-    const canAccess = (user?.id && user?.role === "MINISTRY_APPROVER") || 
-                      (reviewUserId && ['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER'].includes(user?.role || ''));
+    const canAccess = (user?.id && ['MINISTRY_APPROVER', 'NODAL_OFFICER'].includes(user?.role || '')) || 
+                      (reviewUserId && ['ADMIN', 'MOSPI_APPROVER', 'MINISTRY_APPROVER', 'NODAL_OFFICER'].includes(user?.role || ''));
     
     if (canAccess) {
       checkExistingSubmission();
