@@ -173,8 +173,7 @@ useEffect(() => {
     });
   });
 }, [officers]);
-
-
+ 
   return (
     <div className="border rounded-lg bg-card">
       <Table>
@@ -193,7 +192,7 @@ useEffect(() => {
             <TableHead className="text-[#212121] text-xs font-semibold">Contact Number</TableHead>
             <SortableHeader field="email">Email</SortableHeader>
             
-            {user?.role === "MINISTRY_APPROVER" && (
+            {(user?.role === "MINISTRY_APPROVER" || user?.role === "STATE_APPROVER") && (
               <SortableHeader field="email">Assigned Indicators</SortableHeader>
             )}
             {/* <TableHead>Assigned Indicator</TableHead> */}
@@ -237,7 +236,7 @@ useEffect(() => {
                   </>
                 )}
                 {/* fallback for other roles */}
-                {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
+                {/* {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)} */}
               </TableCell>
               <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
               <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
@@ -266,6 +265,31 @@ useEffect(() => {
                     </div>
                   ) : null
                 ) : null}
+
+                  {user?.role === "STATE_APPROVER" ? ( 
+                   officer.assignedIndicators ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {officer.assignedIndicators.map((indicator, idx) => (
+                        <span
+                          key={indicator + idx}
+                          style={{
+                            background: '#E0E7FF',
+                            color: '#3730A3',
+                            borderRadius: '12px',
+                            padding: '2px 10px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            display: 'inline-block',
+                          }}
+                        >
+                          {indicator}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null
+                 ) : null} 
+ 
+                
               </TableCell>
               
               {/* ...existing code... */}
