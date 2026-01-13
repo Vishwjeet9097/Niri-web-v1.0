@@ -4224,25 +4224,9 @@ export const InfraFinancingReview = ({
       return null;
     }
 
-    // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
-    // Only show Timeline button for viewing comments
-    if (submissionStatus === "APPROVED") {
-      return (
-        <div className="flex gap-2">
-          {commentCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 h-7 px-2 text-xs"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-3 h-3" />
-              Timeline ({commentCount})
-            </Button>
-          )}
-        </div>
-      );
-    }
+    // When submission is APPROVED, show toggle button and view-only mode (similar to ACCEPTED)
+    // This allows users to see updated scores and comment timeline
+    const isSubmissionApproved = submissionStatus === "APPROVED";
 
     // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
     if (isMospiReviewer) {
@@ -4283,7 +4267,8 @@ export const InfraFinancingReview = ({
           : sectionData?.mospi_status
         : undefined;
 
-      if (mospiStatus === "ACCEPTED") {
+      // If mospiStatus is ACCEPTED OR submission is APPROVED, show view-only mode
+      if (mospiStatus === "ACCEPTED" || isSubmissionApproved) {
         const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
           <div className="flex items-center gap-2">
@@ -4291,7 +4276,7 @@ export const InfraFinancingReview = ({
               submissionId={submissionId}
               indicatorCode={sectionId}
               controlledToggleState={toggleState}
-              mospiStatus={mospiStatus}
+              mospiStatus={isSubmissionApproved ? "ACCEPTED" : mospiStatus}
               onToggleChange={(newState) => {
                 setIndicatorScoreToggleState((prev) => ({
                   ...prev,
@@ -4309,7 +4294,7 @@ export const InfraFinancingReview = ({
               disabled
             >
               <CheckCircle className="w-4 h-4" />
-              Accepted
+              {isSubmissionApproved ? "Approved" : "Accepted"}
             </Button>
             <Button
               variant="outline"
@@ -4450,6 +4435,7 @@ export const InfraFinancingReview = ({
       formDataData: formData && formData[sectionKey],
       storeData: storeSectionData,
     });
+
 
     // For STATE_APPROVER, check mospi_status to determine if section should be editable
     if (isStateApprover) {

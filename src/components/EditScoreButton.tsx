@@ -227,7 +227,8 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
     if (!newOpen) {
       setError("");
       setUpdateReason("");
-      setActiveTab("edit");
+      // Reset to appropriate tab based on mospiStatus
+      setActiveTab(mospiStatus === "ACCEPTED" ? "history" : "edit");
     }
   };
 
@@ -251,24 +252,41 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
     return null;
   }
 
+  // When ACCEPTED, show view-only mode
+  const isAccepted = mospiStatus === "ACCEPTED";
+
   return (
     <>
       <Button
         variant="ghost"
         size="sm"
         className="h-6 w-6 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        onClick={() => setOpen(true)}
-        title="Edit Score"
+        onClick={() => {
+          setOpen(true);
+          // If ACCEPTED, open directly to History tab
+          if (isAccepted) {
+            setActiveTab("history");
+          }
+        }}
+        title={isAccepted ? "View Score History" : "Edit Score"}
       >
-        <Edit2 className="h-3.5 w-3.5 text-gray-600" />
+        {isAccepted ? (
+          <Clock className="h-3.5 w-3.5 text-gray-600" />
+        ) : (
+          <Edit2 className="h-3.5 w-3.5 text-gray-600" />
+        )}
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Score - Indicator {indicatorCode}</DialogTitle>
+            <DialogTitle>
+              {isAccepted ? `Score History - Indicator ${indicatorCode}` : `Edit Score - Indicator ${indicatorCode}`}
+            </DialogTitle>
             <DialogDescription>
-              Update the score for this indicator. The score cannot exceed the maximum score.
+              {isAccepted 
+                ? "View the score history and update timeline for this indicator."
+                : "Update the score for this indicator. The score cannot exceed the maximum score."}
             </DialogDescription>
           </DialogHeader>
 
@@ -277,7 +295,11 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
           ) : indicatorScore ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 h-auto">
-                <TabsTrigger value="edit" className="flex items-center justify-center">
+                <TabsTrigger 
+                  value="edit" 
+                  className="flex items-center justify-center"
+                  disabled={isAccepted}
+                >
                   Edit Score
                 </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center justify-center">
@@ -310,6 +332,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
                       step="0.01"
                       value={updatedScore}
                       onChange={(e) => {
+                        if (isAccepted) return; // Prevent editing when ACCEPTED
                         const value = e.target.value;
                         setUpdatedScore(value);
                         setError("");
@@ -324,6 +347,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
                           setError("");
                         }
                       }}
+                      disabled={isAccepted}
                       placeholder="Enter new score"
                     />
                     <p className="text-xs text-gray-500">
@@ -337,9 +361,11 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
                       id="update-reason"
                       value={updateReason}
                       onChange={(e) => {
+                        if (isAccepted) return; // Prevent editing when ACCEPTED
                         setUpdateReason(e.target.value);
                         setError("");
                       }}
+                      disabled={isAccepted}
                       placeholder="Enter the reason for updating this score..."
                       rows={3}
                       className="resize-none"
@@ -425,14 +451,16 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
               onClick={() => setOpen(false)}
               disabled={saving}
             >
-              Cancel
+              {isAccepted ? "Close" : "Cancel"}
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={loading || saving || !indicatorScore || activeTab !== "edit"}
-            >
-              {saving ? "Saving..." : "Save Score"}
-            </Button>
+            {!isAccepted && (
+              <Button
+                onClick={handleSave}
+                disabled={loading || saving || !indicatorScore || activeTab !== "edit"}
+              >
+                {saving ? "Saving..." : "Save Score"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

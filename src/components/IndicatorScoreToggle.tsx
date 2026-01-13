@@ -102,7 +102,7 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
     fetchScoreAndHistory();
   }, [submissionId, indicatorCode, isMospiApprover, onScoreChange, toggleState]);
 
-  // Don't render if not MOSPI_APPROVER
+  // Don't render if not MOSPI_APPROVER (role-specific only)
   if (!isMospiApprover) {
     return null;
   }
