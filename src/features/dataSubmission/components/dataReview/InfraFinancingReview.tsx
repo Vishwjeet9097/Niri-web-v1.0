@@ -5928,6 +5928,16 @@ export const InfraFinancingReview = ({
                   deferFileDeletion={shouldBeEditable("1.3")}
                 />
               </div>
+              {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+              {getUserRole() === "MOSPI_APPROVER" && (
+                <div className="flex-shrink-0 self-start ml-auto">
+                  <IndicatorScoreDisplay
+                    submissionId={submissionId}
+                    indicatorCode="1.3"
+                    toggleState={indicatorScoreToggleState["1.3"] || "score"}
+                  />
+                </div>
+              )}
             </div>
           </SectionCard>
         )}

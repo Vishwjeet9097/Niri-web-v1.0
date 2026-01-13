@@ -251,10 +251,6 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
     return null;
   }
 
-  // Disable edit button if mospi_status is ACCEPTED
-  const isAccepted = mospiStatus === "ACCEPTED";
-  const isDisabled = isAccepted;
-
   return (
     <>
       <Button
@@ -262,8 +258,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
         size="sm"
         className="h-6 w-6 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => setOpen(true)}
-        disabled={isDisabled}
-        title={isDisabled ? "Cannot edit score - Indicator is ACCEPTED" : "Edit Score"}
+        title="Edit Score"
       >
         <Edit2 className="h-3.5 w-3.5 text-gray-600" />
       </Button>
