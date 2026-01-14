@@ -19,6 +19,8 @@ import { MinistryApproverActionButtons } from "../components/actionButtons/Minis
 import { MospiReviewerActionButtons } from "../components/actionButtons/MospiReviewerActionButtons";
 import { MospiApproverActionButtons } from "../components/actionButtons/MospiApproverActionButtons";
 import { useEditableSectionStore } from "@/utils/EditableSection";
+import { useMinistryValidation } from "../hooks/useMinistryValidation";
+import { validateSection } from "../utils/validation";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -54,6 +56,19 @@ export function MinistrySubmissionReviewWrapper({
     Record<string, any>
   >({});
   const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
+
+  // Validation hook for edit mode
+  const {
+    validationErrors,
+    validateFieldOnChange,
+    clearFieldError,
+    getFieldErrorMemoized,
+    setValidationErrorsForSection,
+    clearValidationErrorsForSection,
+  } = useMinistryValidation({
+    formData,
+    assignedIndicators,
+  });
 
   // Load submission data with forReview=true
   useEffect(() => {
@@ -427,6 +442,37 @@ export function MinistrySubmissionReviewWrapper({
     // Get section data
     const sectionData = formData[sectionKey] || {};
 
+    // Validate section before saving
+    const sectionErrors = validateSection(currentSection, sectionKey, formData);
+
+    // Check if there are any validation errors for this section
+    const hasErrors = Object.keys(sectionErrors).length > 0;
+
+    if (hasErrors) {
+      // Set validation errors
+      setValidationErrorsForSection(sectionErrors);
+
+      toast({
+        title: "Validation Error",
+        description: `Please fix the errors in section ${sectionId} before saving.`,
+        variant: "destructive",
+      });
+
+      // Scroll to first error field
+      const firstErrorPath = Object.keys(sectionErrors)[0];
+      const errorElement = document.querySelector(
+        `[data-field-path="${firstErrorPath}"]`
+      );
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      return;
+    }
+
+    // Clear any existing validation errors for this section
+    clearValidationErrorsForSection(sectionKey);
+
     // Set saving state
     setSavingSections((prev) => new Set(prev).add(sectionId));
 
@@ -493,6 +539,9 @@ export function MinistrySubmissionReviewWrapper({
         return newSnapshots;
       });
 
+      // Clear validation errors for this section after successful save
+      clearValidationErrorsForSection(sectionKey);
+
       toast({
         title: "Success",
         description: `Section ${sectionId} updated successfully`,
@@ -533,6 +582,7 @@ export function MinistrySubmissionReviewWrapper({
         const keys = path.split(".");
         let current: any = newData;
 
+        // Navigate to the parent object
         for (let i = 0; i < keys.length - 1; i++) {
           if (!current[keys[i]]) {
             current[keys[i]] = {};
@@ -540,7 +590,15 @@ export function MinistrySubmissionReviewWrapper({
           current = current[keys[i]];
         }
 
-        current[keys[keys.length - 1]] = value;
+        // If value is a function, call it with the current value (for array updates)
+        const finalKey = keys[keys.length - 1];
+        if (typeof value === "function") {
+          const currentValue = current[finalKey];
+          current[finalKey] = value(currentValue);
+        } else {
+          current[finalKey] = value;
+        }
+
         return newData;
       });
     }
@@ -627,14 +685,14 @@ export function MinistrySubmissionReviewWrapper({
                         mode="review" // Keep in review mode, but allow section-specific editing
                         disabled={false} // Don't globally disable - let form builder handle per-section
                         submissionId={submissionId || undefined}
-                        getFieldError={() => undefined} // No validation errors in review
+                        getFieldError={getFieldErrorMemoized} // Use validation hook for field errors
                         getDropdownOptions={getDropdownOptions}
                         // No submit handlers needed in review mode
                         isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
                         submittingIndicator={null}
-                        validationErrors={{}}
-                        onValidateField={() => {}} // No validation in review
-                        onClearFieldError={() => {}} // No error clearing in review
+                        validationErrors={validationErrors} // Pass validation errors
+                        onValidateField={validateFieldOnChange} // Enable validation in edit mode
+                        onClearFieldError={clearFieldError} // Enable error clearing
                         renderSectionActionButtons={(
                           sectionId,
                           sectionName,
