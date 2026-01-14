@@ -1117,12 +1117,14 @@ function transformFormDataToApiFormat(
  * @param sectionData - The form data for the specific section/indicator
  * @param currentSection - The section object from assignedIndicators containing inputs and subsections
  * @param submissionId - The ministry submission ID (for file uploads)
+ * @param status - The status to submit with (default: "SUBMITTED_TO_MINISTRY", can be "DRAFT" for save as draft)
  */
 export async function submitIndicatorToMinistryApprover(
   submissionIndicatorId: string,
   sectionData: Record<string, any>,
   currentSection: any,
-  submissionId?: string // Add submissionId parameter
+  submissionId?: string, // Add submissionId parameter
+  status: string = "SUBMITTED_TO_MINISTRY" // Add status parameter with default
 ): Promise<any> {
   try {
     // Step 1: Upload files to S3 if any exist
@@ -1151,10 +1153,12 @@ export async function submitIndicatorToMinistryApprover(
     const payload = {
       submissionIndicatorId,
       data: transformedData,
+      status: status, // Include status in payload
     };
 
     console.log("📤 Submitting indicator to Ministry Approver:", {
       submissionIndicatorId,
+      status,
       payload,
     });
 

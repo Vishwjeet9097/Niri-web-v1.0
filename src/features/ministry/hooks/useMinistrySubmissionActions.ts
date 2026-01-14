@@ -202,11 +202,13 @@ export function useMinistrySubmissionActions({
       console.log("📋 Submission ID:", submissionId);
 
       // All API calls happen here: file uploads + submission
+      // Submit with status: "SUBMITTED_TO_MINISTRY"
       const response = await submitIndicatorToMinistryApprover(
         submissionIndicatorId,
         sectionData,
         currentSection,
-        submissionId || undefined
+        submissionId || undefined,
+        "SUBMITTED_TO_MINISTRY" // Submit status
       );
 
       console.log("✅ Indicator submission response:", response);
@@ -256,6 +258,110 @@ export function useMinistrySubmissionActions({
     setPendingIndicator(null);
   }, []);
 
+  // Handle Save as Draft - no validation, no dialog, direct API call with DRAFT status
+  const handleSaveAsDraft = useCallback(async (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace('.', '_')}`;
+    const sectionData = formData[sectionKey];
+    
+    const currentIndicator = assignedIndicators.find((indicatorObj) => {
+      const categoryName = Object.keys(indicatorObj)[0];
+      const sections = indicatorObj[categoryName];
+      if (Array.isArray(sections)) {
+        return sections.some((sectionObj: any) => {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          return section.sNo === indicatorCode;
+        });
+      }
+      return false;
+    });
+
+    if (!currentIndicator) {
+      toast({
+        title: "Error",
+        description: `Could not find indicator ${indicatorCode} in form structure.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const indicatorName = Object.keys(currentIndicator)[0];
+    const sections = currentIndicator[indicatorName];
+    let currentSection = null;
+    let submissionIndicatorId: string | null = null;
+    
+    if (Array.isArray(sections)) {
+      sections.forEach((sectionObj: any) => {
+        const name = Object.keys(sectionObj)[0];
+        const section = sectionObj[name];
+        if (section.sNo === indicatorCode) {
+          currentSection = section;
+          submissionIndicatorId = section.submissionIndicatorId || null;
+        }
+      });
+    }
+
+    if (!currentSection || !submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find section or submission indicator ID for ${indicatorCode}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check submissionId before proceeding
+    if (!submissionId || submissionId === "exists") {
+      toast({
+        title: "Error",
+        description: submissionId === "exists" 
+          ? "Invalid submission ID. Please refresh the page to get the correct submission ID."
+          : "No submission ID available. Please refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSubmittingIndicator(indicatorCode);
+      
+      console.log("💾 Saving as Draft:", indicatorCode);
+      console.log("📋 Section Data:", JSON.stringify(sectionData, null, 2));
+      console.log("📋 Submission Indicator ID:", submissionIndicatorId);
+      console.log("📋 Submission ID:", submissionId);
+
+      // Call API with status: "DRAFT"
+      const response = await submitIndicatorToMinistryApprover(
+        submissionIndicatorId,
+        sectionData,
+        currentSection,
+        submissionId || undefined,
+        "DRAFT" // Draft status
+      );
+
+      console.log("✅ Draft saved successfully:", response);
+
+      toast({
+        title: "Draft Saved",
+        description: `Indicator ${indicatorCode} saved as draft successfully.`,
+        variant: "default",
+      });
+
+      setSubmittingIndicator(null);
+    } catch (error: any) {
+      console.error("Save as Draft error:", error);
+      toast({
+        title: "Save Failed",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
+      setSubmittingIndicator(null);
+    }
+  }, [formData, submissionId, assignedIndicators, toast]);
+
   const isIndicatorSubmitted = useCallback((indicatorCode: string): boolean => {
     return submittedIndicators.has(indicatorCode);
   }, [submittedIndicators, submittedIndicatorsVersion]); // Include version to force recreation
@@ -264,6 +370,7 @@ export function useMinistrySubmissionActions({
     handleSubmitIndicator,
     handleConfirmSubmit,
     handleCancelSubmit,
+    handleSaveAsDraft,
     isIndicatorSubmitted,
     submittingIndicator,
     showSubmitDialog,

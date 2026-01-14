@@ -17,6 +17,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
   getFieldError,
   getDropdownOptions,
   onSectionSubmit,
+  onSaveDraft,
   isIndicatorSubmitted,
   submittingIndicator,
   validationErrors,
@@ -393,30 +394,52 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                     );
                   })()}
                   
-                  {/* Submit button at the bottom of each indicator */}
-                  {onSectionSubmit && (
-                    <div className="mt-6 flex justify-start">
-                      <Button
-                        type="button"
-                        variant="default"
-                        onClick={() => !isSubmitted && onSectionSubmit(indicatorId)}
-                        disabled={isSubmitted || submittingIndicator === indicatorId || disabled}
-                        className="flex items-center gap-2"
-                      >
-                        {isSubmitted ? (
-                          <>
-                            <CheckCircle2 className="w-4 h-4" />
-                            Submitted
-                          </>
-                        ) : submittingIndicator === indicatorId ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            Submitting...
-                          </>
-                        ) : (
-                          "Submit"
-                        )}
-                      </Button>
+                  {/* Submit and Save as Draft buttons at the bottom of each indicator */}
+                  {(onSectionSubmit || onSaveDraft) && (
+                    <div className="mt-6 flex justify-start gap-3">
+                      {/* Save as Draft button */}
+                      {onSaveDraft && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => onSaveDraft(indicatorId)}
+                          disabled={isSubmitted || submittingIndicator === indicatorId || disabled}
+                          className="flex items-center gap-2"
+                        >
+                          {submittingIndicator === indicatorId ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save as Draft"
+                          )}
+                        </Button>
+                      )}
+                      {/* Submit button */}
+                      {onSectionSubmit && (
+                        <Button
+                          type="button"
+                          variant="default"
+                          onClick={() => !isSubmitted && onSectionSubmit(indicatorId)}
+                          disabled={isSubmitted || submittingIndicator === indicatorId || disabled}
+                          className="flex items-center gap-2"
+                        >
+                          {isSubmitted ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              Submitted
+                            </>
+                          ) : submittingIndicator === indicatorId ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            "Submit"
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </MinistrySectionCard>

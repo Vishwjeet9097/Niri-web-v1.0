@@ -73,7 +73,8 @@ export function useMinistrySubmission(
                 if (Array.isArray(sections)) {
                   sections.forEach((sectionObj: any) => {
                     Object.entries(sectionObj).forEach(([sectionName, section]: [string, any]) => {
-                      if (section.status && section.status !== null) {
+                      // Only disable form when status is SUBMITTED_TO_MINISTRY
+                      if (section.status === "SUBMITTED_TO_MINISTRY") {
                         submittedIndicatorsSet.add(section.sNo);
                       }
                     });
@@ -170,7 +171,8 @@ export function useMinistrySubmission(
               if (Array.isArray(sections)) {
                 sections.forEach((sectionObj: any) => {
                   Object.entries(sectionObj).forEach(([sectionName, section]: [string, any]) => {
-                    if (section.status && section.status !== null) {
+                    // Only disable form when status is SUBMITTED_TO_MINISTRY
+                    if (section.status === "SUBMITTED_TO_MINISTRY") {
                       submittedIndicatorsSet.add(section.sNo);
                     }
                   });
@@ -310,14 +312,15 @@ export function useMinistrySubmission(
             
             // Extract submitted indicators by checking section status
             // The submission-with-data endpoint includes status for each section
+            // Only disable form when status is SUBMITTED_TO_MINISTRY
             const submittedIndicatorsSet = new Set<string>();
             response.data.forEach((indicatorObj: any) => {
               Object.entries(indicatorObj).forEach(([categoryName, sections]: [string, any]) => {
                 if (Array.isArray(sections)) {
                   sections.forEach((sectionObj: any) => {
                     Object.entries(sectionObj).forEach(([sectionName, section]: [string, any]) => {
-                      // Check if section has been submitted (status is not null)
-                      if (section.status && section.status !== null) {
+                      // Only disable form when status is SUBMITTED_TO_MINISTRY
+                      if (section.status === "SUBMITTED_TO_MINISTRY") {
                         submittedIndicatorsSet.add(section.sNo);
                         console.log(`✅ Found submitted indicator: ${section.sNo} - ${sectionName} (status: ${section.status})`);
                       }

@@ -110,6 +110,7 @@ export function MinistrySubmissionWrapper() {
     handleSubmitIndicator,
     handleConfirmSubmit,
     handleCancelSubmit,
+    handleSaveAsDraft,
     isIndicatorSubmitted,
     submittingIndicator,
     showSubmitDialog,
@@ -220,6 +221,7 @@ export function MinistrySubmissionWrapper() {
                   getFieldError={getFieldErrorMemoized}
                   getDropdownOptions={getDropdownOptions}
                   onSectionSubmit={handleSubmitIndicator}
+                  onSaveDraft={handleSaveAsDraft}
                   isIndicatorSubmitted={isIndicatorSubmitted}
                   submittingIndicator={submittingIndicator}
                   validationErrors={validationErrors}

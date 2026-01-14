@@ -51,6 +51,7 @@ export interface DynamicFormBuilderProps {
     label?: string
   ) => { value: string; label: string }[];
   onSectionSubmit?: (indicatorCode: string) => void | Promise<void>;
+  onSaveDraft?: (indicatorCode: string) => void | Promise<void>; // Save as Draft handler
   isIndicatorSubmitted?: (indicatorCode: string) => boolean;
   submittingIndicator?: string | null;
   validationErrors?: Record<string, string>; // Validation errors to display general message
