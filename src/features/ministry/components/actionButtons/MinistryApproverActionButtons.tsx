@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, Send } from "lucide-react";
+import { CheckCircle, Clock, Send, RotateCcw, Edit3 } from "lucide-react";
 
 interface MinistryApproverActionButtonsProps {
   sectionId?: string;
   onAccept?: () => void;
+  onEdit?: () => void;
+  onSendBack?: () => void;
   onSendToMospi?: () => void;
   onTimeline?: () => void;
   timelineCount?: number;
@@ -14,12 +16,27 @@ interface MinistryApproverActionButtonsProps {
 export function MinistryApproverActionButtons({
   sectionId,
   onAccept,
+  onEdit,
+  onSendBack,
   onSendToMospi,
   onTimeline,
   timelineCount = 0,
   isAccepted = false,
   disabled = false,
 }: MinistryApproverActionButtonsProps) {
+  // Log component render and props for debugging
+  console.log("[MinistryApproverActionButtons] Component rendered:", {
+    sectionId,
+    hasOnAccept: !!onAccept,
+    hasOnEdit: !!onEdit,
+    hasOnSendBack: !!onSendBack,
+    hasOnSendToMospi: !!onSendToMospi,
+    hasOnTimeline: !!onTimeline,
+    timelineCount,
+    isAccepted,
+    disabled,
+  });
+
   return (
     <div className="flex items-center gap-2">
       {isAccepted ? (
@@ -34,38 +51,77 @@ export function MinistryApproverActionButtons({
         </Button>
       ) : (
         <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAccept}
-            disabled={disabled}
-            className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
-          >
-            <CheckCircle className="w-4 h-4 mr-1" />
-            Accept
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onSendToMospi}
-            disabled={disabled}
-            className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
-          >
-            <Send className="w-4 h-4 mr-1" />
-            Send to MoSPI
-          </Button>
+          {/* Edit Button - matches State approver styling */}
+          {onEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                console.log(
+                  "[MinistryApproverActionButtons] Edit clicked for section:",
+                  sectionId
+                );
+                onEdit();
+              }}
+              disabled={disabled}
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit
+            </Button>
+          )}
+
+         
+
+          {/* Send Back Button - matches State approver styling */}
+          {onSendBack && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                console.log(
+                  "[MinistryApproverActionButtons] Send Back clicked for section:",
+                  sectionId
+                );
+                onSendBack();
+              }}
+              disabled={disabled}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
+           {/* Accept Button - matches State approver styling */}
+           {onAccept && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => {
+                console.log(
+                  "[MinistryApproverActionButtons] Accept clicked for section:",
+                  sectionId
+                );
+                onAccept();
+              }}
+              disabled={disabled}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+          )}
         </>
       )}
       <Button
         variant="outline"
         size="sm"
         onClick={onTimeline}
-        className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+        className="flex items-center gap-1 h-7 px-2 text-xs"
       >
-        <Clock className="w-4 h-4 mr-1" />
+        <Clock className="w-3 h-3" />
         Timeline ({timelineCount})
       </Button>
     </div>
   );
 }
-

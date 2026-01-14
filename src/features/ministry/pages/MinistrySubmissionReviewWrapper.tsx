@@ -314,24 +314,41 @@ export function MinistrySubmissionReviewWrapper({
                       renderSectionActionButtons={(sectionId, sectionName, indicatorCode) => {
                         // Render role-based action buttons for each section
                         if (user?.role === "MINISTRY_APPROVER") {
+                          console.log("[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:", {
+                            sectionId,
+                            sectionName,
+                            indicatorCode,
+                            userId: user?.id,
+                          });
                           return (
                             <MinistryApproverActionButtons
                               sectionId={sectionId}
+                              onEdit={() => {
+                                console.log("[MinistrySubmissionReviewWrapper] Edit clicked for section:", sectionId);
+                                // TODO: Implement edit action
+                                toast({
+                                  title: "Edit",
+                                  description: `Edit action for section ${sectionId}`,
+                                });
+                              }}
                               onAccept={() => {
+                                console.log("[MinistrySubmissionReviewWrapper] Accept clicked for section:", sectionId);
                                 // TODO: Implement accept action
                                 toast({
                                   title: "Accept",
                                   description: `Accept action for section ${sectionId}`,
                                 });
                               }}
-                              onSendToMospi={() => {
-                                // TODO: Implement send to MoSPI action
+                              onSendBack={() => {
+                                console.log("[MinistrySubmissionReviewWrapper] Send Back clicked for section:", sectionId);
+                                // TODO: Implement send back action
                                 toast({
-                                  title: "Send to MoSPI",
-                                  description: `Send section ${sectionId} to MoSPI`,
+                                  title: "Send Back",
+                                  description: `Send back section ${sectionId}`,
                                 });
                               }}
                               onTimeline={() => {
+                                console.log("[MinistrySubmissionReviewWrapper] Timeline clicked for section:", sectionId);
                                 // TODO: Implement timeline action
                                 toast({
                                   title: "Timeline",
