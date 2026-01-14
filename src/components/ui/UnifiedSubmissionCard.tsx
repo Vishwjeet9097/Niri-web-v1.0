@@ -456,7 +456,7 @@ export function UnifiedSubmissionCard({
       </div>
 
       {/* Reviewer note */}
-      {reviewerNote && (
+      {/* {reviewerNote && (
         <div
           className={`mt-4 p-3 ${getCommentBackgroundClass(
             status
@@ -480,7 +480,7 @@ export function UnifiedSubmissionCard({
             </p>
           </div>
         </div>
-      )}
+      )} */}
     </Card>
   );
 }

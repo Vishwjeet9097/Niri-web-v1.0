@@ -207,31 +207,31 @@ const ReviewerDashboardPage: React.FC = () => {
         </div>
 
         {/* Tabs for State and Ministry */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full mb-8">
-          <TabsList className="inline-flex h-9 items-center justify-start rounded-none border-b bg-transparent p-0">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "state" | "ministry")} className="w-full mb-6">
+          <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-gray-100 p-1 gap-1">
             <TabsTrigger 
               value="state" 
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               State/UT
             </TabsTrigger>
             <TabsTrigger 
               value="ministry"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-none hover:border-gray-300 hover:text-gray-900 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               Ministry
             </TabsTrigger>
           </TabsList>
 
           {/* State Tab */}
-          <TabsContent value="state" className="mt-0">
+          <TabsContent value="state" className="mt-6">
             <MospiApproverOverviewCards
               onStatusFilterChange={handleStatusFilterChange}
             />
           </TabsContent>
 
           {/* Ministry Tab */}
-          <TabsContent value="ministry" className="mt-0">
+          <TabsContent value="ministry" className="mt-6">
             <MospiApproverMinistryOverviewCards
               onStatusFilterChange={handleStatusFilterChange}
             />
