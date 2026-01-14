@@ -1,8 +1,8 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useIndicatorAccess } from '@/hooks/useIndicatorAccess';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 interface Section4_2_StatePMGPortalProps {
   value?: string;
@@ -11,16 +11,16 @@ interface Section4_2_StatePMGPortalProps {
   disabled?: boolean;
 }
 
-export function Section4_2_StatePMGPortal({ 
-  value, 
-  onChange, 
-  error, 
-  disabled = false 
+export function Section4_2_StatePMGPortal({
+  value,
+  onChange,
+  error,
+  disabled = false,
 }: Section4_2_StatePMGPortalProps) {
   const { hasIndicatorAccess } = useIndicatorAccess();
 
   // Check if user has access to this indicator
-  if (!hasIndicatorAccess('4.2')) {
+  if (!hasIndicatorAccess("4.2")) {
     return null; // Hide component if no access
   }
 
@@ -42,20 +42,23 @@ export function Section4_2_StatePMGPortal({
             <Input
               id="statePmgPortal"
               type="text"
-              value={value || ''}
+              value={value || ""}
               onChange={(e) => onChange?.(e.target.value)}
-              className={error ? 'border-red-500' : ''}
+              className={error ? "border-red-500" : ""}
               placeholder="Enter project status"
               disabled={disabled}
             />
-            {error && (
-              <p className="text-sm text-red-500 mt-1">{error}</p>
-            )}
+            {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
           </div>
-          
+
           <div className="text-sm text-muted-foreground">
-            <p><strong>Description:</strong> Functional status of state-level Project Monitoring Group portal</p>
-            <p><strong>Target:</strong> Fully functional state PMG portal</p>
+            <p>
+              <strong>Description:</strong> Functional status of state-level
+              Project Monitoring Group portal
+            </p>
+            <p>
+              <strong>Target:</strong> Fully functional state PMG portal
+            </p>
           </div>
         </div>
       </CardContent>

@@ -4157,9 +4157,10 @@ export const InfraFinancingStep = () => {
                         Issuing Authority
                         <span className="text-red-500">*</span>
                       </Label>
-                      {/* <Input
+                      <Input
+                        type="text"
                         placeholder="Enter issuing authority"
-                        value={bond.issuingAuthority}
+                        value={bond.issuingAuthority || ""}
                         maxLength={100}
                         onChange={(e) => {
                           showErrorsIfNeeded();
@@ -4184,44 +4185,7 @@ export const InfraFinancingStep = () => {
                           isIndicatorSubmitted("1.4") &&
                             "bg-gray-50 cursor-not-allowed"
                         )}
-                      /> */}
-                      <Select
-                        value={bond.issuingAuthority}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_4: {
-                              ...prev.section1_4,
-                              bondList: prev.section1_4.bondList.map((item) =>
-                                item.id === bond.id
-                                  ? { ...item, issuingAuthority: value }
-                                  : item
-                              ),
-                            },
-                          }));
-                        }}
-                        disabled={isIndicatorSubmitted("1.4")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_4.bondList.${index}.issuingAuthority`
-                            ),
-                            isIndicatorSubmitted("1.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        >
-                          <SelectValue placeholder="Select issuing authority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dropdownValues.issuingAuthorityList.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      />
                       {renderFieldError(
                         `section1_4.bondList.${index}.issuingAuthority`
                       )}
