@@ -3258,7 +3258,8 @@ export const PPPDevelopmentReview = ({
 
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
-    if (submissionStatus === "APPROVED") {
+    // BUT allow MOSPI_APPROVER to see toggle button and edit score
+    if (submissionStatus === "APPROVED" && !isMospiApprover) {
       return (
         <div className="flex gap-2">
           {commentCount > 0 && (
@@ -3315,7 +3316,12 @@ export const PPPDevelopmentReview = ({
           : sectionData?.mospi_status
         : undefined;
 
-      if (mospiStatus === "ACCEPTED") {
+      // When submission is APPROVED, show toggle button and view-only mode (similar to ACCEPTED)
+      // This allows users to see updated scores and comment timeline
+      const isSubmissionApproved = submissionStatus === "APPROVED";
+
+      // If mospiStatus is ACCEPTED OR submission is APPROVED, show view-only mode
+      if (mospiStatus === "ACCEPTED" || isSubmissionApproved) {
         const toggleState = indicatorScoreToggleState[sectionId] || "score";
         return (
           <div className="flex items-center gap-2">
@@ -3323,7 +3329,7 @@ export const PPPDevelopmentReview = ({
               submissionId={submissionId}
               indicatorCode={sectionId}
               controlledToggleState={toggleState}
-              mospiStatus={mospiStatus}
+              mospiStatus={isSubmissionApproved ? "ACCEPTED" : mospiStatus}
               onToggleChange={(newState) => {
                 setIndicatorScoreToggleState((prev) => ({
                   ...prev,
@@ -3341,7 +3347,7 @@ export const PPPDevelopmentReview = ({
               disabled
             >
               <CheckCircle className="w-4 h-4" />
-              Accepted
+              {isSubmissionApproved ? "Approved" : "Accepted"}
             </Button>
             <Button
               variant="outline"
