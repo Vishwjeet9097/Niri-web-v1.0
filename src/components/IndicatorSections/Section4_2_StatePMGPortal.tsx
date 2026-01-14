@@ -39,19 +39,15 @@ export function Section4_2_StatePMGPortal({
               State PMG Portal Status
               <span className="text-red-500 ml-1">*</span>
             </Label>
-            <select
+            <Input
               id="statePmgPortal"
+              type="text"
               value={value || ''}
               onChange={(e) => onChange?.(e.target.value)}
-              className={`w-full p-2 border rounded-md ${error ? 'border-red-500' : 'border-gray-300'}`}
+              className={error ? 'border-red-500' : ''}
+              placeholder="Enter project status"
               disabled={disabled}
-            >
-              <option value="">Select status</option>
-              <option value="functional">Fully Functional</option>
-              <option value="partially_functional">Partially Functional</option>
-              <option value="under_development">Under Development</option>
-              <option value="not_available">Not Available</option>
-            </select>
+            />
             {error && (
               <p className="text-sm text-red-500 mt-1">{error}</p>
             )}

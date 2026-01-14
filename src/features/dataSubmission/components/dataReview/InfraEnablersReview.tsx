@@ -4732,34 +4732,19 @@ export const InfraEnablersReview = ({
                                   </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {shouldBeEditable("4.2") ? (
-                                      <Select
+                                      <Input
+                                        type="text"
                                         value={project.statusOfProject || ""}
-                                        onValueChange={(value) =>
+                                        onChange={(e) =>
                                           handleProjectFieldUpdate(
                                             idx,
                                             "statusOfProject",
-                                            value
+                                            e.target.value
                                           )
                                         }
-                                      >
-                                        <SelectTrigger className="w-full">
-                                          <SelectValue placeholder="Select status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="Ongoing">
-                                            Ongoing
-                                          </SelectItem>
-                                          <SelectItem value="Under Implementation">
-                                            Under Implementation
-                                          </SelectItem>
-                                          <SelectItem value="Completed">
-                                            Completed
-                                          </SelectItem>
-                                          <SelectItem value="Under Planning">
-                                            Under Planning
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
+                                        className="w-full"
+                                        placeholder="Enter project status"
+                                      />
                                     ) : (
                                       project.statusOfProject || "N/A"
                                     )}
@@ -5148,33 +5133,18 @@ export const InfraEnablersReview = ({
                               </div>
                               <div>
                                 <Label>Status of Project</Label>
-                                <Select
+                                <Input
+                                  type="text"
                                   value={newProject.statusOfProject}
-                                  onValueChange={(value) =>
+                                  onChange={(e) =>
                                     setNewProject({
                                       ...newProject,
-                                      statusOfProject: value,
+                                      statusOfProject: e.target.value,
                                     })
                                   }
-                                >
-                                  <SelectTrigger className="bg-white">
-                                    <SelectValue placeholder="Select status" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Ongoing">
-                                      Ongoing
-                                    </SelectItem>
-                                    <SelectItem value="Under Implementation">
-                                      Under Implementation
-                                    </SelectItem>
-                                    <SelectItem value="Completed">
-                                      Completed
-                                    </SelectItem>
-                                    <SelectItem value="Under Planning">
-                                      Under Planning
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  className="bg-white"
+                                  placeholder="Enter project status"
+                                />
                               </div>
                               <div>
                                 <Label>

@@ -2367,33 +2367,20 @@ export const InfraEnablersStep = () => {
 
                       <div>
                         <Label>Status of Project</Label>
-                        <Select
+                        <Input
+                          type="text"
+                          placeholder="Enter project status"
                           value={entry.statusOfProject || ""}
-                          onValueChange={(v) => {
+                          onChange={(e) => {
                             showErrorsIfNeeded();
-                            updateGatiProject(entry.id, "statusOfProject", v);
+                            updateGatiProject(entry.id, "statusOfProject", e.target.value);
                           }}
                           disabled={isIndicatorSubmitted("4.2")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              isIndicatorSubmitted("4.2") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          >
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Ongoing">Ongoing</SelectItem>
-                            <SelectItem value="Under Implementation">
-                              Under Implementation
-                            </SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                            <SelectItem value="Under Planning">
-                              Under Planning
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                          className={cn(
+                            isIndicatorSubmitted("4.2") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
                       </div>
 
                       <div className="flex items-center gap-2">
