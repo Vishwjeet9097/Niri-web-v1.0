@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { getMospiMinistrySubmissionDetails } from '@/services/ministry.service'; // New API
 import { MinistrySubmissionCard } from '../components/MinistrySubmissionCard';
 import { MinistrySubmissionSearchBar } from '../components/MinistrySubmissionSearchBar';
+import { MinistryApprovedIndicatorsCard } from '../components/MinistryApprovedIndicatorsCard';
 import { notificationService } from '@/services/notification.service';
 import { Loader2, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -193,6 +194,12 @@ export function MinistryReviewSubmissionsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Approved Indicators Card */}
+      <MinistryApprovedIndicatorsCard
+        submissions={submissions}
+        loading={loading}
+      />
 
       {/* Search Bar */}
       <MinistrySubmissionSearchBar

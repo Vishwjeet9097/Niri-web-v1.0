@@ -392,6 +392,31 @@ export async function mospiMinisteryTab(userId?: string): Promise<{
 }
 
 /**
+ * Get Progress Bar Data for Ministry User
+ * Fetches accepted and total indicator counts for progress bar
+ * @param ministryUserId - The ministry user ID to fetch progress data for
+ * @returns Promise with { accepted: number, total: number, formId: string | null }
+ */
+export async function getMinistryProgressBarData(ministryUserId: string): Promise<{
+    status: boolean;
+    data: {
+        accepted: number;
+        total: number;
+        formId: string | null;
+    };
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/dashboard/progress/${ministryUserId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        return response.data || response;
+    } catch (error: any) {
+        console.error('[getMinistryProgressBarData] API Error:', error);
+        throw error;
+    }
+}
+
+/**
  * Get Ministry Submission Details for MOSPI Dashboard
  * Fetches ministry submissions for the MOSPI Approver/Reviewer dashboard table
  * @param userId - The user ID (MOSPI Approver/Reviewer) to fetch submissions for
