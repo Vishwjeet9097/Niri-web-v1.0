@@ -47,30 +47,51 @@ export function MinistryFormReviewSubmissionPage() {
     try {
       setLoading(true);
       
+      // For consolidated submissions, first call current user API to get submission details
+      // This provides the submission metadata (user info, status, etc.)
       if (isConsolidated) {
-        // Use consolidated API - get submission from MOSPI dashboard API
-        console.log("📋 Loading submission using consolidated API, submissionId:", id);
+        console.log("📋 Loading consolidated submission - Step 1: Getting submission from current user API, submissionId:", id);
         
-        if (!user?.id) {
-          setError('User ID is required for consolidated API');
-          setLoading(false);
-          return;
+        // First, get submission from current user API
+        const response = await getSubmissionsForCurrentUser();
+        
+        let submissionsData: any[] = [];
+        if (Array.isArray(response)) {
+          submissionsData = response;
+        } else if (response?.data && Array.isArray(response.data)) {
+          submissionsData = response.data;
         }
+
+        // Find the submission by ID
+        const foundSubmission = submissionsData.find((sub) => sub.id === id);
         
-        const response = await getMospiMinistrySubmissionDetails(user.id);
-        
-        if (response?.status && response?.data?.submissions) {
-          // Find the submission by ID from the submissions array
-          const foundSubmission = response.data.submissions.find((sub: any) => sub.id === id);
-          
-          if (foundSubmission) {
-            console.log("✅ Found submission from consolidated API:", foundSubmission);
-            setSubmission(foundSubmission);
-          } else {
-            setError('Submission not found in consolidated data');
-          }
+        if (foundSubmission) {
+          console.log("✅ Found consolidated submission from current user API:", foundSubmission);
+          setSubmission(foundSubmission);
         } else {
-          setError('Failed to load submissions from consolidated API');
+          // Fallback: Try MOSPI dashboard API if not found in current user API
+          console.log("⚠️ Submission not found in current user API, trying MOSPI dashboard API...");
+          
+          if (!user?.id) {
+            setError('User ID is required for consolidated API');
+            setLoading(false);
+            return;
+          }
+          
+          const mospiResponse = await getMospiMinistrySubmissionDetails(user.id);
+          
+          if (mospiResponse?.status && mospiResponse?.data?.submissions) {
+            const foundInMospi = mospiResponse.data.submissions.find((sub: any) => sub.id === id);
+            
+            if (foundInMospi) {
+              console.log("✅ Found submission from MOSPI dashboard API:", foundInMospi);
+              setSubmission(foundInMospi);
+            } else {
+              setError('Submission not found in consolidated data');
+            }
+          } else {
+            setError('Failed to load submissions from consolidated API');
+          }
         }
       } else {
         // Use regular API - get submission from current user's submissions
