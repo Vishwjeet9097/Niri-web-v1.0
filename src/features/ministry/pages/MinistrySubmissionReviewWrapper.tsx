@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { getDropdownOptions } from "../constants/dropdownMappings";
-import { getMinistrySubmissionDetailsForReview, getMinistrySubmissionDetailsConsolidated, getMinistryPreviewData } from "@/services/ministry.service";
+import { getMinistrySubmissionDetailsForReview, getMinistrySubmissionDetailsConsolidated, getMinistryPreviewData, updateMinistryIndicatorStatus } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
@@ -40,11 +40,56 @@ export function MinistrySubmissionReviewWrapper({
     submissionIndicatorId: string;
     sectionTitle: string;
   } | null>(null);
+  const [submittingIndicatorId, setSubmittingIndicatorId] = useState<string | null>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [pendingSendBackAction, setPendingSendBackAction] = useState<{
+    submissionIndicatorId: string;
+    sectionId: string;
+  } | null>(null);
+
+  // Handler to execute after comment is saved for send back action
+  const handleSendBackAfterComment = async () => {
+    if (!pendingSendBackAction) {
+      return;
+    }
+
+    try {
+      setSubmittingIndicatorId(pendingSendBackAction.submissionIndicatorId);
+      console.log("📤 Sending back indicator after comment:", {
+        submissionIndicatorId: pendingSendBackAction.submissionIndicatorId,
+        sectionId: pendingSendBackAction.sectionId,
+        status: "RETURNED_FROM_MOSPI_APPROVER_DRAFT",
+      });
+
+      await updateMinistryIndicatorStatus(
+        pendingSendBackAction.submissionIndicatorId,
+        "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
+      );
+
+      toast({
+        title: "Success",
+        description: `Indicator ${pendingSendBackAction.sectionId} sent back successfully`,
+      });
+
+      // Reload data to reflect the change
+      setReloadTrigger(prev => prev + 1);
+    } catch (error: any) {
+      console.error("❌ Error sending back indicator:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to send back indicator",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingIndicatorId(null);
+      setPendingSendBackAction(null);
+    }
+  };
 
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
-  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId]);
+  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId, reloadTrigger]);
 
   const loadSubmissionData = async () => {
     try {
@@ -384,6 +429,48 @@ export function MinistrySubmissionReviewWrapper({
                           );
                         }
                         if (user?.role === "MOSPI_REVIEWER") {
+                          const handleAccept = async () => {
+                            if (!sectionSubmissionIndicatorId) {
+                              toast({
+                                title: "Error",
+                                description: "Submission indicator ID not found for this section",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+
+                            try {
+                              setSubmittingIndicatorId(sectionSubmissionIndicatorId);
+                              console.log("📤 Accepting indicator (MOSPI Reviewer):", {
+                                submissionIndicatorId: sectionSubmissionIndicatorId,
+                                sectionId,
+                                status: "ACCEPTED_BY_MOSPI",
+                              });
+
+                              await updateMinistryIndicatorStatus(
+                                sectionSubmissionIndicatorId,
+                                "ACCEPTED_BY_MOSPI"
+                              );
+
+                              toast({
+                                title: "Success",
+                                description: `Indicator ${sectionId} accepted successfully`,
+                              });
+
+                              // Reload data to reflect the change
+                              setReloadTrigger(prev => prev + 1);
+                            } catch (error: any) {
+                              console.error("❌ Error accepting indicator:", error);
+                              toast({
+                                title: "Error",
+                                description: error?.response?.data?.message || error?.message || "Failed to accept indicator",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setSubmittingIndicatorId(null);
+                            }
+                          };
+
                           return (
                             <MospiReviewerActionButtons
                               sectionId={sectionId}
@@ -402,6 +489,7 @@ export function MinistrySubmissionReviewWrapper({
                                   });
                                 }
                               }}
+                              onAccept={handleAccept}
                               onTimeline={() => {
                                 // TODO: Implement timeline action
                                 toast({
@@ -410,27 +498,104 @@ export function MinistrySubmissionReviewWrapper({
                                 });
                               }}
                               timelineCount={0}
+                              disabled={submittingIndicatorId === sectionSubmissionIndicatorId}
                             />
                           );
                         }
                         if (user?.role === "MOSPI_APPROVER") {
+                          // Find the section object to get status
+                          let sectionStatus: string | null = null;
+                          
+                          // Search through assignedIndicators to find the section
+                          for (const indicatorObj of assignedIndicators) {
+                            const categoryName = Object.keys(indicatorObj)[0];
+                            const sections = indicatorObj[categoryName];
+                            if (Array.isArray(sections)) {
+                              for (const sectionObject of sections) {
+                                const sectionKey = Object.keys(sectionObject)[0];
+                                const section = sectionObject[sectionKey] as any;
+                                if (section.sNo === indicatorCode) {
+                                  sectionStatus = section.status || null;
+                                  break;
+                                }
+                              }
+                              if (sectionStatus) break;
+                            }
+                          }
+
+                          const handleAccept = async () => {
+                            if (!sectionSubmissionIndicatorId) {
+                              toast({
+                                title: "Error",
+                                description: "Submission indicator ID not found for this section",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+
+                            try {
+                              setSubmittingIndicatorId(sectionSubmissionIndicatorId);
+                              console.log("📤 Accepting indicator:", {
+                                submissionIndicatorId: sectionSubmissionIndicatorId,
+                                sectionId,
+                                status: "ACCEPTED_BY_MOSPI",
+                              });
+
+                              await updateMinistryIndicatorStatus(
+                                sectionSubmissionIndicatorId,
+                                "ACCEPTED_BY_MOSPI"
+                              );
+
+                              toast({
+                                title: "Success",
+                                description: `Indicator ${sectionId} accepted successfully`,
+                              });
+
+                              // Reload data to reflect the change
+                              setReloadTrigger(prev => prev + 1);
+                            } catch (error: any) {
+                              console.error("❌ Error accepting indicator:", error);
+                              toast({
+                                title: "Error",
+                                description: error?.response?.data?.message || error?.message || "Failed to accept indicator",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setSubmittingIndicatorId(null);
+                            }
+                          };
+
+                          const handleSendBack = () => {
+                            if (!sectionSubmissionIndicatorId) {
+                              toast({
+                                title: "Error",
+                                description: "Submission indicator ID not found for this section",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+
+                            // Store the pending send back action
+                            setPendingSendBackAction({
+                              submissionIndicatorId: sectionSubmissionIndicatorId,
+                              sectionId: sectionId,
+                            });
+
+                            // Open comment dialog
+                            setSelectedSectionForComment({
+                              submissionIndicatorId: sectionSubmissionIndicatorId,
+                              sectionTitle: sectionName || sectionId,
+                            });
+                            setCommentDialogOpen(true);
+                          };
+
                           return (
                             <MospiApproverActionButtons
                               sectionId={sectionId}
-                              onAccept={() => {
-                                // TODO: Implement accept action
-                                toast({
-                                  title: "Accept",
-                                  description: `Accept action for section ${sectionId}`,
-                                });
-                              }}
-                              onSendBack={() => {
-                                // TODO: Implement send back action
-                                toast({
-                                  title: "Send Back",
-                                  description: `Send back section ${sectionId}`,
-                                });
-                              }}
+                              sectionTitle={sectionName || sectionId}
+                              status={sectionStatus || undefined}
+                              onAccept={handleAccept}
+                              onSendBack={handleSendBack}
                               onTimeline={() => {
                                 // TODO: Implement timeline action
                                 toast({
@@ -440,6 +605,7 @@ export function MinistrySubmissionReviewWrapper({
                               }}
                               timelineCount={0}
                               isAccepted={false}
+                              disabled={submittingIndicatorId === sectionSubmissionIndicatorId}
                             />
                           );
                         }
@@ -467,10 +633,22 @@ export function MinistrySubmissionReviewWrapper({
         onClose={() => {
           setCommentDialogOpen(false);
           setSelectedSectionForComment(null);
+          // Clear pending send back action if dialog is closed without saving
+          if (pendingSendBackAction) {
+            setPendingSendBackAction(null);
+          }
         }}
         onSuccess={() => {
           // Optionally refresh data or show success message
           console.log("Comment added successfully");
+          
+          // If there's a pending send back action, execute it after comment is saved
+          if (pendingSendBackAction) {
+            // Small delay to ensure comment is saved before status update
+            setTimeout(() => {
+              handleSendBackAfterComment();
+            }, 300);
+          }
         }}
         sectionTitle={selectedSectionForComment?.sectionTitle}
         submissionIndicatorId={selectedSectionForComment?.submissionIndicatorId || ""}
