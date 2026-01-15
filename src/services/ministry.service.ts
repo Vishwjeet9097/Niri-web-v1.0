@@ -1597,6 +1597,44 @@ export async function updateMinistryIndicatorData(
 }
 
 /**
+ * Update submission indicator status
+ * @param submissionIndicatorId - The submission indicator ID
+ * @param status - The status to update (e.g., "ACCEPTED_BY_MINISTRY", "ACCEPTED_BY_MOSPI", "RETURNED_FROM_MINISTRY", "RETURNED_FROM_MOSPI")
+ */
+export async function updateSubmissionIndicatorStatus(
+  submissionIndicatorId: string,
+  status: string
+): Promise<{
+  status: boolean;
+  message: string;
+  data?: any;
+}> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/indicator/status`);
+
+    const payload = {
+      submissionIndicatorId,
+      status,
+    };
+
+    console.log("📤 Updating submission indicator status:", {
+      submissionIndicatorId,
+      status,
+      payload,
+    });
+
+    const response = await apiService.put(url, payload, {
+      withCredentials: true,
+    });
+
+    return response.data?.data || response.data || response;
+  } catch (error) {
+    console.error("❌ Error in updateSubmissionIndicatorStatus:", error);
+    throw error;
+  }
+}
+
+/**
  * Get all ministry submissions for review
  * Returns the latest submission for each ministry approver
  */

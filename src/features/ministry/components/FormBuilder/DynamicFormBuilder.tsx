@@ -181,15 +181,26 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   isIndicatorSubmitted?.(indicatorId) || false;
                 // Check if this specific section is in edit mode
                 const isSectionInEditMode = isSectionEditable(indicatorId);
-                // Section is disabled if: globally disabled OR (not in edit mode AND in review mode)
+                // Check if section is accepted - if so, it should always be disabled
+                const sectionStatus = (section as any).status;
+                const isSectionAccepted =
+                  sectionStatus &&
+                  (sectionStatus.toUpperCase() === "ACCEPTED_BY_MINISTRY" ||
+                    sectionStatus.toUpperCase() === "ACCEPTED_BY_MOSPI" ||
+                    sectionStatus.toUpperCase() === "ACCEPTED");
+                // Section is disabled if: globally disabled OR section is accepted OR (not in edit mode AND in review mode)
                 const isSectionDisabled =
-                  disabled || (mode === "review" && !isSectionInEditMode);
+                  disabled ||
+                  isSectionAccepted ||
+                  (mode === "review" && !isSectionInEditMode);
 
                 console.log(
                   `[DynamicFormBuilder] Section ${indicatorId} edit state:`,
                   {
                     isSectionInEditMode,
                     isSectionDisabled,
+                    isSectionAccepted,
+                    sectionStatus,
                     mode,
                     disabled,
                     editableSectionsCount: editableSections.length,

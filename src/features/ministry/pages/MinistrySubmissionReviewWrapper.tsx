@@ -7,6 +7,7 @@ import {
   getMinistrySubmissionDetailsForReview,
   getMinistrySubmissionDetailsConsolidated,
   updateMinistryIndicatorData,
+  updateSubmissionIndicatorStatus,
 } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
@@ -335,6 +336,17 @@ export function MinistrySubmissionReviewWrapper({
       "[MinistrySubmissionReviewWrapper] Starting edit for section:",
       sectionId
     );
+
+    // Check if section is accepted - if so, prevent editing
+    if (isSectionAccepted(sectionId)) {
+      toast({
+        title: "Cannot Edit",
+        description: `Section ${sectionId} has been accepted and cannot be edited.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const sectionKey = `section${sectionId.replace(".", "_")}`;
 
     // Store original form data snapshot
@@ -569,6 +581,110 @@ export function MinistrySubmissionReviewWrapper({
     }
   };
 
+  // Helper function to get section status from assignedIndicators
+  const getSectionStatus = (sectionId: string): string | null => {
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            return (section as any).status || null;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  // Helper function to check if section is accepted
+  const isSectionAccepted = (sectionId: string): boolean => {
+    const status = getSectionStatus(sectionId);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    return (
+      upperStatus === "ACCEPTED_BY_MINISTRY" ||
+      upperStatus === "ACCEPTED_BY_MOSPI" ||
+      upperStatus === "ACCEPTED"
+    );
+  };
+
+  // Handle accept action
+  const handleAccept = async (sectionId: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Accepting section:",
+      sectionId
+    );
+
+    // Find the indicator and section data to get submissionIndicatorId
+    let submissionIndicatorId: string | null = null;
+    let currentSection: any = null;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            currentSection = section;
+            break;
+          }
+        }
+      }
+
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Call API to update status to ACCEPTED_BY_MINISTRY
+      const response = await updateSubmissionIndicatorStatus(
+        submissionIndicatorId,
+        "ACCEPTED_BY_MINISTRY"
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Accept response:",
+        response
+      );
+
+      toast({
+        title: "Success",
+        description: `Section ${sectionId} accepted successfully`,
+      });
+
+      // Reload submission data to reflect the updated status
+      await loadSubmissionData();
+    } catch (error: any) {
+      console.error("Error accepting section:", error);
+      toast({
+        title: "Error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          `Failed to accept section ${sectionId}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Handle form data change (only when in edit mode)
   const handleFormDataChange = (path: string, value: any) => {
     // Only allow changes when section is in edit mode
@@ -703,6 +819,7 @@ export function MinistrySubmissionReviewWrapper({
                             const isSectionEditing =
                               editingSections.has(sectionId);
                             const isSaving = savingSections.has(sectionId);
+                            const isAccepted = isSectionAccepted(sectionId);
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -713,6 +830,7 @@ export function MinistrySubmissionReviewWrapper({
                                 userId: user?.id,
                                 isSectionEditing,
                                 isSaving,
+                                isAccepted,
                                 editingSectionsArray:
                                   Array.from(editingSections),
                                 hasOnSave: isSectionEditing,
@@ -728,7 +846,7 @@ export function MinistrySubmissionReviewWrapper({
                                 }`} // Force re-render when edit state changes
                                 sectionId={sectionId}
                                 onEdit={
-                                  !isSectionEditing
+                                  !isSectionEditing && !isAccepted
                                     ? () => handleEditStart(sectionId)
                                     : undefined
                                 }
@@ -743,22 +861,14 @@ export function MinistrySubmissionReviewWrapper({
                                     : undefined
                                 }
                                 onAccept={
-                                  !isSectionEditing
-                                    ? () => {
-                                        console.log(
-                                          "[MinistrySubmissionReviewWrapper] Accept clicked for section:",
-                                          sectionId
-                                        );
-                                        // TODO: Implement accept action
-                                        toast({
-                                          title: "Accept",
-                                          description: `Accept action for section ${sectionId}`,
-                                        });
-                                      }
+                                  !isSectionEditing && !isAccepted
+                                    ? () => handleAccept(sectionId)
                                     : undefined
                                 }
                                 onSendBack={
-                                  !isSectionEditing
+                                  !isSectionEditing &&
+                                  !isAccepted &&
+                                  submission?.user?.role !== "MINISTRY_APPROVER"
                                     ? () => {
                                         console.log(
                                           "[MinistrySubmissionReviewWrapper] Send Back clicked for section:",
@@ -784,7 +894,7 @@ export function MinistrySubmissionReviewWrapper({
                                   });
                                 }}
                                 timelineCount={0}
-                                isAccepted={false}
+                                isAccepted={isAccepted}
                                 isSaving={isSaving}
                               />
                             );
