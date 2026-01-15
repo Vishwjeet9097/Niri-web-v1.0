@@ -6,6 +6,14 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { getMinistryProgressBarData, updateMinistryFormStatus } from '@/services/ministry.service';
 import { useToast } from '@/hooks/use-toast';
 import { notificationService } from '@/services/notification.service';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ProgressStats {
   approved: number;
@@ -17,11 +25,13 @@ interface ProgressStats {
 interface MinistryApprovedIndicatorsCardProps {
   submissions?: any[];
   loading?: boolean;
+  onSubmissionSuccess?: () => void;
 }
 
 export function MinistryApprovedIndicatorsCard({
   submissions = [],
   loading = false,
+  onSubmissionSuccess,
 }: MinistryApprovedIndicatorsCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -29,6 +39,8 @@ export function MinistryApprovedIndicatorsCard({
   const [ministryProgress, setMinistryProgress] = useState<ProgressStats | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSubmittedToMospi, setIsSubmittedToMospi] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const isFetchingProgress = useRef(false);
 
   useEffect(() => {
@@ -86,6 +98,12 @@ export function MinistryApprovedIndicatorsCard({
           formId,
         });
 
+        // Reset submission state if not all indicators are accepted
+        // This handles cases where indicators might have been returned/rejected
+        if (percentage !== 100) {
+          setIsSubmittedToMospi(false);
+        }
+
         console.log('✅ [MinistryProgress] Progress calculated:', {
           approved: accepted,
           total: total,
@@ -131,6 +149,27 @@ export function MinistryApprovedIndicatorsCard({
     };
   }, [user?.id, loading]);
 
+  // Check form status from submissions to determine if already submitted
+  useEffect(() => {
+    if (submissions && submissions.length > 0) {
+      // Look for consolidated submission with status SUBMITTED_TO_MOSPI_REVIEWER or later
+      const hasSubmittedForm = submissions.some((sub) => {
+        const formStatus = sub.formStatus || sub.status;
+        return (
+          sub.isConsolidated === true &&
+          (formStatus === 'SUBMITTED_TO_MOSPI_REVIEWER' ||
+            formStatus === 'SUBMITTED_TO_MOSPI_APPROVER' ||
+            formStatus === 'ACCEPTED_BY_MOSPI')
+        );
+      });
+
+      // Set submission state based on form status
+      if (hasSubmittedForm) {
+        setIsSubmittedToMospi(true);
+      }
+    }
+  }, [submissions]);
+
   const handlePreviewClick = () => {
     // Navigate to preview page
     if (user?.id) {
@@ -138,13 +177,38 @@ export function MinistryApprovedIndicatorsCard({
     }
   };
 
-  const handleSubmitNow = async () => {
+  const handleSubmitNow = () => {
     if (!ministryProgress) {
       toast({
         title: 'Error',
         description: 'Progress data not available. Please wait for data to load.',
         variant: 'destructive',
       });
+      return;
+    }
+
+    // Prevent opening modal if already submitted or not all indicators are accepted
+    if (isSubmittedToMospi || ministryProgress.percentage !== 100) {
+      toast({
+        title: 'Error',
+        description: 'Cannot submit. Either already submitted or not all indicators are accepted.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Open confirmation modal
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!ministryProgress) {
+      toast({
+        title: 'Error',
+        description: 'Progress data not available. Please wait for data to load.',
+        variant: 'destructive',
+      });
+      setShowConfirmModal(false);
       return;
     }
 
@@ -166,8 +230,52 @@ export function MinistryApprovedIndicatorsCard({
         });
         notificationService.success(result.message || 'Form submitted successfully');
         
+        // Mark as submitted to prevent duplicate submissions
+        setIsSubmittedToMospi(true);
+        
+        // Close the modal
+        setShowConfirmModal(false);
+        
+        // Call the callback to refresh submissions list in parent component
+        if (onSubmissionSuccess) {
+          onSubmissionSuccess();
+        }
+        
         // Refresh progress data after submission
         // The loadProgress function will be called automatically via the interval/visibility handlers
+        // Force immediate refresh
+        if (user?.id && !document?.hidden) {
+          try {
+            const response: any = await getMinistryProgressBarData(user.id);
+            let accepted = 0;
+            let total = 0;
+            let formId: string | null = null;
+
+            if (response?.status && response?.data) {
+              accepted = response.data.accepted || 0;
+              total = response.data.total || 0;
+              formId = response.data.formId || null;
+            } else if (response?.accepted !== undefined && response?.total !== undefined) {
+              accepted = response.accepted || 0;
+              total = response.total || 0;
+              formId = response.formId || null;
+            } else if (response?.data) {
+              accepted = response.data.accepted || 0;
+              total = response.data.total || 0;
+              formId = response.data.formId || null;
+            }
+
+            const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
+            setMinistryProgress({
+              approved: accepted,
+              total: total,
+              percentage,
+              formId,
+            });
+          } catch (error) {
+            console.error('❌ [MinistrySubmit] Failed to refresh progress after submission:', error);
+          }
+        }
       } else {
         throw new Error(result.message || 'Failed to submit form');
       }
@@ -252,12 +360,57 @@ export function MinistryApprovedIndicatorsCard({
           <Button
             className="shrink-0 text-white px-6 bg-[#1e3a8a] hover:bg-[#1e3299]"
             onClick={handleSubmitNow}
-            disabled={submitting || progressLoading}
+            disabled={
+              submitting || 
+              progressLoading || 
+              ministryProgress.percentage !== 100 || 
+              isSubmittedToMospi
+            }
           >
-            {submitting ? 'Submitting…' : 'Submit Now'}
+            Submit Now
           </Button>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <Dialog open={showConfirmModal} onOpenChange={(open) => !submitting && setShowConfirmModal(open)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Submit to MoSPI Reviewer</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to submit this form to the MoSPI Reviewer for review?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              On clicking submit button, the form will be forwarded for review to MoSPI Reviewer. Once submitted, you will not be able to make changes until it is reviewed.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmModal(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSubmit}
+              disabled={submitting}
+              className="bg-[#1e3a8a] hover:bg-[#1e3299] text-white"
+            >
+              {submitting ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Submitting...</span>
+                </div>
+              ) : (
+                'Submit'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

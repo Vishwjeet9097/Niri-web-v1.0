@@ -212,6 +212,7 @@ export function MinistryReviewSubmissionsPage() {
       <MinistryApprovedIndicatorsCard
         submissions={submissions}
         loading={loading}
+        onSubmissionSuccess={loadSubmissions}
       />
 
       {/* Search Bar */}
