@@ -1,6 +1,37 @@
 import { apiService } from "./api.service";
 import { config } from "@/config/environment";
 
+/**
+ * Add a comment to a ministry submission indicator
+ * @param submissionIndicatorId - The submission indicator ID
+ * @param text - The comment text
+ * @returns Promise with the API response
+ */
+export async function addMinistrySubmissionComment(
+  submissionIndicatorId: string,
+  text: string
+): Promise<any> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/comment`);
+    
+    const payload = {
+      submissionIndicatorId,
+      text,
+    };
+
+    console.log("📤 Adding ministry submission comment:", {
+      submissionIndicatorId,
+      text,
+    });
+
+    const response = await apiService.post(url, payload, { withCredentials: true });
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error('❌ Error in addMinistrySubmissionComment:', error);
+    throw error;
+  }
+}
+
 // Helper to build full API URL
 function getApiUrl(path: string) {
     const baseUrl = config.apiBaseUrl || "";
@@ -387,6 +418,137 @@ export async function mospiMinisteryTab(userId?: string): Promise<{
             returnedToMinistry: 0,
             fullSubmission: 0,
             total: 0,
+        };
+    }
+}
+
+/**
+ * Get Nodal Dashboard Submissions
+ * Fetches ministry submissions for the Nodal Officer dashboard
+ * @param userId - The user ID (Nodal Officer) to fetch submissions for
+ * @returns Promise with submissions array (wraps single submission in array for consistency)
+ */
+export async function getNodalDashboardSubmissions(userId: string): Promise<{
+    status: boolean;
+    data: {
+        submissions: Array<{
+            id: string;
+            submissionId: string;
+            userId: string;
+            formId: string;
+            status: string;
+            createdAt: string;
+            updatedAt: string;
+            isConsolidated?: boolean;
+            user: {
+                id: string;
+                firstName: string;
+                lastName: string;
+                email: string;
+                ministryId: string;
+                ministryName: string;
+            };
+            form_data?: any;
+            formData?: any;
+            review_comments?: Array<{ text: string }>;
+            reviewComments?: Array<{ text: string }>;
+            stateUt?: string;
+            state_ut?: string;
+            rejection_count?: number;
+            rejectionCount?: number;
+            finalScore?: number;
+            current_owner_role?: string;
+            currentOwnerRole?: string;
+            dueDate?: string;
+        }>;
+    };
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/dashboard/submission-details/${userId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        console.log('[getNodalDashboardSubmissions] Raw Axios Response:', response);
+        console.log('[getNodalDashboardSubmissions] Response.data:', response?.data);
+        
+        // Axios wraps the response in response.data, so we need to extract it
+        // The API returns: { status: true, data: { submission: {...}, ... }, message: "..." }
+        const apiResponse = response || response;
+        
+        console.log('[getNodalDashboardSubmissions] API Response (after extraction):', apiResponse);
+        console.log('[getNodalDashboardSubmissions] API Response status:', apiResponse?.status);
+        console.log('[getNodalDashboardSubmissions] API Response data:', apiResponse?.data);
+        
+        if (apiResponse?.status && apiResponse?.data) {
+            // API returns: { status: true, data: { submission: {...}, submissionId: "...", user: {...} } }
+            const submissionData = apiResponse.data;
+            
+            // Check if response has a single submission object
+            if (submissionData?.submission) {
+                // Combine submission data with user data
+                const submission = {
+                    ...submissionData.submission,
+                    submissionId: submissionData.submissionId || submissionData.submission.submissionId,
+                    user: submissionData.user || submissionData.submission.user,
+                };
+
+                console.log('[getNodalDashboardSubmissions] Processed submission:', submission);
+                console.log('[getNodalDashboardSubmissions] Returning:', {
+                    status: apiResponse.status,
+                    data: {
+                        submissions: [submission],
+                    },
+                    message: apiResponse.message || 'Submission fetched successfully',
+                });
+                
+                return {
+                    status: apiResponse.status,
+                    data: {
+                        submissions: [submission], // Wrap single submission in array
+                    },
+                    message: apiResponse.message || 'Submission fetched successfully',
+                };
+            }
+            
+            // Handle if submissions is already an array
+            if (Array.isArray(submissionData?.submissions)) {
+                return {
+                    status: apiResponse.status,
+                    data: {
+                        submissions: submissionData.submissions,
+                    },
+                    message: apiResponse.message || 'Submissions fetched successfully',
+                };
+            }
+            
+            // Handle if submission data is directly an array
+            if (Array.isArray(submissionData)) {
+                return {
+                    status: apiResponse.status,
+                    data: {
+                        submissions: submissionData,
+                    },
+                    message: apiResponse.message || 'Submissions fetched successfully',
+                };
+            }
+        }
+        
+        // Fallback: return empty array
+        console.warn('[getNodalDashboardSubmissions] Unexpected response structure:', apiResponse);
+        return {
+            status: false,
+            data: {
+                submissions: [],
+            },
+            message: apiResponse?.message || 'Unexpected response structure',
+        };
+    } catch (error: any) {
+        console.error('[getNodalDashboardSubmissions] API Error:', error);
+        return {
+            status: false,
+            data: {
+                submissions: [],
+            },
+            message: error?.response?.data?.message || error?.message || 'Failed to fetch submissions',
         };
     }
 }

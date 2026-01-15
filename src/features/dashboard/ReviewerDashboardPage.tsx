@@ -10,10 +10,12 @@ import ReviewerRecentActions from "./components/reviewer/ReviewerRecentActions";
 import ReviewerQuickActions from "./components/reviewer/ReviewerQuickActions";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { getMospiMinistrySubmissionDetails } from "@/services/ministry.service";
 
 const ReviewerDashboardPage: React.FC = () => {
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [ministrySubmissions, setMinistrySubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [isFilteredByCard, setIsFilteredByCard] = useState(false);
@@ -25,8 +27,55 @@ const ReviewerDashboardPage: React.FC = () => {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  // Load ministry submissions when ministry tab is active
+  useEffect(() => {
+    const loadMinistrySubmissions = async () => {
+      if (activeTab !== "ministry" || !user?.id) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await getMospiMinistrySubmissionDetails(user.id);
+        
+        if (response.status && response.data?.submissions) {
+          // Map the ministry submission data to match the expected structure
+          const mappedSubmissions = response.data.submissions.map((sub: any) => ({
+            ...sub,
+            // Use formStatus for status filtering
+            status: sub.formStatus || sub.status,
+            // Map user data
+            user: sub.user || {},
+            stateUt: null, // Ministry submissions don't have stateUt
+            ministryId: sub.user?.ministryId,
+            ministryName: sub.user?.ministryName,
+          }));
+          
+          setMinistrySubmissions(mappedSubmissions);
+        } else {
+          setMinistrySubmissions([]);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load ministry submissions:", error);
+        notificationService.error(
+          "Failed to load ministry submissions. Please try again.",
+          "Load Error"
+        );
+        setMinistrySubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMinistrySubmissions();
+  }, [activeTab, user?.id]);
+
   // Initial load - no status filter (keep existing behavior)
   useEffect(() => {
+    // Skip if ministry tab is active (ministry submissions loaded separately)
+    if (activeTab === "ministry") {
+      return;
+    }
     const loadSubmissions = async () => {
       try {
         setLoading(true);
@@ -242,8 +291,9 @@ const ReviewerDashboardPage: React.FC = () => {
           {/* Latest Submissions Table */}
           <div ref={tableRef} className="lg:col-span-2">
             <ReviewerSubmissionsTable
-              submissions={submissions}
+              submissions={activeTab === "ministry" ? ministrySubmissions : submissions}
               loading={loading}
+              activeTab={activeTab}
             />
           </div>
           {/* Recent Actions & Quick Actions */}

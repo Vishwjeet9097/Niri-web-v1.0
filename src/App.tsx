@@ -164,7 +164,7 @@ const App = () => (
                    <Route
                     path="review-submissions/form-review/:id"
                     element={
-                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER', 'MOSPI_REVIEWER', 'NODAL_OFFICER']}>
                         <MinistryFormReviewSubmissionPage />
                       </ProtectedRoute>
                     }

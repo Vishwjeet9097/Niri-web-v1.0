@@ -14,6 +14,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { MinistryApproverActionButtons } from "../components/actionButtons/MinistryApproverActionButtons";
 import { MospiReviewerActionButtons } from "../components/actionButtons/MospiReviewerActionButtons";
 import { MospiApproverActionButtons } from "../components/actionButtons/MospiApproverActionButtons";
+import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -34,6 +35,11 @@ export function MinistrySubmissionReviewWrapper({
   const [assignedIndicators, setAssignedIndicators] = useState<AssignedIndicator[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [submissionId, setSubmissionId] = useState<string | null>(submission?.id || null);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
+    submissionIndicatorId: string;
+    sectionTitle: string;
+  } | null>(null);
 
   // Load submission data with forReview=true
   useEffect(() => {
@@ -312,6 +318,26 @@ export function MinistrySubmissionReviewWrapper({
                       onValidateField={() => {}} // No validation in review
                       onClearFieldError={() => {}} // No error clearing in review
                       renderSectionActionButtons={(sectionId, sectionName, indicatorCode) => {
+                        // Find the section object to get submissionIndicatorId
+                        let sectionSubmissionIndicatorId: string | null = null;
+                        
+                        // Search through assignedIndicators to find the section
+                        for (const indicatorObj of assignedIndicators) {
+                          const categoryName = Object.keys(indicatorObj)[0];
+                          const sections = indicatorObj[categoryName];
+                          if (Array.isArray(sections)) {
+                            for (const sectionObject of sections) {
+                              const sectionKey = Object.keys(sectionObject)[0];
+                              const section = sectionObject[sectionKey] as any; // Type assertion to access submissionIndicatorId
+                              if (section.sNo === indicatorCode) {
+                                sectionSubmissionIndicatorId = section.submissionIndicatorId || null;
+                                break;
+                              }
+                            }
+                            if (sectionSubmissionIndicatorId) break;
+                          }
+                        }
+                        
                         // Render role-based action buttons for each section
                         if (user?.role === "MINISTRY_APPROVER") {
                           return (
@@ -348,11 +374,19 @@ export function MinistrySubmissionReviewWrapper({
                             <MospiReviewerActionButtons
                               sectionId={sectionId}
                               onAddComment={() => {
-                                // TODO: Implement add comment action
-                                toast({
-                                  title: "Add Comment",
-                                  description: `Add comment for section ${sectionId}`,
-                                });
+                                if (sectionSubmissionIndicatorId) {
+                                  setSelectedSectionForComment({
+                                    submissionIndicatorId: sectionSubmissionIndicatorId,
+                                    sectionTitle: sectionName || sectionId,
+                                  });
+                                  setCommentDialogOpen(true);
+                                } else {
+                                  toast({
+                                    title: "Error",
+                                    description: "Submission indicator ID not found for this section",
+                                    variant: "destructive",
+                                  });
+                                }
                               }}
                               onTimeline={() => {
                                 // TODO: Implement timeline action
@@ -412,6 +446,21 @@ export function MinistrySubmissionReviewWrapper({
           </div>
         )}
       </div>
+
+      {/* Comment Dialog */}
+      <MinistryCommentDialog
+        isOpen={commentDialogOpen}
+        onClose={() => {
+          setCommentDialogOpen(false);
+          setSelectedSectionForComment(null);
+        }}
+        onSuccess={() => {
+          // Optionally refresh data or show success message
+          console.log("Comment added successfully");
+        }}
+        sectionTitle={selectedSectionForComment?.sectionTitle}
+        submissionIndicatorId={selectedSectionForComment?.submissionIndicatorId || ""}
+      />
     </div>
   );
 }
