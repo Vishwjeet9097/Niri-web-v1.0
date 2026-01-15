@@ -11,13 +11,24 @@ export function MinistryDataReviewTab({
   useConsolidatedApi = false,
   submissionId 
 }: MinistryDataReviewTabProps) {
+  // For consolidated submissions, use the consolidated API endpoint
+  // The submissionId should be the UUID (submission.id)
+  const consolidatedSubmissionId = useConsolidatedApi ? (submissionId || submission?.id) : undefined;
+  
+  console.log('📋 [MinistryDataReviewTab] API Configuration:', {
+    useConsolidatedApi,
+    submissionId: consolidatedSubmissionId,
+    submissionIdFromProp: submissionId,
+    submissionIdFromSubmission: submission?.id,
+  });
+  
   return (
     <div className="space-y-6">
       <MinistrySubmissionReviewWrapper 
         submission={submission}
         userId={submission?.user?.id}
         useConsolidatedApi={useConsolidatedApi}
-        submissionId={submissionId || submission?.id}
+        submissionId={consolidatedSubmissionId}
       />
     </div>
   );
