@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { getDropdownOptions } from "../constants/dropdownMappings";
-import { getMinistrySubmissionDetailsForReview, getMinistrySubmissionDetailsConsolidated } from "@/services/ministry.service";
+import { getMinistrySubmissionDetailsForReview, getMinistrySubmissionDetailsConsolidated, getMinistryPreviewData } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
@@ -56,16 +56,25 @@ export function MinistrySubmissionReviewWrapper({
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
       
+      // Helper function to check if a string is a valid UUID
+      const isValidUUID = (str: string | null | undefined): boolean => {
+        if (!str) return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(str);
+      };
+
       // Define targetSubmissionId in outer scope so it's accessible later
-      const targetSubmissionId = submission?.id || submission?.submissionId || propSubmissionId;
+      // Only use submissionId if it's a valid UUID (not a submission ID string like "SUB-2026-141817")
+      const rawSubmissionId = submission?.id || submission?.submissionId || propSubmissionId;
+      const targetSubmissionId = rawSubmissionId && isValidUUID(rawSubmissionId) ? rawSubmissionId : undefined;
       const targetUserId = userId || submission?.user?.id;
       
       if (useConsolidatedApi && useConsolidatedApi === true) {
         if (!targetSubmissionId) {
-          console.error("No submission ID available for consolidated API");
+          console.error("No valid UUID submission ID available for consolidated API");
           toast({
             title: "Error",
-            description: "Submission ID is required to load submission data.",
+            description: "A valid submission ID (UUID) is required to load submission data.",
             variant: "destructive",
           });
           setLoading(false);
@@ -76,10 +85,7 @@ export function MinistrySubmissionReviewWrapper({
         response = await getMinistrySubmissionDetailsConsolidated(targetSubmissionId);
       } else {
         // Use existing API with userId
-        // Prioritize submissionId from submission object
-        
-        //Need to use this now.
-        //const targetUserId = submission?.id;
+        // Only pass submissionId if it's a valid UUID, otherwise use only userId
         
         if (!targetSubmissionId && !targetUserId) {
           console.error("No submission ID or user ID available for review");
@@ -92,8 +98,16 @@ export function MinistrySubmissionReviewWrapper({
           return;
         }
 
-        console.log("📋 Loading submission data for review, submissionId:", targetSubmissionId, "userId:", targetUserId);
-        response = await getMinistrySubmissionDetailsForReview(targetSubmissionId, targetUserId);
+        // If we have a non-UUID submissionId (like "SUB-2026-141817"), ignore it and use only userId
+        // For preview mode (when we only have userId and no valid UUID), use the preview API
+        if (!targetSubmissionId && targetUserId) {
+          console.log("📋 Loading preview data using preview API, userId:", targetUserId);
+          response = await getMinistryPreviewData(targetUserId);
+        } else {
+          // Use the regular review API when we have a valid UUID submissionId
+          console.log("📋 Loading submission data for review, submissionId:", targetSubmissionId || "none (using userId)", "userId:", targetUserId);
+          response = await getMinistrySubmissionDetailsForReview(targetSubmissionId || undefined, targetUserId);
+        }
       }
 
       if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
