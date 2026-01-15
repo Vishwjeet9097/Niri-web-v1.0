@@ -14,7 +14,7 @@ export async function addMinistrySubmissionComment(
 ): Promise<any> {
   try {
     const url = getApiUrl(`/ministry/form/submission/comment`);
-    
+
     const payload = {
       submissionIndicatorId,
       text,
@@ -25,10 +25,41 @@ export async function addMinistrySubmissionComment(
       text,
     });
 
-    const response = await apiService.post(url, payload, { withCredentials: true });
+    const response = await apiService.post(url, payload, {
+      withCredentials: true,
+    });
     return response.data?.data || response.data || response;
   } catch (error: any) {
-    console.error('❌ Error in addMinistrySubmissionComment:', error);
+    console.error("❌ Error in addMinistrySubmissionComment:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get all comments for a ministry submission indicator
+ * @param submissionIndicatorId - The submission indicator ID
+ * @returns Promise with the API response containing comments array
+ */
+export async function getMinistrySubmissionIndicatorComments(
+  submissionIndicatorId: string
+): Promise<{
+  status: boolean;
+  message: string;
+  data: any[];
+}> {
+  try {
+    const url = getApiUrl(
+      `/ministry/form/submission/comment/${submissionIndicatorId}`
+    );
+
+    console.log("📥 Fetching ministry submission indicator comments:", {
+      submissionIndicatorId,
+    });
+
+    const response = await apiService.get(url, { withCredentials: true });
+    return response.data || response;
+  } catch (error: any) {
+    console.error("❌ Error in getMinistrySubmissionIndicatorComments:", error);
     throw error;
   }
 }
@@ -452,7 +483,6 @@ export async function mospiMinisteryTab(userId?: string): Promise<{
   }
 }
 
-
 /**
  * Get Nodal Dashboard Submissions
  * Fetches ministry submissions for the Nodal Officer dashboard
@@ -460,128 +490,151 @@ export async function mospiMinisteryTab(userId?: string): Promise<{
  * @returns Promise with submissions array (wraps single submission in array for consistency)
  */
 export async function getNodalDashboardSubmissions(userId: string): Promise<{
-    status: boolean;
-    data: {
-        submissions: Array<{
-            id: string;
-            submissionId: string;
-            userId: string;
-            formId: string;
-            status: string;
-            createdAt: string;
-            updatedAt: string;
-            isConsolidated?: boolean;
-            user: {
-                id: string;
-                firstName: string;
-                lastName: string;
-                email: string;
-                ministryId: string;
-                ministryName: string;
-            };
-            form_data?: any;
-            formData?: any;
-            review_comments?: Array<{ text: string }>;
-            reviewComments?: Array<{ text: string }>;
-            stateUt?: string;
-            state_ut?: string;
-            rejection_count?: number;
-            rejectionCount?: number;
-            finalScore?: number;
-            current_owner_role?: string;
-            currentOwnerRole?: string;
-            dueDate?: string;
-        }>;
-    };
-    message: string;
+  status: boolean;
+  data: {
+    submissions: Array<{
+      id: string;
+      submissionId: string;
+      userId: string;
+      formId: string;
+      status: string;
+      createdAt: string;
+      updatedAt: string;
+      isConsolidated?: boolean;
+      user: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        ministryId: string;
+        ministryName: string;
+      };
+      form_data?: any;
+      formData?: any;
+      review_comments?: Array<{ text: string }>;
+      reviewComments?: Array<{ text: string }>;
+      stateUt?: string;
+      state_ut?: string;
+      rejection_count?: number;
+      rejectionCount?: number;
+      finalScore?: number;
+      current_owner_role?: string;
+      currentOwnerRole?: string;
+      dueDate?: string;
+    }>;
+  };
+  message: string;
 }> {
-    try {
-        const url = getApiUrl(`/ministry/dashboard/submission-details/${userId}`);
-        const response = await apiService.get(url, { withCredentials: true });
-        console.log('[getNodalDashboardSubmissions] Raw Axios Response:', response);
-        console.log('[getNodalDashboardSubmissions] Response.data:', response?.data);
-        
-        // Axios wraps the response in response.data, so we need to extract it
-        // The API returns: { status: true, data: { submission: {...}, ... }, message: "..." }
-        const apiResponse = response || response;
-        
-        console.log('[getNodalDashboardSubmissions] API Response (after extraction):', apiResponse);
-        console.log('[getNodalDashboardSubmissions] API Response status:', apiResponse?.status);
-        console.log('[getNodalDashboardSubmissions] API Response data:', apiResponse?.data);
-        
-        if (apiResponse?.status && apiResponse?.data) {
-            // API returns: { status: true, data: { submission: {...}, submissionId: "...", user: {...} } }
-            const submissionData = apiResponse.data;
-            
-            // Check if response has a single submission object
-            if (submissionData?.submission) {
-                // Combine submission data with user data
-                const submission = {
-                    ...submissionData.submission,
-                    submissionId: submissionData.submissionId || submissionData.submission.submissionId,
-                    user: submissionData.user || submissionData.submission.user,
-                };
+  try {
+    const url = getApiUrl(`/ministry/dashboard/submission-details/${userId}`);
+    const response = await apiService.get(url, { withCredentials: true });
+    console.log("[getNodalDashboardSubmissions] Raw Axios Response:", response);
+    console.log(
+      "[getNodalDashboardSubmissions] Response.data:",
+      response?.data
+    );
 
-                console.log('[getNodalDashboardSubmissions] Processed submission:', submission);
-                console.log('[getNodalDashboardSubmissions] Returning:', {
-                    status: apiResponse.status,
-                    data: {
-                        submissions: [submission],
-                    },
-                    message: apiResponse.message || 'Submission fetched successfully',
-                });
-                
-                return {
-                    status: apiResponse.status,
-                    data: {
-                        submissions: [submission], // Wrap single submission in array
-                    },
-                    message: apiResponse.message || 'Submission fetched successfully',
-                };
-            }
-            
-            // Handle if submissions is already an array
-            if (Array.isArray(submissionData?.submissions)) {
-                return {
-                    status: apiResponse.status,
-                    data: {
-                        submissions: submissionData.submissions,
-                    },
-                    message: apiResponse.message || 'Submissions fetched successfully',
-                };
-            }
-            
-            // Handle if submission data is directly an array
-            if (Array.isArray(submissionData)) {
-                return {
-                    status: apiResponse.status,
-                    data: {
-                        submissions: submissionData,
-                    },
-                    message: apiResponse.message || 'Submissions fetched successfully',
-                };
-            }
-        }
-        
-        // Fallback: return empty array
-        console.warn('[getNodalDashboardSubmissions] Unexpected response structure:', apiResponse);
-        return {
-            status: false,
-            data: {
-                submissions: [],
-            },
-            message: apiResponse?.message || 'Unexpected response structure',
+    // Axios wraps the response in response.data, so we need to extract it
+    // The API returns: { status: true, data: { submission: {...}, ... }, message: "..." }
+    const apiResponse = response || response;
+
+    console.log(
+      "[getNodalDashboardSubmissions] API Response (after extraction):",
+      apiResponse
+    );
+    console.log(
+      "[getNodalDashboardSubmissions] API Response status:",
+      apiResponse?.status
+    );
+    console.log(
+      "[getNodalDashboardSubmissions] API Response data:",
+      apiResponse?.data
+    );
+
+    if (apiResponse?.status && apiResponse?.data) {
+      // API returns: { status: true, data: { submission: {...}, submissionId: "...", user: {...} } }
+      const submissionData = apiResponse.data;
+
+      // Check if response has a single submission object
+      if (submissionData?.submission) {
+        // Combine submission data with user data
+        const submission = {
+          ...submissionData.submission,
+          submissionId:
+            submissionData.submissionId ||
+            submissionData.submission.submissionId,
+          user: submissionData.user || submissionData.submission.user,
         };
-    } catch (error: any) {
-        console.error('[getNodalDashboardSubmissions] API Error:', error);
+
+        console.log(
+          "[getNodalDashboardSubmissions] Processed submission:",
+          submission
+        );
+        console.log("[getNodalDashboardSubmissions] Returning:", {
+          status: apiResponse.status,
+          data: {
+            submissions: [submission],
+          },
+          message: apiResponse.message || "Submission fetched successfully",
+        });
+
         return {
-            status: false,
-            data: {
-                submissions: [],
-            },
-            message: error?.response?.data?.message || error?.message || 'Failed to fetch submissions',
+          status: apiResponse.status,
+          data: {
+            submissions: [submission], // Wrap single submission in array
+          },
+          message: apiResponse.message || "Submission fetched successfully",
         };
+      }
+
+      // Handle if submissions is already an array
+      if (Array.isArray(submissionData?.submissions)) {
+        return {
+          status: apiResponse.status,
+          data: {
+            submissions: submissionData.submissions,
+          },
+          message: apiResponse.message || "Submissions fetched successfully",
+        };
+      }
+
+      // Handle if submission data is directly an array
+      if (Array.isArray(submissionData)) {
+        return {
+          status: apiResponse.status,
+          data: {
+            submissions: submissionData,
+          },
+          message: apiResponse.message || "Submissions fetched successfully",
+        };
+      }
     }
+
+    // Fallback: return empty array
+    console.warn(
+      "[getNodalDashboardSubmissions] Unexpected response structure:",
+      apiResponse
+    );
+    return {
+      status: false,
+      data: {
+        submissions: [],
+      },
+      message: apiResponse?.message || "Unexpected response structure",
+    };
+  } catch (error: any) {
+    console.error("[getNodalDashboardSubmissions] API Error:", error);
+    return {
+      status: false,
+      data: {
+        submissions: [],
+      },
+      message:
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to fetch submissions",
+    };
+  }
 }
 
 /**
@@ -590,23 +643,25 @@ export async function getNodalDashboardSubmissions(userId: string): Promise<{
  * @param ministryUserId - The ministry user ID to fetch progress data for
  * @returns Promise with { accepted: number, total: number, formId: string | null }
  */
-export async function getMinistryProgressBarData(ministryUserId: string): Promise<{
-    status: boolean;
-    data: {
-        accepted: number;
-        total: number;
-        formId: string | null;
-    };
-    message: string;
+export async function getMinistryProgressBarData(
+  ministryUserId: string
+): Promise<{
+  status: boolean;
+  data: {
+    accepted: number;
+    total: number;
+    formId: string | null;
+  };
+  message: string;
 }> {
-    try {
-        const url = getApiUrl(`/ministry/dashboard/progress/${ministryUserId}`);
-        const response = await apiService.get(url, { withCredentials: true });
-        return response.data || response;
-    } catch (error: any) {
-        console.error('[getMinistryProgressBarData] API Error:', error);
-        throw error;
-    }
+  try {
+    const url = getApiUrl(`/ministry/dashboard/progress/${ministryUserId}`);
+    const response = await apiService.get(url, { withCredentials: true });
+    return response.data || response;
+  } catch (error: any) {
+    console.error("[getMinistryProgressBarData] API Error:", error);
+    throw error;
+  }
 }
 
 /**
@@ -616,46 +671,50 @@ export async function getMinistryProgressBarData(ministryUserId: string): Promis
  * @returns Promise with preview data array
  */
 export async function getMinistryPreviewData(ministryUserId: string): Promise<{
-    status: boolean;
-    data: any[];
-    message: string;
+  status: boolean;
+  data: any[];
+  message: string;
 }> {
-    try {
-        const url = getApiUrl(`/ministry/form/retrieve/preview/${ministryUserId}`);
-        const response = await apiService.get(url, { withCredentials: true });
-        
-        // Handle response structure
-        if (response?.status && Array.isArray(response.data)) {
-            return {
-                status: response.status,
-                data: response.data,
-                message: response.message || 'Preview data retrieved successfully',
-            };
-        }
-        
-        // If response is directly an array
-        if (Array.isArray(response)) {
-            return {
-                status: true,
-                data: response,
-                message: 'Preview data retrieved successfully',
-            };
-        }
-        
-        // If response.data is an array
-        if (response?.data && Array.isArray(response.data)) {
-            return {
-                status: response.status ?? true,
-                data: response.data,
-                message: response.message || 'Preview data retrieved successfully',
-            };
-        }
-        
-        return { status: false, data: [], message: 'Unexpected response structure' };
-    } catch (error: any) {
-        console.error('[getMinistryPreviewData] API Error:', error);
-        throw error;
+  try {
+    const url = getApiUrl(`/ministry/form/retrieve/preview/${ministryUserId}`);
+    const response = await apiService.get(url, { withCredentials: true });
+
+    // Handle response structure
+    if (response?.status && Array.isArray(response.data)) {
+      return {
+        status: response.status,
+        data: response.data,
+        message: response.message || "Preview data retrieved successfully",
+      };
     }
+
+    // If response is directly an array
+    if (Array.isArray(response)) {
+      return {
+        status: true,
+        data: response,
+        message: "Preview data retrieved successfully",
+      };
+    }
+
+    // If response.data is an array
+    if (response?.data && Array.isArray(response.data)) {
+      return {
+        status: response.status ?? true,
+        data: response.data,
+        message: response.message || "Preview data retrieved successfully",
+      };
+    }
+
+    return {
+      status: false,
+      data: [],
+      message: "Unexpected response structure",
+    };
+  } catch (error: any) {
+    console.error("[getMinistryPreviewData] API Error:", error);
+    throw error;
+  }
 }
 
 /**
@@ -665,41 +724,43 @@ export async function getMinistryPreviewData(ministryUserId: string): Promise<{
  * @returns Promise with update result
  */
 export async function updateMinistryFormStatus(
-    formId: string | undefined,
-    status: string
+  formId: string | undefined,
+  status: string
 ): Promise<{
-    status: boolean;
-    message: string;
-    data?: any;
+  status: boolean;
+  message: string;
+  data?: any;
 }> {
-    try {
-        const url = getApiUrl('/ministry/form/submission/form/status');
-        const payload: { formId?: string; status: string } = { status };
-        
-        if (formId) {
-            payload.formId = formId;
-        }
-        
-        const response = await apiService.put(url, payload, { withCredentials: true });
-        
-        // Handle response structure
-        if (response?.status !== undefined) {
-            return {
-                status: response.status,
-                message: response.message || 'Form status updated successfully',
-                data: response.data,
-            };
-        }
-        
-        return {
-            status: true,
-            message: 'Form status updated successfully',
-            data: response,
-        };
-    } catch (error: any) {
-        console.error('[updateMinistryFormStatus] API Error:', error);
-        throw error;
+  try {
+    const url = getApiUrl("/ministry/form/submission/form/status");
+    const payload: { formId?: string; status: string } = { status };
+
+    if (formId) {
+      payload.formId = formId;
     }
+
+    const response = await apiService.put(url, payload, {
+      withCredentials: true,
+    });
+
+    // Handle response structure
+    if (response?.status !== undefined) {
+      return {
+        status: response.status,
+        message: response.message || "Form status updated successfully",
+        data: response.data,
+      };
+    }
+
+    return {
+      status: true,
+      message: "Form status updated successfully",
+      data: response,
+    };
+  } catch (error: any) {
+    console.error("[updateMinistryFormStatus] API Error:", error);
+    throw error;
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
   RefreshCw,
   Edit3,
@@ -18,6 +18,7 @@ import {
   getMinistryPreviewData,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
+  getMinistrySubmissionIndicatorComments,
 } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
@@ -34,6 +35,7 @@ import { useEditableSectionStore } from "@/utils/EditableSection";
 import { useMinistryValidation } from "../hooks/useMinistryValidation";
 import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
+import { TimelineModal } from "@/features/dataSubmission/components/modals/TimelineModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,6 +105,17 @@ export function MinistrySubmissionReviewWrapper({
   const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
     string | null
   >(null);
+
+  // Timeline state management
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [timelineComments, setTimelineComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [sectionTitleMap, setSectionTitleMap] = useState<
+    Record<string, string>
+  >({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {}
+  );
 
   // Load submission data with forReview=true
   useEffect(() => {
@@ -788,6 +801,225 @@ export function MinistrySubmissionReviewWrapper({
     );
   };
 
+  // Helper function to get submissionIndicatorId from sectionId
+  const getSubmissionIndicatorId = useCallback(
+    (sectionId: string): string | null => {
+      for (const categoryIndicator of assignedIndicators) {
+        const categoryName = Object.keys(categoryIndicator)[0];
+        const sections = categoryIndicator[categoryName];
+
+        if (Array.isArray(sections)) {
+          for (const sectionObj of sections) {
+            const sectionName = Object.keys(sectionObj)[0];
+            const section = sectionObj[sectionName];
+
+            if (section.sNo === sectionId) {
+              return (section as any).submissionIndicatorId || null;
+            }
+          }
+        }
+      }
+      return null;
+    },
+    [assignedIndicators]
+  );
+
+  // Helper function to get section title from sectionId
+  const getSectionTitle = (sectionId: string): string => {
+    // Check if we have it cached
+    if (sectionTitleMap[sectionId]) {
+      return sectionTitleMap[sectionId];
+    }
+
+    // Try to find it from assignedIndicators
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            const title = `${sectionId} - ${sectionName}`;
+            setSectionTitleMap((prev) => ({ ...prev, [sectionId]: title }));
+            return title;
+          }
+        }
+      }
+    }
+    return sectionId;
+  };
+
+  // Helper function to format ministry comments for TimelineModal
+  const formatCommentsForTimeline = (
+    comments: any[],
+    sectionId: string
+  ): any[] => {
+    return comments.map((comment) => ({
+      role: comment.user?.role || "UNKNOWN",
+      text: comment.text || "",
+      type: "comment",
+      userId: comment.userId || "",
+      sectionId: sectionId,
+      timestamp:
+        comment.createdAt || comment.timestamp || new Date().toISOString(),
+      userName: comment.user
+        ? `${comment.user.firstName || ""} ${
+            comment.user.lastName || ""
+          }`.trim() || comment.user.email
+        : undefined,
+    }));
+  };
+
+  // Function to fetch comments for a section
+  const fetchCommentsForSection = async (sectionId: string) => {
+    const submissionIndicatorId = getSubmissionIndicatorId(sectionId);
+    if (!submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoadingComments(true);
+      const response = await getMinistrySubmissionIndicatorComments(
+        submissionIndicatorId
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Comments API response:",
+        response
+      );
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Response status:",
+        response?.status
+      );
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Response data:",
+        response?.data
+      );
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Is data array?",
+        Array.isArray(response?.data)
+      );
+
+      // Handle both response formats:
+      // 1. Direct array: [{...}, {...}]
+      // 2. Wrapped format: { status: true, data: [{...}, {...}] }
+      let commentsArray: any[] = [];
+
+      if (Array.isArray(response)) {
+        // Response is directly an array
+        commentsArray = response;
+      } else if (response?.status && Array.isArray(response.data)) {
+        // Response is wrapped in status/data structure
+        commentsArray = response.data;
+      } else if (Array.isArray(response?.data)) {
+        // Response has data property that is an array
+        commentsArray = response.data;
+      }
+
+      if (commentsArray.length > 0) {
+        const formattedComments = formatCommentsForTimeline(
+          commentsArray,
+          sectionId
+        );
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Formatted comments:",
+          formattedComments
+        );
+        setTimelineComments(formattedComments);
+      } else {
+        console.warn(
+          "[MinistrySubmissionReviewWrapper] No comments found in response:",
+          response
+        );
+        setTimelineComments([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching comments:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch comments. Please try again.",
+        variant: "destructive",
+      });
+      setTimelineComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  // Handle opening timeline
+  const handleOpenTimeline = async (sectionId: string) => {
+    setTimelineSection(sectionId);
+    await fetchCommentsForSection(sectionId);
+  };
+
+  // Handle closing timeline
+  const handleCloseTimeline = () => {
+    setTimelineSection(null);
+    setTimelineComments([]);
+  };
+
+  // Get comment count for a section
+  const getCommentCount = useCallback(
+    async (sectionId: string): Promise<number> => {
+      const submissionIndicatorId = getSubmissionIndicatorId(sectionId);
+      if (!submissionIndicatorId) return 0;
+
+      try {
+        const response = await getMinistrySubmissionIndicatorComments(
+          submissionIndicatorId
+        );
+        if (response?.status && Array.isArray(response.data)) {
+          const count = response.data.length;
+          setCommentCounts((prev) => ({ ...prev, [sectionId]: count }));
+          return count;
+        }
+        return 0;
+      } catch (error) {
+        console.error("Error fetching comment count:", error);
+        return 0;
+      }
+    },
+    [getSubmissionIndicatorId]
+  );
+
+  // Fetch comment counts for all sections when data loads
+  useEffect(() => {
+    if (assignedIndicators.length > 0) {
+      const fetchAllCommentCounts = async () => {
+        const sectionIds: string[] = [];
+        for (const categoryIndicator of assignedIndicators) {
+          const categoryName = Object.keys(categoryIndicator)[0];
+          const sections = categoryIndicator[categoryName];
+          if (Array.isArray(sections)) {
+            for (const sectionObj of sections) {
+              const sectionName = Object.keys(sectionObj)[0];
+              const section = sectionObj[sectionName];
+              if (section.sNo) {
+                sectionIds.push(section.sNo);
+              }
+            }
+          }
+        }
+
+        // Fetch counts for all sections in parallel
+        const countPromises = sectionIds.map((sectionId) =>
+          getCommentCount(sectionId).catch(() => 0)
+        );
+        await Promise.all(countPromises);
+      };
+
+      fetchAllCommentCounts();
+    }
+  }, [assignedIndicators, getCommentCount]);
+
   // Handle accept action
   const handleAccept = async (sectionId: string) => {
     console.log(
@@ -1219,21 +1451,13 @@ export function MinistrySubmissionReviewWrapper({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                      console.log(
-                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                        sectionId
-                                      );
-                                      // TODO: Implement timeline action
-                                      toast({
-                                        title: "Timeline",
-                                        description: `View timeline for section ${sectionId}`,
-                                      });
-                                    }}
+                                    onClick={() =>
+                                      handleOpenTimeline(sectionId)
+                                    }
                                     className="flex items-center gap-1 h-7 px-2 text-xs"
                                   >
                                     <Clock className="w-3 h-3" />
-                                    Timeline (0)
+                                    Timeline ({commentCounts[sectionId] || 0})
                                   </Button>
                                 </div>
                               );
@@ -1278,18 +1502,8 @@ export function MinistrySubmissionReviewWrapper({
                                         handleSendBack(sectionId, sectionName)
                                     : undefined
                                 }
-                                onTimeline={() => {
-                                  console.log(
-                                    "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                    sectionId
-                                  );
-                                  // TODO: Implement timeline action
-                                  toast({
-                                    title: "Timeline",
-                                    description: `View timeline for section ${sectionId}`,
-                                  });
-                                }}
-                                timelineCount={0}
+                                onTimeline={() => handleOpenTimeline(sectionId)}
+                                timelineCount={commentCounts[sectionId] || 0}
                                 isAccepted={isAccepted}
                                 isSentBack={isSentBack}
                                 isSaving={isSaving}
@@ -1346,14 +1560,8 @@ export function MinistrySubmissionReviewWrapper({
                                     description: `Send back section ${sectionId}`,
                                   });
                                 }}
-                                onTimeline={() => {
-                                  // TODO: Implement timeline action
-                                  toast({
-                                    title: "Timeline",
-                                    description: `View timeline for section ${sectionId}`,
-                                  });
-                                }}
-                                timelineCount={0}
+                                onTimeline={() => handleOpenTimeline(sectionId)}
+                                timelineCount={commentCounts[sectionId] || 0}
                                 isAccepted={false}
                               />
                             );
@@ -1429,21 +1637,13 @@ export function MinistrySubmissionReviewWrapper({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                      console.log(
-                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                        sectionId
-                                      );
-                                      // TODO: Implement timeline action
-                                      toast({
-                                        title: "Timeline",
-                                        description: `View timeline for section ${sectionId}`,
-                                      });
-                                    }}
+                                    onClick={() =>
+                                      handleOpenTimeline(sectionId)
+                                    }
                                     className="flex items-center gap-1 h-7 px-2 text-xs"
                                   >
                                     <Clock className="w-3 h-3" />
-                                    Timeline (0)
+                                    Timeline ({commentCounts[sectionId] || 0})
                                   </Button>
                                 </div>
                               );
@@ -1583,6 +1783,18 @@ export function MinistrySubmissionReviewWrapper({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Timeline Modal */}
+      {timelineSection && (
+        <TimelineModal
+          isOpen={timelineSection !== null}
+          onClose={handleCloseTimeline}
+          sectionId={timelineSection}
+          sectionTitle={getSectionTitle(timelineSection)}
+          comments={timelineComments}
+          key={`timeline-${timelineSection}-${timelineComments.length}`}
+        />
+      )}
     </div>
   );
 }

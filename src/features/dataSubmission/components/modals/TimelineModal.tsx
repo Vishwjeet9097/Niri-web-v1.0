@@ -41,26 +41,19 @@ export const TimelineModal = ({
   const [filteredComments, setFilteredComments] = useState<Comment[]>([]);
 
   useEffect(() => {
-    // Debug logging removed for performance
-
-    // Debug logging removed for performance
-
-    // Debug logging removed for performance
 
     // Filter comments for the specific section
-    const sectionComments = comments.filter(comment => comment.sectionId === sectionId);
-    // Debug logging removed for performance
-
-    // Debug logging removed for performance
+    const sectionComments = comments.filter(comment => {
+      const matches = comment.sectionId === sectionId;
+      console.log("[TimelineModal] Comment sectionId:", comment.sectionId, "matches:", matches);
+      return matches;
+    });
 
     // Sort by timestamp (newest first)
     const sortedComments = sectionComments.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-    // Debug logging removed for performance
-
-    // Debug logging removed for performance
-
+    
     setFilteredComments(sortedComments);
   }, [comments, sectionId]);
 
@@ -74,6 +67,8 @@ export const TimelineModal = ({
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "NODAL_OFFICER":
         return "bg-orange-100 text-orange-800 border-orange-200";
+      case "MINISTRY_APPROVER":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -89,6 +84,8 @@ export const TimelineModal = ({
         return "MoSPI Approver";
       case "NODAL_OFFICER":
         return "Nodal Officer";
+      case "MINISTRY_APPROVER":
+        return "Ministry Approver";
       default:
         return role.replace('_', ' ');
     }
