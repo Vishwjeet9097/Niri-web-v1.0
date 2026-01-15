@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo, useRef } from "react";
 import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
@@ -320,7 +321,7 @@ export function MinistrySubmissionReviewWrapper({
     }
 
     let completed = 0;
-    let total = sections.length;
+    const total = sections.length;
 
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
@@ -908,7 +909,7 @@ export function MinistrySubmissionReviewWrapper({
                                 onSendBack={
                                   !isSectionEditing &&
                                   !isAccepted &&
-                                  submission?.user?.role !== "MINISTRY_APPROVER"
+                                  submission?.user?.role === "NODAL_OFFICER"
                                     ? () => {
                                         console.log(
                                           "[MinistrySubmissionReviewWrapper] Send Back clicked for section:",
