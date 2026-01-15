@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, memo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -32,6 +32,7 @@ import {
 import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
 import { getRoleDisplayName } from "@/utils/roles";
+import { apiService } from "@/services/api.service";
 
 interface UserTableProps {
   officers: NodalOfficer[];
@@ -107,6 +108,26 @@ function UserTableComponent({
     );
   };
 
+  const [ministries, setMinistries] = useState<any[]>([]);
+  useEffect(() => {
+    apiService.get<any>("/ministries").then((result) => {
+      if (Array.isArray(result)) {
+        setMinistries(result);
+      } else if (result && Array.isArray(result.data)) {
+        setMinistries(result.data);
+      } else {
+        setMinistries([]);
+      }
+    });
+  }, []);
+
+  // Helper to get ministry name by id
+  const getMinistryName = (id?: string) => {
+    if (!id) return "";
+    const ministry = ministries.find((m: any) => m.id === id);
+    return ministry ? ministry.name : "";
+  };
+
   return (
     <div className="border rounded-lg bg-card">
       <Table>
@@ -124,7 +145,7 @@ function UserTableComponent({
             <SortableHeader field="firstName">Officer Name</SortableHeader>
             <SortableHeader field="role">Role</SortableHeader>
             {userRole !== "STATE_APPROVER" && (
-              <SortableHeader field="state">State/UT</SortableHeader>
+              <SortableHeader field="state">State UT/Ministry</SortableHeader>
             )}
             <TableHead className="text-[#212121] text-xs font-semibold">
               Contact Number
@@ -162,6 +183,27 @@ function UserTableComponent({
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                {/* MINISTRY_APPROVER: only ministry */}
+                {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                {officer.role === "NODAL_OFFICER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                {/* STATE_APPROVER: only state */}
+                {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
+                {/* MOSPI_REVIEWER: state and ministry if both, else only state */}
+                {officer.role === "MOSPI_REVIEWER" && (
+                  <>
+                    {officer.stateId || officer.state}
+                    {officer.ministryId && getMinistryName(officer.ministryId)
+                      ? ` / ${getMinistryName(officer.ministryId)}`
+                      : ""}
+                  </>
+                )}
+                {/* fallback for other roles */}
+                {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
+              </TableCell>
+              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
+              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
+              {/* ...existing code... */}
               {userRole !== "STATE_APPROVER" && (
                 <TableCell className="text-xs text-[#212121]">
                   {officer.stateId || officer.state}

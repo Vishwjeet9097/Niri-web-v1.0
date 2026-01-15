@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 import { authService } from "@/services/auth.service";
 import { notificationService } from "@/services/notification.service";
-import { MENU_CONFIG } from "@/utils/roles";
+import { getMenuConfig } from "@/utils/roles";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   dashboard: LayoutDashboard,
@@ -45,21 +45,110 @@ export function DashboardLayout() {
     navigate("/auth");
   };
 
-  const isActive = (path: string) => {
-    if (
-      path === "/" ||
-      path === "/dashboard" ||
-      path === "/reviewer-dashboard"
-    ) {
+  const isActive = (path: string | string[]) => {
+    // Handle array of paths (like ["/dashboard", "/ministry/dashboard", "/ministry/nodal"])
+    if (Array.isArray(path)) {
+      return path.some((p) => {
+        if (p === "/" || p === "/dashboard" || p === "/reviewer-dashboard") {
+          return location.pathname === p;
+        }
+        return location.pathname.startsWith(p);
+      });
+    }
+
+    // Handle single string path
+    if (path === "/" || path === "/dashboard" || path === "/reviewer-dashboard") {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
   };
 
   const role = user?.role;
-  const menus = MENU_CONFIG.filter((item) => item.roles.includes(role));
+  
+  // Calculate condition once
+  const hasStateUt = !!(user as any)?.stateUt || !!(user as any)?.state_ut || !!(user as any)?.state;
+  const hasMinistryId = !!(user as any)?.ministryId && String((user as any)?.ministryId || "").trim() !== "";
+  const showFirstDataSubmission = hasStateUt && !hasMinistryId;
+  
+  // Debug for NODAL_OFFICER
+  if (role === "NODAL_OFFICER") {
+    console.log("🔍 Menu Filter:", {
+      hasStateUt,
+      hasMinistryId,
+      showFirstDataSubmission,
+      stateUt: (user as any)?.stateUt,
+      state_ut: (user as any)?.state_ut,
+      state: (user as any)?.state,
+      ministryId: (user as any)?.ministryId
+    });
+  }
+  
+  // First pass: filter by role and other conditions
+  let menus = getMenuConfig().filter((item) => {
+    // Check if user role matches
+    if (!item.roles.includes(role)) {
+      return false;
+    }
+    
+    // If menu item has a showIf condition function, use it (for other items)
+    if (typeof item.showIf === 'function') {
+      try {
+        return item.showIf(user);
+      } catch (error) {
+        console.error("Error in showIf function:", error);
+        return false;
+      }
+    }
+    
+    // Default: show the item if no special conditions
+    return true;
+  });
+  
+  // Second pass: Special handling for NODAL_OFFICER "Data Submission" menu items
+  let filteredMenus = menus;
+  if (role === "NODAL_OFFICER") {
+    const dataSubmissionMenus = menus.filter(m => m.label === "Data Submission");
+    
+    if (dataSubmissionMenus.length > 1) {
+      console.log("🔍 Found multiple Data Submission menus, filtering...");
+      // Create new array with only the correct one
+      filteredMenus = menus.filter((menu) => {
+        if (menu.label === "Data Submission") {
+          const isFirst = Array.isArray(menu.path) && menu.path.includes("/submissions");
+          const isSecond = menu.path === "/ministry/ministry-nodal-submission";
+          
+          if (isFirst) {
+            const keep = showFirstDataSubmission;
+            console.log(`  → First menu (state-based): ${keep ? 'KEEP' : 'REMOVE'}`);
+            return keep;
+          }
+          if (isSecond) {
+            const keep = !showFirstDataSubmission;
+            console.log(`  → Second menu (ministry-based): ${keep ? 'KEEP' : 'REMOVE'}`);
+            return keep;
+          }
+          return false; // Remove unknown
+        }
+        return true; // Keep all other menus
+      });
+      
+      const finalCount = filteredMenus.filter(m => m.label === "Data Submission").length;
+      console.log("✅ Final result:", finalCount === 1 ? "✅ SUCCESS - Only one menu item" : `❌ ERROR - Still ${finalCount} items`);
+    }
+  }
 
-  const getDashboardPath = () => "/dashboard";
+  const getDashboardPath = () => {
+    // MINISTRY_APPROVER should go to /ministry/dashboard
+    if (role === "MINISTRY_APPROVER") {
+      return "/ministry/dashboard";
+    }
+    // NODAL_OFFICER with ministryId should go to /ministry/nodal
+    if (role === "NODAL_OFFICER" && (user as any)?.ministryId && String((user as any).ministryId).trim() !== "") {
+      return "/ministry/nodal";
+    }
+    // Default dashboard path
+    return "/dashboard";
+  };
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -125,27 +214,61 @@ export function DashboardLayout() {
           }`}
         >
           <nav className="flex flex-col h-full p-4">
+
+            {/* Debug Panel: Remove after troubleshooting */}
+            <div style={{ background: '#f8f8f8', color: '#333', fontSize: 12, padding: 8, marginBottom: 8, border: '1px solid #eee', borderRadius: 4 }}>
+              <strong>DEBUG USER:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>{JSON.stringify(user, null, 2)}</pre>
+              <div><strong>hasStateUt:</strong> {String(hasStateUt)}</div>
+              <div><strong>hasMinistryId:</strong> {String(hasMinistryId)}</div>
+              <div><strong>showFirstDataSubmission:</strong> {String(showFirstDataSubmission)}</div>
+              <div><strong>Menus shown:</strong> {filteredMenus.filter(m => m.label === 'Data Submission').length}</div>
+            </div>
+
             <div className="flex-1 space-y-1 overflow-y-auto">
-              {menus.map((item) => {
+              {filteredMenus.map((item, index) => {
                 const Icon = ICON_MAP[item.icon] || LayoutDashboard;
-                let path = item.path;
+                // Generate unique key using label, index, and path (array or string)
+                let uniqueKey = `menu-${item.label}-${index}`;
+                if (Array.isArray(item.path)) {
+                  uniqueKey += '-' + item.path.join('-');
+                } else if (typeof item.path === 'string') {
+                  uniqueKey += '-' + item.path;
+                }
+
+                // Dynamically update label for Data Submission (ministry) for NODAL_OFFICER
+                let displayLabel = item.label;
+                if (
+                  item.label === "Data Submission" &&
+                  user?.role === "NODAL_OFFICER" &&
+                  user?.ministryId &&
+                  String(user.ministryId).trim() !== "" &&
+                  item.path === "/ministry/ministry-nodal-submission"
+                ) {
+                  displayLabel = `Data Submission ${user.ministryId}`;
+                }
+
+                let path: string | string[] = item.path;
                 if (item.label === "Dashboard") {
                   path = getDashboardPath();
+                } else if (Array.isArray(path)) {
+                  // For array paths, use the first one for the Link
+                  path = path[0];
                 }
-                const active = isActive(path);
+                const active = isActive(Array.isArray(item.path) ? item.path : path);
 
                 // Dropdown logic
                 if (item.children && item.children.length > 0) {
                   const matchesChild = item.children.some((c) =>
                     location.pathname.startsWith(c.path)
                   );
-                  const isOpen = openDropdown === item.label || matchesChild;
+                  const isOpen = openDropdown === uniqueKey || matchesChild;
 
                   return (
-                    <div key={item.label} className="space-y-1">
+                    <div key={uniqueKey} className="space-y-1">
                       <button
                         onClick={() =>
-                          setOpenDropdown(isOpen ? null : item.label)
+                          setOpenDropdown(isOpen ? null : uniqueKey)
                         }
                         className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           isOpen
@@ -155,7 +278,7 @@ export function DashboardLayout() {
                       >
                         <span className="flex items-center gap-3">
                           <Icon className="h-5 w-5" />
-                          {item.label}
+                          {displayLabel}
                         </span>
                         <ChevronDown
                           className={`h-4 w-4 transition-transform ${
@@ -195,7 +318,7 @@ export function DashboardLayout() {
                 // Single Link
                 return (
                   <Link
-                    key={item.label}
+                    key={uniqueKey}
                     to={path}
                     onClick={() => {
                       setSidebarOpen(false);
@@ -208,7 +331,7 @@ export function DashboardLayout() {
                     }`}
                   >
                     <Icon className="h-5 w-5" />
-                    {item.label}
+                    {displayLabel}
                   </Link>
                 );
               })}

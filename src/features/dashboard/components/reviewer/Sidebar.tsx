@@ -1,6 +1,6 @@
 import React from "react";
-import { MENU_CONFIG } from "@/utils/roles";
-import { getRoleDisplayName } from "@/utils/roles";
+ import { getRoleDisplayName,getMenuConfigfig } from "@/utils/roles";
+
 
 interface SidebarProps {
   user?: {
@@ -12,7 +12,7 @@ interface SidebarProps {
 
 export default function Sidebar({ user }: SidebarProps) {
   const role = user?.role;
-  const menus = MENU_CONFIG.filter((item) => item.roles.includes(role));
+  const menus = getMenuConfigfig().filter((item) => item.roles.includes(role));
 
   return (
     <aside className="w-64 bg-white border-r flex flex-col min-h-screen">

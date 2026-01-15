@@ -34,6 +34,14 @@ import { EditSubmissionPage } from "./features/dataSubmission/pages/EditSubmissi
 import { UserManagementPage } from "./features/userManagement/UserManagementPage";
 import { CheckSubmissionRedirect } from "./features/submission/pages/CheckSubmissionRedirect";
 import { StateAggregateReviewPage } from "./features/dataSubmission/pages/StateAggregateReviewPage";
+import { MinistrySubmissionWrapper } from "./features/ministry/pages/MinistrySubmissionWrapper";
+// import { MinistryApproverDashboardPage } from "./features/ministry/Dashboard/MinistryApproverDashboardPage";
+import { MinistryReviewSubmissionsPage } from "./features/ministry/pages/MinistryReviewSubmissionsPage";
+import { MinistryFormReviewSubmissionPage } from "./features/ministry/pages/MinistryFormReviewSubmissionPage";
+import { MinistryPreviewPage } from "./features/ministry/pages/MinistryPreviewPage";
+import { RoleBasedRedirect } from "./components/RoleBasedRedirect";
+import { MinistryDashboardPage } from "./features/ministry/Dashboard/MinistryDashboardPage";
+import { MinistryNodalDashboardPage } from "./features/ministry/Dashboard/MinistryNodalDashboardPage";
 
 const queryClient = new QueryClient();
 
@@ -57,7 +65,7 @@ const App = () => (
               >
                 <Route
                   path="/"
-                  element={<Navigate to="/dashboard" replace />}
+                  element={<RoleBasedRedirect />}
                 />
                 <Route path="/dashboard" element={<RoleBasedDashboard />} />
                 <Route
@@ -107,6 +115,70 @@ const App = () => (
                   path="/data-submission/edit/:id"
                   element={<EditSubmissionPage />}
                 />
+                <Route path="/ministry">
+                  <Route
+                    path="dashboard"
+                    element={
+                      <ProtectedRoute allowedRoles={["MINISTRY_APPROVER"]}>
+                        <MinistryDashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="nodal"
+                    element={
+                      <ProtectedRoute allowedRoles={["NODAL_OFFICER"]}>
+                        <MinistryNodalDashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="ministry-nodal-submission"
+                    element={
+                      <ProtectedRoute allowedRoles={["NODAL_OFFICER"]}>
+                        <MinistrySubmissionWrapper />
+                      </ProtectedRoute>
+                    }
+                  />
+                 
+                <Route
+                 path="submission"
+                    // element={<MinistrySubmissionWrapper />}
+                    // TEMPORARY: Role protection commented out for testing
+                    // TODO: Uncomment when ready to enable role protection
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["MINISTRY_APPROVER"]}
+                      >
+                        <MinistrySubmissionWrapper />
+                      </ProtectedRoute>
+                    }
+                  />
+                   <Route
+                    path="review-submissions"
+                    element={
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
+                        <MinistryReviewSubmissionsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                   <Route
+                    path="review-submissions/form-review/:id"
+                    element={
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER', 'MOSPI_REVIEWER', 'NODAL_OFFICER']}>
+                        <MinistryFormReviewSubmissionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                   <Route
+                    path="preview"
+                    element={
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
+                        <MinistryPreviewPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  </Route>
                 <Route
                   path="/user-management"
                   element={
@@ -114,6 +186,7 @@ const App = () => (
                       allowedRoles={[
                         "STATE_APPROVER",
                         "MOSPI_APPROVER",
+                        "MINISTRY_APPROVER",
                         "ADMIN",
                       ]}
                     >

@@ -25,8 +25,7 @@ import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-
-import { MENU_CONFIG } from "../../utils/roles";
+import { getMenuConfig } from "@/utils/roles";
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -157,7 +156,7 @@ export function DashboardLayout() {
     };
   }, [user?.role]); // ✅ Only depend on user?.role - refreshIndicators removed from deps (using ref instead)
 
-  const navigation = MENU_CONFIG.filter((item) =>
+  const navigation = getMenuConfig().filter((item) =>
     item.roles.includes(user?.role)
   ).map((item) => ({
     ...item, // keep label, path, children, roles

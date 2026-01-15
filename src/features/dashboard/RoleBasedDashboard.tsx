@@ -7,6 +7,7 @@ import ApproverDashboardPage from "./ApproverDashboardPage";
 import { NodalDashboardPage } from "./NodalDashboardPage";
 import { StateApproverDashboardPage } from "./StateApproverDashboardPage";
 import { MospiApproverDashboardPage } from "./MospiApproverDashboardPage";
+import { MinistryDashboardPage } from "../ministry/Dashboard/MinistryDashboardPage";
 import { DashboardPage } from "./DashboardPage"; // Fallback dashboard
 import AdminDashboardPage from "./AdminDashboardPage";
 
@@ -17,6 +18,7 @@ export default function RoleBasedDashboard() {
   
   // Use backend role format
   const role = user.role;
+  const userMinistryId = user?.ministryId; 
 
   // Render dashboard based on backend role
   switch (role) {
@@ -27,10 +29,18 @@ export default function RoleBasedDashboard() {
       return <MospiApproverDashboardPage />;
     
     case "NODAL_OFFICER":
+      // If user has a ministryId (not blank), redirect to ministry/nodal route, otherwise show NodalDashboardPage
+      if (userMinistryId && String(userMinistryId).trim() !== "") {
+        return <Navigate to="/ministry/nodal" replace />;
+      }
       return <NodalDashboardPage />;
     
     case "STATE_APPROVER":
       return <StateApproverDashboardPage />;
+    
+    case "MINISTRY_APPROVER":
+      // Redirect ministry approvers to their dedicated dashboard route
+      return <Navigate to="/ministry/dashboard" replace />;
     
      case "ADMIN": {
       // Always redirect Admin to /dashboard for consistent sidebar/menu

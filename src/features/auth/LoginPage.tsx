@@ -114,8 +114,14 @@ export function LoginPage() {
 
         notificationService.success(`Welcome, ${mockUser.firstName}! You have been successfully signed in.`, "Sign In Successful");
 
-        // Navigate to dashboard
-        const from = location.state?.from?.pathname || "/dashboard";
+        // Navigate to role-specific dashboard
+        const getDefaultPath = (role: string) => {
+          if (role === "ADMIN") return "/user-management";
+          if (role === "MINISTRY_APPROVER") return "/ministry/dashboard";
+          return "/dashboard";
+        };
+        const defaultPath = getDefaultPath(mockUser.role);
+        const from = location.state?.from?.pathname || defaultPath;
         navigate(from, { replace: true });
       } catch (error) {
         console.error("OTP verification error:", error);
@@ -141,10 +147,14 @@ export function LoginPage() {
 
       if (result.success) {
         notificationService.success(`Welcome, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
-        // Admin redirects to user management, others to dashboard
-       // const defaultPath = result.user.role === "ADMIN" ? "/user-management" : "/dashboard";
-       const defaultPath = "/dashboard";
-       const from = location.state?.from?.pathname || defaultPath;
+        // Redirect based on user role
+        const getDefaultPath = (role: string) => {
+          if (role === "ADMIN") return "/user-management";
+          if (role === "MINISTRY_APPROVER") return "/ministry/dashboard";
+          return "/dashboard";
+        };
+        const defaultPath = getDefaultPath(result.user.role);
+        const from = location.state?.from?.pathname || defaultPath;
         navigate(from, { replace: true });
       } else {
         // Error message is already shown by UserService, no need to show again

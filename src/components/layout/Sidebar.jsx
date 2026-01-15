@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, ChevronDown } from "lucide-react";
-import { MENU_CONFIG } from "../../utils/roles";
+import { getMenuConfig } from "@/utils/roles";
 import { useAuth } from "../../features/auth/AuthProvider";
 
 // Example icon mapping (replace with your actual icons if needed)
@@ -29,7 +29,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, handleLogout }) {
   const [openDropdown, setOpenDropdown] = React.useState(null);
 
   // Role-based menu
-  const navigation = MENU_CONFIG.filter((item) =>
+  const navigation = getMenuConfig().filter((item) =>
     item.roles.includes(user?.role)
   ).map((item) => ({
     ...item,

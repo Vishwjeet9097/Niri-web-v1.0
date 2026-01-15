@@ -14,14 +14,14 @@ class StatesService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   async getStates(): Promise<State[]> {
+    
     // Check if we have valid cached data
     if (this.statesCache && Date.now() < this.cacheExpiry) {
       return this.statesCache;
     }
 
     try {
-      console.log("🌍 Fetching states from API...");
-      const response = await fetch(`${config.apiBaseUrl}/states`);
+       const response = await fetch(`${config.apiBaseUrl}/states`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch states: ${response.status}`);

@@ -20,6 +20,7 @@ export interface User {
   stateName: string;
   stateUt?: string; // Added for new API format
   ministry: string | null;
+  ministryId?: string | null; // Ministry ID for ministry-specific routes
   ministryName: string | null;
   type: string;
   isMospiUser: boolean;
