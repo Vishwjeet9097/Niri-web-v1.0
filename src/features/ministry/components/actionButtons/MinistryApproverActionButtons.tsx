@@ -20,6 +20,7 @@ interface MinistryApproverActionButtonsProps {
   onTimeline?: () => void;
   timelineCount?: number;
   isAccepted?: boolean;
+  isSentBack?: boolean; // New prop to indicate if section was sent back
   disabled?: boolean;
   isSaving?: boolean;
 }
@@ -35,6 +36,7 @@ export function MinistryApproverActionButtons({
   onTimeline,
   timelineCount = 0,
   isAccepted = false,
+  isSentBack = false,
   disabled = false,
   isSaving = false,
 }: MinistryApproverActionButtonsProps) {
@@ -79,6 +81,17 @@ export function MinistryApproverActionButtons({
         >
           <CheckCircle className="w-4 h-4 mr-1" />
           Accepted
+        </Button>
+      ) : isSentBack ? (
+        // Show Sent Back badge when section is sent back (matches STATE level styling)
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+          disabled
+        >
+          <RotateCcw className="w-4 h-4" />
+          Sent Back
         </Button>
       ) : isEditMode ? (
         <>

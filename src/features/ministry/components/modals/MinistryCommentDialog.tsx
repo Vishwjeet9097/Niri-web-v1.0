@@ -18,18 +18,22 @@ interface MinistryCommentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onSendBack?: (sectionId: string) => Promise<void> | void;
   sectionTitle?: string;
   submissionIndicatorId: string;
   existingComment?: string;
+  sectionId?: string;
 }
 
 export function MinistryCommentDialog({
   isOpen,
   onClose,
   onSuccess,
+  onSendBack,
   sectionTitle,
   submissionIndicatorId,
   existingComment = "",
+  sectionId,
 }: MinistryCommentDialogProps) {
   const [comment, setComment] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +85,14 @@ export function MinistryCommentDialog({
         onSuccess();
       }
 
-      // Close dialog after a small delay
+      // If onSendBack is provided, call it after saving comment (for send back flow)
+      if (onSendBack && sectionId) {
+        await onSendBack(sectionId);
+        // Parent will handle closing if needed, so we don't close here
+        return;
+      }
+
+      // For regular comments (no onSendBack), close dialog after a small delay
       setTimeout(() => {
         setComment("");
         onClose();

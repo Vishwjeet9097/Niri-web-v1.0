@@ -3,6 +3,7 @@ import { MinistrySectionCard } from "../MinistrySectionCard";
 import { FieldRenderer } from "./FieldRenderer";
 import { MinistrySubsectionForm } from "./MinistrySubsectionForm";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { RefreshCw, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEditableSectionStore } from "@/utils/EditableSection";
@@ -179,22 +180,26 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                 const indicatorId = section.sNo;
                 // Check if section is accepted - if so, it should always be disabled
                 const sectionStatus = (section as any).status;
+                const upperStatus = sectionStatus?.toUpperCase() || "";
                 const isSectionAccepted =
                   sectionStatus &&
-                  (sectionStatus.toUpperCase() === "ACCEPTED_BY_MINISTRY" ||
-                    sectionStatus.toUpperCase() === "ACCEPTED_BY_MOSPI" ||
-                    sectionStatus.toUpperCase() === "ACCEPTED");
-                // Indicator is considered submitted if: it's in submittedIndicators OR it's accepted
+                  (upperStatus === "ACCEPTED_BY_MINISTRY" ||
+                    upperStatus === "ACCEPTED_BY_MOSPI" ||
+                    upperStatus === "ACCEPTED");
+                const isResubmitted = upperStatus === "RESUBMITTED";
+                // Indicator is considered submitted if: it's in submittedIndicators OR it's accepted OR it's resubmitted
                 const isSubmitted =
                   isIndicatorSubmitted?.(indicatorId) ||
                   false ||
-                  isSectionAccepted;
+                  isSectionAccepted ||
+                  isResubmitted;
                 // Check if this specific section is in edit mode
                 const isSectionInEditMode = isSectionEditable(indicatorId);
-                // Section is disabled if: globally disabled OR section is accepted OR (not in edit mode AND in review mode)
+                // Section is disabled if: globally disabled OR section is accepted OR section is resubmitted OR (not in edit mode AND in review mode)
                 const isSectionDisabled =
                   disabled ||
                   isSectionAccepted ||
+                  isResubmitted ||
                   (mode === "review" && !isSectionInEditMode);
 
                 console.log(
@@ -645,7 +650,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
 
                     {/* Submit and Save as Draft buttons at the bottom of each indicator */}
                     {(onSectionSubmit || onSaveDraft) && (
-                      <div className="mt-6 flex justify-start gap-3">
+                      <div className="mt-6 flex justify-start gap-3 items-center">
                         {/* Submit button */}
                         {onSectionSubmit && (
                           <Button
@@ -656,12 +661,15 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                             disabled={
                               isSubmitted ||
                               submittingIndicator === indicatorId ||
-                              disabled
+                              disabled ||
+                              isResubmitted
                             }
                             className=" text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             size="sm"
                           >
-                            {isSubmitted
+                            {isResubmitted
+                              ? "Resubmitted"
+                              : isSubmitted
                               ? "Submitted"
                               : submittingIndicator === indicatorId
                               ? "Submitting..."
@@ -677,7 +685,8 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                             disabled={
                               isSubmitted ||
                               submittingIndicator === indicatorId ||
-                              disabled
+                              disabled ||
+                              isResubmitted
                             }
                             className="flex items-center gap-2"
                           >

@@ -1,12 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo, useRef } from "react";
-import { RefreshCw } from "lucide-react";
+import {
+  RefreshCw,
+  Edit3,
+  Check,
+  X,
+  Clock,
+  RotateCcw,
+  CheckCircle,
+} from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { getDropdownOptions } from "../constants/dropdownMappings";
 import {
   getMinistrySubmissionDetailsForReview,
-  getMinistrySubmissionDetailsConsolidated, getMinistryPreviewData,
+  getMinistrySubmissionDetailsConsolidated,
+  getMinistryPreviewData,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
 } from "@/services/ministry.service";
@@ -14,6 +23,7 @@ import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -24,6 +34,16 @@ import { useEditableSectionStore } from "@/utils/EditableSection";
 import { useMinistryValidation } from "../hooks/useMinistryValidation";
 import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -76,11 +96,18 @@ export function MinistrySubmissionReviewWrapper({
   const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
     submissionIndicatorId: string;
     sectionTitle: string;
+    sectionId?: string;
+    isSendBack?: boolean;
   } | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
+    string | null
+  >(null);
 
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submission?.id, userId, useConsolidatedApi, propSubmissionId]);
 
   const loadSubmissionData = async () => {
@@ -92,11 +119,12 @@ export function MinistrySubmissionReviewWrapper({
       //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
-      
+
       // Helper function to check if a string is a valid UUID
       const isValidUUID = (str: string | null | undefined): boolean => {
         if (!str) return false;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         return uuidRegex.test(str);
       };
 
@@ -104,15 +132,21 @@ export function MinistrySubmissionReviewWrapper({
       // Only use submissionId if it's a valid UUID (not a submission ID string like "SUB-2026-141817")
       const rawSubmissionId =
         submission?.id || submission?.submissionId || propSubmissionId;
-      const targetSubmissionId = rawSubmissionId && isValidUUID(rawSubmissionId) ? rawSubmissionId : undefined;
+      const targetSubmissionId =
+        rawSubmissionId && isValidUUID(rawSubmissionId)
+          ? rawSubmissionId
+          : undefined;
       const targetUserId = userId || submission?.user?.id;
 
       if (useConsolidatedApi && useConsolidatedApi === true) {
         if (!targetSubmissionId) {
-          console.error("No valid UUID submission ID available for consolidated API");
+          console.error(
+            "No valid UUID submission ID available for consolidated API"
+          );
           toast({
             title: "Error",
-            description: "A valid submission ID (UUID) is required to load submission data.",
+            description:
+              "A valid submission ID (UUID) is required to load submission data.",
             variant: "destructive",
           });
           setLoading(false);
@@ -129,7 +163,7 @@ export function MinistrySubmissionReviewWrapper({
       } else {
         // Use existing API with userId
         // Only pass submissionId if it's a valid UUID, otherwise use only userId
-        
+
         if (!targetSubmissionId && !targetUserId) {
           console.error("No submission ID or user ID available for review");
           toast({
@@ -146,19 +180,22 @@ export function MinistrySubmissionReviewWrapper({
         // For preview mode (when we only have userId and no valid UUID), use the preview API
         if (!targetSubmissionId && targetUserId) {
           console.log(
-          "📋 Loading preview data using preview API, userId:", targetUserId);
+            "📋 Loading preview data using preview API, userId:",
+            targetUserId
+          );
           response = await getMinistryPreviewData(targetUserId);
         } else {
           // Use the regular review API when we have a valid UUID submissionId
-          console.log("📋 Loading submission data for review, submissionId:",
-          targetSubmissionId || "none (using userId)",
-          "userId:",
-          targetUserId
-        );
+          console.log(
+            "📋 Loading submission data for review, submissionId:",
+            targetSubmissionId || "none (using userId)",
+            "userId:",
+            targetUserId
+          );
           response = await getMinistrySubmissionDetailsForReview(
-          targetSubmissionId || undefined,
-          targetUserId
-        );
+            targetSubmissionId || undefined,
+            targetUserId
+          );
         }
       }
 
@@ -351,6 +388,20 @@ export function MinistrySubmissionReviewWrapper({
     }
   }, [categories, activeCategory]);
 
+  // Helper function to check if NODAL_OFFICER can edit section
+  const canNodalOfficerEdit = (sectionId: string): boolean => {
+    if (user?.role !== "NODAL_OFFICER") {
+      return false;
+    }
+
+    const sectionStatus = getSectionStatus(sectionId);
+    if (!sectionStatus) return false;
+
+    const upperStatus = sectionStatus.toUpperCase();
+    // NODAL_OFFICER can edit when status is RETURNED_FROM_MINISTRY (sent back by ministry)
+    return upperStatus === "RETURNED_FROM_MINISTRY";
+  };
+
   // Handle edit start
   const handleEditStart = (sectionId: string) => {
     console.log(
@@ -358,11 +409,21 @@ export function MinistrySubmissionReviewWrapper({
       sectionId
     );
 
-    // Check if section is accepted - if so, prevent editing
-    if (isSectionAccepted(sectionId)) {
+    // Check if section is accepted - if so, prevent editing (unless NODAL_OFFICER editing sent back section)
+    if (isSectionAccepted(sectionId) && !canNodalOfficerEdit(sectionId)) {
       toast({
         title: "Cannot Edit",
         description: `Section ${sectionId} has been accepted and cannot be edited.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For NODAL_OFFICER, allow editing only if status is RETURNED_FROM_MINISTRY
+    if (user?.role === "NODAL_OFFICER" && !canNodalOfficerEdit(sectionId)) {
+      toast({
+        title: "Cannot Edit",
+        description: `Section ${sectionId} cannot be edited. Only sections sent back by Ministry Approver can be edited.`,
         variant: "destructive",
       });
       return;
@@ -432,6 +493,107 @@ export function MinistrySubmissionReviewWrapper({
       delete newSnapshots[sectionId];
       return newSnapshots;
     });
+  };
+
+  // Perform the actual save operation
+  const performSave = async (
+    sectionId: string,
+    submissionIndicatorId: string,
+    currentSection: any,
+    sectionData: any,
+    sectionKey: string
+  ) => {
+    // Set saving state
+    setSavingSections((prev) => new Set(prev).add(sectionId));
+
+    try {
+      // Determine status based on user role and current section status
+      let statusToSet = "SUBMITTED_TO_MINISTRY"; // Default status
+      const sectionStatus = getSectionStatus(sectionId);
+
+      // If NODAL_OFFICER is saving a section that was RETURNED_FROM_MINISTRY, set status to RESUBMITTED
+      if (
+        user?.role === "NODAL_OFFICER" &&
+        sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY"
+      ) {
+        statusToSet = "RESUBMITTED";
+        console.log(
+          "[MinistrySubmissionReviewWrapper] NODAL_OFFICER resubmitting sent back section:",
+          sectionId
+        );
+      }
+
+      // Call update API to save data
+      const updateResponse = await updateMinistryIndicatorData(
+        submissionIndicatorId,
+        sectionData,
+        currentSection,
+        submissionId || undefined,
+        statusToSet
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Update response:",
+        updateResponse
+      );
+
+      // If status is RESUBMITTED, also update the indicator status explicitly
+      if (statusToSet === "RESUBMITTED") {
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Updating indicator status to RESUBMITTED"
+        );
+        await updateSubmissionIndicatorStatus(
+          submissionIndicatorId,
+          "RESUBMITTED"
+        );
+      }
+
+      // Update local formData immediately with the saved data (optimistic update)
+      setFormData((prevFormData) => {
+        const updatedFormData = { ...prevFormData };
+        updatedFormData[sectionKey] = {
+          ...(prevFormData[sectionKey] || {}),
+          ...sectionData,
+        };
+        return { ...updatedFormData };
+      });
+
+      // Clear edit mode
+      setEditable(sectionId, false);
+      setEditingSections((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+
+      // Clear snapshot
+      setOriginalFormDataSnapshots((prev) => {
+        const newSnapshots = { ...prev };
+        delete newSnapshots[sectionId];
+        return newSnapshots;
+      });
+
+      // Clear validation errors for this section after successful save
+      clearValidationErrorsForSection(sectionKey);
+
+      toast({
+        title: "Success",
+        description: `Section ${sectionId} updated successfully`,
+      });
+    } catch (error: any) {
+      console.error("Error saving section:", error);
+      toast({
+        title: "Error",
+        description: error?.message || `Failed to save section ${sectionId}`,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSections((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+    }
   };
 
   // Handle save
@@ -506,100 +668,92 @@ export function MinistrySubmissionReviewWrapper({
     // Clear any existing validation errors for this section
     clearValidationErrorsForSection(sectionKey);
 
-    // Set saving state
-    setSavingSections((prev) => new Set(prev).add(sectionId));
+    // Check if this is a NODAL_OFFICER saving a RETURNED_FROM_MINISTRY section
+    // If so, show confirmation dialog
+    const sectionStatus = getSectionStatus(sectionId);
+    if (
+      user?.role === "NODAL_OFFICER" &&
+      sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY"
+    ) {
+      // Show confirmation dialog
+      setPendingSaveSectionId(sectionId);
+      setShowSaveDialog(true);
+      return;
+    }
 
-    try {
-      // Call update API
-      const updateResponse = await updateMinistryIndicatorData(
-        submissionIndicatorId,
-        sectionData,
-        currentSection,
-        submissionId || undefined,
-        "SUBMITTED_TO_MINISTRY" // Keep status as SUBMITTED_TO_MINISTRY after edit
-      );
+    // Proceed with save directly if not a resubmission
+    await performSave(
+      sectionId,
+      submissionIndicatorId,
+      currentSection,
+      sectionData,
+      sectionKey
+    );
+  };
 
-      console.log(
-        "[MinistrySubmissionReviewWrapper] Update response:",
-        updateResponse
-      );
-      console.log(
-        "[MinistrySubmissionReviewWrapper] Section data that was saved:",
-        sectionData
-      );
-      console.log(
-        "[MinistrySubmissionReviewWrapper] SectionKey:",
-        sectionKey,
-        "SectionId:",
-        sectionId
-      );
+  // Handle confirm save from dialog
+  const handleConfirmSave = async () => {
+    if (!pendingSaveSectionId) return;
 
-      // Update local formData immediately with the saved data (optimistic update)
-      // This ensures UI shows the updated values right away
-      setFormData((prevFormData) => {
-        const updatedFormData = { ...prevFormData };
-        // Merge the saved data with existing section data to preserve any other fields
-        updatedFormData[sectionKey] = {
-          ...(prevFormData[sectionKey] || {}),
-          ...sectionData,
-        };
-        console.log(
-          "[MinistrySubmissionReviewWrapper] Updated local formData for",
-          sectionKey,
-          ":",
-          updatedFormData[sectionKey]
-        );
-        console.log(
-          "[MinistrySubmissionReviewWrapper] Full formData keys:",
-          Object.keys(updatedFormData)
-        );
-        // Return a new object reference to ensure React detects the state change
-        return { ...updatedFormData };
-      });
+    const sectionId = pendingSaveSectionId;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
 
-      // Clear edit mode
-      setEditable(sectionId, false);
-      setEditingSections((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(sectionId);
-        return newSet;
-      });
+    // Find the indicator and section data
+    let submissionIndicatorId: string | null = null;
+    let currentSection: any = null;
 
-      // Clear snapshot
-      setOriginalFormDataSnapshots((prev) => {
-        const newSnapshots = { ...prev };
-        delete newSnapshots[sectionId];
-        return newSnapshots;
-      });
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
 
-      // Clear validation errors for this section after successful save
-      clearValidationErrorsForSection(sectionKey);
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
 
-      toast({
-        title: "Success",
-        description: `Section ${sectionId} updated successfully`,
-      });
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            currentSection = section;
+            break;
+          }
+        }
+      }
 
-      // Don't reload immediately - the optimistic update should be sufficient
-      // The data is already updated in the UI via the optimistic update above
-      // If you need to sync with server, uncomment below (but increase delay to 2-3 seconds)
-      // await new Promise((resolve) => setTimeout(resolve, 2000));
-      // console.log("[MinistrySubmissionReviewWrapper] Reloading data from server after save...");
-      // await loadSubmissionData();
-    } catch (error: any) {
-      console.error("Error saving section:", error);
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId || !currentSection) {
       toast({
         title: "Error",
-        description: error?.message || `Failed to save section ${sectionId}`,
+        description: `Could not find submission indicator for section ${sectionId}`,
         variant: "destructive",
       });
-    } finally {
-      setSavingSections((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(sectionId);
-        return newSet;
-      });
+      setShowSaveDialog(false);
+      setPendingSaveSectionId(null);
+      return;
     }
+
+    // Get section data
+    const sectionData = formData[sectionKey] || {};
+
+    // Close dialog
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
+
+    // Perform save
+    await performSave(
+      sectionId,
+      submissionIndicatorId,
+      currentSection,
+      sectionData,
+      sectionKey
+    );
+  };
+
+  // Handle cancel save dialog
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
   };
 
   // Helper function to get section status from assignedIndicators
@@ -703,6 +857,112 @@ export function MinistrySubmissionReviewWrapper({
           `Failed to accept section ${sectionId}`,
         variant: "destructive",
       });
+    }
+  };
+
+  // Handle send back action - opens comment dialog
+  const handleSendBack = (sectionId: string, sectionName: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Send Back clicked for section:",
+      sectionId
+    );
+
+    // Find the submissionIndicatorId for this section
+    let submissionIndicatorId: string | null = null;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionNameKey = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionNameKey];
+
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            break;
+          }
+        }
+      }
+
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Set the selected section and open the comment dialog (for send back)
+    setSelectedSectionForComment({
+      submissionIndicatorId,
+      sectionTitle: sectionName || sectionId,
+      sectionId,
+      isSendBack: true,
+    });
+    setCommentDialogOpen(true);
+  };
+
+  // Handle send back after comment is saved
+  const handleSendBackAfterComment = async (sectionId: string) => {
+    if (!selectedSectionForComment?.submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: "No section selected for send back",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { submissionIndicatorId, sectionTitle } = selectedSectionForComment;
+
+    try {
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Sending back section after comment:",
+        {
+          submissionIndicatorId,
+          sectionId,
+        }
+      );
+
+      // Update status to RETURNED_FROM_MINISTRY
+      const response = await updateSubmissionIndicatorStatus(
+        submissionIndicatorId,
+        "RETURNED_FROM_MINISTRY"
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Send back response:",
+        response
+      );
+
+      toast({
+        title: "Success",
+        description: `Section ${sectionTitle} has been sent back to the Nodal Officer successfully`,
+      });
+
+      // Reload submission data to reflect the updated status
+      await loadSubmissionData();
+
+      // Close dialog and reset state
+      setCommentDialogOpen(false);
+      setSelectedSectionForComment(null);
+    } catch (error: any) {
+      console.error("Error sending back section:", error);
+      toast({
+        title: "Error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          `Failed to send back section ${sectionTitle}`,
+        variant: "destructive",
+      });
+      throw error; // Re-throw to let the dialog handle it
     }
   };
 
@@ -836,31 +1096,42 @@ export function MinistrySubmissionReviewWrapper({
                           indicatorCode
                         ) => {
                           // Find the section object to get submissionIndicatorId
-                        let sectionSubmissionIndicatorId: string | null = null;
-                        
-                        // Search through assignedIndicators to find the section
-                        for (const indicatorObj of assignedIndicators) {
-                          const categoryName = Object.keys(indicatorObj)[0];
-                          const sections = indicatorObj[categoryName];
-                          if (Array.isArray(sections)) {
-                            for (const sectionObject of sections) {
-                              const sectionKey = Object.keys(sectionObject)[0];
-                              const section = sectionObject[sectionKey] as any; // Type assertion to access submissionIndicatorId
-                              if (section.sNo === indicatorCode) {
-                                sectionSubmissionIndicatorId = section.submissionIndicatorId || null;
-                                break;
+                          let sectionSubmissionIndicatorId: string | null =
+                            null;
+
+                          // Search through assignedIndicators to find the section
+                          for (const indicatorObj of assignedIndicators) {
+                            const categoryName = Object.keys(indicatorObj)[0];
+                            const sections = indicatorObj[categoryName];
+                            if (Array.isArray(sections)) {
+                              for (const sectionObject of sections) {
+                                const sectionKey =
+                                  Object.keys(sectionObject)[0];
+                                const section = sectionObject[
+                                  sectionKey
+                                ] as any; // Type assertion to access submissionIndicatorId
+                                if (section.sNo === indicatorCode) {
+                                  sectionSubmissionIndicatorId =
+                                    section.submissionIndicatorId || null;
+                                  break;
+                                }
                               }
+                              if (sectionSubmissionIndicatorId) break;
                             }
-                            if (sectionSubmissionIndicatorId) break;
                           }
-                        }
-                        
-                        // Render role-based action buttons for each section
+
+                          // Render role-based action buttons for each section
                           if (user?.role === "MINISTRY_APPROVER") {
                             const isSectionEditing =
                               editingSections.has(sectionId);
                             const isSaving = savingSections.has(sectionId);
                             const isAccepted = isSectionAccepted(sectionId);
+                            const sectionStatus = getSectionStatus(sectionId);
+                            const isSentBack =
+                              sectionStatus?.toUpperCase() ===
+                              "RETURNED_FROM_MINISTRY";
+                            const isResubmitted =
+                              sectionStatus?.toUpperCase() === "RESUBMITTED";
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -872,6 +1143,9 @@ export function MinistrySubmissionReviewWrapper({
                                 isSectionEditing,
                                 isSaving,
                                 isAccepted,
+                                isSentBack,
+                                isResubmitted,
+                                sectionStatus,
                                 editingSectionsArray:
                                   Array.from(editingSections),
                                 hasOnSave: isSectionEditing,
@@ -880,6 +1154,91 @@ export function MinistrySubmissionReviewWrapper({
                               }
                             );
 
+                            // For RESUBMITTED status, show custom buttons with Resubmitted badge
+                            if (isResubmitted) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {isSectionEditing ? (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() => handleSave(sectionId)}
+                                        disabled={isSaving}
+                                      >
+                                        <Check className="w-4 h-4" />
+                                        {isSaving ? "Saving..." : "Save"}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() =>
+                                          handleEditCancel(sectionId)
+                                        }
+                                        disabled={isSaving}
+                                      >
+                                        <X className="w-4 h-4" />
+                                        Cancel
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() => handleEditStart(sectionId)}
+                                    >
+                                      <Edit3 className="w-4 h-4" />
+                                      Edit
+                                    </Button>
+                                  )}
+                                  {/* Resubmitted badge - matches STATE level styling */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Resubmitted
+                                  </Button>
+                                  {/* Accept button - only show when not editing and not already accepted */}
+                                  {!isSectionEditing && !isAccepted && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                      onClick={() => handleAccept(sectionId)}
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                      Accept
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      console.log(
+                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
+                                        sectionId
+                                      );
+                                      // TODO: Implement timeline action
+                                      toast({
+                                        title: "Timeline",
+                                        description: `View timeline for section ${sectionId}`,
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline (0)
+                                  </Button>
+                                </div>
+                              );
+                            }
+
                             return (
                               <MinistryApproverActionButtons
                                 key={`${sectionId}-${
@@ -887,7 +1246,9 @@ export function MinistrySubmissionReviewWrapper({
                                 }`} // Force re-render when edit state changes
                                 sectionId={sectionId}
                                 onEdit={
-                                  !isSectionEditing && !isAccepted
+                                  !isSectionEditing &&
+                                  !isAccepted &&
+                                  !isSentBack
                                     ? () => handleEditStart(sectionId)
                                     : undefined
                                 }
@@ -902,25 +1263,19 @@ export function MinistrySubmissionReviewWrapper({
                                     : undefined
                                 }
                                 onAccept={
-                                  !isSectionEditing && !isAccepted
+                                  !isSectionEditing &&
+                                  !isAccepted &&
+                                  !isSentBack
                                     ? () => handleAccept(sectionId)
                                     : undefined
                                 }
                                 onSendBack={
                                   !isSectionEditing &&
                                   !isAccepted &&
+                                  !isSentBack &&
                                   submission?.user?.role === "NODAL_OFFICER"
-                                    ? () => {
-                                        console.log(
-                                          "[MinistrySubmissionReviewWrapper] Send Back clicked for section:",
-                                          sectionId
-                                        );
-                                        // TODO: Implement send back action
-                                        toast({
-                                          title: "Send Back",
-                                          description: `Send back section ${sectionId}`,
-                                        });
-                                      }
+                                    ? () =>
+                                        handleSendBack(sectionId, sectionName)
                                     : undefined
                                 }
                                 onTimeline={() => {
@@ -936,6 +1291,7 @@ export function MinistrySubmissionReviewWrapper({
                                 }}
                                 timelineCount={0}
                                 isAccepted={isAccepted}
+                                isSentBack={isSentBack}
                                 isSaving={isSaving}
                               />
                             );
@@ -946,19 +1302,21 @@ export function MinistrySubmissionReviewWrapper({
                                 sectionId={sectionId}
                                 onAddComment={() => {
                                   if (sectionSubmissionIndicatorId) {
-                                  setSelectedSectionForComment({
-                                    submissionIndicatorId: sectionSubmissionIndicatorId,
-                                    sectionTitle: sectionName || sectionId,
-                                  });
-                                  setCommentDialogOpen(true);
-                                } else {
+                                    setSelectedSectionForComment({
+                                      submissionIndicatorId:
+                                        sectionSubmissionIndicatorId,
+                                      sectionTitle: sectionName || sectionId,
+                                    });
+                                    setCommentDialogOpen(true);
+                                  } else {
                                     toast({
                                       title: "Error",
-                                      description: "Submission indicator ID not found for this section",
-                                    variant: "destructive",
+                                      description:
+                                        "Submission indicator ID not found for this section",
+                                      variant: "destructive",
                                     });
                                   }
-                              }}
+                                }}
                                 onTimeline={() => {
                                   // TODO: Implement timeline action
                                   toast({
@@ -1000,6 +1358,169 @@ export function MinistrySubmissionReviewWrapper({
                               />
                             );
                           }
+                          if (user?.role === "NODAL_OFFICER") {
+                            const isSectionEditing =
+                              editingSections.has(sectionId);
+                            const isSaving = savingSections.has(sectionId);
+                            const sectionStatus = getSectionStatus(sectionId);
+                            const isSentBack =
+                              sectionStatus?.toUpperCase() ===
+                              "RETURNED_FROM_MINISTRY";
+                            const isResubmitted =
+                              sectionStatus?.toUpperCase() === "RESUBMITTED";
+                            const isAccepted = isSectionAccepted(sectionId);
+                            const canEdit = canNodalOfficerEdit(sectionId);
+
+                            // Show Accepted badge if section is accepted
+                            if (isAccepted) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {/* Accepted badge - matches MINISTRY_APPROVER styling */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Accepted
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      console.log(
+                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
+                                        sectionId
+                                      );
+                                      toast({
+                                        title: "Timeline",
+                                        description: `View timeline for section ${sectionId}`,
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline (0)
+                                  </Button>
+                                </div>
+                              );
+                            }
+
+                            // Only show buttons if section is sent back (RETURNED_FROM_MINISTRY) or resubmitted (RESUBMITTED)
+                            if (!isSentBack && !isResubmitted) {
+                              return null;
+                            }
+
+                            // For RESUBMITTED status, show only Resubmitted badge + Timeline (no Edit button)
+                            if (isResubmitted) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {/* Resubmitted badge - matches STATE level styling */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Resubmitted
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      console.log(
+                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
+                                        sectionId
+                                      );
+                                      // TODO: Implement timeline action
+                                      toast({
+                                        title: "Timeline",
+                                        description: `View timeline for section ${sectionId}`,
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline (0)
+                                  </Button>
+                                </div>
+                              );
+                            }
+
+                            // For RETURNED_FROM_MINISTRY status, show Edit button + Sent Back badge + Timeline
+                            return (
+                              <div className="flex items-center gap-2">
+                                {isSectionEditing ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() => handleSave(sectionId)}
+                                      disabled={isSaving}
+                                    >
+                                      <Check className="w-4 h-4" />
+                                      {isSaving ? "Saving..." : "Save"}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() =>
+                                        handleEditCancel(sectionId)
+                                      }
+                                      disabled={isSaving}
+                                    >
+                                      <X className="w-4 h-4" />
+                                      Cancel
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-1"
+                                    onClick={() => handleEditStart(sectionId)}
+                                    disabled={!canEdit}
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                    Edit
+                                  </Button>
+                                )}
+                                {/* Sent Back badge - matches STATE level styling */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+                                  disabled
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                  Sent Back
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    console.log(
+                                      "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
+                                      sectionId
+                                    );
+                                    // TODO: Implement timeline action
+                                    toast({
+                                      title: "Timeline",
+                                      description: `View timeline for section ${sectionId}`,
+                                    });
+                                  }}
+                                  className="flex items-center gap-1 h-7 px-2 text-xs"
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  Timeline (0)
+                                </Button>
+                              </div>
+                            );
+                          }
                           return null;
                         }}
                       />
@@ -1018,7 +1539,7 @@ export function MinistrySubmissionReviewWrapper({
         )}
       </div>
 
-      {/* Comment Dialog */}
+      {/* Comment Dialog - Used for both regular comments and send back */}
       <MinistryCommentDialog
         isOpen={commentDialogOpen}
         onClose={() => {
@@ -1029,9 +1550,39 @@ export function MinistrySubmissionReviewWrapper({
           // Optionally refresh data or show success message
           console.log("Comment added successfully");
         }}
+        onSendBack={
+          selectedSectionForComment?.isSendBack &&
+          selectedSectionForComment?.sectionId
+            ? handleSendBackAfterComment
+            : undefined
+        }
         sectionTitle={selectedSectionForComment?.sectionTitle}
-        submissionIndicatorId={selectedSectionForComment?.submissionIndicatorId || ""}
+        submissionIndicatorId={
+          selectedSectionForComment?.submissionIndicatorId || ""
+        }
+        sectionId={selectedSectionForComment?.sectionId}
       />
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this indicator? This will resubmit
+              it to the Ministry Approver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
