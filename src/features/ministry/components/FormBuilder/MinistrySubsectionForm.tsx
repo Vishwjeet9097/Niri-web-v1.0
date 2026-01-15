@@ -90,14 +90,24 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
         );
       }, []);
 
+      // Helper to check if a field is "No Document Available" - should be excluded from rendering
+      // as it's handled by MinistryFileUploadSection component
+      const isNoDocumentAvailableField = useCallback((field: any) => {
+        return (
+          field.label?.toLowerCase().includes("no document available") ||
+          field.label?.toLowerCase() === "no document available"
+        );
+      }, []);
+
       // Sort and filter fields by sequence and Yes/No value
       // In review mode, always show all fields regardless of Yes/No value
+      // Exclude "No Document Available" field as it's handled by MinistryFileUploadSection
       const sortedFields = useMemo(() => {
-        const allFields = [...(subsectionData.inputs || [])].sort(
-          (a, b) => a.sequence - b.sequence
-        );
+        const allFields = [...(subsectionData.inputs || [])]
+          .filter((field) => !isNoDocumentAvailableField(field)) // Exclude "No Document Available" field
+          .sort((a, b) => a.sequence - b.sequence);
 
-        // In review mode, always show all fields
+        // In review mode, always show all fields (except "No Document Available")
         if (mode === "review") {
           return allFields;
         }
@@ -114,7 +124,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
         // If no Yes/No value, show all fields
         return allFields;
-      }, [subsectionData.inputs, normalizedYesNoValue, isCommentField, mode]);
+      }, [subsectionData.inputs, normalizedYesNoValue, isCommentField, isNoDocumentAvailableField, mode]);
 
       // Helper to normalize Yes/No values
       const normalizeYesNoValue = useCallback((val: any): string => {
@@ -410,50 +420,43 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     label={field.label}
                     value={fieldValue || null}
                     onChange={(value) => {
-                      console.log(
-                        `🔄 [MinistrySubsectionForm] File onChange called for ${fieldPath}, value:`,
-                        value
-                      );
-                      console.log(
-                        `🔄 [MinistrySubsectionForm] noDocAvailableValue: "${noDocAvailableValue}"`
-                      );
-                      console.log(
-                        `🔄 [MinistrySubsectionForm] skipFileValidationRef[${fieldPath}]: ${skipFileValidationRef.current[fieldPath]}`
-                      );
-
                       // Only trigger validation if "No document available" is not checked AND we're not skipping validation
                       const shouldValidate =
                         !skipFileValidationRef.current[fieldPath] &&
                         noDocAvailableValue !== "No document available";
-                      console.log(
-                        `🔄 [MinistrySubsectionForm] shouldValidate: ${shouldValidate}`
-                      );
+
+                      // When clearing file (value === null), preserve "No document available" value
+                      // Check both the prop and the item directly since prop might be stale
+                      const currentNoDocValue = item?.[noDocAvailableField?.id || ""];
+                      const shouldPreserveNoDoc = 
+                        value === null && 
+                        noDocAvailableField &&
+                        (noDocAvailableValue === "No document available" || 
+                         currentNoDocValue === "No document available");
 
                       onChange(index, field.id, value);
+                      
+                      // After clearing file, re-set "No document available" if it was previously set
+                      // This ensures the value is preserved even if the formData update resets the item
+                      if (shouldPreserveNoDoc && noDocAvailableField) {
+                        setTimeout(() => {
+                          onChange(index, noDocAvailableField.id, "No document available");
+                        }, 150);
+                      }
 
                       // Skip validation if "No document available" is checked (file is not required)
                       if (shouldValidate && onValidateField && field) {
-                        console.log(
-                          `🔄 [MinistrySubsectionForm] Running validation for ${fieldPath}`
-                        );
                         onValidateField(fieldPath, value, field);
-                      } else {
-                        if (onClearFieldError) {
-                          console.log(
-                            `🔄 [MinistrySubsectionForm] Clearing error for ${fieldPath} (No document available is checked or skipValidationRef is true)`
-                          );
-                          // Clear error if "No document available" is checked
-                          onClearFieldError(fieldPath);
-                        }
-                        // Reset the skip flag after a short delay
-                        if (skipFileValidationRef.current[fieldPath]) {
-                          setTimeout(() => {
-                            skipFileValidationRef.current[fieldPath] = false;
-                            console.log(
-                              `🔄 [MinistrySubsectionForm] Reset skipFileValidationRef for ${fieldPath}`
-                            );
-                          }, 200);
-                        }
+                      } else if (onClearFieldError) {
+                        // Clear error if "No document available" is checked
+                        onClearFieldError(fieldPath);
+                      }
+                      
+                      // Reset the skip flag after a short delay
+                      if (skipFileValidationRef.current[fieldPath]) {
+                        setTimeout(() => {
+                          skipFileValidationRef.current[fieldPath] = false;
+                        }, 200);
                       }
                     }}
                     required={isRequired}
@@ -462,40 +465,29 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     className={error ? "border-destructive" : ""}
                     noDocumentAvailableValue={noDocAvailableValue}
                     onNoDocumentAvailableChange={(newValue) => {
-                      console.log(
-                        `🔄 [MinistrySubsectionForm] onNoDocumentAvailableChange called, newValue: "${newValue}"`
-                      );
                       if (noDocAvailableField) {
                         // Set flag to skip validation when clearing file
                         if (newValue === "No document available") {
                           skipFileValidationRef.current[fieldPath] = true;
-                          console.log(
-                            `🔄 [MinistrySubsectionForm] Set skipFileValidationRef[${fieldPath}] to true`
-                          );
                         }
 
                         onChange(index, noDocAvailableField.id, newValue);
+                        
                         // Validate the "No document available" field
                         const noDocAvailableFieldPath = `${sectionKey}.${subsectionName}[${index}].${noDocAvailableField.id}`;
                         if (onValidateField && noDocAvailableField) {
-                          console.log(
-                            `🔄 [MinistrySubsectionForm] Validating "No document available" field: ${noDocAvailableFieldPath}`
-                          );
                           onValidateField(
                             noDocAvailableFieldPath,
                             newValue,
                             noDocAvailableField
                           );
                         }
+                        
                         // Clear the file upload field error if "No document available" is confirmed
                         if (
                           newValue === "No document available" &&
                           onClearFieldError
                         ) {
-                          console.log(
-                            `🔄 [MinistrySubsectionForm] Clearing file upload error for ${fieldPath} (No document available confirmed)`
-                          );
-                          // File upload is no longer required, so clear the error directly
                           onClearFieldError(fieldPath);
                         }
                       }

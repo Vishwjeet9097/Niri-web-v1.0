@@ -61,9 +61,13 @@ export const MinistryFileUploadSection = ({
   const [pendingCheckboxState, setPendingCheckboxState] = useState(false);
   // Track if we just confirmed "No document available" to skip validation
   const justConfirmedNoDocumentRef = useRef(false);
-  
+  // Ref for file input to reset it after selection
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
+
   // Check if "No document available" is checked based on the input field value
-  const isNoDocumentAvailableChecked = noDocumentAvailableValue === "No document available";
+  const isNoDocumentAvailableChecked =
+    noDocumentAvailableValue === "No document available";
 
   // Clean up object URL when component unmounts or file changes
   useEffect(() => {
@@ -90,21 +94,39 @@ export const MinistryFileUploadSection = ({
       type: file.type,
     });
 
+    // When replacing an existing file during editing, create a new FileUpload object
+    // with the File instance and clear any old filePath/fileUrl to ensure proper replacement
     const fileUpload: FileUpload = {
-      id: crypto.randomUUID(),
-      file: file,
+      id: value?.id || crypto.randomUUID(), // Preserve ID if replacing
+      file: file, // Store File object - will be uploaded on save
       fileName: file.name,
       originalName: file.name,
       fileSize: file.size,
       uploadedAt: Date.now(),
+      // Clear old filePath and fileUrl when replacing with new file
+      filePath: undefined,
+      fileUrl: undefined,
+      mimeType: file.type,
     };
-    
+
     if (!fileUpload.file || !(fileUpload.file instanceof globalThis.File)) {
-      console.error("❌ CRITICAL: File instance lost when creating FileUpload object!");
+      console.error(
+        "❌ CRITICAL: File instance lost when creating FileUpload object!"
+      );
     }
-    
+
+    console.log("📂 Replacing file with new upload:", {
+      oldFile: value
+        ? { fileName: value.fileName, filePath: value.filePath }
+        : null,
+      newFile: {
+        fileName: fileUpload.fileName,
+        hasFileInstance: !!fileUpload.file,
+      },
+    });
+
     onChange(fileUpload);
-    
+
     // Clear "No document available" when file is uploaded
     if (onNoDocumentAvailableChange && isNoDocumentAvailableChecked) {
       onNoDocumentAvailableChange("");
@@ -113,12 +135,20 @@ export const MinistryFileUploadSection = ({
 
   const handleRemoveFile = async () => {
     if (disabled) return;
-    
+
     if (deferFileDeletion) {
       onChange(null);
+      // After removing file, if "No Document Available" was previously set, restore it
+      // This ensures the checkbox state is maintained when removing files during edit
+      if (isNoDocumentAvailableChecked && onNoDocumentAvailableChange) {
+        // Keep "No Document Available" checked if it was previously set
+        console.log(
+          `🔄 [MinistryFileUploadSection] File removed, keeping "No Document Available" checked`
+        );
+      }
       return;
     }
-    
+
     if (value?.filePath && submissionId) {
       try {
         await apiService.deleteFile(value.filePath);
@@ -126,17 +156,25 @@ export const MinistryFileUploadSection = ({
           "File deleted successfully",
           "File Removed"
         );
-      } catch (error: any) {
+      } catch (error) {
         notificationService.error(
-          error.message || "Failed to delete file.",
+          (error as Error).message || "Failed to delete file.",
           "Delete Failed"
         );
       }
     }
     onChange(null);
+    // After removing file, if "No Document Available" was previously set, restore it
+    // This ensures the checkbox state is maintained when removing files during edit
+    if (isNoDocumentAvailableChecked && onNoDocumentAvailableChange) {
+      // Keep "No Document Available" checked if it was previously set
+      console.log(
+        `🔄 [MinistryFileUploadSection] File removed, keeping "No Document Available" checked`
+      );
+    }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
@@ -146,7 +184,13 @@ export const MinistryFileUploadSection = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) {
+      handleFile(file);
+      // Reset file input to allow selecting the same file again
+      if (e.target) {
+        e.target.value = "";
+      }
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -155,18 +199,22 @@ export const MinistryFileUploadSection = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -193,21 +241,21 @@ export const MinistryFileUploadSection = ({
       try {
         const response = await apiService.getFileUrl(value.filePath);
         const url = response.signedUrl || response.url;
-        
+
         if (!url) {
           throw new Error("No URL returned from server");
         }
-        
+
         onChange({
           ...value,
           fileUrl: url,
         });
-        
+
         window.open(url, "_blank", "noopener,noreferrer");
         return;
-      } catch (error: any) {
+      } catch (error) {
         notificationService.error(
-          error.message || "Failed to load file URL.",
+          (error as Error).message || "Failed to load file URL.",
           "View Failed"
         );
         return;
@@ -252,16 +300,16 @@ export const MinistryFileUploadSection = ({
       try {
         const response = await apiService.getFileUrl(value.filePath);
         const url = response.signedUrl || response.url;
-        
+
         if (!url) {
           throw new Error("No URL returned from server");
         }
-        
+
         onChange({
           ...value,
           fileUrl: url,
         });
-        
+
         const a = document.createElement("a");
         a.href = url;
         a.download = value.originalName || value.fileName || "file";
@@ -270,9 +318,9 @@ export const MinistryFileUploadSection = ({
         a.click();
         document.body.removeChild(a);
         return;
-      } catch (error: any) {
+      } catch (error) {
         notificationService.error(
-          error.message || "Failed to load file URL.",
+          (error as Error).message || "Failed to load file URL.",
           "Download Failed"
         );
         return;
@@ -284,7 +332,7 @@ export const MinistryFileUploadSection = ({
 
   const handleCheckboxChange = (checked: boolean) => {
     if (disabled) return;
-    
+
     if (checked) {
       // Show confirmation modal
       setPendingCheckboxState(true);
@@ -298,26 +346,31 @@ export const MinistryFileUploadSection = ({
   };
 
   const handleConfirmNoDocument = () => {
-    console.log(`🔄 [MinistryFileUploadSection] handleConfirmNoDocument called`);
-    console.log(`🔄 [MinistryFileUploadSection] Current noDocumentAvailableValue: "${noDocumentAvailableValue}"`);
     // Set flag to skip validation when clearing file
     justConfirmedNoDocumentRef.current = true;
-    // Fill "No document available" field
+
+    // Set "No document available" field first
     if (onNoDocumentAvailableChange) {
-      console.log(`🔄 [MinistryFileUploadSection] Calling onNoDocumentAvailableChange("No document available")`);
       onNoDocumentAvailableChange("No document available");
-    } else {
-      console.log(`⚠️ [MinistryFileUploadSection] onNoDocumentAvailableChange is not defined!`);
     }
-    // Clear any uploaded file - use setTimeout to allow formData to update first
+
+    // Clear any uploaded file - use delay to ensure formData update completes
     setTimeout(() => {
-      console.log(`🔄 [MinistryFileUploadSection] Calling onChange(null) to clear file (delayed)`);
       onChange(null);
+
+      // Re-set "No document available" after clearing file to ensure it's preserved
+      if (onNoDocumentAvailableChange) {
+        setTimeout(() => {
+          onNoDocumentAvailableChange("No document available");
+        }, 150);
+      }
+
       // Reset flag after a short delay
       setTimeout(() => {
         justConfirmedNoDocumentRef.current = false;
-      }, 100);
-    }, 0);
+      }, 200);
+    }, 100);
+
     setShowConfirmModal(false);
     setPendingCheckboxState(false);
   };
@@ -331,19 +384,28 @@ export const MinistryFileUploadSection = ({
     <>
       <div className="space-y-2">
         <Label>
-          {label} {required && !isNoDocumentAvailableChecked && <span className="text-destructive">*</span>}
+          {label}{" "}
+          {required && !isNoDocumentAvailableChecked && (
+            <span className="text-destructive">*</span>
+          )}
         </Label>
         {description && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
 
-        {/* "No document available" checkbox - shown when no file is uploaded and not in checked state */}
+        {/* "No document available" checkbox - shown when no file is uploaded */}
+        {/* Always show checkbox when there's no file, regardless of checked state */}
+        {/* This ensures it's visible during both create and edit modes */}
+        {/* "No document available" checkbox - shown when no file is uploaded */}
         {!value && (
           <div className="flex items-center space-x-2">
             <Checkbox
               id={`no-doc-${uniqueId}`}
               checked={isNoDocumentAvailableChecked}
-              onCheckedChange={handleCheckboxChange}
+              onCheckedChange={(checked) => {
+                const isChecked = checked === true;
+                handleCheckboxChange(isChecked);
+              }}
               disabled={disabled}
             />
             <Label
@@ -369,10 +431,12 @@ export const MinistryFileUploadSection = ({
         {!isNoDocumentAvailableChecked && !value ? (
           <div className="flex items-center gap-3">
             {disabled ? (
-              <div className={cn(
-                "px-4 py-2 rounded-md font-medium text-sm transition bg-gray-100 text-gray-400 cursor-not-allowed",
-                className
-              )}>
+              <div
+                className={cn(
+                  "px-4 py-2 rounded-md font-medium text-sm transition bg-gray-100 text-gray-400 cursor-not-allowed",
+                  className
+                )}
+              >
                 Upload File
               </div>
             ) : (
@@ -389,6 +453,7 @@ export const MinistryFileUploadSection = ({
 
             <input
               id={fileInputId}
+              ref={fileInputRef}
               type="file"
               accept={accept}
               onChange={handleChange}
@@ -401,10 +466,12 @@ export const MinistryFileUploadSection = ({
             </span>
           </div>
         ) : value ? (
-          <div className={cn(
-            "flex items-center gap-3 p-4 border rounded-lg bg-muted/30",
-            className
-          )}>
+          <div
+            className={cn(
+              "flex items-center gap-3 p-4 border rounded-lg bg-muted/30",
+              className
+            )}
+          >
             <FileIcon className="w-8 h-8 text-primary flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">
@@ -437,12 +504,32 @@ export const MinistryFileUploadSection = ({
               >
                 <Download className="w-4 h-4" />
               </Button>
+              {/* Allow file replacement during editing - show upload button when not disabled */}
+              {!disabled && (
+                <label
+                  htmlFor={`replace-${fileInputId}`}
+                  className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
+                  title="Replace file"
+                >
+                  <Upload className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                  <input
+                    id={`replace-${fileInputId}`}
+                    ref={replaceFileInputRef}
+                    type="file"
+                    accept={accept}
+                    onChange={handleChange}
+                    disabled={disabled}
+                    className="hidden"
+                  />
+                </label>
+              )}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={handleRemoveFile}
                 disabled={disabled}
+                title="Remove file"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -471,7 +558,7 @@ export const MinistryFileUploadSection = ({
             </Button>
             <Button
               onClick={handleConfirmNoDocument}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full sm:w-auto  hover: text-white"
             >
               Confirm
             </Button>
@@ -481,4 +568,3 @@ export const MinistryFileUploadSection = ({
     </>
   );
 };
-
