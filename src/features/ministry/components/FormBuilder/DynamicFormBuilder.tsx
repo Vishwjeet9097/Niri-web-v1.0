@@ -177,10 +177,6 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                 const section = sectionObj[sectionName];
                 const sectionKey = `section${section.sNo.replace(".", "_")}`;
                 const indicatorId = section.sNo;
-                const isSubmitted =
-                  isIndicatorSubmitted?.(indicatorId) || false;
-                // Check if this specific section is in edit mode
-                const isSectionInEditMode = isSectionEditable(indicatorId);
                 // Check if section is accepted - if so, it should always be disabled
                 const sectionStatus = (section as any).status;
                 const isSectionAccepted =
@@ -188,6 +184,13 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   (sectionStatus.toUpperCase() === "ACCEPTED_BY_MINISTRY" ||
                     sectionStatus.toUpperCase() === "ACCEPTED_BY_MOSPI" ||
                     sectionStatus.toUpperCase() === "ACCEPTED");
+                // Indicator is considered submitted if: it's in submittedIndicators OR it's accepted
+                const isSubmitted =
+                  isIndicatorSubmitted?.(indicatorId) ||
+                  false ||
+                  isSectionAccepted;
+                // Check if this specific section is in edit mode
+                const isSectionInEditMode = isSectionEditable(indicatorId);
                 // Section is disabled if: globally disabled OR section is accepted OR (not in edit mode AND in review mode)
                 const isSectionDisabled =
                   disabled ||
@@ -237,6 +240,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                         : undefined
                     }
                     indicatorCode={indicatorId}
+                    indicatorStatus={sectionStatus}
                     isSaving={submittingIndicator === indicatorId}
                     reviewModeActionButtons={sectionActionButtons}
                   >
@@ -642,6 +646,28 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                     {/* Submit and Save as Draft buttons at the bottom of each indicator */}
                     {(onSectionSubmit || onSaveDraft) && (
                       <div className="mt-6 flex justify-start gap-3">
+                        {/* Submit button */}
+                        {onSectionSubmit && (
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              !isSubmitted && onSectionSubmit(indicatorId)
+                            }
+                            disabled={
+                              isSubmitted ||
+                              submittingIndicator === indicatorId ||
+                              disabled
+                            }
+                            className=" text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            size="sm"
+                          >
+                            {isSubmitted
+                              ? "Submitted"
+                              : submittingIndicator === indicatorId
+                              ? "Submitting..."
+                              : "Submit"}
+                          </Button>
+                        )}
                         {/* Save as Draft button */}
                         {onSaveDraft && (
                           <Button
@@ -662,36 +688,6 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                               </>
                             ) : (
                               "Save as Draft"
-                            )}
-                          </Button>
-                        )}
-                        {/* Submit button */}
-                        {onSectionSubmit && (
-                          <Button
-                            type="button"
-                            variant="default"
-                            onClick={() =>
-                              !isSubmitted && onSectionSubmit(indicatorId)
-                            }
-                            disabled={
-                              isSubmitted ||
-                              submittingIndicator === indicatorId ||
-                              disabled
-                            }
-                            className="flex items-center gap-2"
-                          >
-                            {isSubmitted ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4" />
-                                Submitted
-                              </>
-                            ) : submittingIndicator === indicatorId ? (
-                              <>
-                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                Submitting...
-                              </>
-                            ) : (
-                              "Submit"
                             )}
                           </Button>
                         )}
