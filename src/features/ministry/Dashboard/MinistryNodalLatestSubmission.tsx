@@ -126,7 +126,7 @@ export function MinistryNodalLatestSubmission({
                         key={submission.id}
                         id={submission.id}
                         title={submission.title}
-                        status={submission.status}
+                        status={submission.status as any}
                         referenceId={submission.referenceId}
                         updatedDate={submission.updatedDate}
                         dueDate={submission.dueDate}
@@ -140,9 +140,15 @@ export function MinistryNodalLatestSubmission({
                         onEdit={() =>
                           handleEditSubmissionForEdit(submission.id, navigate)
                         }
-                        onViewDetails={() =>
-                          navigate(`/data-submission/review/${submission.id}`)
-                        }
+                        onViewDetails={() => {
+                          // Navigate to ministry form-review page
+                          // For nodal, use submission-with-data endpoint (not consolidated API)
+                          // This will call: /ministry/form/retrieve/submission-with-data/{submissionId}?forReview=true
+                          //const userId = submission.submission?.user?.id || submission.submission?.userId;
+                          // Don't use isConsolidated=true for nodal - this ensures it uses submission-with-data endpoint
+                          const url = `/ministry/review-submissions/form-review/${submission.id}`;
+                          navigate(url);
+                        }}
                         onRevise={() =>
                           handleEditSubmission(submission.id, navigate)
                         }

@@ -5,7 +5,7 @@ import { ProgressHeader } from "@/features/submission/components/ProgressHeader"
 import { getDropdownOptions } from "../constants/dropdownMappings";
 import {
   getMinistrySubmissionDetailsForReview,
-  getMinistrySubmissionDetailsConsolidated,
+  getMinistrySubmissionDetailsConsolidated, getMinistryPreviewData,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
 } from "@/services/ministry.service";
@@ -22,6 +22,7 @@ import { MospiApproverActionButtons } from "../components/actionButtons/MospiApp
 import { useEditableSectionStore } from "@/utils/EditableSection";
 import { useMinistryValidation } from "../hooks/useMinistryValidation";
 import { validateSection } from "../utils/validation";
+import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -70,6 +71,11 @@ export function MinistrySubmissionReviewWrapper({
     formData,
     assignedIndicators,
   });
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
+    submissionIndicatorId: string;
+    sectionTitle: string;
+  } | null>(null);
 
   // Load submission data with forReview=true
   useEffect(() => {
@@ -85,18 +91,27 @@ export function MinistrySubmissionReviewWrapper({
       //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
+      
+      // Helper function to check if a string is a valid UUID
+      const isValidUUID = (str: string | null | undefined): boolean => {
+        if (!str) return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(str);
+      };
 
       // Define targetSubmissionId in outer scope so it's accessible later
-      const targetSubmissionId =
+      // Only use submissionId if it's a valid UUID (not a submission ID string like "SUB-2026-141817")
+      const rawSubmissionId =
         submission?.id || submission?.submissionId || propSubmissionId;
+      const targetSubmissionId = rawSubmissionId && isValidUUID(rawSubmissionId) ? rawSubmissionId : undefined;
       const targetUserId = userId || submission?.user?.id;
 
       if (useConsolidatedApi && useConsolidatedApi === true) {
         if (!targetSubmissionId) {
-          console.error("No submission ID available for consolidated API");
+          console.error("No valid UUID submission ID available for consolidated API");
           toast({
             title: "Error",
-            description: "Submission ID is required to load submission data.",
+            description: "A valid submission ID (UUID) is required to load submission data.",
             variant: "destructive",
           });
           setLoading(false);
@@ -112,11 +127,8 @@ export function MinistrySubmissionReviewWrapper({
         );
       } else {
         // Use existing API with userId
-        // Prioritize submissionId from submission object
-
-        //Need to use this now.
-        //const targetUserId = submission?.id;
-
+        // Only pass submissionId if it's a valid UUID, otherwise use only userId
+        
         if (!targetSubmissionId && !targetUserId) {
           console.error("No submission ID or user ID available for review");
           toast({
@@ -129,16 +141,24 @@ export function MinistrySubmissionReviewWrapper({
           return;
         }
 
-        console.log(
-          "📋 Loading submission data for review, submissionId:",
-          targetSubmissionId,
+        // If we have a non-UUID submissionId (like "SUB-2026-141817"), ignore it and use only userId
+        // For preview mode (when we only have userId and no valid UUID), use the preview API
+        if (!targetSubmissionId && targetUserId) {
+          console.log(
+          "📋 Loading preview data using preview API, userId:", targetUserId);
+          response = await getMinistryPreviewData(targetUserId);
+        } else {
+          // Use the regular review API when we have a valid UUID submissionId
+          console.log("📋 Loading submission data for review, submissionId:",
+          targetSubmissionId || "none (using userId)",
           "userId:",
           targetUserId
         );
-        response = await getMinistrySubmissionDetailsForReview(
-          targetSubmissionId,
+          response = await getMinistrySubmissionDetailsForReview(
+          targetSubmissionId || undefined,
           targetUserId
         );
+        }
       }
 
       if (
@@ -814,7 +834,27 @@ export function MinistrySubmissionReviewWrapper({
                           sectionName,
                           indicatorCode
                         ) => {
-                          // Render role-based action buttons for each section
+                          // Find the section object to get submissionIndicatorId
+                        let sectionSubmissionIndicatorId: string | null = null;
+                        
+                        // Search through assignedIndicators to find the section
+                        for (const indicatorObj of assignedIndicators) {
+                          const categoryName = Object.keys(indicatorObj)[0];
+                          const sections = indicatorObj[categoryName];
+                          if (Array.isArray(sections)) {
+                            for (const sectionObject of sections) {
+                              const sectionKey = Object.keys(sectionObject)[0];
+                              const section = sectionObject[sectionKey] as any; // Type assertion to access submissionIndicatorId
+                              if (section.sNo === indicatorCode) {
+                                sectionSubmissionIndicatorId = section.submissionIndicatorId || null;
+                                break;
+                              }
+                            }
+                            if (sectionSubmissionIndicatorId) break;
+                          }
+                        }
+                        
+                        // Render role-based action buttons for each section
                           if (user?.role === "MINISTRY_APPROVER") {
                             const isSectionEditing =
                               editingSections.has(sectionId);
@@ -904,12 +944,20 @@ export function MinistrySubmissionReviewWrapper({
                               <MospiReviewerActionButtons
                                 sectionId={sectionId}
                                 onAddComment={() => {
-                                  // TODO: Implement add comment action
-                                  toast({
-                                    title: "Add Comment",
-                                    description: `Add comment for section ${sectionId}`,
+                                  if (sectionSubmissionIndicatorId) {
+                                  setSelectedSectionForComment({
+                                    submissionIndicatorId: sectionSubmissionIndicatorId,
+                                    sectionTitle: sectionName || sectionId,
                                   });
-                                }}
+                                  setCommentDialogOpen(true);
+                                } else {
+                                    toast({
+                                      title: "Error",
+                                      description: "Submission indicator ID not found for this section",
+                                    variant: "destructive",
+                                    });
+                                  }
+                              }}
                                 onTimeline={() => {
                                   // TODO: Implement timeline action
                                   toast({
@@ -968,6 +1016,21 @@ export function MinistrySubmissionReviewWrapper({
           </div>
         )}
       </div>
+
+      {/* Comment Dialog */}
+      <MinistryCommentDialog
+        isOpen={commentDialogOpen}
+        onClose={() => {
+          setCommentDialogOpen(false);
+          setSelectedSectionForComment(null);
+        }}
+        onSuccess={() => {
+          // Optionally refresh data or show success message
+          console.log("Comment added successfully");
+        }}
+        sectionTitle={selectedSectionForComment?.sectionTitle}
+        submissionIndicatorId={selectedSectionForComment?.submissionIndicatorId || ""}
+      />
     </div>
   );
 }

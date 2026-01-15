@@ -10,11 +10,13 @@ import { useAuth } from "@/features/auth/AuthProvider";
 interface ReviewerSubmissionsTableProps {
   submissions?: any[];
   loading?: boolean;
+  activeTab?: "state" | "ministry";
 }
 
 export default function ReviewerSubmissionsTable({
   submissions: propSubmissions,
   loading: propLoading,
+  activeTab = "state",
 }: ReviewerSubmissionsTableProps = {}) {
   const { user } = useAuth();
   const [selectedState, setSelectedState] = useState("All");
@@ -131,8 +133,19 @@ export default function ReviewerSubmissionsTable({
     }
   };
 
-  const handleReview = (submissionId: string) => {
-    navigate(`/data-submission/review/${submissionId}`);
+  const handleReview = (submissionId: string, submission?: any) => {
+    // For ministry tab, navigate to ministry review page (same as MOSPI_APPROVER)
+    if (activeTab === "ministry") {
+      // Use submission.id for the route, and pass isConsolidated=true for consolidated API
+      const userId = submission?.userId || submission?.user?.id;
+      const url = userId 
+        ? `/ministry/review-submissions/form-review/${submissionId}?userId=${userId}&isConsolidated=true`
+        : `/ministry/review-submissions/form-review/${submissionId}?isConsolidated=true`;
+      navigate(url);
+    } else {
+      // For state tab, use existing navigation
+      navigate(`/data-submission/review/${submissionId}`);
+    }
   };
 
   if (displayLoading) {
@@ -240,12 +253,16 @@ export default function ReviewerSubmissionsTable({
                   </td>
                   <td className="px-3 py-2 border-b text-center">
                     <Button
-                      onClick={() => handleReview(submission.id)}
+                      onClick={() => handleReview(submission.id, submission)}
                       size="sm"
+                      variant="outline"
                       className="gap-2"
                     >
                       <Eye className="w-4 h-4" />
-                      Review
+                      {user?.role === "MOSPI_REVIEWER" &&
+                      submission.status === "RETURNED_FROM_MOSPI"
+                        ? "View"
+                        : "Review"}
                     </Button>
                   </td>
                 </tr>
