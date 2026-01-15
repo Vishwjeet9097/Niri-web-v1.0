@@ -417,6 +417,99 @@ export async function getMinistryProgressBarData(ministryUserId: string): Promis
 }
 
 /**
+ * Get preview data for ministry user
+ * Uses the preview API endpoint that accepts userId directly
+ * @param ministryUserId - The ministry user ID to fetch preview data for
+ * @returns Promise with preview data array
+ */
+export async function getMinistryPreviewData(ministryUserId: string): Promise<{
+    status: boolean;
+    data: any[];
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/form/retrieve/preview/${ministryUserId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        
+        // Handle response structure
+        if (response?.status && Array.isArray(response.data)) {
+            return {
+                status: response.status,
+                data: response.data,
+                message: response.message || 'Preview data retrieved successfully',
+            };
+        }
+        
+        // If response is directly an array
+        if (Array.isArray(response)) {
+            return {
+                status: true,
+                data: response,
+                message: 'Preview data retrieved successfully',
+            };
+        }
+        
+        // If response.data is an array
+        if (response?.data && Array.isArray(response.data)) {
+            return {
+                status: response.status ?? true,
+                data: response.data,
+                message: response.message || 'Preview data retrieved successfully',
+            };
+        }
+        
+        return { status: false, data: [], message: 'Unexpected response structure' };
+    } catch (error: any) {
+        console.error('[getMinistryPreviewData] API Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update ministry form status
+ * @param formId - Optional form ID (if not provided, backend will find form for current user)
+ * @param status - Form status to set (SUBMITTED_TO_MOSPI_REVIEWER, etc.)
+ * @returns Promise with update result
+ */
+export async function updateMinistryFormStatus(
+    formId: string | undefined,
+    status: string
+): Promise<{
+    status: boolean;
+    message: string;
+    data?: any;
+}> {
+    try {
+        const url = getApiUrl('/ministry/form/submission/form/status');
+        const payload: { formId?: string; status: string } = { status };
+        
+        if (formId) {
+            payload.formId = formId;
+        }
+        
+        const response = await apiService.put(url, payload, { withCredentials: true });
+        
+        // Handle response structure
+        if (response?.status !== undefined) {
+            return {
+                status: response.status,
+                message: response.message || 'Form status updated successfully',
+                data: response.data,
+            };
+        }
+        
+        return {
+            status: true,
+            message: 'Form status updated successfully',
+            data: response,
+        };
+    } catch (error: any) {
+        console.error('[updateMinistryFormStatus] API Error:', error);
+        throw error;
+    }
+}
+
+/**
  * Get Ministry Submission Details for MOSPI Dashboard
  * Fetches ministry submissions for the MOSPI Approver/Reviewer dashboard table
  * @param userId - The user ID (MOSPI Approver/Reviewer) to fetch submissions for
@@ -869,25 +962,37 @@ export async function getMinistrySubmissionDetailsForReview(
     submissionId?: string;
 }> {
     try {
-        // If submissionId is provided, use it directly
-        let targetSubmissionId = submissionId;
+        // Helper function to check if a string is a valid UUID
+        const isValidUUID = (str: string | null | undefined): boolean => {
+            if (!str) return false;
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            return uuidRegex.test(str);
+        };
+
+        // If submissionId is provided, validate it's a UUID
+        let targetSubmissionId = submissionId && isValidUUID(submissionId) ? submissionId : undefined;
         
-        // If submissionId is not provided but userId is, fetch submissionId first
+        // If submissionId is not provided or not a valid UUID, but userId is, fetch submissionId first
         if (!targetSubmissionId && userId) {
-            console.log('[getMinistrySubmissionDetailsForReview] No submissionId provided, fetching from userId:', userId);
-            targetSubmissionId = await getMinistrySubmissionId(userId);
+            console.log('[getMinistrySubmissionDetailsForReview] No valid UUID submissionId provided, fetching from userId:', userId);
+            const fetchedSubmissionId = await getMinistrySubmissionId(userId);
             
-            // If we still don't have submissionId, we cannot proceed
-            // The backend endpoint requires submissionId, not userId
-            if (!targetSubmissionId) {
-                const errorMsg = 'Could not retrieve submissionId from userId. The submission may not exist or the backend response format is unexpected.';
+            // Only use fetched submissionId if it's a valid UUID
+            // Note: getMinistrySubmissionId returns submission ID string like "SUB-2026-141817", not UUID
+            // So we can't use it directly - we need to use the preview API instead
+            if (fetchedSubmissionId && isValidUUID(fetchedSubmissionId)) {
+                targetSubmissionId = fetchedSubmissionId;
+            } else {
+                // If we get a non-UUID submissionId, we cannot use the submission-with-data endpoint
+                // The caller should use getMinistryPreviewData instead
+                const errorMsg = 'Could not retrieve valid UUID submissionId from userId. The submission ID returned is not a UUID. Use getMinistryPreviewData instead.';
                 console.error('[getMinistrySubmissionDetailsForReview] ❌', errorMsg);
                 throw new Error(errorMsg);
             }
         }
         
         if (!targetSubmissionId) {
-            throw new Error('Either submissionId or userId must be provided');
+            throw new Error('A valid UUID submissionId is required. If you only have userId, use getMinistryPreviewData instead.');
         }
         
         const url = getApiUrl(`/ministry/form/retrieve/submission-with-data/${targetSubmissionId}?forReview=true`);

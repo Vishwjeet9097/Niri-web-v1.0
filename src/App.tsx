@@ -38,6 +38,7 @@ import { MinistrySubmissionWrapper } from "./features/ministry/pages/MinistrySub
 // import { MinistryApproverDashboardPage } from "./features/ministry/Dashboard/MinistryApproverDashboardPage";
 import { MinistryReviewSubmissionsPage } from "./features/ministry/pages/MinistryReviewSubmissionsPage";
 import { MinistryFormReviewSubmissionPage } from "./features/ministry/pages/MinistryFormReviewSubmissionPage";
+import { MinistryPreviewPage } from "./features/ministry/pages/MinistryPreviewPage";
 import { RoleBasedRedirect } from "./components/RoleBasedRedirect";
 import { MinistryDashboardPage } from "./features/ministry/Dashboard/MinistryDashboardPage";
 import { MinistryNodalDashboardPage } from "./features/ministry/Dashboard/MinistryNodalDashboardPage";
@@ -166,6 +167,14 @@ const App = () => (
                     element={
                       <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
                         <MinistryFormReviewSubmissionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                   <Route
+                    path="preview"
+                    element={
+                      <ProtectedRoute allowedRoles={['MINISTRY_APPROVER', 'ADMIN', 'MOSPI_APPROVER']}>
+                        <MinistryPreviewPage />
                       </ProtectedRoute>
                     }
                   />

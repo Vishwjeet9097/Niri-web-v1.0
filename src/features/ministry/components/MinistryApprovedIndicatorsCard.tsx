@@ -3,12 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getMinistryProgressBarData } from '@/services/ministry.service';
+import { getMinistryProgressBarData, updateMinistryFormStatus } from '@/services/ministry.service';
+import { useToast } from '@/hooks/use-toast';
+import { notificationService } from '@/services/notification.service';
 
 interface ProgressStats {
   approved: number;
   total: number;
   percentage: number;
+  formId?: string | null;
 }
 
 interface MinistryApprovedIndicatorsCardProps {
@@ -22,8 +25,10 @@ export function MinistryApprovedIndicatorsCard({
 }: MinistryApprovedIndicatorsCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [ministryProgress, setMinistryProgress] = useState<ProgressStats | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const isFetchingProgress = useRef(false);
 
   useEffect(() => {
@@ -49,21 +54,25 @@ export function MinistryApprovedIndicatorsCard({
         // 2. Direct: { accepted, total, formId }
         let accepted = 0;
         let total = 0;
+        let formId: string | null = null;
 
         if (response?.status && response?.data) {
           // Wrapped response structure
           accepted = response.data.accepted || 0;
           total = response.data.total || 0;
+          formId = response.data.formId || null;
         } else if (response?.accepted !== undefined && response?.total !== undefined) {
           // Direct response structure (data object)
           accepted = response.accepted || 0;
           total = response.total || 0;
+          formId = response.formId || null;
         } else {
           console.warn('⚠️ [MinistryProgress] Unexpected response structure:', response);
           // Try to extract from response.data if it exists
           if (response?.data) {
             accepted = response.data.accepted || 0;
             total = response.data.total || 0;
+            formId = response.data.formId || null;
           }
         }
 
@@ -74,6 +83,7 @@ export function MinistryApprovedIndicatorsCard({
           approved: accepted,
           total: total,
           percentage,
+          formId,
         });
 
         console.log('✅ [MinistryProgress] Progress calculated:', {
@@ -124,7 +134,54 @@ export function MinistryApprovedIndicatorsCard({
   const handlePreviewClick = () => {
     // Navigate to preview page
     if (user?.id) {
-      navigate(`/ministry/submission?userId=${user.id}`);
+      navigate(`/ministry/preview?userId=${user.id}`);
+    }
+  };
+
+  const handleSubmitNow = async () => {
+    if (!ministryProgress) {
+      toast({
+        title: 'Error',
+        description: 'Progress data not available. Please wait for data to load.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      console.log('🚀 [MinistrySubmit] Submitting form, formId:', ministryProgress.formId);
+
+      // Submit to MoSPI Reviewer
+      const result = await updateMinistryFormStatus(
+        ministryProgress.formId || undefined,
+        'SUBMITTED_TO_MOSPI_REVIEWER'
+      );
+
+      if (result.status) {
+        toast({
+          title: 'Success',
+          description: result.message || 'Form submitted successfully to MoSPI Reviewer',
+          variant: 'default',
+        });
+        notificationService.success(result.message || 'Form submitted successfully');
+        
+        // Refresh progress data after submission
+        // The loadProgress function will be called automatically via the interval/visibility handlers
+      } else {
+        throw new Error(result.message || 'Failed to submit form');
+      }
+    } catch (error: any) {
+      console.error('❌ [MinistrySubmit] Failed to submit form:', error);
+      const errorMessage = error?.message || 'Failed to submit form. Please try again.';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      notificationService.error(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -191,6 +248,13 @@ export function MinistryApprovedIndicatorsCard({
             onClick={handlePreviewClick}
           >
             Preview
+          </Button>
+          <Button
+            className="shrink-0 text-white px-6 bg-[#1e3a8a] hover:bg-[#1e3299]"
+            onClick={handleSubmitNow}
+            disabled={submitting || progressLoading}
+          >
+            {submitting ? 'Submitting…' : 'Submit Now'}
           </Button>
         </div>
       </div>
