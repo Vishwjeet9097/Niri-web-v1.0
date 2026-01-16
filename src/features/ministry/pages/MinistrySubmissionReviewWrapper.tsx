@@ -496,24 +496,37 @@ export function MinistrySubmissionReviewWrapper({
       return;
     }
 
-    // Check if section is accepted - if so, prevent editing (unless NODAL_OFFICER editing sent back section)
-    if (isSectionAccepted(sectionId) && !canNodalOfficerEdit(sectionId)) {
-      toast({
-        title: "Cannot Edit",
-        description: `Section ${sectionId} has been accepted and cannot be edited.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    // Get section status for permission checks
+    const sectionStatus = getSectionStatus(sectionId);
+    const upperStatus = sectionStatus?.toUpperCase() || "";
 
-    // For NODAL_OFFICER, allow editing only if status is RETURNED_FROM_MINISTRY
-    if (user?.role === "NODAL_OFFICER" && !canNodalOfficerEdit(sectionId)) {
-      toast({
-        title: "Cannot Edit",
-        description: `Section ${sectionId} cannot be edited. Only sections sent back by Ministry Approver can be edited.`,
-        variant: "destructive",
-      });
-      return;
+    // For MINISTRY_APPROVER, allow editing RESUBMITTED sections
+    if (user?.role === "MINISTRY_APPROVER" && upperStatus === "RESUBMITTED") {
+      // Allow editing - proceed to enable edit mode below
+      console.log(
+        "[MinistrySubmissionReviewWrapper] MINISTRY_APPROVER editing RESUBMITTED section:",
+        sectionId
+      );
+    } else {
+      // Check if section is accepted - if so, prevent editing (unless NODAL_OFFICER editing sent back section)
+      if (isSectionAccepted(sectionId) && !canNodalOfficerEdit(sectionId)) {
+        toast({
+          title: "Cannot Edit",
+          description: `Section ${sectionId} has been accepted and cannot be edited.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // For NODAL_OFFICER, allow editing only if status is RETURNED_FROM_MINISTRY
+      if (user?.role === "NODAL_OFFICER" && !canNodalOfficerEdit(sectionId)) {
+        toast({
+          title: "Cannot Edit",
+          description: `Section ${sectionId} cannot be edited. Only sections sent back by Ministry Approver can be edited.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     const sectionKey = `section${sectionId.replace(".", "_")}`;
@@ -761,11 +774,23 @@ export function MinistrySubmissionReviewWrapper({
       // Determine status based on user role and current section status
       let statusToSet = "SUBMITTED_TO_MINISTRY"; // Default status
       const sectionStatus = getSectionStatus(sectionId);
+      const upperStatus = sectionStatus?.toUpperCase() || "";
 
-      // If NODAL_OFFICER is saving a section that was RETURNED_FROM_MINISTRY, set status to RESUBMITTED
+      // If MINISTRY_APPROVER is saving a section that is RESUBMITTED, keep it as RESUBMITTED
       if (
+        user?.role === "MINISTRY_APPROVER" &&
+        upperStatus === "RESUBMITTED"
+      ) {
+        statusToSet = "RESUBMITTED";
+        console.log(
+          "[MinistrySubmissionReviewWrapper] MINISTRY_APPROVER saving RESUBMITTED section, keeping status as RESUBMITTED:",
+          sectionId
+        );
+      }
+      // If NODAL_OFFICER is saving a section that was RETURNED_FROM_MINISTRY, set status to RESUBMITTED
+      else if (
         user?.role === "NODAL_OFFICER" &&
-        sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY"
+        upperStatus === "RETURNED_FROM_MINISTRY"
       ) {
         statusToSet = "RESUBMITTED";
         console.log(
