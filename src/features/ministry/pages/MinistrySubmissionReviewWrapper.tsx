@@ -16,6 +16,7 @@ import {
   getMinistrySubmissionDetailsForReview,
   getMinistrySubmissionDetailsConsolidated,
   getMinistryPreviewData,
+  updateMinistryIndicatorStatus,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
   getMinistrySubmissionIndicatorComments,
@@ -95,12 +96,6 @@ export function MinistrySubmissionReviewWrapper({
     assignedIndicators,
   });
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
-  const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
-    submissionIndicatorId: string;
-    sectionTitle: string;
-    sectionId?: string;
-    isSendBack?: boolean;
-  } | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
     string | null
@@ -116,12 +111,61 @@ export function MinistrySubmissionReviewWrapper({
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
     {}
   );
+  const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
+    submissionIndicatorId: string;
+    sectionTitle: string;
+    sectionId?: string;
+    isSendBack?: boolean;
+  } | null>(null);
+  const [submittingIndicatorId, setSubmittingIndicatorId] = useState<string | null>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [pendingSendBackAction, setPendingSendBackAction] = useState<{
+    submissionIndicatorId: string;
+    sectionId: string;
+  } | null>(null);
 
+  // Handler to execute after comment is saved for send back action
+  const handleSendBackAfterComment = async () => {
+    if (!pendingSendBackAction) {
+      return;
+    }
+
+    try {
+      setSubmittingIndicatorId(pendingSendBackAction.submissionIndicatorId);
+      console.log("📤 Sending back indicator after comment:", {
+        submissionIndicatorId: pendingSendBackAction.submissionIndicatorId,
+        sectionId: pendingSendBackAction.sectionId,
+        status: "RETURNED_FROM_MOSPI_APPROVER_DRAFT",
+      });
+
+      await updateMinistryIndicatorStatus(
+        pendingSendBackAction.submissionIndicatorId,
+        "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
+      );
+
+      toast({
+        title: "Success",
+        description: `Indicator ${pendingSendBackAction.sectionId} sent back successfully`,
+      });
+
+      // Reload data to reflect the change
+      setReloadTrigger(prev => prev + 1);
+    } catch (error: any) {
+      console.error("❌ Error sending back indicator:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to send back indicator",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingIndicatorId(null);
+      setPendingSendBackAction(null);
+    }
+  };
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId]);
+  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId, reloadTrigger]);
 
   const loadSubmissionData = async () => {
     try {
@@ -1141,7 +1185,7 @@ export function MinistrySubmissionReviewWrapper({
   };
 
   // Handle send back after comment is saved
-  const handleSendBackAfterComment = async (sectionId: string) => {
+  const handleSendBackAfterCommentMinistry = async (sectionId: string) => {
     if (!selectedSectionForComment?.submissionIndicatorId) {
       toast({
         title: "Error",
@@ -1745,15 +1789,25 @@ export function MinistrySubmissionReviewWrapper({
         onClose={() => {
           setCommentDialogOpen(false);
           setSelectedSectionForComment(null);
+          // Clear pending send back action if dialog is closed without saving
+          if (pendingSendBackAction) {
+            setPendingSendBackAction(null);
+          }
         }}
         onSuccess={() => {
           // Optionally refresh data or show success message
           console.log("Comment added successfully");
+           if (pendingSendBackAction) {
+            // Small delay to ensure comment is saved before status update
+            setTimeout(() => {
+              handleSendBackAfterComment();
+            }, 300);
+          }
         }}
         onSendBack={
           selectedSectionForComment?.isSendBack &&
           selectedSectionForComment?.sectionId
-            ? handleSendBackAfterComment
+            ? handleSendBackAfterCommentMinistry
             : undefined
         }
         sectionTitle={selectedSectionForComment?.sectionTitle}

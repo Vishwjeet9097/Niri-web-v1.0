@@ -64,6 +64,77 @@ export async function getMinistrySubmissionIndicatorComments(
   }
 }
 
+/**
+ * Submit ministry form to MOSPI (for Reviewer and Approver actions)
+ * @param formId - The form ID (optional)
+ * @param action - The action to perform: "send-back" | "accept" | "submit-to-approver"
+ * @returns Promise with the API response
+ */
+export async function submitMospiFormAction(
+  formId?: string,
+  action: "send-back" | "accept" | "submit-to-approver" = "submit-to-approver"
+): Promise<any> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/mospi-form-submit`);
+    
+    const payload: {
+      formId?: string;
+      action: "send-back" | "accept" | "submit-to-approver";
+    } = {
+      action,
+    };
+
+    // Only include formId if provided
+    if (formId) {
+      payload.formId = formId;
+    }
+
+    console.log("📤 Submitting MOSPI form action:", {
+      formId,
+      action,
+      payload,
+    });
+
+    const response = await apiService.put(url, payload, { withCredentials: true });
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error('❌ Error in submitMospiFormAction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update ministry submission indicator status
+ * @param submissionIndicatorId - The submission indicator ID
+ * @param status - The status to set (e.g., "RETURNED_FROM_MOSPI_APPROVER_DRAFT", "ACCEPTED_BY_MOSPI_APPROVER_DRAFT")
+ * @returns Promise with the API response
+ */
+export async function updateMinistryIndicatorStatus(
+  submissionIndicatorId: string,
+  status: string
+): Promise<any> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/indicator/status`);
+    
+    const payload = {
+      submissionIndicatorId,
+      status,
+    };
+
+    console.log("📤 Updating ministry indicator status:", {
+      submissionIndicatorId,
+      status,
+      payload,
+    });
+
+    const response = await apiService.put(url, payload, { withCredentials: true });
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error('❌ Error in updateMinistryIndicatorStatus:', error);
+    throw error;
+  }
+}
+
 // Helper to build full API URL
 function getApiUrl(path: string) {
   const baseUrl = config.apiBaseUrl || "";

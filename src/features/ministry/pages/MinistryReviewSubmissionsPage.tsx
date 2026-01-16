@@ -120,8 +120,21 @@ export function MinistryReviewSubmissionsPage() {
   };
 
   const handleViewDetails = (submission: any) => {
-    // Navigate to submission review page
-    navigate(`/ministry/review-submissions/form-review/${submission.id}`);
+    // Check if submission is consolidated
+    const isConsolidated = submission.isConsolidated === true;
+    
+    console.log('🔍 [handleViewDetails] Submission details:', {
+      id: submission.id,
+      isConsolidated: submission.isConsolidated,
+      willPassConsolidatedParam: isConsolidated
+    });
+    
+    // Navigate to submission review page with isConsolidated query parameter
+    if (isConsolidated) {
+      navigate(`/ministry/review-submissions/form-review/${submission.id}?isConsolidated=true`);
+    } else {
+      navigate(`/ministry/review-submissions/form-review/${submission.id}`);
+    }
   };
 
   const handleReview = (submission: any) => {

@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Clock } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle } from "lucide-react";
 
 interface MospiReviewerActionButtonsProps {
   sectionId?: string;
   onAddComment?: () => void;
+  onAccept?: () => void;
   onTimeline?: () => void;
   timelineCount?: number;
   disabled?: boolean;
@@ -12,6 +13,7 @@ interface MospiReviewerActionButtonsProps {
 export function MospiReviewerActionButtons({
   sectionId,
   onAddComment,
+  onAccept,
   onTimeline,
   timelineCount = 0,
   disabled = false,
@@ -28,6 +30,18 @@ export function MospiReviewerActionButtons({
         <MessageSquare className="w-4 h-4 mr-1" />
         Add Comment
       </Button>
+      {onAccept && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAccept}
+          disabled={disabled}
+          className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+        >
+          <CheckCircle className="w-4 h-4 mr-1" />
+          Accept
+        </Button>
+      )}
       <Button
         variant="outline"
         size="sm"
