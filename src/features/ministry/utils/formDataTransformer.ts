@@ -166,6 +166,8 @@ export function transformApiResponseToFormData(
 
                                   // Generic transformation - converts any array of items to object
                                   const itemObject: Record<string, any> = {};
+                                  // Store primaryIds per field (each field has its own primaryId)
+                                  const fieldPrimaryIds: Record<string, string> = {};
                                   itemArray.forEach((item: any) => {
                                     if (item && item.inputId) {
                                       const value =
@@ -179,8 +181,16 @@ export function transformApiResponseToFormData(
                                           item.dataType || "string"
                                         );
                                       itemObject[item.inputId] = value;
+                                      // Store primaryId for this specific field
+                                      if (item.primaryId) {
+                                        fieldPrimaryIds[item.inputId] = item.primaryId;
+                                      }
                                     }
                                   });
+                                  // Store field primaryIds map in the itemObject
+                                  if (Object.keys(fieldPrimaryIds).length > 0) {
+                                    itemObject._fieldPrimaryIds = fieldPrimaryIds;
+                                  }
                                   return itemObject;
                                 })
                                 .filter(
@@ -210,6 +220,8 @@ export function transformApiResponseToFormData(
                                   `📦 Structure 1 detected: Single entry in array format. Total items: ${firstElement.length}`
                                 );
                                 const itemObject: Record<string, any> = {};
+                                // Store primaryIds per field
+                                const fieldPrimaryIds: Record<string, string> = {};
                                 firstElement.forEach((item: any) => {
                                   if (item && item.inputId) {
                                     const value = extractValueFromSubmittedData(
@@ -222,8 +234,16 @@ export function transformApiResponseToFormData(
                                       item.dataType || "string"
                                     );
                                     itemObject[item.inputId] = value;
+                                    // Store primaryId for this specific field
+                                    if (item.primaryId) {
+                                      fieldPrimaryIds[item.inputId] = item.primaryId;
+                                    }
                                   }
                                 });
+                                // Store field primaryIds map in the itemObject
+                                if (Object.keys(fieldPrimaryIds).length > 0) {
+                                  itemObject._fieldPrimaryIds = fieldPrimaryIds;
+                                }
                                 if (Object.keys(itemObject).length > 0) {
                                   transformedItems.push(itemObject);
                                 }
@@ -269,6 +289,8 @@ export function transformApiResponseToFormData(
                                 i + fieldsPerEntry
                               );
                               const itemObject: Record<string, any> = {};
+                              // Store primaryIds per field (each field has its own primaryId)
+                              const fieldPrimaryIds: Record<string, string> = {};
 
                               entryItems.forEach((item: any) => {
                                 if (item && item.inputId) {
@@ -282,8 +304,17 @@ export function transformApiResponseToFormData(
                                     item.dataType || "string"
                                   );
                                   itemObject[item.inputId] = value;
+                                  // Store primaryId for this specific field
+                                  if (item.primaryId) {
+                                    fieldPrimaryIds[item.inputId] = item.primaryId;
+                                  }
                                 }
                               });
+
+                              // Store field primaryIds map in the itemObject
+                              if (Object.keys(fieldPrimaryIds).length > 0) {
+                                itemObject._fieldPrimaryIds = fieldPrimaryIds;
+                              }
 
                               // Only add if object has at least one property
                               if (Object.keys(itemObject).length > 0) {

@@ -135,6 +135,32 @@ export async function updateMinistryIndicatorStatus(
   }
 }
 
+/**
+ * Delete a file from ministry submission
+ * @param payload - The delete payload with action and either submissionIndicatorId or primaryId
+ * @returns Promise with the API response
+ */
+export async function deleteMinistrySubmissionFile(payload: {
+  action: "by-submission-indicator" | "by-primary-id";
+  submissionIndicatorId?: string;
+  primaryId?: string;
+}): Promise<any> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/file-data`);
+
+    console.log("📤 Deleting ministry submission file:", payload);
+
+    const response = await apiService.delete(url, {
+      data: payload,
+      withCredentials: true,
+    });
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error("❌ Error in deleteMinistrySubmissionFile:", error);
+    throw error;
+  }
+}
+
 // Helper to build full API URL
 function getApiUrl(path: string) {
   const baseUrl = config.apiBaseUrl || "";

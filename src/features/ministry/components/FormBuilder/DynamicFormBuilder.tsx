@@ -394,6 +394,10 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                             indicatorName={sectionName}
                                             onValidate={onValidateField}
                                             onClearError={onClearFieldError}
+                                            submissionIndicatorId={
+                                              (section as any)
+                                                .submissionIndicatorId
+                                            }
                                           />
                                         );
                                       })}
@@ -457,6 +461,10 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                 onFieldChange={
                                                   handleFieldChange
                                                 }
+                                                submissionIndicatorId={
+                                                  (section as any)
+                                                    .submissionIndicatorId
+                                                }
                                               />
                                             );
                                           })}
@@ -513,6 +521,10 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                 )}
                                                 indicatorName={sectionName}
                                                 onValidate={onValidateField}
+                                                submissionIndicatorId={
+                                                  (section as any)
+                                                    .submissionIndicatorId
+                                                }
                                               />
                                             );
                                           })}
@@ -569,6 +581,10 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                 )}
                                                 indicatorName={sectionName}
                                                 onValidate={onValidateField}
+                                                submissionIndicatorId={
+                                                  (section as any)
+                                                    .submissionIndicatorId
+                                                }
                                               />
                                             );
                                           })}

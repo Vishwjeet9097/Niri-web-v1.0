@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { deleteMinistrySubmissionFile } from "@/services/ministry.service";
 import type { FileUpload } from "@/features/submission/types";
 
 interface MinistryFileUploadSectionProps {
@@ -34,6 +35,9 @@ interface MinistryFileUploadSectionProps {
   noDocumentAvailableValue?: string;
   onNoDocumentAvailableChange?: (value: string) => void;
   noDocumentAvailableFieldId?: string; // Field ID for the "No document available" input field
+  // Props for ministry file deletion
+  submissionIndicatorId?: string; // For files directly associated with an indicator
+  primaryId?: string; // For files in subsections
 }
 
 export const MinistryFileUploadSection = ({
@@ -52,6 +56,8 @@ export const MinistryFileUploadSection = ({
   noDocumentAvailableValue,
   onNoDocumentAvailableChange,
   noDocumentAvailableFieldId,
+  submissionIndicatorId,
+  primaryId,
 }: MinistryFileUploadSectionProps) => {
   const uniqueId = useId();
   const fileInputId = `file-${uniqueId}`;
@@ -149,29 +155,66 @@ export const MinistryFileUploadSection = ({
       return;
     }
 
-    if (value?.filePath && submissionId) {
+    // Debug logging
+    console.log("[MinistryFileUploadSection] Delete file called:", {
+      submissionIndicatorId,
+      primaryId,
+      hasValue: !!value,
+      filePath: value?.filePath,
+    });
+
+    // If we have submissionIndicatorId or primaryId, use the ministry delete API
+    // For subsection files, primaryId should be available
+    // For direct indicator files, submissionIndicatorId should be available
+    if (submissionIndicatorId || primaryId) {
       try {
-        await apiService.deleteFile(value.filePath);
+        const payload: {
+          action: "by-submission-indicator" | "by-primary-id";
+          submissionIndicatorId?: string;
+          primaryId?: string;
+        } = submissionIndicatorId
+          ? {
+              action: "by-submission-indicator",
+              submissionIndicatorId,
+            }
+          : {
+              action: "by-primary-id",
+              primaryId: primaryId!,
+            };
+
+        console.log("[MinistryFileUploadSection] Calling ministry delete API:", payload);
+        await deleteMinistrySubmissionFile(payload);
         notificationService.success(
           "File deleted successfully",
           "File Removed"
         );
+        onChange(null);
+        // After removing file, if "No Document Available" was previously set, restore it
+        if (isNoDocumentAvailableChecked && onNoDocumentAvailableChange) {
+          console.log(
+            `🔄 [MinistryFileUploadSection] File removed, keeping "No Document Available" checked`
+          );
+        }
+        return;
       } catch (error) {
+        console.error("[MinistryFileUploadSection] Delete error:", error);
         notificationService.error(
           (error as Error).message || "Failed to delete file.",
           "Delete Failed"
         );
+        return;
       }
     }
-    onChange(null);
-    // After removing file, if "No Document Available" was previously set, restore it
-    // This ensures the checkbox state is maintained when removing files during edit
-    if (isNoDocumentAvailableChecked && onNoDocumentAvailableChange) {
-      // Keep "No Document Available" checked if it was previously set
-      console.log(
-        `🔄 [MinistryFileUploadSection] File removed, keeping "No Document Available" checked`
-      );
-    }
+
+    // If we don't have ministry-specific IDs, we should not try to delete
+    // This prevents calling the wrong API endpoint
+    console.warn(
+      "[MinistryFileUploadSection] No submissionIndicatorId or primaryId provided, cannot delete file via ministry API"
+    );
+    notificationService.error(
+      "Cannot delete file: Missing required information.",
+      "Delete Failed"
+    );
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {

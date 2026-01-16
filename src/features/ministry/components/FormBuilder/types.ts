@@ -78,6 +78,8 @@ export interface FieldRendererProps {
   sectionKey?: string; // Section key to find "No document available" field
   sectionInputs?: InputField[]; // Section inputs to find "No document available" field
   onFieldChange?: (path: string, value: any, field?: any) => void; // Handler to update "No document available" field
+  // Props for ministry file deletion
+  submissionIndicatorId?: string; // For files directly associated with an indicator
 }
 
 export interface SubsectionRendererProps {

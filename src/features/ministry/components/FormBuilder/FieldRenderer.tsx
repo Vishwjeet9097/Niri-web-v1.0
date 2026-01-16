@@ -30,6 +30,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
     sectionKey,
     sectionInputs,
     onFieldChange,
+    submissionIndicatorId,
   }) => {
     // All fields are mandatory - always show asterisk
     const isRequired = true;
@@ -725,6 +726,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                 disabled={disabled}
                 className={error ? "border-destructive" : className}
                 noDocumentAvailableValue={noDocAvailableValue}
+                submissionIndicatorId={submissionIndicatorId}
                 onNoDocumentAvailableChange={(newValue) => {
                   console.log(
                     `🔄 [FieldRenderer] onNoDocumentAvailableChange called, newValue: "${newValue}"`

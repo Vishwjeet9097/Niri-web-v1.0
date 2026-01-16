@@ -559,6 +559,18 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                   ? item[noDocAvailableField.id]
                   : undefined;
 
+              // Get primaryId specifically for this file field from the fieldPrimaryIds map
+              // Each field has its own primaryId, so we need to get the one for this specific file field
+              const fieldPrimaryIds = item?._fieldPrimaryIds as Record<string, string> | undefined;
+              const fileFieldPrimaryId = fieldPrimaryIds?.[field.id];
+              
+              console.log(`[MinistrySubsectionForm] File field ${field.id} at index ${index}:`, {
+                fileFieldPrimaryId,
+                fieldPrimaryIds,
+                item: item,
+                fieldValue: fieldValue,
+              });
+
               return (
                 <div className="space-y-2" data-field-path={fieldPath}>
                   <MinistryFileUploadSection
@@ -643,6 +655,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                       }
                     }}
                     noDocumentAvailableFieldId={noDocAvailableField?.id}
+                    primaryId={fileFieldPrimaryId}
                   />
                   {error && (
                     <p className="text-sm text-destructive mt-1">{error}</p>
