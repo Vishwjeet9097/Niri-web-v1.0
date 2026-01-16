@@ -58,6 +58,7 @@ export interface DynamicFormBuilderProps {
   onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
   onClearFieldError?: (path: string) => void; // Clear error when user starts typing
   renderSectionActionButtons?: (sectionId: string, sectionName: string, indicatorCode: string) => React.ReactNode; // Action buttons for each section in review mode
+  onMarkItemForDeletion?: (sectionKey: string, subsectionName: string, index: number, primaryId: string, submissionIndicatorId: string) => void; // Callback to mark item for deletion (for review mode)
 }
 
 export interface FieldRendererProps {

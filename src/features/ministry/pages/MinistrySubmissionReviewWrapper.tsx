@@ -20,6 +20,7 @@ import {
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
   getMinistrySubmissionIndicatorComments,
+  deleteSubmissionData,
 } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
@@ -83,6 +84,13 @@ export function MinistrySubmissionReviewWrapper({
   >({});
   const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
 
+  // Track items marked for deletion (will be deleted when Save is clicked)
+  // Key format: `${sectionKey}.${subsectionName}.${index}`
+  // Value: { primaryId: string, submissionIndicatorId: string }
+  const [itemsMarkedForDeletion, setItemsMarkedForDeletion] = useState<
+    Record<string, { primaryId: string; submissionIndicatorId: string }>
+  >({});
+
   // Validation hook for edit mode
   const {
     validationErrors,
@@ -117,7 +125,9 @@ export function MinistrySubmissionReviewWrapper({
     sectionId?: string;
     isSendBack?: boolean;
   } | null>(null);
-  const [submittingIndicatorId, setSubmittingIndicatorId] = useState<string | null>(null);
+  const [submittingIndicatorId, setSubmittingIndicatorId] = useState<
+    string | null
+  >(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [pendingSendBackAction, setPendingSendBackAction] = useState<{
     submissionIndicatorId: string;
@@ -149,12 +159,15 @@ export function MinistrySubmissionReviewWrapper({
       });
 
       // Reload data to reflect the change
-      setReloadTrigger(prev => prev + 1);
+      setReloadTrigger((prev) => prev + 1);
     } catch (error: any) {
       console.error("❌ Error sending back indicator:", error);
       toast({
         title: "Error",
-        description: error?.response?.data?.message || error?.message || "Failed to send back indicator",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to send back indicator",
         variant: "destructive",
       });
     } finally {
@@ -165,7 +178,13 @@ export function MinistrySubmissionReviewWrapper({
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
-  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId, reloadTrigger]);
+  }, [
+    submission?.id,
+    userId,
+    useConsolidatedApi,
+    propSubmissionId,
+    reloadTrigger,
+  ]);
 
   const loadSubmissionData = async () => {
     try {
@@ -466,6 +485,17 @@ export function MinistrySubmissionReviewWrapper({
       sectionId
     );
 
+    // Check if section is already in edit mode - if so, don't clear deletion marks
+    // This prevents clearing marks if Edit is clicked multiple times
+    const isAlreadyEditing = editingSections.has(sectionId);
+    if (isAlreadyEditing) {
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Section already in edit mode, skipping edit start:",
+        sectionId
+      );
+      return;
+    }
+
     // Check if section is accepted - if so, prevent editing (unless NODAL_OFFICER editing sent back section)
     if (isSectionAccepted(sectionId) && !canNodalOfficerEdit(sectionId)) {
       toast({
@@ -488,14 +518,44 @@ export function MinistrySubmissionReviewWrapper({
 
     const sectionKey = `section${sectionId.replace(".", "_")}`;
 
-    // Store original form data snapshot
-    const originalData = formData[sectionKey]
-      ? JSON.parse(JSON.stringify(formData[sectionKey]))
-      : {};
-    setOriginalFormDataSnapshots((prev) => ({
-      ...prev,
-      [sectionId]: originalData,
-    }));
+    // Store original form data snapshot (only if not already stored)
+    if (!originalFormDataSnapshots[sectionId]) {
+      const originalData = formData[sectionKey]
+        ? JSON.parse(JSON.stringify(formData[sectionKey]))
+        : {};
+      setOriginalFormDataSnapshots((prev) => ({
+        ...prev,
+        [sectionId]: originalData,
+      }));
+    }
+
+    // Only clear deletion marks if this is a NEW edit session (section not already editing)
+    // This preserves deletion marks if Edit is clicked again while already editing
+    setItemsMarkedForDeletion((prev) => {
+      const newMarked = { ...prev };
+      const keysToClear = Object.keys(newMarked).filter((key) =>
+        key.startsWith(sectionKey)
+      );
+      if (keysToClear.length > 0) {
+        keysToClear.forEach((key) => {
+          delete newMarked[key];
+        });
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Cleared deletion marks for NEW edit session:",
+          sectionId,
+          "Cleared keys:",
+          keysToClear,
+          "Remaining marks:",
+          Object.keys(newMarked)
+        );
+      } else {
+        console.log(
+          "[MinistrySubmissionReviewWrapper] No deletion marks to clear for section:",
+          sectionId
+        );
+      }
+      return newMarked;
+    });
 
     // Enable edit mode
     setEditable(sectionId, true);
@@ -536,6 +596,17 @@ export function MinistrySubmissionReviewWrapper({
       }));
     }
 
+    // Clear items marked for deletion for this section
+    setItemsMarkedForDeletion((prev) => {
+      const newMarked = { ...prev };
+      Object.keys(newMarked).forEach((key) => {
+        if (key.startsWith(sectionKey)) {
+          delete newMarked[key];
+        }
+      });
+      return newMarked;
+    });
+
     // Clear edit mode
     setEditable(sectionId, false);
     setEditingSections((prev) => {
@@ -563,7 +634,130 @@ export function MinistrySubmissionReviewWrapper({
     // Set saving state
     setSavingSections((prev) => new Set(prev).add(sectionId));
 
+    console.log("[MinistrySubmissionReviewWrapper] performSave called:", {
+      sectionId,
+      sectionKey,
+      submissionIndicatorId,
+      itemsMarkedForDeletion,
+      allDeletionKeys: Object.keys(itemsMarkedForDeletion),
+    });
+
     try {
+      // IMPORTANT: Get the current state of itemsMarkedForDeletion at the time of save
+      // Use a function to get the latest state
+      const currentDeletionMarks = itemsMarkedForDeletion;
+
+      // First, delete items marked for deletion for this section
+      // The key format is: `${sectionKey}.${subsectionName}.${primaryId}`
+      const sectionDeletionKeys = Object.keys(currentDeletionMarks).filter(
+        (key) => key.startsWith(sectionKey)
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Checking for items to delete:",
+        {
+          sectionKey,
+          sectionId,
+          allDeletionKeys: Object.keys(currentDeletionMarks),
+          sectionDeletionKeys,
+          currentDeletionMarks,
+          itemsMarkedForDeletion,
+        }
+      );
+
+      if (sectionDeletionKeys.length > 0) {
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Deleting marked items before save:",
+          sectionDeletionKeys,
+          itemsMarkedForDeletion
+        );
+
+        // Group deletions by submissionIndicatorId
+        const deletionsByIndicator: Record<string, string[]> = {};
+        sectionDeletionKeys.forEach((key) => {
+          const markedItem = currentDeletionMarks[key];
+          console.log(
+            "[MinistrySubmissionReviewWrapper] Processing deletion key:",
+            key,
+            markedItem
+          );
+          if (
+            markedItem &&
+            markedItem.primaryId &&
+            markedItem.submissionIndicatorId
+          ) {
+            if (!deletionsByIndicator[markedItem.submissionIndicatorId]) {
+              deletionsByIndicator[markedItem.submissionIndicatorId] = [];
+            }
+            deletionsByIndicator[markedItem.submissionIndicatorId].push(
+              markedItem.primaryId
+            );
+          }
+        });
+
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Grouped deletions by indicator:",
+          deletionsByIndicator
+        );
+
+        // Delete items for each submissionIndicatorId
+        // Handle errors gracefully - if an item was already deleted, continue with save
+        const deleteResults = await Promise.allSettled(
+          Object.entries(deletionsByIndicator).map(
+            async ([indicatorId, primaryIds]) => {
+              try {
+                return await deleteSubmissionData(indicatorId, primaryIds);
+              } catch (error: any) {
+                // If item not found (already deleted), log warning but continue
+                if (
+                  error?.code === 400 &&
+                  error?.message?.includes("not found")
+                ) {
+                  console.warn(
+                    "[MinistrySubmissionReviewWrapper] Item already deleted (skipping):",
+                    { indicatorId, primaryIds, error: error.message }
+                  );
+                  return {
+                    status: true,
+                    message: "Item already deleted",
+                    skipped: true,
+                  };
+                }
+                // For other errors, re-throw to be handled
+                throw error;
+              }
+            }
+          )
+        );
+
+        // Check if any deletions failed (excluding "not found" errors)
+        const failedDeletions = deleteResults.filter(
+          (result) => result.status === "rejected"
+        );
+        if (failedDeletions.length > 0) {
+          console.error(
+            "[MinistrySubmissionReviewWrapper] Some deletions failed:",
+            failedDeletions
+          );
+          // Don't throw - continue with save even if some deletions failed
+          // The items might have been deleted already or there might be a temporary issue
+        }
+
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Successfully processed deletion of marked items"
+        );
+
+        // Clear deletion marks for this section (even if some deletions failed)
+        // This prevents trying to delete the same items again in future saves
+        setItemsMarkedForDeletion((prev) => {
+          const newMarked = { ...prev };
+          sectionDeletionKeys.forEach((key) => {
+            delete newMarked[key];
+          });
+          return newMarked;
+        });
+      }
+
       // Determine status based on user role and current section status
       let statusToSet = "SUBMITTED_TO_MINISTRY"; // Default status
       const sectionStatus = getSectionStatus(sectionId);
@@ -655,8 +849,20 @@ export function MinistrySubmissionReviewWrapper({
 
   // Handle save
   const handleSave = async (sectionId: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] ========== handleSave START =========="
+    );
     console.log("[MinistrySubmissionReviewWrapper] Saving section:", sectionId);
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Current itemsMarkedForDeletion:",
+      itemsMarkedForDeletion
+    );
+    console.log(
+      "[MinistrySubmissionReviewWrapper] All deletion keys:",
+      Object.keys(itemsMarkedForDeletion)
+    );
     const sectionKey = `section${sectionId.replace(".", "_")}`;
+    console.log("[MinistrySubmissionReviewWrapper] Section key:", sectionKey);
 
     // Find the indicator and section data
     let submissionIndicatorId: string | null = null;
@@ -1242,6 +1448,39 @@ export function MinistrySubmissionReviewWrapper({
     }
   };
 
+  // Handle marking item for deletion (review mode only)
+  const handleMarkItemForDeletion = useCallback(
+    (
+      sectionKey: string,
+      subsectionName: string,
+      index: number,
+      primaryId: string,
+      submissionIndicatorId: string
+    ) => {
+      // Use primaryId in the key to make it stable even if index changes
+      // This ensures we can find the item even if the array is reordered
+      const deletionKey = `${sectionKey}.${subsectionName}.${primaryId}`;
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Marking item for deletion:",
+        deletionKey,
+        { primaryId, submissionIndicatorId, index, sectionKey, subsectionName }
+      );
+
+      setItemsMarkedForDeletion((prev) => {
+        const updated = {
+          ...prev,
+          [deletionKey]: { primaryId, submissionIndicatorId },
+        };
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Updated deletion marks:",
+          Object.keys(updated)
+        );
+        return updated;
+      });
+    },
+    []
+  );
+
   // Handle form data change (only when in edit mode)
   const handleFormDataChange = (path: string, value: any) => {
     // Only allow changes when section is in edit mode
@@ -1366,6 +1605,7 @@ export function MinistrySubmissionReviewWrapper({
                         validationErrors={validationErrors} // Pass validation errors
                         onValidateField={validateFieldOnChange} // Enable validation in edit mode
                         onClearFieldError={clearFieldError} // Enable error clearing
+                        onMarkItemForDeletion={handleMarkItemForDeletion} // Mark items for deletion in review mode
                         renderSectionActionButtons={(
                           sectionId,
                           sectionName,
@@ -1797,7 +2037,7 @@ export function MinistrySubmissionReviewWrapper({
         onSuccess={() => {
           // Optionally refresh data or show success message
           console.log("Comment added successfully");
-           if (pendingSendBackAction) {
+          if (pendingSendBackAction) {
             // Small delay to ensure comment is saved before status update
             setTimeout(() => {
               handleSendBackAfterComment();

@@ -166,6 +166,7 @@ export function transformApiResponseToFormData(
 
                                   // Generic transformation - converts any array of items to object
                                   const itemObject: Record<string, any> = {};
+                                  let primaryId: string | undefined;
                                   itemArray.forEach((item: any) => {
                                     if (item && item.inputId) {
                                       const value =
@@ -180,7 +181,17 @@ export function transformApiResponseToFormData(
                                         );
                                       itemObject[item.inputId] = value;
                                     }
+                                    // Preserve primaryId from the first item in the array
+                                    // API response has "primaryId" field, not "id"
+                                    // All items in the same sequence have the same primaryId
+                                    if (item && item.primaryId && !primaryId) {
+                                      primaryId = item.primaryId;
+                                    }
                                   });
+                                  // Add primaryId to the item object for deletion
+                                  if (primaryId) {
+                                    itemObject.id = primaryId;
+                                  }
                                   return itemObject;
                                 })
                                 .filter(
@@ -210,6 +221,7 @@ export function transformApiResponseToFormData(
                                   `📦 Structure 1 detected: Single entry in array format. Total items: ${firstElement.length}`
                                 );
                                 const itemObject: Record<string, any> = {};
+                                let primaryId: string | undefined;
                                 firstElement.forEach((item: any) => {
                                   if (item && item.inputId) {
                                     const value = extractValueFromSubmittedData(
@@ -223,7 +235,16 @@ export function transformApiResponseToFormData(
                                     );
                                     itemObject[item.inputId] = value;
                                   }
+                                  // Preserve primaryId from the first item
+                                  // API response has "primaryId" field, not "id"
+                                  if (item && item.primaryId && !primaryId) {
+                                    primaryId = item.primaryId;
+                                  }
                                 });
+                                // Add primaryId to the item object for deletion
+                                if (primaryId) {
+                                  itemObject.id = primaryId;
+                                }
                                 if (Object.keys(itemObject).length > 0) {
                                   transformedItems.push(itemObject);
                                 }
@@ -269,6 +290,7 @@ export function transformApiResponseToFormData(
                                 i + fieldsPerEntry
                               );
                               const itemObject: Record<string, any> = {};
+                              let primaryId: string | undefined;
 
                               entryItems.forEach((item: any) => {
                                 if (item && item.inputId) {
@@ -283,7 +305,18 @@ export function transformApiResponseToFormData(
                                   );
                                   itemObject[item.inputId] = value;
                                 }
+                                // Preserve primaryId from the first item in the entry
+                                // API response has "primaryId" field, not "id"
+                                // All items in the same sequence have the same primaryId
+                                if (item && item.primaryId && !primaryId) {
+                                  primaryId = item.primaryId;
+                                }
                               });
+
+                              // Add primaryId to the item object for deletion
+                              if (primaryId) {
+                                itemObject.id = primaryId;
+                              }
 
                               // Only add if object has at least one property
                               if (Object.keys(itemObject).length > 0) {

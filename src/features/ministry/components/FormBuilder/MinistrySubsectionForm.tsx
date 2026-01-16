@@ -65,9 +65,19 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
       const handleRemove = useCallback(
         (index: number) => {
+          console.log("🗑️ [MinistrySubsectionForm] Delete button clicked:", {
+            sectionKey,
+            subsectionName,
+            index,
+            mode,
+            disabled,
+            isEditable,
+            itemsLength: items.length,
+            itemToDelete: items[index],
+          });
           onRemove(index);
         },
-        [onRemove]
+        [onRemove, sectionKey, subsectionName, mode, disabled, items]
       );
 
       // Helper to check if a field is Yes/No
@@ -547,7 +557,15 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemove(index)}
+                          onClick={() => {
+                            console.log("🗑️ [MinistrySubsectionForm] Delete button onClick triggered:", {
+                              index,
+                              disabled,
+                              isEditable,
+                              mode,
+                            });
+                            handleRemove(index);
+                          }}
                           disabled={disabled}
                           aria-label="Remove"
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0 mb-0.5"

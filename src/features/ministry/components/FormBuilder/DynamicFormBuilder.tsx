@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEditableSectionStore } from "@/utils/EditableSection";
+import { deleteSubmissionData } from "@/services/ministry.service";
 import type { DynamicFormBuilderProps } from "./types";
 
 export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
@@ -27,6 +28,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     onValidateField,
     onClearFieldError,
     renderSectionActionButtons,
+    onMarkItemForDeletion,
   }) => {
     const generateItemId = useCallback(() => crypto.randomUUID(), []);
     // Subscribe to editableSections to trigger re-renders when edit state changes
@@ -77,13 +79,17 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     );
 
     const handleSubsectionRemove = useCallback(
-      (sectionKey: string, subsectionName: string, index: number) => {
+      async (sectionKey: string, subsectionName: string, index: number, submissionIndicatorId?: string) => {
         console.log(
-          "➖ Removing subsection:",
-          sectionKey,
-          subsectionName,
-          "at index:",
-          index
+          "➖ [DynamicFormBuilder] handleSubsectionRemove called:",
+          {
+            sectionKey,
+            subsectionName,
+            index,
+            submissionIndicatorId,
+            mode,
+            hasOnMarkItemForDeletion: !!onMarkItemForDeletion,
+          }
         );
         // CRITICAL: Use a function form to get the latest formData, not the stale closure value
         // This ensures we always work with the most current state, even if multiple deletions happen quickly
@@ -105,7 +111,79 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
             "items"
           );
 
+          // Get the item to be deleted to check if it has a primaryId
+          const itemToDelete = currentArray[index];
+          // Try both 'id' and 'primaryId' fields (id is set from primaryId in transformer)
+          const primaryId = itemToDelete?.id || itemToDelete?.primaryId;
+
+          console.log("🗑️ Delete clicked - Debug info:", {
+            mode,
+            hasOnMarkItemForDeletion: !!onMarkItemForDeletion,
+            primaryId,
+            submissionIndicatorId,
+            itemToDelete,
+            sectionKey,
+            subsectionName,
+            index,
+            currentArrayLength: currentArray.length,
+          });
+
+          // Only mark for deletion if item has a primaryId (saved items)
+          // New items (without primaryId) should just be removed from UI without marking
+          if (mode === "review" && onMarkItemForDeletion && primaryId && submissionIndicatorId) {
+            console.log("✅ Review mode: Marking item for deletion (will delete on Save):", {
+              sectionKey,
+              subsectionName,
+              index,
+              primaryId,
+              submissionIndicatorId,
+            });
+            
+            // Mark item for deletion (will be deleted when Save is clicked)
+            // Only mark items that have been saved (have primaryId)
+            // Use primaryId as part of the key to make it stable even if index changes
+            onMarkItemForDeletion(
+              sectionKey,
+              subsectionName,
+              index,
+              primaryId,
+              submissionIndicatorId
+            );
+          } else if (!primaryId && mode === "review") {
+            console.log("⚠️ Review mode: Item has no primaryId - will only remove from UI:", {
+              sectionKey,
+              subsectionName,
+              index,
+              itemToDelete,
+            });
+          } else if (primaryId && submissionIndicatorId) {
+            // Create submission mode: delete immediately (only for saved items)
+            console.log("🗑️ Create mode: Calling delete API immediately:", {
+              primaryId,
+              submissionIndicatorId,
+            });
+            
+            // Call delete API (fire and forget - don't block UI update)
+            deleteSubmissionData(submissionIndicatorId, [primaryId])
+              .then((response) => {
+                console.log("✅ Delete API response:", response);
+              })
+              .catch((error) => {
+                console.error("❌ Error deleting from API:", error);
+                // Even if API call fails, we still remove from UI
+                // User can refresh to see the actual state
+              });
+          } else {
+            // New item without primaryId - just remove from UI, no API call needed
+            console.log("🗑️ Removing new item (no primaryId, no API call needed):", {
+              sectionKey,
+              subsectionName,
+              index,
+            });
+          }
+
           // Filter out ONLY the item at the specified index
+          // In review mode, this removal is temporary and can be restored on Cancel
           const newArray = currentArray.filter((_: any, i: number) => {
             const shouldKeep = i !== index;
             if (!shouldKeep) {
@@ -143,8 +221,8 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
           return newArray;
         });
       },
-      [onChange]
-    ); // Removed formData dependency - we use function update instead
+      [onChange, mode, onMarkItemForDeletion]
+    ); // Include mode and onMarkItemForDeletion for review mode deletion marking
 
     const handleSubsectionFieldChange = useCallback(
       (
@@ -620,13 +698,22 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                             subsectionName
                                           )
                                         }
-                                        onRemove={(index) =>
+                                        onRemove={(index) => {
+                                          const submissionIndicatorId = (section as any).submissionIndicatorId;
+                                          console.log("🗑️ Remove clicked in review/edit mode:", {
+                                            sectionKey,
+                                            subsectionName,
+                                            index,
+                                            submissionIndicatorId,
+                                            hasSubmissionIndicatorId: !!submissionIndicatorId,
+                                          });
                                           handleSubsectionRemove(
                                             sectionKey,
                                             subsectionName,
-                                            index
-                                          )
-                                        }
+                                            index,
+                                            submissionIndicatorId
+                                          );
+                                        }}
                                         mode={mode}
                                         disabled={
                                           isSectionDisabled ||

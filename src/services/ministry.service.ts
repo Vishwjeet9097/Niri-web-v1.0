@@ -2164,3 +2164,43 @@ export async function getSubmissionsForCurrentUser(): Promise<{
     throw error;
   }
 }
+
+/**
+ * Delete submission data rows by primaryId array
+ * @param submissionIndicatorId - The submission indicator ID
+ * @param inputPrimaryId - Array of primary IDs (row IDs) to delete
+ * @returns Promise with the API response
+ */
+export async function deleteSubmissionData(
+  submissionIndicatorId: string,
+  inputPrimaryId: string[]
+): Promise<{
+  status: boolean;
+  message: string;
+  deletedCount?: number;
+}> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/data`);
+
+    const payload = {
+      submissionIndicatorId,
+      inputPrimaryId,
+    };
+
+    console.log("🗑️ Deleting submission data:", {
+      submissionIndicatorId,
+      inputPrimaryId,
+      payload,
+    });
+
+    const response = await apiService.delete(url, {
+      data: payload,
+      withCredentials: true,
+    });
+
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error("❌ Error in deleteSubmissionData:", error);
+    throw error;
+  }
+}
