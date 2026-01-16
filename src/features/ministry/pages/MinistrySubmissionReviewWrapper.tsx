@@ -1,20 +1,52 @@
-import { useEffect, useState, useMemo } from "react";
-import { RefreshCw } from "lucide-react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import {
+  RefreshCw,
+  Edit3,
+  Check,
+  X,
+  Clock,
+  RotateCcw,
+  CheckCircle,
+} from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { getDropdownOptions } from "../constants/dropdownMappings";
-import { getMinistrySubmissionDetailsForReview, getMinistrySubmissionDetailsConsolidated, getMinistryPreviewData, updateMinistryIndicatorStatus } from "@/services/ministry.service";
+import {
+  getMinistrySubmissionDetailsForReview,
+  getMinistrySubmissionDetailsConsolidated,
+  getMinistryPreviewData,
+  updateMinistryIndicatorStatus,
+  updateMinistryIndicatorData,
+  updateSubmissionIndicatorStatus,
+  getMinistrySubmissionIndicatorComments,
+} from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { MINISTRY_SUBMISSION_STEPS } from "../constants/steps";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MinistryApproverActionButtons } from "../components/actionButtons/MinistryApproverActionButtons";
 import { MospiReviewerActionButtons } from "../components/actionButtons/MospiReviewerActionButtons";
 import { MospiApproverActionButtons } from "../components/actionButtons/MospiApproverActionButtons";
+import { useEditableSectionStore } from "@/utils/EditableSection";
+import { useMinistryValidation } from "../hooks/useMinistryValidation";
+import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
+import { TimelineModal } from "@/features/dataSubmission/components/modals/TimelineModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -32,13 +64,58 @@ export function MinistrySubmissionReviewWrapper({
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [assignedIndicators, setAssignedIndicators] = useState<AssignedIndicator[]>([]);
+  const [assignedIndicators, setAssignedIndicators] = useState<
+    AssignedIndicator[]
+  >([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
-  const [submissionId, setSubmissionId] = useState<string | null>(submission?.id || null);
+  const [submissionId, setSubmissionId] = useState<string | null>(
+    submission?.id || null
+  );
+
+  // Edit mode state management
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
+  const [editingSections, setEditingSections] = useState<Set<string>>(
+    new Set()
+  );
+  const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
+    Record<string, any>
+  >({});
+  const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
+
+  // Validation hook for edit mode
+  const {
+    validationErrors,
+    validateFieldOnChange,
+    clearFieldError,
+    getFieldErrorMemoized,
+    setValidationErrorsForSection,
+    clearValidationErrorsForSection,
+  } = useMinistryValidation({
+    formData,
+    assignedIndicators,
+  });
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
+    string | null
+  >(null);
+
+  // Timeline state management
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [timelineComments, setTimelineComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [sectionTitleMap, setSectionTitleMap] = useState<
+    Record<string, string>
+  >({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {}
+  );
   const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
     submissionIndicatorId: string;
     sectionTitle: string;
+    sectionId?: string;
+    isSendBack?: boolean;
   } | null>(null);
   const [submittingIndicatorId, setSubmittingIndicatorId] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
@@ -85,7 +162,6 @@ export function MinistrySubmissionReviewWrapper({
       setPendingSendBackAction(null);
     }
   };
-
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
@@ -94,49 +170,63 @@ export function MinistrySubmissionReviewWrapper({
   const loadSubmissionData = async () => {
     try {
       setLoading(true);
-      
+
       let response;
-      
+
       //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
-      
+
       // Helper function to check if a string is a valid UUID
       const isValidUUID = (str: string | null | undefined): boolean => {
         if (!str) return false;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         return uuidRegex.test(str);
       };
 
       // Define targetSubmissionId in outer scope so it's accessible later
       // Only use submissionId if it's a valid UUID (not a submission ID string like "SUB-2026-141817")
-      const rawSubmissionId = submission?.id || submission?.submissionId || propSubmissionId;
-      const targetSubmissionId = rawSubmissionId && isValidUUID(rawSubmissionId) ? rawSubmissionId : undefined;
+      const rawSubmissionId =
+        submission?.id || submission?.submissionId || propSubmissionId;
+      const targetSubmissionId =
+        rawSubmissionId && isValidUUID(rawSubmissionId)
+          ? rawSubmissionId
+          : undefined;
       const targetUserId = userId || submission?.user?.id;
-      
+
       if (useConsolidatedApi && useConsolidatedApi === true) {
         if (!targetSubmissionId) {
-          console.error("No valid UUID submission ID available for consolidated API");
+          console.error(
+            "No valid UUID submission ID available for consolidated API"
+          );
           toast({
             title: "Error",
-            description: "A valid submission ID (UUID) is required to load submission data.",
+            description:
+              "A valid submission ID (UUID) is required to load submission data.",
             variant: "destructive",
           });
           setLoading(false);
           return;
         }
 
-        console.log("📋 Loading consolidated submission data for review, submissionId:", targetSubmissionId);
-        response = await getMinistrySubmissionDetailsConsolidated(targetSubmissionId);
+        console.log(
+          "📋 Loading consolidated submission data for review, submissionId:",
+          targetSubmissionId
+        );
+        response = await getMinistrySubmissionDetailsConsolidated(
+          targetSubmissionId
+        );
       } else {
         // Use existing API with userId
         // Only pass submissionId if it's a valid UUID, otherwise use only userId
-        
+
         if (!targetSubmissionId && !targetUserId) {
           console.error("No submission ID or user ID available for review");
           toast({
             title: "Error",
-            description: "Submission ID or User ID is required to load submission data.",
+            description:
+              "Submission ID or User ID is required to load submission data.",
             variant: "destructive",
           });
           setLoading(false);
@@ -146,46 +236,104 @@ export function MinistrySubmissionReviewWrapper({
         // If we have a non-UUID submissionId (like "SUB-2026-141817"), ignore it and use only userId
         // For preview mode (when we only have userId and no valid UUID), use the preview API
         if (!targetSubmissionId && targetUserId) {
-          console.log("📋 Loading preview data using preview API, userId:", targetUserId);
+          console.log(
+            "📋 Loading preview data using preview API, userId:",
+            targetUserId
+          );
           response = await getMinistryPreviewData(targetUserId);
         } else {
           // Use the regular review API when we have a valid UUID submissionId
-          console.log("📋 Loading submission data for review, submissionId:", targetSubmissionId || "none (using userId)", "userId:", targetUserId);
-          response = await getMinistrySubmissionDetailsForReview(targetSubmissionId || undefined, targetUserId);
+          console.log(
+            "📋 Loading submission data for review, submissionId:",
+            targetSubmissionId || "none (using userId)",
+            "userId:",
+            targetUserId
+          );
+          response = await getMinistrySubmissionDetailsForReview(
+            targetSubmissionId || undefined,
+            targetUserId
+          );
         }
       }
 
-      if (response?.status && response?.data && Array.isArray(response.data) && response.data.length > 0) {
-        console.log("✅ Loaded submission indicators for review:", response.data.length);
-        console.log("📋 Assigned indicators structure:", JSON.stringify(response.data, null, 2));
+      if (
+        response?.status &&
+        response?.data &&
+        Array.isArray(response.data) &&
+        response.data.length > 0
+      ) {
+        console.log(
+          "✅ Loaded submission indicators for review:",
+          response.data.length
+        );
+        console.log(
+          "📋 Assigned indicators structure:",
+          JSON.stringify(response.data, null, 2)
+        );
         setAssignedIndicators(response.data);
-        
-        const initialFormData = transformApiResponseToFormData(response.data, {});
+
+        const initialFormData = transformApiResponseToFormData(
+          response.data,
+          {}
+        );
         console.log("📋 Transformed formData:", Object.keys(initialFormData));
         // Log subsection entries for debugging
-        Object.keys(initialFormData).forEach(sectionKey => {
+        Object.keys(initialFormData).forEach((sectionKey) => {
           const sectionData = initialFormData[sectionKey];
-          if (sectionData && typeof sectionData === 'object') {
-            Object.keys(sectionData).forEach(key => {
+          if (sectionData && typeof sectionData === "object") {
+            Object.keys(sectionData).forEach((key) => {
               if (Array.isArray(sectionData[key])) {
-                console.log(`📋 Section ${sectionKey}.${key}: ${sectionData[key].length} entries`, sectionData[key]);
+                console.log(
+                  `📋 Section ${sectionKey}.${key}: ${sectionData[key].length} entries`,
+                  sectionData[key]
+                );
               }
             });
           }
         });
-        setFormData(initialFormData);
-        
+        // Merge with existing formData to preserve optimistic updates
+        setFormData((prevFormData) => {
+          const mergedFormData = { ...prevFormData };
+          // Merge each section's data - server data takes precedence (it's the source of truth)
+          Object.keys(initialFormData).forEach((key) => {
+            if (
+              prevFormData[key] &&
+              typeof prevFormData[key] === "object" &&
+              !Array.isArray(prevFormData[key])
+            ) {
+              // Merge section data, prioritizing server data (it's the source of truth after reload)
+              mergedFormData[key] = {
+                ...prevFormData[key],
+                ...initialFormData[key],
+              };
+            } else {
+              // If section doesn't exist in prevFormData, use the new data
+              mergedFormData[key] = initialFormData[key];
+            }
+          });
+          console.log(
+            "📋 Merged formData after reload. Section keys:",
+            Object.keys(mergedFormData)
+          );
+          return mergedFormData;
+        });
+
         // Extract submission ID - prioritize from response, then from submission object
         if (useConsolidatedApi) {
           // For consolidated API, use the submissionId from response or prop
-          const extractedId = response.submissionId || propSubmissionId || submission?.id;
+          const extractedId =
+            response.submissionId || propSubmissionId || submission?.id;
           if (extractedId) {
             setSubmissionId(extractedId);
           }
         } else {
           let extractedId = response.submissionId || targetSubmissionId;
           if (!extractedId && targetUserId) {
-            extractedId = await extractSubmissionId(response, targetUserId, toast);
+            extractedId = await extractSubmissionId(
+              response,
+              targetUserId,
+              toast
+            );
           }
           if (extractedId) {
             setSubmissionId(extractedId);
@@ -205,7 +353,8 @@ export function MinistrySubmissionReviewWrapper({
       console.error("Error loading submission data for review:", error);
       toast({
         title: "Error",
-        description: error?.message || "Failed to load submission data for review.",
+        description:
+          error?.message || "Failed to load submission data for review.",
         variant: "destructive",
       });
     } finally {
@@ -216,20 +365,20 @@ export function MinistrySubmissionReviewWrapper({
   // Extract categories from assignedIndicators and sort them according to MINISTRY_SUBMISSION_STEPS order
   const categories = useMemo(() => {
     const categoryMap = new Map<string, AssignedIndicator>();
-    
+
     assignedIndicators.forEach((indicator) => {
       const categoryName = Object.keys(indicator)[0];
       if (!categoryMap.has(categoryName)) {
         categoryMap.set(categoryName, indicator);
       }
     });
-    
+
     // Sort categories according to the order defined in MINISTRY_SUBMISSION_STEPS
     // Filter out the review-submit step and get only category steps
     const categorySteps = MINISTRY_SUBMISSION_STEPS.filter(
       (step) => step.key !== "review-submit"
     );
-    
+
     // Create ordered categories list based on MINISTRY_SUBMISSION_STEPS order
     const orderedCategories: AssignedIndicator[] = [];
     categorySteps.forEach((step) => {
@@ -238,7 +387,7 @@ export function MinistrySubmissionReviewWrapper({
         orderedCategories.push(categoryIndicator);
       }
     });
-    
+
     // Add any categories that exist in the data but not in MINISTRY_SUBMISSION_STEPS (fallback)
     categoryMap.forEach((indicator, categoryName) => {
       const exists = orderedCategories.some(
@@ -248,8 +397,11 @@ export function MinistrySubmissionReviewWrapper({
         orderedCategories.push(indicator);
       }
     });
-    
-    console.log("📋 Extracted categories (ordered):", orderedCategories.map(cat => Object.keys(cat)[0]));
+
+    console.log(
+      "📋 Extracted categories (ordered):",
+      orderedCategories.map((cat) => Object.keys(cat)[0])
+    );
     return orderedCategories;
   }, [assignedIndicators]);
 
@@ -257,24 +409,27 @@ export function MinistrySubmissionReviewWrapper({
   const getCategoryProgress = (categoryIndicator: AssignedIndicator) => {
     const categoryName = Object.keys(categoryIndicator)[0];
     const sections = categoryIndicator[categoryName];
-    
+
     if (!Array.isArray(sections)) {
       return { completed: 0, total: 0, progress: 0 };
     }
-    
+
     let completed = 0;
-    let total = sections.length;
-    
+    const total = sections.length;
+
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
-      const sectionKey = `section${section.sNo.replace('.', '_')}`;
-      
-      if (formData[sectionKey] && Object.keys(formData[sectionKey]).length > 0) {
+      const sectionKey = `section${section.sNo.replace(".", "_")}`;
+
+      if (
+        formData[sectionKey] &&
+        Object.keys(formData[sectionKey]).length > 0
+      ) {
         completed++;
       }
     });
-    
+
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { completed, total, progress };
   };
@@ -290,6 +445,838 @@ export function MinistrySubmissionReviewWrapper({
     }
   }, [categories, activeCategory]);
 
+  // Helper function to check if NODAL_OFFICER can edit section
+  const canNodalOfficerEdit = (sectionId: string): boolean => {
+    if (user?.role !== "NODAL_OFFICER") {
+      return false;
+    }
+
+    const sectionStatus = getSectionStatus(sectionId);
+    if (!sectionStatus) return false;
+
+    const upperStatus = sectionStatus.toUpperCase();
+    // NODAL_OFFICER can edit when status is RETURNED_FROM_MINISTRY (sent back by ministry)
+    return upperStatus === "RETURNED_FROM_MINISTRY";
+  };
+
+  // Handle edit start
+  const handleEditStart = (sectionId: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Starting edit for section:",
+      sectionId
+    );
+
+    // Check if section is accepted - if so, prevent editing (unless NODAL_OFFICER editing sent back section)
+    if (isSectionAccepted(sectionId) && !canNodalOfficerEdit(sectionId)) {
+      toast({
+        title: "Cannot Edit",
+        description: `Section ${sectionId} has been accepted and cannot be edited.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For NODAL_OFFICER, allow editing only if status is RETURNED_FROM_MINISTRY
+    if (user?.role === "NODAL_OFFICER" && !canNodalOfficerEdit(sectionId)) {
+      toast({
+        title: "Cannot Edit",
+        description: `Section ${sectionId} cannot be edited. Only sections sent back by Ministry Approver can be edited.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+
+    // Store original form data snapshot
+    const originalData = formData[sectionKey]
+      ? JSON.parse(JSON.stringify(formData[sectionKey]))
+      : {};
+    setOriginalFormDataSnapshots((prev) => ({
+      ...prev,
+      [sectionId]: originalData,
+    }));
+
+    // Enable edit mode
+    setEditable(sectionId, true);
+    setEditingSections((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(sectionId);
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Updated editingSections:",
+        Array.from(newSet)
+      );
+      return newSet;
+    });
+
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Edit mode enabled for section:",
+      sectionId
+    );
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Current editingSections:",
+      Array.from(editingSections)
+    );
+  };
+
+  // Handle edit cancel
+  const handleEditCancel = (sectionId: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Cancelling edit for section:",
+      sectionId
+    );
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+
+    // Restore original form data
+    const originalData = originalFormDataSnapshots[sectionId];
+    if (originalData) {
+      setFormData((prev) => ({
+        ...prev,
+        [sectionKey]: originalData,
+      }));
+    }
+
+    // Clear edit mode
+    setEditable(sectionId, false);
+    setEditingSections((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(sectionId);
+      return newSet;
+    });
+
+    // Clear snapshot
+    setOriginalFormDataSnapshots((prev) => {
+      const newSnapshots = { ...prev };
+      delete newSnapshots[sectionId];
+      return newSnapshots;
+    });
+  };
+
+  // Perform the actual save operation
+  const performSave = async (
+    sectionId: string,
+    submissionIndicatorId: string,
+    currentSection: any,
+    sectionData: any,
+    sectionKey: string
+  ) => {
+    // Set saving state
+    setSavingSections((prev) => new Set(prev).add(sectionId));
+
+    try {
+      // Determine status based on user role and current section status
+      let statusToSet = "SUBMITTED_TO_MINISTRY"; // Default status
+      const sectionStatus = getSectionStatus(sectionId);
+
+      // If NODAL_OFFICER is saving a section that was RETURNED_FROM_MINISTRY, set status to RESUBMITTED
+      if (
+        user?.role === "NODAL_OFFICER" &&
+        sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY"
+      ) {
+        statusToSet = "RESUBMITTED";
+        console.log(
+          "[MinistrySubmissionReviewWrapper] NODAL_OFFICER resubmitting sent back section:",
+          sectionId
+        );
+      }
+
+      // Call update API to save data
+      const updateResponse = await updateMinistryIndicatorData(
+        submissionIndicatorId,
+        sectionData,
+        currentSection,
+        submissionId || undefined,
+        statusToSet
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Update response:",
+        updateResponse
+      );
+
+      // If status is RESUBMITTED, also update the indicator status explicitly
+      if (statusToSet === "RESUBMITTED") {
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Updating indicator status to RESUBMITTED"
+        );
+        await updateSubmissionIndicatorStatus(
+          submissionIndicatorId,
+          "RESUBMITTED"
+        );
+      }
+
+      // Update local formData immediately with the saved data (optimistic update)
+      setFormData((prevFormData) => {
+        const updatedFormData = { ...prevFormData };
+        updatedFormData[sectionKey] = {
+          ...(prevFormData[sectionKey] || {}),
+          ...sectionData,
+        };
+        return { ...updatedFormData };
+      });
+
+      // Clear edit mode
+      setEditable(sectionId, false);
+      setEditingSections((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+
+      // Clear snapshot
+      setOriginalFormDataSnapshots((prev) => {
+        const newSnapshots = { ...prev };
+        delete newSnapshots[sectionId];
+        return newSnapshots;
+      });
+
+      // Clear validation errors for this section after successful save
+      clearValidationErrorsForSection(sectionKey);
+
+      toast({
+        title: "Success",
+        description: `Section ${sectionId} updated successfully`,
+      });
+    } catch (error: any) {
+      console.error("Error saving section:", error);
+      toast({
+        title: "Error",
+        description: error?.message || `Failed to save section ${sectionId}`,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSections((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle save
+  const handleSave = async (sectionId: string) => {
+    console.log("[MinistrySubmissionReviewWrapper] Saving section:", sectionId);
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+
+    // Find the indicator and section data
+    let submissionIndicatorId: string | null = null;
+    let currentSection: any = null;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            currentSection = section;
+            break;
+          }
+        }
+      }
+
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId || !currentSection) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get section data
+    const sectionData = formData[sectionKey] || {};
+
+    // Validate section before saving
+    const sectionErrors = validateSection(currentSection, sectionKey, formData);
+
+    // Check if there are any validation errors for this section
+    const hasErrors = Object.keys(sectionErrors).length > 0;
+
+    if (hasErrors) {
+      // Set validation errors
+      setValidationErrorsForSection(sectionErrors);
+
+      toast({
+        title: "Validation Error",
+        description: `Please fix the errors in section ${sectionId} before saving.`,
+        variant: "destructive",
+      });
+
+      // Scroll to first error field
+      const firstErrorPath = Object.keys(sectionErrors)[0];
+      const errorElement = document.querySelector(
+        `[data-field-path="${firstErrorPath}"]`
+      );
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      return;
+    }
+
+    // Clear any existing validation errors for this section
+    clearValidationErrorsForSection(sectionKey);
+
+    // Check if this is a NODAL_OFFICER saving a RETURNED_FROM_MINISTRY section
+    // If so, show confirmation dialog
+    const sectionStatus = getSectionStatus(sectionId);
+    if (
+      user?.role === "NODAL_OFFICER" &&
+      sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY"
+    ) {
+      // Show confirmation dialog
+      setPendingSaveSectionId(sectionId);
+      setShowSaveDialog(true);
+      return;
+    }
+
+    // Proceed with save directly if not a resubmission
+    await performSave(
+      sectionId,
+      submissionIndicatorId,
+      currentSection,
+      sectionData,
+      sectionKey
+    );
+  };
+
+  // Handle confirm save from dialog
+  const handleConfirmSave = async () => {
+    if (!pendingSaveSectionId) return;
+
+    const sectionId = pendingSaveSectionId;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+
+    // Find the indicator and section data
+    let submissionIndicatorId: string | null = null;
+    let currentSection: any = null;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            currentSection = section;
+            break;
+          }
+        }
+      }
+
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId || !currentSection) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      setShowSaveDialog(false);
+      setPendingSaveSectionId(null);
+      return;
+    }
+
+    // Get section data
+    const sectionData = formData[sectionKey] || {};
+
+    // Close dialog
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
+
+    // Perform save
+    await performSave(
+      sectionId,
+      submissionIndicatorId,
+      currentSection,
+      sectionData,
+      sectionKey
+    );
+  };
+
+  // Handle cancel save dialog
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
+  };
+
+  // Helper function to get section status from assignedIndicators
+  const getSectionStatus = (sectionId: string): string | null => {
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            return (section as any).status || null;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  // Helper function to check if section is accepted
+  const isSectionAccepted = (sectionId: string): boolean => {
+    const status = getSectionStatus(sectionId);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    return (
+      upperStatus === "ACCEPTED_BY_MINISTRY" ||
+      upperStatus === "ACCEPTED_BY_MOSPI" ||
+      upperStatus === "ACCEPTED"
+    );
+  };
+
+  // Helper function to get submissionIndicatorId from sectionId
+  const getSubmissionIndicatorId = useCallback(
+    (sectionId: string): string | null => {
+      for (const categoryIndicator of assignedIndicators) {
+        const categoryName = Object.keys(categoryIndicator)[0];
+        const sections = categoryIndicator[categoryName];
+
+        if (Array.isArray(sections)) {
+          for (const sectionObj of sections) {
+            const sectionName = Object.keys(sectionObj)[0];
+            const section = sectionObj[sectionName];
+
+            if (section.sNo === sectionId) {
+              return (section as any).submissionIndicatorId || null;
+            }
+          }
+        }
+      }
+      return null;
+    },
+    [assignedIndicators]
+  );
+
+  // Helper function to get section title from sectionId
+  const getSectionTitle = (sectionId: string): string => {
+    // Check if we have it cached
+    if (sectionTitleMap[sectionId]) {
+      return sectionTitleMap[sectionId];
+    }
+
+    // Try to find it from assignedIndicators
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            const title = `${sectionId} - ${sectionName}`;
+            setSectionTitleMap((prev) => ({ ...prev, [sectionId]: title }));
+            return title;
+          }
+        }
+      }
+    }
+    return sectionId;
+  };
+
+  // Helper function to format ministry comments for TimelineModal
+  const formatCommentsForTimeline = (
+    comments: any[],
+    sectionId: string
+  ): any[] => {
+    return comments.map((comment) => ({
+      role: comment.user?.role || "UNKNOWN",
+      text: comment.text || "",
+      type: "comment",
+      userId: comment.userId || "",
+      sectionId: sectionId,
+      timestamp:
+        comment.createdAt || comment.timestamp || new Date().toISOString(),
+      userName: comment.user
+        ? `${comment.user.firstName || ""} ${
+            comment.user.lastName || ""
+          }`.trim() || comment.user.email
+        : undefined,
+    }));
+  };
+
+  // Function to fetch comments for a section
+  const fetchCommentsForSection = async (sectionId: string) => {
+    const submissionIndicatorId = getSubmissionIndicatorId(sectionId);
+    if (!submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoadingComments(true);
+      const response = await getMinistrySubmissionIndicatorComments(
+        submissionIndicatorId
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Comments API response:",
+        response
+      );
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Response status:",
+        response?.status
+      );
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Response data:",
+        response?.data
+      );
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Is data array?",
+        Array.isArray(response?.data)
+      );
+
+      // Handle both response formats:
+      // 1. Direct array: [{...}, {...}]
+      // 2. Wrapped format: { status: true, data: [{...}, {...}] }
+      let commentsArray: any[] = [];
+
+      if (Array.isArray(response)) {
+        // Response is directly an array
+        commentsArray = response;
+      } else if (response?.status && Array.isArray(response.data)) {
+        // Response is wrapped in status/data structure
+        commentsArray = response.data;
+      } else if (Array.isArray(response?.data)) {
+        // Response has data property that is an array
+        commentsArray = response.data;
+      }
+
+      if (commentsArray.length > 0) {
+        const formattedComments = formatCommentsForTimeline(
+          commentsArray,
+          sectionId
+        );
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Formatted comments:",
+          formattedComments
+        );
+        setTimelineComments(formattedComments);
+      } else {
+        console.warn(
+          "[MinistrySubmissionReviewWrapper] No comments found in response:",
+          response
+        );
+        setTimelineComments([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching comments:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch comments. Please try again.",
+        variant: "destructive",
+      });
+      setTimelineComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  // Handle opening timeline
+  const handleOpenTimeline = async (sectionId: string) => {
+    setTimelineSection(sectionId);
+    await fetchCommentsForSection(sectionId);
+  };
+
+  // Handle closing timeline
+  const handleCloseTimeline = () => {
+    setTimelineSection(null);
+    setTimelineComments([]);
+  };
+
+  // Get comment count for a section
+  const getCommentCount = useCallback(
+    async (sectionId: string): Promise<number> => {
+      const submissionIndicatorId = getSubmissionIndicatorId(sectionId);
+      if (!submissionIndicatorId) return 0;
+
+      try {
+        const response = await getMinistrySubmissionIndicatorComments(
+          submissionIndicatorId
+        );
+        if (response?.status && Array.isArray(response.data)) {
+          const count = response.data.length;
+          setCommentCounts((prev) => ({ ...prev, [sectionId]: count }));
+          return count;
+        }
+        return 0;
+      } catch (error) {
+        console.error("Error fetching comment count:", error);
+        return 0;
+      }
+    },
+    [getSubmissionIndicatorId]
+  );
+
+  // Fetch comment counts for all sections when data loads
+  useEffect(() => {
+    if (assignedIndicators.length > 0) {
+      const fetchAllCommentCounts = async () => {
+        const sectionIds: string[] = [];
+        for (const categoryIndicator of assignedIndicators) {
+          const categoryName = Object.keys(categoryIndicator)[0];
+          const sections = categoryIndicator[categoryName];
+          if (Array.isArray(sections)) {
+            for (const sectionObj of sections) {
+              const sectionName = Object.keys(sectionObj)[0];
+              const section = sectionObj[sectionName];
+              if (section.sNo) {
+                sectionIds.push(section.sNo);
+              }
+            }
+          }
+        }
+
+        // Fetch counts for all sections in parallel
+        const countPromises = sectionIds.map((sectionId) =>
+          getCommentCount(sectionId).catch(() => 0)
+        );
+        await Promise.all(countPromises);
+      };
+
+      fetchAllCommentCounts();
+    }
+  }, [assignedIndicators, getCommentCount]);
+
+  // Handle accept action
+  const handleAccept = async (sectionId: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Accepting section:",
+      sectionId
+    );
+
+    // Find the indicator and section data to get submissionIndicatorId
+    let submissionIndicatorId: string | null = null;
+    let currentSection: any = null;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            currentSection = section;
+            break;
+          }
+        }
+      }
+
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Call API to update status to ACCEPTED_BY_MINISTRY
+      const response = await updateSubmissionIndicatorStatus(
+        submissionIndicatorId,
+        "ACCEPTED_BY_MINISTRY"
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Accept response:",
+        response
+      );
+
+      toast({
+        title: "Success",
+        description: `Section ${sectionId} accepted successfully`,
+      });
+
+      // Reload submission data to reflect the updated status
+      await loadSubmissionData();
+    } catch (error: any) {
+      console.error("Error accepting section:", error);
+      toast({
+        title: "Error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          `Failed to accept section ${sectionId}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle send back action - opens comment dialog
+  const handleSendBack = (sectionId: string, sectionName: string) => {
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Send Back clicked for section:",
+      sectionId
+    );
+
+    // Find the submissionIndicatorId for this section
+    let submissionIndicatorId: string | null = null;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionNameKey = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionNameKey];
+
+          if (section.sNo === sectionId) {
+            submissionIndicatorId = (section as any).submissionIndicatorId;
+            break;
+          }
+        }
+      }
+
+      if (submissionIndicatorId) break;
+    }
+
+    if (!submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: `Could not find submission indicator for section ${sectionId}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Set the selected section and open the comment dialog (for send back)
+    setSelectedSectionForComment({
+      submissionIndicatorId,
+      sectionTitle: sectionName || sectionId,
+      sectionId,
+      isSendBack: true,
+    });
+    setCommentDialogOpen(true);
+  };
+
+  // Handle send back after comment is saved
+  const handleSendBackAfterCommentMinistry = async (sectionId: string) => {
+    if (!selectedSectionForComment?.submissionIndicatorId) {
+      toast({
+        title: "Error",
+        description: "No section selected for send back",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { submissionIndicatorId, sectionTitle } = selectedSectionForComment;
+
+    try {
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Sending back section after comment:",
+        {
+          submissionIndicatorId,
+          sectionId,
+        }
+      );
+
+      // Update status to RETURNED_FROM_MINISTRY
+      const response = await updateSubmissionIndicatorStatus(
+        submissionIndicatorId,
+        "RETURNED_FROM_MINISTRY"
+      );
+
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Send back response:",
+        response
+      );
+
+      toast({
+        title: "Success",
+        description: `Section ${sectionTitle} has been sent back to the Nodal Officer successfully`,
+      });
+
+      // Reload submission data to reflect the updated status
+      await loadSubmissionData();
+
+      // Close dialog and reset state
+      setCommentDialogOpen(false);
+      setSelectedSectionForComment(null);
+    } catch (error: any) {
+      console.error("Error sending back section:", error);
+      toast({
+        title: "Error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          `Failed to send back section ${sectionTitle}`,
+        variant: "destructive",
+      });
+      throw error; // Re-throw to let the dialog handle it
+    }
+  };
+
+  // Handle form data change (only when in edit mode)
+  const handleFormDataChange = (path: string, value: any) => {
+    // Only allow changes when section is in edit mode
+    const sectionId = path
+      .split(".")[0]
+      .replace("section", "")
+      .replace("_", ".");
+    if (editingSections.has(sectionId)) {
+      setFormData((prev) => {
+        const newData = { ...prev };
+        const keys = path.split(".");
+        let current: any = newData;
+
+        // Navigate to the parent object
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!current[keys[i]]) {
+            current[keys[i]] = {};
+          }
+          current = current[keys[i]];
+        }
+
+        // If value is a function, call it with the current value (for array updates)
+        const finalKey = keys[keys.length - 1];
+        if (typeof value === "function") {
+          const currentValue = current[finalKey];
+          current[finalKey] = value(currentValue);
+        } else {
+          current[finalKey] = value;
+        }
+
+        return newData;
+      });
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -303,14 +1290,17 @@ export function MinistrySubmissionReviewWrapper({
   if (assignedIndicators.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">No indicators found for this submission</p>
+        <p className="text-muted-foreground">
+          No indicators found for this submission
+        </p>
       </div>
     );
   }
 
   // Category descriptions
   const categoryDescriptions: Record<string, string> = {
-    "Infra Financing": "Data related to infrastructure financing and budget allocation",
+    "Infra Financing":
+      "Data related to infrastructure financing and budget allocation",
     "Infra Development": "Infrastructure development and planning data",
     "PPP Development": "PPP policy, proposals and project pipeline status",
     "Infra Enablers": "Infrastructure enablers and support systems",
@@ -326,297 +1316,463 @@ export function MinistrySubmissionReviewWrapper({
             onValueChange={setActiveCategory}
             className="w-full"
           >
-          <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
+            <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
+              {categories.map((categoryIndicator) => {
+                const categoryName = Object.keys(categoryIndicator)[0];
+                return (
+                  <TabsTrigger
+                    key={categoryName}
+                    value={categoryName}
+                    className="!w-auto bg-white text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 hover:border-gray-400 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:hover:bg-primary/90 whitespace-nowrap h-8 flex-shrink-0"
+                  >
+                    {categoryName}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            {/* Category Content */}
             {categories.map((categoryIndicator) => {
               const categoryName = Object.keys(categoryIndicator)[0];
+              const categoryProgress = getCategoryProgress(categoryIndicator);
+
               return (
-                <TabsTrigger 
-                  key={categoryName} 
-                  value={categoryName}
-                  className="!w-auto bg-white text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 hover:border-gray-400 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:hover:bg-primary/90 whitespace-nowrap h-8 flex-shrink-0"
-                >
-                  {categoryName}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+                <TabsContent key={categoryName} value={categoryName}>
+                  <div>
+                    {/* ProgressHeader for current category */}
+                    <ProgressHeader
+                      title={categoryName}
+                      description={categoryDescriptions[categoryName] || ""}
+                      points={250}
+                      completed={categoryProgress.completed}
+                      total={categoryProgress.total}
+                      progress={categoryProgress.progress}
+                    />
 
-          {/* Category Content */}
-          {categories.map((categoryIndicator) => {
-            const categoryName = Object.keys(categoryIndicator)[0];
-            const categoryProgress = getCategoryProgress(categoryIndicator);
-            
-            return (
-              <TabsContent key={categoryName} value={categoryName}>
-                <div>
-                  {/* ProgressHeader for current category */}
-                  <ProgressHeader
-                    title={categoryName}
-                    description={categoryDescriptions[categoryName] || ""}
-                    points={250}
-                    completed={categoryProgress.completed}
-                    total={categoryProgress.total}
-                    progress={categoryProgress.progress}
-                  />
+                    {/* DynamicFormBuilder for current category - REVIEW MODE with EDIT support */}
+                    <div className="mt-4 sm:mt-6">
+                      <DynamicFormBuilder
+                        indicators={[categoryIndicator]}
+                        formData={formData}
+                        onChange={handleFormDataChange}
+                        mode="review" // Keep in review mode, but allow section-specific editing
+                        disabled={false} // Don't globally disable - let form builder handle per-section
+                        submissionId={submissionId || undefined}
+                        getFieldError={getFieldErrorMemoized} // Use validation hook for field errors
+                        getDropdownOptions={getDropdownOptions}
+                        // No submit handlers needed in review mode
+                        isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
+                        submittingIndicator={null}
+                        validationErrors={validationErrors} // Pass validation errors
+                        onValidateField={validateFieldOnChange} // Enable validation in edit mode
+                        onClearFieldError={clearFieldError} // Enable error clearing
+                        renderSectionActionButtons={(
+                          sectionId,
+                          sectionName,
+                          indicatorCode
+                        ) => {
+                          // Find the section object to get submissionIndicatorId
+                          let sectionSubmissionIndicatorId: string | null =
+                            null;
 
-                  {/* DynamicFormBuilder for current category - REVIEW MODE */}
-                  <div className="mt-4 sm:mt-6">
-                    <DynamicFormBuilder
-                      indicators={[categoryIndicator]}
-                      formData={formData}
-                      onChange={() => {}} // No-op in review mode
-                      mode="review" // KEY: Set to review mode
-                      disabled={true} // Disable all interactions
-                      submissionId={submissionId || undefined}
-                      getFieldError={() => undefined} // No validation errors in review
-                      getDropdownOptions={getDropdownOptions}
-                      // No submit handlers needed in review mode
-                      isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
-                      submittingIndicator={null}
-                      validationErrors={{}}
-                      onValidateField={() => {}} // No validation in review
-                      onClearFieldError={() => {}} // No error clearing in review
-                      renderSectionActionButtons={(sectionId, sectionName, indicatorCode) => {
-                        // Find the section object to get submissionIndicatorId
-                        let sectionSubmissionIndicatorId: string | null = null;
-                        
-                        // Search through assignedIndicators to find the section
-                        for (const indicatorObj of assignedIndicators) {
-                          const categoryName = Object.keys(indicatorObj)[0];
-                          const sections = indicatorObj[categoryName];
-                          if (Array.isArray(sections)) {
-                            for (const sectionObject of sections) {
-                              const sectionKey = Object.keys(sectionObject)[0];
-                              const section = sectionObject[sectionKey] as any; // Type assertion to access submissionIndicatorId
-                              if (section.sNo === indicatorCode) {
-                                sectionSubmissionIndicatorId = section.submissionIndicatorId || null;
-                                break;
-                              }
-                            }
-                            if (sectionSubmissionIndicatorId) break;
-                          }
-                        }
-                        
-                        // Render role-based action buttons for each section
-                        if (user?.role === "MINISTRY_APPROVER") {
-                          return (
-                            <MinistryApproverActionButtons
-                              sectionId={sectionId}
-                              onAccept={() => {
-                                // TODO: Implement accept action
-                                toast({
-                                  title: "Accept",
-                                  description: `Accept action for section ${sectionId}`,
-                                });
-                              }}
-                              onSendToMospi={() => {
-                                // TODO: Implement send to MoSPI action
-                                toast({
-                                  title: "Send to MoSPI",
-                                  description: `Send section ${sectionId} to MoSPI`,
-                                });
-                              }}
-                              onTimeline={() => {
-                                // TODO: Implement timeline action
-                                toast({
-                                  title: "Timeline",
-                                  description: `View timeline for section ${sectionId}`,
-                                });
-                              }}
-                              timelineCount={0}
-                              isAccepted={false}
-                            />
-                          );
-                        }
-                        if (user?.role === "MOSPI_REVIEWER") {
-                          const handleAccept = async () => {
-                            if (!sectionSubmissionIndicatorId) {
-                              toast({
-                                title: "Error",
-                                description: "Submission indicator ID not found for this section",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
-
-                            try {
-                              setSubmittingIndicatorId(sectionSubmissionIndicatorId);
-                              console.log("📤 Accepting indicator (MOSPI Reviewer):", {
-                                submissionIndicatorId: sectionSubmissionIndicatorId,
-                                sectionId,
-                                status: "ACCEPTED_BY_MOSPI",
-                              });
-
-                              await updateMinistryIndicatorStatus(
-                                sectionSubmissionIndicatorId,
-                                "ACCEPTED_BY_MOSPI"
-                              );
-
-                              toast({
-                                title: "Success",
-                                description: `Indicator ${sectionId} accepted successfully`,
-                              });
-
-                              // Reload data to reflect the change
-                              setReloadTrigger(prev => prev + 1);
-                            } catch (error: any) {
-                              console.error("❌ Error accepting indicator:", error);
-                              toast({
-                                title: "Error",
-                                description: error?.response?.data?.message || error?.message || "Failed to accept indicator",
-                                variant: "destructive",
-                              });
-                            } finally {
-                              setSubmittingIndicatorId(null);
-                            }
-                          };
-
-                          return (
-                            <MospiReviewerActionButtons
-                              sectionId={sectionId}
-                              onAddComment={() => {
-                                if (sectionSubmissionIndicatorId) {
-                                  setSelectedSectionForComment({
-                                    submissionIndicatorId: sectionSubmissionIndicatorId,
-                                    sectionTitle: sectionName || sectionId,
-                                  });
-                                  setCommentDialogOpen(true);
-                                } else {
-                                  toast({
-                                    title: "Error",
-                                    description: "Submission indicator ID not found for this section",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                              onAccept={handleAccept}
-                              onTimeline={() => {
-                                // TODO: Implement timeline action
-                                toast({
-                                  title: "Timeline",
-                                  description: `View timeline for section ${sectionId}`,
-                                });
-                              }}
-                              timelineCount={0}
-                              disabled={submittingIndicatorId === sectionSubmissionIndicatorId}
-                            />
-                          );
-                        }
-                        if (user?.role === "MOSPI_APPROVER") {
-                          // Find the section object to get status
-                          let sectionStatus: string | null = null;
-                          
                           // Search through assignedIndicators to find the section
                           for (const indicatorObj of assignedIndicators) {
                             const categoryName = Object.keys(indicatorObj)[0];
                             const sections = indicatorObj[categoryName];
                             if (Array.isArray(sections)) {
                               for (const sectionObject of sections) {
-                                const sectionKey = Object.keys(sectionObject)[0];
-                                const section = sectionObject[sectionKey] as any;
+                                const sectionKey =
+                                  Object.keys(sectionObject)[0];
+                                const section = sectionObject[
+                                  sectionKey
+                                ] as any; // Type assertion to access submissionIndicatorId
                                 if (section.sNo === indicatorCode) {
-                                  sectionStatus = section.status || null;
+                                  sectionSubmissionIndicatorId =
+                                    section.submissionIndicatorId || null;
                                   break;
                                 }
                               }
-                              if (sectionStatus) break;
+                              if (sectionSubmissionIndicatorId) break;
                             }
                           }
 
-                          const handleAccept = async () => {
-                            if (!sectionSubmissionIndicatorId) {
-                              toast({
-                                title: "Error",
-                                description: "Submission indicator ID not found for this section",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
+                          // Render role-based action buttons for each section
+                          if (user?.role === "MINISTRY_APPROVER") {
+                            const isSectionEditing =
+                              editingSections.has(sectionId);
+                            const isSaving = savingSections.has(sectionId);
+                            const isAccepted = isSectionAccepted(sectionId);
+                            const sectionStatus = getSectionStatus(sectionId);
+                            const isSentBack =
+                              sectionStatus?.toUpperCase() ===
+                              "RETURNED_FROM_MINISTRY";
+                            const isResubmitted =
+                              sectionStatus?.toUpperCase() === "RESUBMITTED";
 
-                            try {
-                              setSubmittingIndicatorId(sectionSubmissionIndicatorId);
-                              console.log("📤 Accepting indicator:", {
-                                submissionIndicatorId: sectionSubmissionIndicatorId,
+                            console.log(
+                              "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
+                              {
                                 sectionId,
-                                status: "ACCEPTED_BY_MOSPI",
-                              });
+                                sectionName,
+                                indicatorCode,
+                                userId: user?.id,
+                                isSectionEditing,
+                                isSaving,
+                                isAccepted,
+                                isSentBack,
+                                isResubmitted,
+                                sectionStatus,
+                                editingSectionsArray:
+                                  Array.from(editingSections),
+                                hasOnSave: isSectionEditing,
+                                hasOnCancel: isSectionEditing,
+                                hasOnEdit: !isSectionEditing,
+                              }
+                            );
 
-                              await updateMinistryIndicatorStatus(
-                                sectionSubmissionIndicatorId,
-                                "ACCEPTED_BY_MOSPI"
+                            // For RESUBMITTED status, show custom buttons with Resubmitted badge
+                            if (isResubmitted) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {isSectionEditing ? (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() => handleSave(sectionId)}
+                                        disabled={isSaving}
+                                      >
+                                        <Check className="w-4 h-4" />
+                                        {isSaving ? "Saving..." : "Save"}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() =>
+                                          handleEditCancel(sectionId)
+                                        }
+                                        disabled={isSaving}
+                                      >
+                                        <X className="w-4 h-4" />
+                                        Cancel
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() => handleEditStart(sectionId)}
+                                    >
+                                      <Edit3 className="w-4 h-4" />
+                                      Edit
+                                    </Button>
+                                  )}
+                                  {/* Resubmitted badge - matches STATE level styling */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Resubmitted
+                                  </Button>
+                                  {/* Accept button - only show when not editing and not already accepted */}
+                                  {!isSectionEditing && !isAccepted && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                      onClick={() => handleAccept(sectionId)}
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                      Accept
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleOpenTimeline(sectionId)
+                                    }
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline ({commentCounts[sectionId] || 0})
+                                  </Button>
+                                </div>
                               );
-
-                              toast({
-                                title: "Success",
-                                description: `Indicator ${sectionId} accepted successfully`,
-                              });
-
-                              // Reload data to reflect the change
-                              setReloadTrigger(prev => prev + 1);
-                            } catch (error: any) {
-                              console.error("❌ Error accepting indicator:", error);
-                              toast({
-                                title: "Error",
-                                description: error?.response?.data?.message || error?.message || "Failed to accept indicator",
-                                variant: "destructive",
-                              });
-                            } finally {
-                              setSubmittingIndicatorId(null);
-                            }
-                          };
-
-                          const handleSendBack = () => {
-                            if (!sectionSubmissionIndicatorId) {
-                              toast({
-                                title: "Error",
-                                description: "Submission indicator ID not found for this section",
-                                variant: "destructive",
-                              });
-                              return;
                             }
 
-                            // Store the pending send back action
-                            setPendingSendBackAction({
-                              submissionIndicatorId: sectionSubmissionIndicatorId,
-                              sectionId: sectionId,
-                            });
+                            return (
+                              <MinistryApproverActionButtons
+                                key={`${sectionId}-${
+                                  isSectionEditing ? "editing" : "viewing"
+                                }`} // Force re-render when edit state changes
+                                sectionId={sectionId}
+                                onEdit={
+                                  !isSectionEditing &&
+                                  !isAccepted &&
+                                  !isSentBack
+                                    ? () => handleEditStart(sectionId)
+                                    : undefined
+                                }
+                                onSave={
+                                  isSectionEditing
+                                    ? () => handleSave(sectionId)
+                                    : undefined
+                                }
+                                onCancel={
+                                  isSectionEditing
+                                    ? () => handleEditCancel(sectionId)
+                                    : undefined
+                                }
+                                onAccept={
+                                  !isSectionEditing &&
+                                  !isAccepted &&
+                                  !isSentBack
+                                    ? () => handleAccept(sectionId)
+                                    : undefined
+                                }
+                                onSendBack={
+                                  !isSectionEditing &&
+                                  !isAccepted &&
+                                  !isSentBack &&
+                                  submission?.user?.role === "NODAL_OFFICER"
+                                    ? () =>
+                                        handleSendBack(sectionId, sectionName)
+                                    : undefined
+                                }
+                                onTimeline={() => handleOpenTimeline(sectionId)}
+                                timelineCount={commentCounts[sectionId] || 0}
+                                isAccepted={isAccepted}
+                                isSentBack={isSentBack}
+                                isSaving={isSaving}
+                              />
+                            );
+                          }
+                          if (user?.role === "MOSPI_REVIEWER") {
+                            return (
+                              <MospiReviewerActionButtons
+                                sectionId={sectionId}
+                                onAddComment={() => {
+                                  if (sectionSubmissionIndicatorId) {
+                                    setSelectedSectionForComment({
+                                      submissionIndicatorId:
+                                        sectionSubmissionIndicatorId,
+                                      sectionTitle: sectionName || sectionId,
+                                    });
+                                    setCommentDialogOpen(true);
+                                  } else {
+                                    toast({
+                                      title: "Error",
+                                      description:
+                                        "Submission indicator ID not found for this section",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                onTimeline={() => {
+                                  // TODO: Implement timeline action
+                                  toast({
+                                    title: "Timeline",
+                                    description: `View timeline for section ${sectionId}`,
+                                  });
+                                }}
+                                timelineCount={0}
+                              />
+                            );
+                          }
+                          if (user?.role === "MOSPI_APPROVER") {
+                            return (
+                              <MospiApproverActionButtons
+                                sectionId={sectionId}
+                                onAccept={() => {
+                                  // TODO: Implement accept action
+                                  toast({
+                                    title: "Accept",
+                                    description: `Accept action for section ${sectionId}`,
+                                  });
+                                }}
+                                onSendBack={() => {
+                                  // TODO: Implement send back action
+                                  toast({
+                                    title: "Send Back",
+                                    description: `Send back section ${sectionId}`,
+                                  });
+                                }}
+                                onTimeline={() => handleOpenTimeline(sectionId)}
+                                timelineCount={commentCounts[sectionId] || 0}
+                                isAccepted={false}
+                              />
+                            );
+                          }
+                          if (user?.role === "NODAL_OFFICER") {
+                            const isSectionEditing =
+                              editingSections.has(sectionId);
+                            const isSaving = savingSections.has(sectionId);
+                            const sectionStatus = getSectionStatus(sectionId);
+                            const isSentBack =
+                              sectionStatus?.toUpperCase() ===
+                              "RETURNED_FROM_MINISTRY";
+                            const isResubmitted =
+                              sectionStatus?.toUpperCase() === "RESUBMITTED";
+                            const isAccepted = isSectionAccepted(sectionId);
+                            const canEdit = canNodalOfficerEdit(sectionId);
 
-                            // Open comment dialog
-                            setSelectedSectionForComment({
-                              submissionIndicatorId: sectionSubmissionIndicatorId,
-                              sectionTitle: sectionName || sectionId,
-                            });
-                            setCommentDialogOpen(true);
-                          };
+                            // Show Accepted badge if section is accepted
+                            if (isAccepted) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {/* Accepted badge - matches MINISTRY_APPROVER styling */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Accepted
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      console.log(
+                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
+                                        sectionId
+                                      );
+                                      toast({
+                                        title: "Timeline",
+                                        description: `View timeline for section ${sectionId}`,
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline (0)
+                                  </Button>
+                                </div>
+                              );
+                            }
 
-                          return (
-                            <MospiApproverActionButtons
-                              sectionId={sectionId}
-                              sectionTitle={sectionName || sectionId}
-                              status={sectionStatus || undefined}
-                              onAccept={handleAccept}
-                              onSendBack={handleSendBack}
-                              onTimeline={() => {
-                                // TODO: Implement timeline action
-                                toast({
-                                  title: "Timeline",
-                                  description: `View timeline for section ${sectionId}`,
-                                });
-                              }}
-                              timelineCount={0}
-                              isAccepted={false}
-                              disabled={submittingIndicatorId === sectionSubmissionIndicatorId}
-                            />
-                          );
-                        }
-                        return null;
-                      }}
-                    />
+                            // Only show buttons if section is sent back (RETURNED_FROM_MINISTRY) or resubmitted (RESUBMITTED)
+                            if (!isSentBack && !isResubmitted) {
+                              return null;
+                            }
+
+                            // For RESUBMITTED status, show only Resubmitted badge + Timeline (no Edit button)
+                            if (isResubmitted) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {/* Resubmitted badge - matches STATE level styling */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Resubmitted
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleOpenTimeline(sectionId)
+                                    }
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline ({commentCounts[sectionId] || 0})
+                                  </Button>
+                                </div>
+                              );
+                            }
+
+                            // For RETURNED_FROM_MINISTRY status, show Edit button + Sent Back badge + Timeline
+                            return (
+                              <div className="flex items-center gap-2">
+                                {isSectionEditing ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() => handleSave(sectionId)}
+                                      disabled={isSaving}
+                                    >
+                                      <Check className="w-4 h-4" />
+                                      {isSaving ? "Saving..." : "Save"}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() =>
+                                        handleEditCancel(sectionId)
+                                      }
+                                      disabled={isSaving}
+                                    >
+                                      <X className="w-4 h-4" />
+                                      Cancel
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-1"
+                                    onClick={() => handleEditStart(sectionId)}
+                                    disabled={!canEdit}
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                    Edit
+                                  </Button>
+                                )}
+                                {/* Sent Back badge - matches STATE level styling */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+                                  disabled
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                  Sent Back
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    console.log(
+                                      "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
+                                      sectionId
+                                    );
+                                    // TODO: Implement timeline action
+                                    toast({
+                                      title: "Timeline",
+                                      description: `View timeline for section ${sectionId}`,
+                                    });
+                                  }}
+                                  className="flex items-center gap-1 h-7 px-2 text-xs"
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  Timeline (0)
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
-            );
-          })}
+                </TabsContent>
+              );
+            })}
           </Tabs>
         )}
 
@@ -627,7 +1783,7 @@ export function MinistrySubmissionReviewWrapper({
         )}
       </div>
 
-      {/* Comment Dialog */}
+      {/* Comment Dialog - Used for both regular comments and send back */}
       <MinistryCommentDialog
         isOpen={commentDialogOpen}
         onClose={() => {
@@ -641,19 +1797,58 @@ export function MinistrySubmissionReviewWrapper({
         onSuccess={() => {
           // Optionally refresh data or show success message
           console.log("Comment added successfully");
-          
-          // If there's a pending send back action, execute it after comment is saved
-          if (pendingSendBackAction) {
+           if (pendingSendBackAction) {
             // Small delay to ensure comment is saved before status update
             setTimeout(() => {
               handleSendBackAfterComment();
             }, 300);
           }
         }}
+        onSendBack={
+          selectedSectionForComment?.isSendBack &&
+          selectedSectionForComment?.sectionId
+            ? handleSendBackAfterCommentMinistry
+            : undefined
+        }
         sectionTitle={selectedSectionForComment?.sectionTitle}
-        submissionIndicatorId={selectedSectionForComment?.submissionIndicatorId || ""}
+        submissionIndicatorId={
+          selectedSectionForComment?.submissionIndicatorId || ""
+        }
+        sectionId={selectedSectionForComment?.sectionId}
       />
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this indicator? This will resubmit
+              it to the Ministry Approver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Timeline Modal */}
+      {timelineSection && (
+        <TimelineModal
+          isOpen={timelineSection !== null}
+          onClose={handleCloseTimeline}
+          sectionId={timelineSection}
+          sectionTitle={getSectionTitle(timelineSection)}
+          comments={timelineComments}
+          key={`timeline-${timelineSection}-${timelineComments.length}`}
+        />
+      )}
     </div>
   );
 }
-

@@ -271,6 +271,25 @@ export const validateSection = (
       const isNoDocAvailable = field.label?.toLowerCase().includes('no document available') ||
                               field.label?.toLowerCase() === 'no document available';
       if (isNoDocAvailable) {
+        // Check if there's a file uploaded - if file exists, "No Document Available" is not required
+        // Find the associated file field
+        const associatedFileField = section.inputs?.find((f: any) => 
+          (f.dataType === 'file' || 
+           f.uiComponent === 'File' ||
+           f.label?.toLowerCase().includes('upload file') ||
+           f.label?.toLowerCase().includes('upload')) &&
+          f.id !== field.id
+        );
+        
+        if (associatedFileField) {
+          const fileValue = sectionData[associatedFileField.id];
+          // If file is uploaded, "No Document Available" is not required - skip validation
+          if (fileValue && (fileValue.filePath || fileValue.file || fileValue.fileName)) {
+            return; // Skip validation - file exists, so "No Document Available" is not required
+          }
+        }
+        // If no file exists, continue with validation (field might be required)
+        // But we still skip it here as it's handled by the file upload component
         return; // Skip to next field - validation is handled by file upload component
       }
       
@@ -315,6 +334,11 @@ export const validateSection = (
         
         // If "No document available" is checked, file upload is not required
         if (noDocAvailableValue === 'No document available') {
+          isFieldRequired = false;
+        }
+        
+        // If file is uploaded, file field is not required (already satisfied)
+        if (fieldValue && (fieldValue.filePath || fieldValue.file || fieldValue.fileName)) {
           isFieldRequired = false;
         }
       }
@@ -369,6 +393,32 @@ export const validateSection = (
               const fieldPath = `${sectionKey}.${subsectionName}[${index}].${field.id}`;
               const fieldValue = item[field.id];
               
+              // Skip validation for "No Document Available" field - it's handled by MinistryFileUploadSection
+              const isNoDocAvailable = field.label?.toLowerCase().includes('no document available') ||
+                                      field.label?.toLowerCase() === 'no document available';
+              if (isNoDocAvailable) {
+                // Check if there's a file uploaded - if file exists, "No Document Available" is not required
+                // Find the associated file field
+                const associatedFileField = subsectionData.inputs?.find((f: any) => 
+                  (f.dataType === 'file' || 
+                   f.uiComponent === 'File' ||
+                   f.label?.toLowerCase().includes('upload file') ||
+                   f.label?.toLowerCase().includes('upload')) &&
+                  f.id !== field.id
+                );
+                
+                if (associatedFileField) {
+                  const fileValue = item[associatedFileField.id];
+                  // If file is uploaded, "No Document Available" is not required - skip validation
+                  if (fileValue && (fileValue.filePath || fileValue.file || fileValue.fileName)) {
+                    return; // Skip validation - file exists, so "No Document Available" is not required
+                  }
+                }
+                // Always skip validation for "No Document Available" field - it's handled by file upload component
+                // The file upload component will handle the validation logic
+                return; // Skip to next field - validation is handled by file upload component
+              }
+              
               // Check if this is a file field and "No document available" is checked
               const isFileField = field.dataType === 'file' || 
                                  field.uiComponent === 'File' ||
@@ -392,9 +442,14 @@ export const validateSection = (
                 if (noDocAvailableValue === 'No document available') {
                   isFieldRequired = false;
                 }
+                
+                // If file is uploaded, file field is not required (already satisfied)
+                if (fieldValue && (fieldValue.filePath || fieldValue.file || fieldValue.fileName)) {
+                  isFieldRequired = false;
+                }
               }
               
-              // All fields are mandatory (unless "No document available" is checked for file fields)
+              // All fields are mandatory (unless "No document available" is checked for file fields OR file is uploaded)
               if (isFieldRequired) {
                 const fieldWithRequired = {
                   ...field,
