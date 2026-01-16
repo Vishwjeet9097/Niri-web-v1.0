@@ -183,38 +183,31 @@ function UserTableComponent({
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
-              <TableCell className="text-xs text-[#212121]">
-                {/* MINISTRY_APPROVER: only ministry */}
-                {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
-                {officer.role === "NODAL_OFFICER" && officer.ministryId && getMinistryName(officer.ministryId)}
-                {/* STATE_APPROVER: only state */}
-                {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
-                {/* MOSPI_REVIEWER: state and ministry if both, else only state */}
-                {officer.role === "MOSPI_REVIEWER" && (
-                  <>
-                    {officer.stateId || officer.state}
-                    {officer.ministryId && getMinistryName(officer.ministryId)
-                      ? ` / ${getMinistryName(officer.ministryId)}`
-                      : ""}
-                  </>
-                )}
-                {/* fallback for other roles */}
-                {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
-              </TableCell>
-              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
-              {/* ...existing code... */}
               {userRole !== "STATE_APPROVER" && (
                 <TableCell className="text-xs text-[#212121]">
-                  {officer.stateId || officer.state}
+                  {/* MINISTRY_APPROVER: only ministry */}
+                  {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                  {officer.role === "NODAL_OFFICER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                  {/* STATE_APPROVER: only state */}
+                  {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
+                  {/* MOSPI_REVIEWER: state and ministry if both, else only state */}
+                  {officer.role === "MOSPI_REVIEWER" && (
+                    <>
+                      {officer.stateId || officer.state}
+                      {officer.ministryId && (() => {
+                        // Handle multiple ministries (comma-separated)
+                        const ministryIds = String(officer.ministryId).split(",").map(m => m.trim()).filter(Boolean);
+                        const ministryNames = ministryIds.map(id => getMinistryName(id)).filter(Boolean);
+                        return ministryNames.length > 0 ? ` / ${ministryNames.join(", ")}` : "";
+                      })()}
+                    </>
+                  )}
+                  {/* fallback for other roles */}
+                  {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
                 </TableCell>
               )}
-              <TableCell className="text-xs text-[#212121]">
-                +91 {officer.contactNumber}
-              </TableCell>
-              <TableCell className="text-xs text-[#212121]">
-                {officer.email}
-              </TableCell>
+              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
+              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
               {userRole === "STATE_APPROVER" && (
                 <TableCell className="text-xs text-[#212121]">
                   {officer.role === "NODAL_OFFICER" &&

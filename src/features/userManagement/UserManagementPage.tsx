@@ -762,7 +762,7 @@ export function UserManagementPage() {
             | "MOSPI_APPROVER"
             | "MINISTRY_APPROVER",
           indicatorCodes: officerData.assignedIndicators || [],
-          ministryId: officerData.ministryId,
+          ministryId: officerData.ministryId ? String(officerData.ministryId) : "",
         };
 
         // Only include stateUt if the role requires it (set to empty string for MOSPI_APPROVER and ADMIN to clear state)
@@ -778,6 +778,46 @@ export function UserManagementPage() {
         }
 
         await apiService.updateUser(editingOfficer.id, updatePayload);
+
+        // Call minstryRegistrationForm if ministry is assigned/changed for MINISTRY_APPROVER or MOSPI_REVIEWER
+        const currentMinistryId = editingOfficer.ministryId || "";
+        const newMinistryId = officerData.ministryId ? String(officerData.ministryId) : "";
+        const ministryChanged = currentMinistryId !== newMinistryId;
+        
+        if ((officerData.role === "MINISTRY_APPROVER" || officerData.role === "MOSPI_REVIEWER") && newMinistryId) {
+          // If ministry is assigned or changed, call minstryRegistrationForm
+          // For MOSPI_REVIEWER, handle multiple ministries (comma-separated)
+          if (ministryChanged || !currentMinistryId) {
+            try {
+              if (officerData.role === "MOSPI_REVIEWER" && newMinistryId.includes(",")) {
+                // Multiple ministries for MOSPI_REVIEWER - call API for each
+                const ministryIds = newMinistryId.split(",").map(m => m.trim()).filter(Boolean);
+                for (const ministryId of ministryIds) {
+                  try {
+                    await minstryRegistrationForm(
+                      editingOfficer.id,
+                      officerData.role,
+                      ministryId
+                    );
+                  } catch (err) {
+                    console.error(`❌ Error calling minstryRegistrationForm for ministry ${ministryId}:`, err);
+                    // Continue with other ministries even if one fails
+                  }
+                }
+              } else {
+                // Single ministry
+                await minstryRegistrationForm(
+                  editingOfficer.id,
+                  officerData.role,
+                  newMinistryId
+                );
+              }
+            } catch (err) {
+              console.error("❌ Error calling minstryRegistrationForm during update:", err);
+              // Don't block the update if ministry form creation fails, but log the error
+            }
+          }
+        }
 
         notificationService.success(
           "Officer updated successfully",
@@ -901,13 +941,33 @@ export function UserManagementPage() {
 
         const createdUserId = newUser?.user?.id;
          if (createdUserId) {
-          if (officerData.role === "MINISTRY_APPROVER") {
+          // Call minstryRegistrationForm for both MINISTRY_APPROVER and MOSPI_REVIEWER when ministryId is provided
+          if ((officerData.role === "MINISTRY_APPROVER" || officerData.role === "MOSPI_REVIEWER") && officerData.ministryId) {
             try {
-              await minstryRegistrationForm(
-                createdUserId,
-                "MINISTRY_APPROVER",
-                officerData.ministryId ? String(officerData.ministryId) : ""
-              );
+              const ministryIdStr = String(officerData.ministryId);
+              if (officerData.role === "MOSPI_REVIEWER" && ministryIdStr.includes(",")) {
+                // Multiple ministries for MOSPI_REVIEWER - call API for each
+                const ministryIds = ministryIdStr.split(",").map(m => m.trim()).filter(Boolean);
+                for (const ministryId of ministryIds) {
+                  try {
+                    await minstryRegistrationForm(
+                      createdUserId,
+                      officerData.role,
+                      ministryId
+                    );
+                  } catch (err) {
+                    console.error(`❌ Error calling minstryRegistrationForm for ministry ${ministryId}:`, err);
+                    // Continue with other ministries even if one fails
+                  }
+                }
+              } else {
+                // Single ministry
+                await minstryRegistrationForm(
+                  createdUserId,
+                  officerData.role,
+                  ministryIdStr
+                );
+              }
             } catch (err) {
               console.error("❌ Error calling minstryRegistrationForm:", err);
             }
