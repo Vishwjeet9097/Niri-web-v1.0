@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
-import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails } from '@/services/ministry.service';
+import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails, submitMospiFormAction } from '@/services/ministry.service';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useToast } from '@/hooks/use-toast';
+import { Send, RotateCcw, CheckCircle } from 'lucide-react';
 import { MinistrySubmissionDetailsCard } from '../components/MinistrySubmissionDetailsCard';
 import { MinistryOverviewTab } from '../components/tabs/MinistryOverviewTab';
 import { MinistryDataReviewTab } from '../components/tabs/MinistryDataReviewTab';
@@ -33,6 +35,8 @@ export function MinistryFormReviewSubmissionPage() {
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (id) {
@@ -186,6 +190,100 @@ export function MinistryFormReviewSubmissionPage() {
 
   const ministryName = submission.user?.ministryName || 'N/A';
   const submissionId = submission.submissionId || 'N/A';
+  const formId = submission.formId || submission.id;
+
+  // Handle MOSPI Reviewer action: Send to Approver
+  const handleSendToApprover = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("📤 Sending to Approver, formId:", formId);
+      
+      await submitMospiFormAction(formId, "submit-to-approver");
+      
+      toast({
+        title: "Success",
+        description: "Submission sent to Approver successfully",
+      });
+      
+      // Reload submission to reflect status change
+      await loadSubmission();
+    } catch (error: any) {
+      console.error("❌ Error sending to approver:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to send to approver",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle MOSPI Approver action: Send Back
+  const handleSendBack = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("📤 Sending back, formId:", formId);
+      
+      await submitMospiFormAction(formId, "send-back");
+      
+      toast({
+        title: "Success",
+        description: "Submission sent back successfully",
+      });
+      
+      // Reload submission to reflect status change
+      await loadSubmission();
+    } catch (error: any) {
+      console.error("❌ Error sending back:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to send back",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle MOSPI Approver action: Submit (Accept)
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("📤 Submitting (Accepting), formId:", formId);
+      
+      await submitMospiFormAction(formId, "accept");
+      
+      toast({
+        title: "Success",
+        description: "Submission accepted successfully",
+      });
+      
+      // Reload submission to reflect status change
+      await loadSubmission();
+    } catch (error: any) {
+      console.error("❌ Error accepting submission:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to accept submission",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Check if user is MOSPI Reviewer or Approver
+  const isMospiReviewer = user?.role === "MOSPI_REVIEWER";
+  const isMospiApprover = user?.role === "MOSPI_APPROVER";
+  
+  // Debug: Log user role to verify
+  console.log("🔍 MinistryFormReviewSubmissionPage - User:", user);
+  console.log("🔍 User role:", user?.role);
+  console.log("🔍 isMospiReviewer:", isMospiReviewer);
+  console.log("🔍 isMospiApprover:", isMospiApprover);
+  console.log("🔍 formId:", formId);
+  console.log("🔍 submission:", submission);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -215,10 +313,75 @@ export function MinistryFormReviewSubmissionPage() {
               </p>
             </div>
 
-            {/* Status Badge */}
-            <Badge variant="outline" className={`${config.badgeClass} text-xs font-medium px-3 py-1`}>
-              {config.label}
-            </Badge>
+            {/* Status Badge and Action Buttons */}
+            <div className="flex items-center gap-3">
+              {/* Status Badge */}
+              <Badge variant="outline" className={`${config.badgeClass} text-xs font-medium px-3 py-1`}>
+                {config.label}
+              </Badge>
+              
+              {/* Action Buttons - MOSPI Reviewer */}
+              {isMospiReviewer && (
+                <Button
+                  onClick={handleSendToApprover}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send to Approver
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              {/* Action Buttons - MOSPI Approver */}
+              {isMospiApprover && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleSendBack}
+                    disabled={isSubmitting}
+                    variant="outline"
+                    className="flex items-center gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-4 h-4" />
+                        Send Back
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Submit
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
