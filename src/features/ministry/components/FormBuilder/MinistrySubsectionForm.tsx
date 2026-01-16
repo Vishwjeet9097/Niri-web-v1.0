@@ -349,6 +349,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     }}
                     disabled={disabled}
                     className={error ? "border-destructive" : ""}
+                    placeholder={`Enter ${field.label?.toLowerCase() || "value"}`}
                   />
                   {error && (
                     <p className="text-sm text-destructive mt-1">{error}</p>
@@ -394,6 +395,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     }}
                     disabled={disabled}
                     className={error ? "border-destructive" : ""}
+                    placeholder={`Enter ${field.label?.toLowerCase() || "number"}`}
                   />
                   {error && (
                     <p className="text-sm text-destructive mt-1">{error}</p>

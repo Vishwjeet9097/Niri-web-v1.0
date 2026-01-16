@@ -343,6 +343,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                   }}
                   disabled={disabled}
                   className={error ? "border-destructive" : className}
+                  placeholder={`Enter ${field.label?.toLowerCase() || "value"}`}
                 />
               )
             ) : isCommentField ? (
@@ -427,7 +428,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                 }}
                 disabled={disabled && !isCalculatedField}
                 readOnly={isCalculatedField}
-                placeholder={isCalculatedField ? "Auto-Calculated" : undefined}
+                placeholder={isCalculatedField ? "Auto-Calculated" : `Enter ${field.label?.toLowerCase() || "number"}`}
                 className={cn(
                   error ? "border-destructive" : "",
                   isCalculatedField
