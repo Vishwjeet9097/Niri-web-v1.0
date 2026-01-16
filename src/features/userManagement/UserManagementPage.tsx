@@ -147,7 +147,7 @@ export function UserManagementPage() {
         }
  
         // Transform backend users to NodalOfficer format
-        const transformedOfficers: NodalOfficer[] = backendUsers.map(
+        let transformedOfficers: NodalOfficer[] = backendUsers.map(
           (user: any) => ({
             id: user.id,
             firstName: user.firstName,
@@ -170,6 +170,16 @@ export function UserManagementPage() {
           })
         );
 
+        // For MINISTRY_APPROVER: Filter to show only NODAL_OFFICER users assigned to their ministry
+        if (user?.role === "MINISTRY_APPROVER" && user?.ministryId) {
+          transformedOfficers = transformedOfficers.filter((officer) => {
+            // Only show NODAL_OFFICER users with the same ministryId
+            return officer.role === "NODAL_OFFICER" && 
+                   officer.ministryId && 
+                   String(officer.ministryId) === String(user.ministryId);
+          });
+        }
+
         setOfficers(transformedOfficers);
         officersLoadedRef.current = true;
       } catch (error) {
@@ -182,7 +192,7 @@ export function UserManagementPage() {
         setIsLoading(false);
       }
     },
-    [user?.role, user?.state]
+    [user?.role, user?.state, user?.ministryId]
   );
 
   // New function to load indicators - memoized to prevent unnecessary calls
