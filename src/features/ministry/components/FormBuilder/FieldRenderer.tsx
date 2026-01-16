@@ -429,7 +429,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                 }}
                 disabled={disabled && !isCalculatedField}
                 readOnly={isCalculatedField}
-                placeholder={isCalculatedField ? "Auto-Calculated" : `Enter ${field.label?.toLowerCase() || "number"}`}
+                placeholder={
+                  isCalculatedField
+                    ? "Auto-Calculated"
+                    : `Enter ${field.label?.toLowerCase() || "number"}`
+                }
                 className={cn(
                   error ? "border-destructive" : "",
                   isCalculatedField
@@ -575,11 +579,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
             ) : (
               <Input
                 type="text"
-                value={
-                  isMMYYFormat
-                    ? value || ""
-                    : formatDateForDisplay(value)
-                }
+                value={isMMYYFormat ? value || "" : formatDateForDisplay(value)}
                 readOnly={true}
                 className={cn("cursor-not-allowed", className)}
                 placeholder={value ? undefined : "N/A"}
@@ -746,11 +746,17 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                       `🔄 [FieldRenderer] Updating "No document available" field: ${noDocAvailableFieldPath} = "${newValue}"`
                     );
 
-                    // Set flag to skip validation when clearing file
+                    // Set flag to skip validation when setting "No document available"
                     if (newValue === "No document available") {
                       skipFileValidationRef.current[fileFieldPath] = true;
                       console.log(
                         `🔄 [FieldRenderer] Set skipFileValidationRef[${fileFieldPath}] to true`
+                      );
+                    } else {
+                      // Clear the skip flag when unchecking (clearing "No document available")
+                      skipFileValidationRef.current[fileFieldPath] = false;
+                      console.log(
+                        `🔄 [FieldRenderer] Cleared skipFileValidationRef[${fileFieldPath}] (unchecking)`
                       );
                     }
 
@@ -796,12 +802,21 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
     }
   },
   (prevProps, nextProps) => {
-    // Only re-render if value, error, or disabled state changed
+    // Re-render if value, error, disabled state, mode, or formData changed
+    // Need to check formData to ensure "No document available" checkbox updates correctly
+    // Only check the specific section's data to avoid unnecessary re-renders
+    const sectionDataChanged = 
+      prevProps.sectionKey === nextProps.sectionKey &&
+      prevProps.sectionKey &&
+      prevProps.formData?.[prevProps.sectionKey] !== nextProps.formData?.[nextProps.sectionKey];
+    
     return (
       prevProps.value === nextProps.value &&
       prevProps.error === nextProps.error &&
       prevProps.disabled === nextProps.disabled &&
-      prevProps.mode === nextProps.mode
+      prevProps.mode === nextProps.mode &&
+      prevProps.sectionKey === nextProps.sectionKey &&
+      !sectionDataChanged
     );
   }
 );

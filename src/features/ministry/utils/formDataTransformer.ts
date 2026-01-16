@@ -167,7 +167,10 @@ export function transformApiResponseToFormData(
                                   // Generic transformation - converts any array of items to object
                                   const itemObject: Record<string, any> = {};
                                   // Store primaryIds per field (each field has its own primaryId)
-                                  const fieldPrimaryIds: Record<string, string> = {};
+                                  const fieldPrimaryIds: Record<
+                                    string,
+                                    string
+                                  > = {};
                                   itemArray.forEach((item: any) => {
                                     if (item && item.inputId) {
                                       const value =
@@ -183,13 +186,15 @@ export function transformApiResponseToFormData(
                                       itemObject[item.inputId] = value;
                                       // Store primaryId for this specific field
                                       if (item.primaryId) {
-                                        fieldPrimaryIds[item.inputId] = item.primaryId;
+                                        fieldPrimaryIds[item.inputId] =
+                                          item.primaryId;
                                       }
                                     }
                                   });
                                   // Store field primaryIds map in the itemObject
                                   if (Object.keys(fieldPrimaryIds).length > 0) {
-                                    itemObject._fieldPrimaryIds = fieldPrimaryIds;
+                                    itemObject._fieldPrimaryIds =
+                                      fieldPrimaryIds;
                                   }
                                   return itemObject;
                                 })
@@ -221,7 +226,8 @@ export function transformApiResponseToFormData(
                                 );
                                 const itemObject: Record<string, any> = {};
                                 // Store primaryIds per field
-                                const fieldPrimaryIds: Record<string, string> = {};
+                                const fieldPrimaryIds: Record<string, string> =
+                                  {};
                                 firstElement.forEach((item: any) => {
                                   if (item && item.inputId) {
                                     const value = extractValueFromSubmittedData(
@@ -236,7 +242,8 @@ export function transformApiResponseToFormData(
                                     itemObject[item.inputId] = value;
                                     // Store primaryId for this specific field
                                     if (item.primaryId) {
-                                      fieldPrimaryIds[item.inputId] = item.primaryId;
+                                      fieldPrimaryIds[item.inputId] =
+                                        item.primaryId;
                                     }
                                   }
                                 });
@@ -290,7 +297,8 @@ export function transformApiResponseToFormData(
                               );
                               const itemObject: Record<string, any> = {};
                               // Store primaryIds per field (each field has its own primaryId)
-                              const fieldPrimaryIds: Record<string, string> = {};
+                              const fieldPrimaryIds: Record<string, string> =
+                                {};
 
                               entryItems.forEach((item: any) => {
                                 if (item && item.inputId) {
@@ -306,7 +314,8 @@ export function transformApiResponseToFormData(
                                   itemObject[item.inputId] = value;
                                   // Store primaryId for this specific field
                                   if (item.primaryId) {
-                                    fieldPrimaryIds[item.inputId] = item.primaryId;
+                                    fieldPrimaryIds[item.inputId] =
+                                      item.primaryId;
                                   }
                                 }
                               });

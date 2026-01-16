@@ -76,7 +76,7 @@ export async function submitMospiFormAction(
 ): Promise<any> {
   try {
     const url = getApiUrl(`/ministry/form/submission/mospi-form-submit`);
-    
+
     const payload: {
       formId?: string;
       action: "send-back" | "accept" | "submit-to-approver";
@@ -95,10 +95,12 @@ export async function submitMospiFormAction(
       payload,
     });
 
-    const response = await apiService.put(url, payload, { withCredentials: true });
+    const response = await apiService.put(url, payload, {
+      withCredentials: true,
+    });
     return response.data?.data || response.data || response;
   } catch (error: any) {
-    console.error('❌ Error in submitMospiFormAction:', error);
+    console.error("❌ Error in submitMospiFormAction:", error);
     throw error;
   }
 }
@@ -115,7 +117,7 @@ export async function updateMinistryIndicatorStatus(
 ): Promise<any> {
   try {
     const url = getApiUrl(`/ministry/form/submission/indicator/status`);
-    
+
     const payload = {
       submissionIndicatorId,
       status,
@@ -127,10 +129,12 @@ export async function updateMinistryIndicatorStatus(
       payload,
     });
 
-    const response = await apiService.put(url, payload, { withCredentials: true });
+    const response = await apiService.put(url, payload, {
+      withCredentials: true,
+    });
     return response.data?.data || response.data || response;
   } catch (error: any) {
-    console.error('❌ Error in updateMinistryIndicatorStatus:', error);
+    console.error("❌ Error in updateMinistryIndicatorStatus:", error);
     throw error;
   }
 }

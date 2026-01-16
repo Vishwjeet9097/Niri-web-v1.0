@@ -1,10 +1,10 @@
-import React from 'react';
+import React from "react";
 
 export interface InputField {
   id: string;
   sectionId: string;
   label: string;
-  dataType: 'string' | 'number' | 'dropdown' | 'file' | 'date';
+  dataType: "string" | "number" | "dropdown" | "file" | "date";
   uiComponent?: string; // e.g., "Text Area", "File", "Input (Text)", etc.
   validationRules?: {
     required?: boolean;
@@ -41,13 +41,13 @@ export interface DynamicFormBuilderProps {
   indicators: Indicator[];
   formData: Record<string, any>;
   onChange: (path: string, value: any, field?: any) => void;
-  mode?: 'edit' | 'review';
+  mode?: "edit" | "review";
   disabled?: boolean;
   submissionId?: string;
   getFieldError?: (path: string) => string | undefined;
   getDropdownOptions?: (
-    fieldId: string, 
-    sectionId: string, 
+    fieldId: string,
+    sectionId: string,
     label?: string
   ) => { value: string; label: string }[];
   onSectionSubmit?: (indicatorCode: string) => void | Promise<void>;
@@ -57,14 +57,18 @@ export interface DynamicFormBuilderProps {
   validationErrors?: Record<string, string>; // Validation errors to display general message
   onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
   onClearFieldError?: (path: string) => void; // Clear error when user starts typing
-  renderSectionActionButtons?: (sectionId: string, sectionName: string, indicatorCode: string) => React.ReactNode; // Action buttons for each section in review mode
+  renderSectionActionButtons?: (
+    sectionId: string,
+    sectionName: string,
+    indicatorCode: string
+  ) => React.ReactNode; // Action buttons for each section in review mode
 }
 
 export interface FieldRendererProps {
   field: InputField;
   value: any;
   onChange: (value: any) => void;
-  mode: 'edit' | 'review';
+  mode: "edit" | "review";
   disabled: boolean;
   submissionId?: string;
   error?: string;
@@ -89,17 +93,16 @@ export interface SubsectionRendererProps {
   onChange: (index: number, fieldId: string, value: any) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
-  mode: 'edit' | 'review';
+  mode: "edit" | "review";
   disabled: boolean;
   submissionId?: string;
   getFieldError?: (path: string) => string | undefined;
   getDropdownOptions?: (
-    fieldId: string, 
-    sectionId: string, 
+    fieldId: string,
+    sectionId: string,
     label?: string
   ) => { value: string; label: string }[];
   yesNoValue?: string | null; // Value of the Yes/No field from parent section
   onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
   onClearFieldError?: (path: string) => void; // Clear error when user starts typing
 }
-

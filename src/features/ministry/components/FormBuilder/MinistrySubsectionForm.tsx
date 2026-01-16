@@ -418,7 +418,8 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
               const isMMYYFormat =
                 field.label?.toLowerCase().includes("training period") ||
                 field.label?.toLowerCase().includes("mm/yy") ||
-                (field.uiComponent === "Input (Text)" && field.dataType === "date");
+                (field.uiComponent === "Input (Text)" &&
+                  field.dataType === "date");
 
               // Helper to convert date value to format needed by input
               const formatDateForInput = (dateValue: any): string => {
@@ -546,9 +547,9 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
               );
             }
 
-            case "file":
-              // Find "No document available" field in the subsection inputs
-              { const noDocAvailableField = subsectionData.inputs?.find(
+            case "file": // Find "No document available" field in the subsection inputs
+            {
+              const noDocAvailableField = subsectionData.inputs?.find(
                 (f: any) =>
                   (f.label?.toLowerCase().includes("no document available") ||
                     f.label?.toLowerCase() === "no document available") &&
@@ -561,15 +562,20 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
               // Get primaryId specifically for this file field from the fieldPrimaryIds map
               // Each field has its own primaryId, so we need to get the one for this specific file field
-              const fieldPrimaryIds = item?._fieldPrimaryIds as Record<string, string> | undefined;
+              const fieldPrimaryIds = item?._fieldPrimaryIds as
+                | Record<string, string>
+                | undefined;
               const fileFieldPrimaryId = fieldPrimaryIds?.[field.id];
-              
-              console.log(`[MinistrySubsectionForm] File field ${field.id} at index ${index}:`, {
-                fileFieldPrimaryId,
-                fieldPrimaryIds,
-                item: item,
-                fieldValue: fieldValue,
-              });
+
+              console.log(
+                `[MinistrySubsectionForm] File field ${field.id} at index ${index}:`,
+                {
+                  fileFieldPrimaryId,
+                  fieldPrimaryIds,
+                  item: item,
+                  fieldValue: fieldValue,
+                }
+              );
 
               return (
                 <div className="space-y-2" data-field-path={fieldPath}>
@@ -661,7 +667,8 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     <p className="text-sm text-destructive mt-1">{error}</p>
                   )}
                 </div>
-              ); }
+              );
+            }
 
             default:
               return null;

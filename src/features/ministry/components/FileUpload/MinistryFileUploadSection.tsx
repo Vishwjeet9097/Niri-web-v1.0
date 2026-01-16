@@ -75,6 +75,17 @@ export const MinistryFileUploadSection = ({
   const isNoDocumentAvailableChecked =
     noDocumentAvailableValue === "No document available";
 
+  // Sync checkbox state when prop changes
+  useEffect(() => {
+    console.log(
+      `🔄 [MinistryFileUploadSection] noDocumentAvailableValue changed: "${noDocumentAvailableValue}", isChecked: ${isNoDocumentAvailableChecked}`
+    );
+    // Reset pending state if value is cleared
+    if (!noDocumentAvailableValue || noDocumentAvailableValue === "") {
+      setPendingCheckboxState(false);
+    }
+  }, [noDocumentAvailableValue, isNoDocumentAvailableChecked]);
+
   // Clean up object URL when component unmounts or file changes
   useEffect(() => {
     return () => {
@@ -182,7 +193,10 @@ export const MinistryFileUploadSection = ({
               primaryId: primaryId!,
             };
 
-        console.log("[MinistryFileUploadSection] Calling ministry delete API:", payload);
+        console.log(
+          "[MinistryFileUploadSection] Calling ministry delete API:",
+          payload
+        );
         await deleteMinistrySubmissionFile(payload);
         notificationService.success(
           "File deleted successfully",
@@ -381,8 +395,12 @@ export const MinistryFileUploadSection = ({
       setPendingCheckboxState(true);
       setShowConfirmModal(true);
     } else {
-      // Uncheck - clear "No document available" field
+      // Uncheck - clear "No document available" field and reset any pending state
+      setPendingCheckboxState(false);
       if (onNoDocumentAvailableChange) {
+        console.log(
+          `🔄 [MinistryFileUploadSection] Unchecking "No document available" checkbox`
+        );
         onNoDocumentAvailableChange("");
       }
     }
@@ -443,9 +461,13 @@ export const MinistryFileUploadSection = ({
         {!value && (
           <div className="flex items-center space-x-2">
             <Checkbox
+              key={`no-doc-checkbox-${noDocumentAvailableValue || "unchecked"}`}
               id={`no-doc-${uniqueId}`}
               checked={isNoDocumentAvailableChecked}
               onCheckedChange={(checked) => {
+                console.log(
+                  `🔄 [MinistryFileUploadSection] Checkbox onCheckedChange: ${checked}, current checked: ${isNoDocumentAvailableChecked}, noDocumentAvailableValue: "${noDocumentAvailableValue}"`
+                );
                 const isChecked = checked === true;
                 handleCheckboxChange(isChecked);
               }}
@@ -466,11 +488,11 @@ export const MinistryFileUploadSection = ({
             value="No document available"
             readOnly
             disabled
-            className="bg-gray-100 text-gray-600 cursor-not-allowed"
+            className="bg-gray-100 text-gray-600 cursor-not-allowed mt-2"
           />
         )}
 
-        {/* File upload section - hidden when "No document available" is checked */}
+        {/* File upload section - shown when "No document available" is NOT checked and no file exists */}
         {!isNoDocumentAvailableChecked && !value ? (
           <div className="flex items-center gap-3">
             {disabled ? (
