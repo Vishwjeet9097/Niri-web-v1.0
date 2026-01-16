@@ -1575,6 +1575,7 @@ function UserFormComponent({
   );
 
   // Fetch assigned states by role to disable them in dropdown
+  // Skip for MOSPI_REVIEWER as we handle it differently (allow deselection of current user's states)
   useEffect(() => {
     const fetchDisabledStates = async () => {
       try {
@@ -1584,7 +1585,7 @@ function UserFormComponent({
           return;
         }
 
-        if (formData.role === "NODAL_OFFICER") {
+        if (formData.role === "NODAL_OFFICER" || formData.role === "MOSPI_REVIEWER") {
           setDisabledStateNames([]);
           fetchedDisabledStatesRef.current = "";
           return;
@@ -2139,21 +2140,23 @@ function UserFormComponent({
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <MultiSelect
                       options={states.map(state => {
+                        // For MOSPI_REVIEWER, only check if state is assigned to OTHER reviewers (not current user)
+                        // Don't use disabledStateNames for MOSPI_REVIEWER as it includes current user's states
                         const isAssigned = (officers || []).some(o =>
                           o.role === 'MOSPI_REVIEWER' &&
                           o.id !== officer?.id &&
                           (
                             (Array.isArray(o.stateId) && o.stateId.includes(state.id)) ||
-                            (!Array.isArray(o.stateId) && o.stateId === state.id)
+                            (!Array.isArray(o.stateId) && o.stateId === state.id) ||
+                            (o.state && typeof o.state === 'string' && o.state.split(',').map(s => s.trim()).includes(state.name))
                           )
                         );
-                        const stateNameNorm = (state.name || '').trim().toLowerCase();
-                        const normalizedDisabledNames = disabledStateNames.map(n => n.toString().trim().toLowerCase());
-                        const isDisabledByName = normalizedDisabledNames.includes(stateNameNorm);
+                        // Only disable if state is inactive or assigned to another MOSPI_REVIEWER
+                        // Don't use disabledStateNames for MOSPI_REVIEWER to allow deselection of current user's states
                         return {
                           value: state.id,
                           label: state.name,
-                          disabled: !state.isActive || isAssigned || isDisabledByName
+                          disabled: !state.isActive || isAssigned
                         };
                       })}
                       value={Array.isArray(formData.stateId) ? formData.stateId : (formData.stateId ? [formData.stateId] : [])}
