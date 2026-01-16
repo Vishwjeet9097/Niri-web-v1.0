@@ -118,8 +118,14 @@ class ApiService implements HttpClient {
           ...(userData.indicatorCodes && userData.indicatorCodes.length > 0 && { indicatorCodes: userData.indicatorCodes }),
         };
         // If role is MINISTRY_APPROVER or MOSPI_REVIEWER and ministryId is present, include it as a string
+        // For MOSPI_REVIEWER, ministryId can be comma-separated for multiple ministries
         if ((userData.role === "MINISTRY_APPROVER" || userData.role === "MOSPI_REVIEWER"  || userData.role === "NODAL_OFFICER") && userData.ministryId) {
-          payload.ministryId = Array.isArray(userData.ministryId) ? userData.ministryId[0] || "" : userData.ministryId;
+          if (userData.role === "MOSPI_REVIEWER" && Array.isArray(userData.ministryId)) {
+            // For MOSPI_REVIEWER with multiple ministries, join with comma
+            payload.ministryId = userData.ministryId.join(",");
+          } else {
+            payload.ministryId = Array.isArray(userData.ministryId) ? userData.ministryId[0] || "" : userData.ministryId;
+          }
         }
         console.log("🔍 API Service - Register Request Data:", payload);
         const response = await this.axios.post("/auth/register", payload);

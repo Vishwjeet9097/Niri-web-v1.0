@@ -185,6 +185,50 @@ export async function getAllAssignedMinistryIds() {
   }
 }
 
+// Fetch assigned ministry IDs filtered by role (to check if ministry is already assigned to a specific role)
+// For MOSPI_REVIEWER, ministryId can be comma-separated, so we need to split and return individual IDs
+export async function getAssignedMinistryIdsByRole(role: string, excludeUserId?: string) {
+  try {
+    const url = getApiUrl("/users");
+    try {
+      const response = await apiService.get(url);
+      const data = response.data;
+      const users = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : [];
+      // Filter users by role and exclude the current user if editing
+      const filteredUsers = users.filter((user: any) => {
+        if (excludeUserId && user.id === excludeUserId) return false;
+        return user.role === role && user.ministryId;
+      });
+      
+      // Extract all ministry IDs, handling comma-separated values for MOSPI_REVIEWER
+      const allMinistryIds: string[] = [];
+      filteredUsers.forEach((user: any) => {
+        if (user.ministryId) {
+          const ministryIdStr = String(user.ministryId);
+          // If it contains comma, split it (for MOSPI_REVIEWER with multiple ministries)
+          if (ministryIdStr.includes(",")) {
+            const splitIds = ministryIdStr.split(",").map((id: string) => id.trim()).filter((id: string) => id && id !== "");
+            allMinistryIds.push(...splitIds);
+          } else {
+            allMinistryIds.push(ministryIdStr);
+          }
+        }
+      });
+      
+      // Return unique ministry IDs
+      return Array.from(new Set(allMinistryIds)).filter((id: any) => id && id !== "");
+    } catch (error) {
+      return [];
+    }
+  } catch (error) {
+    return [];
+  }
+}
+
 // Fetch indicators for ministry form creation
 export async function getMinistryFormIndicators() {
   try {
