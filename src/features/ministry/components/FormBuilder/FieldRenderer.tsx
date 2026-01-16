@@ -457,6 +457,138 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
           </div>
         );
 
+      case "date": {
+        const dateFieldPath = `${field.sectionId}.${field.id}`;
+        // Check if this is a MM/YY format field (Training Period)
+        const isMMYYFormat =
+          field.label?.toLowerCase().includes("training period") ||
+          field.label?.toLowerCase().includes("mm/yy") ||
+          (field.uiComponent === "Input (Text)" && field.dataType === "date");
+
+        // Helper to convert date value to format needed by input
+        const formatDateForInput = (dateValue: any): string => {
+          if (!dateValue) return "";
+          if (typeof dateValue === "string") {
+            // If it's already in YYYY-MM-DD format, return as is
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+              return dateValue;
+            }
+            // If it's in ISO format, extract YYYY-MM-DD
+            if (dateValue.includes("T")) {
+              return dateValue.split("T")[0];
+            }
+            // Try to parse and format
+            try {
+              const date = new Date(dateValue);
+              if (!isNaN(date.getTime())) {
+                return date.toISOString().split("T")[0];
+              }
+            } catch (e) {
+              // If parsing fails, return empty
+            }
+          }
+          return "";
+        };
+
+        // Helper to format date for display in review mode
+        const formatDateForDisplay = (dateValue: any): string => {
+          if (!dateValue) return "N/A";
+          if (typeof dateValue === "string") {
+            // If it's in YYYY-MM-DD format, format it nicely
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+              const [year, month, day] = dateValue.split("-");
+              return `${day}/${month}/${year}`;
+            }
+            // If it's in ISO format, extract and format
+            if (dateValue.includes("T")) {
+              const datePart = dateValue.split("T")[0];
+              const [year, month, day] = datePart.split("-");
+              return `${day}/${month}/${year}`;
+            }
+            return dateValue;
+          }
+          return String(dateValue);
+        };
+
+        return (
+          <div className="space-y-2" data-field-path={dateFieldPath}>
+            <Label>
+              {field.label}{" "}
+              {isRequired && <span className="text-destructive">*</span>}
+            </Label>
+            {isEditable ? (
+              isMMYYFormat ? (
+                // MM/YY format - use text input with pattern
+                <Input
+                  type="text"
+                  value={value || ""}
+                  onChange={(e) => {
+                    let newValue = e.target.value;
+                    // Allow MM/YY format (e.g., "01/24")
+                    // Remove any non-digit or slash characters
+                    newValue = newValue.replace(/[^\d/]/g, "");
+                    // Limit to MM/YY format (5 characters max: MM/YY)
+                    if (newValue.length <= 5) {
+                      onChange(newValue);
+                      // Always validate on change
+                      if (onValidate && field) {
+                        onValidate(dateFieldPath, newValue, field);
+                      }
+                    }
+                  }}
+                  onBlur={() => {
+                    // Validate on blur as well
+                    if (onValidate && field && value) {
+                      onValidate(dateFieldPath, value, field);
+                    }
+                  }}
+                  disabled={disabled}
+                  className={error ? "border-destructive" : className}
+                  placeholder="MM/YY (e.g., 01/24)"
+                  maxLength={5}
+                />
+              ) : (
+                // Standard date format - use date input
+                <Input
+                  type="date"
+                  value={formatDateForInput(value)}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    onChange(newValue);
+                    // Always validate on change
+                    if (onValidate && field) {
+                      onValidate(dateFieldPath, newValue, field);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Validate on blur as well
+                    if (onValidate && field && value) {
+                      onValidate(dateFieldPath, value, field);
+                    }
+                  }}
+                  disabled={disabled}
+                  className={error ? "border-destructive" : className}
+                  placeholder="Select date"
+                />
+              )
+            ) : (
+              <Input
+                type="text"
+                value={
+                  isMMYYFormat
+                    ? value || ""
+                    : formatDateForDisplay(value)
+                }
+                readOnly={true}
+                className={cn("cursor-not-allowed", className)}
+                placeholder={value ? undefined : "N/A"}
+              />
+            )}
+            {error && <p className="text-sm text-destructive mt-1">{error}</p>}
+          </div>
+        );
+      }
+
       case "file":
         const fileFieldPath = `${field.sectionId}.${field.id}`;
         // Find "No document available" field in the section

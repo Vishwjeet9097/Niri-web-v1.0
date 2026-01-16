@@ -124,7 +124,13 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
         // If no Yes/No value, show all fields
         return allFields;
-      }, [subsectionData.inputs, normalizedYesNoValue, isCommentField, isNoDocumentAvailableField, mode]);
+      }, [
+        subsectionData.inputs,
+        normalizedYesNoValue,
+        isCommentField,
+        isNoDocumentAvailableField,
+        mode,
+      ]);
 
       // Helper to normalize Yes/No values
       const normalizeYesNoValue = useCallback((val: any): string => {
@@ -349,7 +355,9 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     }}
                     disabled={disabled}
                     className={error ? "border-destructive" : ""}
-                    placeholder={`Enter ${field.label?.toLowerCase() || "value"}`}
+                    placeholder={`Enter ${
+                      field.label?.toLowerCase() || "value"
+                    }`}
                   />
                   {error && (
                     <p className="text-sm text-destructive mt-1">{error}</p>
@@ -395,7 +403,9 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     }}
                     disabled={disabled}
                     className={error ? "border-destructive" : ""}
-                    placeholder={`Enter ${field.label?.toLowerCase() || "number"}`}
+                    placeholder={`Enter ${
+                      field.label?.toLowerCase() || "number"
+                    }`}
                   />
                   {error && (
                     <p className="text-sm text-destructive mt-1">{error}</p>
@@ -403,9 +413,142 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                 </div>
               );
 
+            case "date": {
+              // Check if this is a MM/YY format field (Training Period)
+              const isMMYYFormat =
+                field.label?.toLowerCase().includes("training period") ||
+                field.label?.toLowerCase().includes("mm/yy") ||
+                (field.uiComponent === "Input (Text)" && field.dataType === "date");
+
+              // Helper to convert date value to format needed by input
+              const formatDateForInput = (dateValue: any): string => {
+                if (!dateValue) return "";
+                if (typeof dateValue === "string") {
+                  // If it's already in YYYY-MM-DD format, return as is
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                    return dateValue;
+                  }
+                  // If it's in ISO format, extract YYYY-MM-DD
+                  if (dateValue.includes("T")) {
+                    return dateValue.split("T")[0];
+                  }
+                  // Try to parse and format
+                  try {
+                    const date = new Date(dateValue);
+                    if (!isNaN(date.getTime())) {
+                      return date.toISOString().split("T")[0];
+                    }
+                  } catch (e) {
+                    // If parsing fails, return empty
+                  }
+                }
+                return "";
+              };
+
+              // Helper to format date for display in review mode
+              const formatDateForDisplay = (dateValue: any): string => {
+                if (!dateValue) return "N/A";
+                if (typeof dateValue === "string") {
+                  // If it's in YYYY-MM-DD format, format it nicely
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                    const [year, month, day] = dateValue.split("-");
+                    return `${day}/${month}/${year}`;
+                  }
+                  // If it's in ISO format, extract and format
+                  if (dateValue.includes("T")) {
+                    const datePart = dateValue.split("T")[0];
+                    const [year, month, day] = datePart.split("-");
+                    return `${day}/${month}/${year}`;
+                  }
+                  return dateValue;
+                }
+                return String(dateValue);
+              };
+
+              return (
+                <div className="space-y-2" data-field-path={fieldPath}>
+                  <Label>
+                    {field.label}{" "}
+                    {isRequired && <span className="text-destructive">*</span>}
+                  </Label>
+                  {isEditable ? (
+                    isMMYYFormat ? (
+                      // MM/YY format - use text input with pattern
+                      <Input
+                        type="text"
+                        value={fieldValue || ""}
+                        onChange={(e) => {
+                          let newValue = e.target.value;
+                          // Allow MM/YY format (e.g., "01/24")
+                          // Remove any non-digit or slash characters
+                          newValue = newValue.replace(/[^\d/]/g, "");
+                          // Limit to MM/YY format (5 characters max: MM/YY)
+                          if (newValue.length <= 5) {
+                            onChange(index, field.id, newValue);
+                            // Always validate on change
+                            if (onValidateField && field) {
+                              onValidateField(fieldPath, newValue, field);
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          // Validate on blur as well
+                          if (onValidateField && field && fieldValue) {
+                            onValidateField(fieldPath, fieldValue, field);
+                          }
+                        }}
+                        disabled={disabled}
+                        className={error ? "border-destructive" : ""}
+                        placeholder="MM/YY (e.g., 01/24)"
+                        maxLength={5}
+                      />
+                    ) : (
+                      // Standard date format - use date input
+                      <Input
+                        type="date"
+                        value={formatDateForInput(fieldValue)}
+                        onChange={(e) => {
+                          const newValue = e.target.value;
+                          onChange(index, field.id, newValue);
+                          // Always validate on change
+                          if (onValidateField && field) {
+                            onValidateField(fieldPath, newValue, field);
+                          }
+                        }}
+                        onBlur={() => {
+                          // Validate on blur as well
+                          if (onValidateField && field && fieldValue) {
+                            onValidateField(fieldPath, fieldValue, field);
+                          }
+                        }}
+                        disabled={disabled}
+                        className={error ? "border-destructive" : ""}
+                        placeholder="Select date"
+                      />
+                    )
+                  ) : (
+                    <Input
+                      type="text"
+                      value={
+                        isMMYYFormat
+                          ? fieldValue || ""
+                          : formatDateForDisplay(fieldValue)
+                      }
+                      readOnly={true}
+                      className="cursor-not-allowed"
+                      placeholder={fieldValue ? undefined : "N/A"}
+                    />
+                  )}
+                  {error && (
+                    <p className="text-sm text-destructive mt-1">{error}</p>
+                  )}
+                </div>
+              );
+            }
+
             case "file":
               // Find "No document available" field in the subsection inputs
-              const noDocAvailableField = subsectionData.inputs?.find(
+              { const noDocAvailableField = subsectionData.inputs?.find(
                 (f: any) =>
                   (f.label?.toLowerCase().includes("no document available") ||
                     f.label?.toLowerCase() === "no document available") &&
@@ -429,20 +572,25 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
                       // When clearing file (value === null), preserve "No document available" value
                       // Check both the prop and the item directly since prop might be stale
-                      const currentNoDocValue = item?.[noDocAvailableField?.id || ""];
-                      const shouldPreserveNoDoc = 
-                        value === null && 
+                      const currentNoDocValue =
+                        item?.[noDocAvailableField?.id || ""];
+                      const shouldPreserveNoDoc =
+                        value === null &&
                         noDocAvailableField &&
-                        (noDocAvailableValue === "No document available" || 
-                         currentNoDocValue === "No document available");
+                        (noDocAvailableValue === "No document available" ||
+                          currentNoDocValue === "No document available");
 
                       onChange(index, field.id, value);
-                      
+
                       // After clearing file, re-set "No document available" if it was previously set
                       // This ensures the value is preserved even if the formData update resets the item
                       if (shouldPreserveNoDoc && noDocAvailableField) {
                         setTimeout(() => {
-                          onChange(index, noDocAvailableField.id, "No document available");
+                          onChange(
+                            index,
+                            noDocAvailableField.id,
+                            "No document available"
+                          );
                         }, 150);
                       }
 
@@ -453,7 +601,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                         // Clear error if "No document available" is checked
                         onClearFieldError(fieldPath);
                       }
-                      
+
                       // Reset the skip flag after a short delay
                       if (skipFileValidationRef.current[fieldPath]) {
                         setTimeout(() => {
@@ -474,7 +622,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                         }
 
                         onChange(index, noDocAvailableField.id, newValue);
-                        
+
                         // Validate the "No document available" field
                         const noDocAvailableFieldPath = `${sectionKey}.${subsectionName}[${index}].${noDocAvailableField.id}`;
                         if (onValidateField && noDocAvailableField) {
@@ -484,7 +632,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                             noDocAvailableField
                           );
                         }
-                        
+
                         // Clear the file upload field error if "No document available" is confirmed
                         if (
                           newValue === "No document available" &&
@@ -500,7 +648,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     <p className="text-sm text-destructive mt-1">{error}</p>
                   )}
                 </div>
-              );
+              ); }
 
             default:
               return null;
