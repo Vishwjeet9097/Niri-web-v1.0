@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { submitIndicatorToMinistryApprover } from "@/services/ministry.service";
+import { submitIndicatorToMinistryApprover, updateSubmissionIndicatorStatus } from "@/services/ministry.service";
 import { validateSection } from "../utils/validation";
 import { getCategoryFromSectionId } from "../utils/formDataTransformer";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
@@ -200,18 +200,43 @@ export function useMinistrySubmissionActions({
       console.log("📋 Section Data:", JSON.stringify(sectionData, null, 2));
       console.log("📋 Submission Indicator ID:", submissionIndicatorId);
       console.log("📋 Submission ID:", submissionId);
+      console.log("📋 Current Section Status:", currentSection?.status);
+
+      // Determine status based on current section status
+      // If indicator was sent back (RETURNED_FROM_MINISTRY), use RESUBMITTED
+      // Otherwise, use SUBMITTED_TO_MINISTRY
+      let statusToSet = "SUBMITTED_TO_MINISTRY"; // Default status
+      const sectionStatus = currentSection?.status;
+      
+      if (sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY") {
+        statusToSet = "RESUBMITTED";
+        console.log(
+          "[useMinistrySubmissionActions] Indicator was sent back, using RESUBMITTED status:",
+          indicatorCode
+        );
+      }
 
       // All API calls happen here: file uploads + submission
-      // Submit with status: "SUBMITTED_TO_MINISTRY"
       const response = await submitIndicatorToMinistryApprover(
         submissionIndicatorId,
         sectionData,
         currentSection,
         submissionId || undefined,
-        "SUBMITTED_TO_MINISTRY" // Submit status
+        statusToSet // Use determined status
       );
 
       console.log("✅ Indicator submission response:", response);
+
+      // If status is RESUBMITTED, also update the indicator status explicitly
+      if (statusToSet === "RESUBMITTED") {
+        console.log(
+          "[useMinistrySubmissionActions] Updating indicator status to RESUBMITTED"
+        );
+        await updateSubmissionIndicatorStatus(
+          submissionIndicatorId,
+          "RESUBMITTED"
+        );
+      }
 
       // Update submitted indicators immediately BEFORE clearing submittingIndicator
       // This ensures the button shows "Submitted" immediately
@@ -250,7 +275,7 @@ export function useMinistrySubmissionActions({
       // Clear submittingIndicator on error too
       setSubmittingIndicator(null);
     }
-  }, [pendingIndicator, submissionId, toast, setSubmittedIndicators]);
+  }, [pendingIndicator, submissionId, toast, setSubmittedIndicators, setSubmittedIndicatorsVersion]);
 
   // Handle cancel from modal
   const handleCancelSubmit = useCallback(() => {
