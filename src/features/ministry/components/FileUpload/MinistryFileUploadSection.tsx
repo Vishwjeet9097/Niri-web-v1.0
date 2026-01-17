@@ -187,14 +187,14 @@ export const MinistryFileUploadSection = ({
     // Try to get primaryId from file value if not passed as prop
     // This is important for subsection files where primaryId might be stored in the file value
     let finalPrimaryId = primaryId;
-    if (!finalPrimaryId && value && typeof value === 'object') {
+    if (!finalPrimaryId && value && typeof value === "object") {
       finalPrimaryId = (value as any)._primaryId;
       // Also check if it's in valueJson.id (file metadata)
       if (!finalPrimaryId && (value as any).id) {
         // The file ID might be the primaryId in some cases, but we need the actual primaryId
         // Let's check valueJson structure
         const valueJson = (value as any).valueJson || (value as any);
-        if (valueJson && typeof valueJson === 'object') {
+        if (valueJson && typeof valueJson === "object") {
           finalPrimaryId = valueJson._primaryId || valueJson.primaryId;
         }
       }
@@ -272,7 +272,7 @@ export const MinistryFileUploadSection = ({
     if (submissionIndicatorId || primaryId) {
       // Try to get primaryId from file value if not passed as prop
       let finalPrimaryId = primaryId;
-      if (!finalPrimaryId && value && typeof value === 'object') {
+      if (!finalPrimaryId && value && typeof value === "object") {
         finalPrimaryId = (value as any)._primaryId;
       }
 

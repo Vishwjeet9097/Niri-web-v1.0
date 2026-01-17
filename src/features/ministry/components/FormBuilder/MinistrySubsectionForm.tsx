@@ -549,8 +549,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
               );
             }
 
-            case "file": // Find "No document available" field in the subsection inputs
-            {
+            case "file": { // Find "No document available" field in the subsection inputs
               const noDocAvailableField = subsectionData.inputs?.find(
                 (f: any) =>
                   (f.label?.toLowerCase().includes("no document available") ||
@@ -566,30 +565,35 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
               // Priority order:
               // 1. From the file value itself (stored as _primaryId during transformation) - most reliable
               let fileFieldPrimaryId: string | undefined = undefined;
-              if (fieldValue && typeof fieldValue === 'object') {
+              if (fieldValue && typeof fieldValue === "object") {
                 fileFieldPrimaryId = (fieldValue as any)._primaryId;
                 // Also check nested valueJson structure
                 if (!fileFieldPrimaryId && (fieldValue as any).valueJson) {
-                  fileFieldPrimaryId = (fieldValue as any).valueJson._primaryId || (fieldValue as any).valueJson.primaryId;
+                  fileFieldPrimaryId =
+                    (fieldValue as any).valueJson._primaryId ||
+                    (fieldValue as any).valueJson.primaryId;
                 }
               }
-              
+
               // 2. From fieldPrimaryIds map using field.id (should match inputId from backend)
               const fieldPrimaryIds = item?._fieldPrimaryIds as
                 | Record<string, string>
                 | undefined;
-              
+
               if (!fileFieldPrimaryId && fieldPrimaryIds) {
                 // Try exact match first
                 fileFieldPrimaryId = fieldPrimaryIds[field.id];
-                
+
                 // 3. If still not found, try fuzzy matching on fieldPrimaryIds keys
-                if (!fileFieldPrimaryId && Object.keys(fieldPrimaryIds).length > 0) {
+                if (
+                  !fileFieldPrimaryId &&
+                  Object.keys(fieldPrimaryIds).length > 0
+                ) {
                   const primaryIdKeys = Object.keys(fieldPrimaryIds);
-                  
+
                   // Try case-insensitive match
-                  const caseInsensitiveMatch = primaryIdKeys.find(key => 
-                    key.toLowerCase() === field.id.toLowerCase()
+                  const caseInsensitiveMatch = primaryIdKeys.find(
+                    (key) => key.toLowerCase() === field.id.toLowerCase()
                   );
                   if (caseInsensitiveMatch) {
                     fileFieldPrimaryId = fieldPrimaryIds[caseInsensitiveMatch];
@@ -598,13 +602,18 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                     // use that item's primaryId
                     // This is a fallback for when field.id doesn't match the stored key
                     const primaryIdValues = Object.values(fieldPrimaryIds);
-                    if (primaryIdValues.length === 1 && field.dataType === 'file') {
+                    if (
+                      primaryIdValues.length === 1 &&
+                      field.dataType === "file"
+                    ) {
                       // If only one primaryId exists and this is a file field, use it
                       fileFieldPrimaryId = primaryIdValues[0];
                     } else {
                       // Try to find the primaryId by checking all fields in the item
                       // and matching the file value
-                      for (const [key, primaryIdValue] of Object.entries(fieldPrimaryIds)) {
+                      for (const [key, primaryIdValue] of Object.entries(
+                        fieldPrimaryIds
+                      )) {
                         // If the item has a value at this key that matches our fieldValue, use its primaryId
                         if (item[key] === fieldValue) {
                           fileFieldPrimaryId = primaryIdValue;
@@ -622,11 +631,16 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                   fileFieldPrimaryId,
                   fieldPrimaryIds,
                   fieldId: field.id,
-                  fieldPrimaryIdsKeys: fieldPrimaryIds ? Object.keys(fieldPrimaryIds) : [],
+                  fieldPrimaryIdsKeys: fieldPrimaryIds
+                    ? Object.keys(fieldPrimaryIds)
+                    : [],
                   item: item,
                   fieldValue: fieldValue,
                   hasFieldPrimaryIds: !!item?._fieldPrimaryIds,
-                  fileValueHasPrimaryId: fieldValue && typeof fieldValue === 'object' ? !!(fieldValue as any)._primaryId : false,
+                  fileValueHasPrimaryId:
+                    fieldValue && typeof fieldValue === "object"
+                      ? !!(fieldValue as any)._primaryId
+                      : false,
                 }
               );
 

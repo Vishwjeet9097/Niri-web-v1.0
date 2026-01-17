@@ -84,11 +84,13 @@ export function MinistrySubmissionReviewWrapper({
   >({});
   const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
   // Store pending file deletions to execute on Save
-  const [pendingFileDeletions, setPendingFileDeletions] = useState<Array<{
-    action: "by-submission-indicator" | "by-primary-id";
-    submissionIndicatorId?: string;
-    primaryId?: string;
-  }>>([]);
+  const [pendingFileDeletions, setPendingFileDeletions] = useState<
+    Array<{
+      action: "by-submission-indicator" | "by-primary-id";
+      submissionIndicatorId?: string;
+      primaryId?: string;
+    }>
+  >([]);
 
   // Validation hook for edit mode
   const {
@@ -124,7 +126,9 @@ export function MinistrySubmissionReviewWrapper({
     sectionId?: string;
     isSendBack?: boolean;
   } | null>(null);
-  const [submittingIndicatorId, setSubmittingIndicatorId] = useState<string | null>(null);
+  const [submittingIndicatorId, setSubmittingIndicatorId] = useState<
+    string | null
+  >(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [pendingSendBackAction, setPendingSendBackAction] = useState<{
     submissionIndicatorId: string;
@@ -156,12 +160,15 @@ export function MinistrySubmissionReviewWrapper({
       });
 
       // Reload data to reflect the change
-      setReloadTrigger(prev => prev + 1);
+      setReloadTrigger((prev) => prev + 1);
     } catch (error: any) {
       console.error("❌ Error sending back indicator:", error);
       toast({
         title: "Error",
-        description: error?.response?.data?.message || error?.message || "Failed to send back indicator",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to send back indicator",
         variant: "destructive",
       });
     } finally {
@@ -172,7 +179,13 @@ export function MinistrySubmissionReviewWrapper({
   // Load submission data with forReview=true
   useEffect(() => {
     loadSubmissionData();
-  }, [submission?.id, userId, useConsolidatedApi, propSubmissionId, reloadTrigger]);
+  }, [
+    submission?.id,
+    userId,
+    useConsolidatedApi,
+    propSubmissionId,
+    reloadTrigger,
+  ]);
 
   const loadSubmissionData = async () => {
     try {
@@ -1843,7 +1856,7 @@ export function MinistrySubmissionReviewWrapper({
         onSuccess={() => {
           // Optionally refresh data or show success message
           console.log("Comment added successfully");
-           if (pendingSendBackAction) {
+          if (pendingSendBackAction) {
             // Small delay to ensure comment is saved before status update
             setTimeout(() => {
               handleSendBackAfterComment();

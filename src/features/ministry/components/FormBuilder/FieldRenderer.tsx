@@ -809,11 +809,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
     // Re-render if value, error, disabled state, mode, or formData changed
     // Need to check formData to ensure "No document available" checkbox updates correctly
     // Only check the specific section's data to avoid unnecessary re-renders
-    const sectionDataChanged = 
+    const sectionDataChanged =
       prevProps.sectionKey === nextProps.sectionKey &&
       prevProps.sectionKey &&
-      prevProps.formData?.[prevProps.sectionKey] !== nextProps.formData?.[nextProps.sectionKey];
-    
+      prevProps.formData?.[prevProps.sectionKey] !==
+        nextProps.formData?.[nextProps.sectionKey];
+
     return (
       prevProps.value === nextProps.value &&
       prevProps.error === nextProps.error &&

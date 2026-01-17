@@ -467,7 +467,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                     .submissionIndicatorId
                                                 }
                                                 isEditMode={isSectionInEditMode}
-                                                onPendingDeletion={onPendingDeletion}
+                                                onPendingDeletion={
+                                                  onPendingDeletion
+                                                }
                                               />
                                             );
                                           })}
@@ -528,7 +530,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                   (section as any)
                                                     .submissionIndicatorId
                                                 }
-                                                onPendingDeletion={onPendingDeletion}
+                                                onPendingDeletion={
+                                                  onPendingDeletion
+                                                }
                                               />
                                             );
                                           })}
@@ -590,7 +594,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                     .submissionIndicatorId
                                                 }
                                                 isEditMode={isSectionInEditMode}
-                                                onPendingDeletion={onPendingDeletion}
+                                                onPendingDeletion={
+                                                  onPendingDeletion
+                                                }
                                               />
                                             );
                                           })}
@@ -661,7 +667,9 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                         onValidateField={onValidateField}
                                         onClearFieldError={onClearFieldError}
                                         onPendingDeletion={onPendingDeletion}
-                                        isSectionInEditMode={isSectionInEditMode}
+                                        isSectionInEditMode={
+                                          isSectionInEditMode
+                                        }
                                       />
                                     );
                                   }
