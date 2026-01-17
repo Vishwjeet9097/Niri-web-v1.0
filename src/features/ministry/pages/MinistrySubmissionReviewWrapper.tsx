@@ -20,6 +20,7 @@ import {
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
   getMinistrySubmissionIndicatorComments,
+  deleteMinistrySubmissionFile,
 } from "@/services/ministry.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
@@ -82,6 +83,12 @@ export function MinistrySubmissionReviewWrapper({
     Record<string, any>
   >({});
   const [savingSections, setSavingSections] = useState<Set<string>>(new Set());
+  // Store pending file deletions to execute on Save
+  const [pendingFileDeletions, setPendingFileDeletions] = useState<Array<{
+    action: "by-submission-indicator" | "by-primary-id";
+    submissionIndicatorId?: string;
+    primaryId?: string;
+  }>>([]);
 
   // Validation hook for edit mode
   const {
@@ -580,6 +587,28 @@ export function MinistrySubmissionReviewWrapper({
         );
       }
 
+      // Execute all pending file deletions before saving
+      // This ensures all deletions made during editing are executed when Save is clicked
+      if (pendingFileDeletions.length > 0) {
+        console.log(
+          `[MinistrySubmissionReviewWrapper] Executing ${pendingFileDeletions.length} pending file deletions before save`
+        );
+        // Execute all pending deletions
+        const deletionPromises = pendingFileDeletions.map((deletion) =>
+          deleteMinistrySubmissionFile(deletion).catch((error) => {
+            console.error(
+              "[MinistrySubmissionReviewWrapper] Error deleting file:",
+              error
+            );
+            // Continue with other deletions even if one fails
+            return null;
+          })
+        );
+        await Promise.all(deletionPromises);
+        // Clear all pending deletions after execution
+        setPendingFileDeletions([]);
+      }
+
       // Call update API to save data
       const updateResponse = await updateMinistryIndicatorData(
         submissionIndicatorId,
@@ -1010,6 +1039,22 @@ export function MinistrySubmissionReviewWrapper({
     setTimelineComments([]);
   };
 
+  // Handler for pending file deletions (called when user clicks 'x' in edit mode)
+  const handlePendingDeletion = useCallback(
+    (deletionInfo: {
+      action: "by-submission-indicator" | "by-primary-id";
+      submissionIndicatorId?: string;
+      primaryId?: string;
+    }) => {
+      console.log(
+        "[MinistrySubmissionReviewWrapper] Pending deletion added:",
+        deletionInfo
+      );
+      setPendingFileDeletions((prev) => [...prev, deletionInfo]);
+    },
+    []
+  );
+
   // Get comment count for a section
   const getCommentCount = useCallback(
     async (sectionId: string): Promise<number> => {
@@ -1366,6 +1411,7 @@ export function MinistrySubmissionReviewWrapper({
                         validationErrors={validationErrors} // Pass validation errors
                         onValidateField={validateFieldOnChange} // Enable validation in edit mode
                         onClearFieldError={clearFieldError} // Enable error clearing
+                        onPendingDeletion={handlePendingDeletion} // Handle pending file deletions
                         renderSectionActionButtons={(
                           sectionId,
                           sectionName,

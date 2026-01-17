@@ -62,6 +62,12 @@ export interface DynamicFormBuilderProps {
     sectionName: string,
     indicatorCode: string
   ) => React.ReactNode; // Action buttons for each section in review mode
+  // Props for edit mode deferred deletion
+  onPendingDeletion?: (deletionInfo: {
+    action: "by-submission-indicator" | "by-primary-id";
+    submissionIndicatorId?: string;
+    primaryId?: string;
+  }) => void; // Callback to notify parent of pending deletion
 }
 
 export interface FieldRendererProps {
@@ -84,6 +90,13 @@ export interface FieldRendererProps {
   onFieldChange?: (path: string, value: any, field?: any) => void; // Handler to update "No document available" field
   // Props for ministry file deletion
   submissionIndicatorId?: string; // For files directly associated with an indicator
+  // Props for edit mode deferred deletion
+  onPendingDeletion?: (deletionInfo: {
+    action: "by-submission-indicator" | "by-primary-id";
+    submissionIndicatorId?: string;
+    primaryId?: string;
+  }) => void; // Callback to notify parent of pending deletion
+  isEditMode?: boolean; // Whether the section is currently in edit mode
 }
 
 export interface SubsectionRendererProps {
@@ -105,4 +118,11 @@ export interface SubsectionRendererProps {
   yesNoValue?: string | null; // Value of the Yes/No field from parent section
   onValidateField?: (path: string, value: any, field: any) => void; // Real-time validation callback
   onClearFieldError?: (path: string) => void; // Clear error when user starts typing
+  // Props for edit mode deferred deletion
+  onPendingDeletion?: (deletionInfo: {
+    action: "by-submission-indicator" | "by-primary-id";
+    submissionIndicatorId?: string;
+    primaryId?: string;
+  }) => void; // Callback to notify parent of pending deletion
+  isSectionInEditMode?: boolean; // Whether the section is currently in edit mode
 }

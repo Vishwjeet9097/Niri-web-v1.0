@@ -38,6 +38,13 @@ interface MinistryFileUploadSectionProps {
   // Props for ministry file deletion
   submissionIndicatorId?: string; // For files directly associated with an indicator
   primaryId?: string; // For files in subsections
+  // Props for edit mode deferred deletion
+  isEditMode?: boolean; // If true, defer deletion API call until Save
+  onPendingDeletion?: (deletionInfo: {
+    action: "by-submission-indicator" | "by-primary-id";
+    submissionIndicatorId?: string;
+    primaryId?: string;
+  }) => void; // Callback to notify parent of pending deletion
 }
 
 export const MinistryFileUploadSection = ({
@@ -58,6 +65,8 @@ export const MinistryFileUploadSection = ({
   noDocumentAvailableFieldId,
   submissionIndicatorId,
   primaryId,
+  isEditMode = false,
+  onPendingDeletion,
 }: MinistryFileUploadSectionProps) => {
   const uniqueId = useId();
   const fileInputId = `file-${uniqueId}`;
@@ -175,33 +184,126 @@ export const MinistryFileUploadSection = ({
       return;
     }
 
+    // Try to get primaryId from file value if not passed as prop
+    // This is important for subsection files where primaryId might be stored in the file value
+    let finalPrimaryId = primaryId;
+    if (!finalPrimaryId && value && typeof value === 'object') {
+      finalPrimaryId = (value as any)._primaryId;
+      // Also check if it's in valueJson.id (file metadata)
+      if (!finalPrimaryId && (value as any).id) {
+        // The file ID might be the primaryId in some cases, but we need the actual primaryId
+        // Let's check valueJson structure
+        const valueJson = (value as any).valueJson || (value as any);
+        if (valueJson && typeof valueJson === 'object') {
+          finalPrimaryId = valueJson._primaryId || valueJson.primaryId;
+        }
+      }
+    }
+
     // Debug logging
     console.log("[MinistryFileUploadSection] Delete file called:", {
       submissionIndicatorId,
       primaryId,
+      finalPrimaryId,
       hasValue: !!value,
       filePath: value?.filePath,
+      isEditMode,
+      valueStructure: value,
     });
 
-    // If we have submissionIndicatorId or primaryId, use the ministry delete API
-    // For subsection files, primaryId should be available
-    // For direct indicator files, submissionIndicatorId should be available
-    if (submissionIndicatorId || primaryId) {
-      try {
-        const payload: {
-          action: "by-submission-indicator" | "by-primary-id";
-          submissionIndicatorId?: string;
-          primaryId?: string;
-        } = submissionIndicatorId
-          ? {
-              action: "by-submission-indicator",
-              submissionIndicatorId,
-            }
-          : {
-              action: "by-primary-id",
-              primaryId: primaryId!,
-            };
+    // In edit mode, always defer deletion - remove from UI immediately, call API on Save
+    if (isEditMode) {
+      // Create payload for deferred deletion
+      // For subsection files, use primaryId with action "by-primary-id"
+      // For direct indicator files, use submissionIndicatorId with action "by-submission-indicator"
+      const payload: {
+        action: "by-submission-indicator" | "by-primary-id";
+        submissionIndicatorId?: string;
+        primaryId?: string;
+      } | null = submissionIndicatorId
+        ? {
+            action: "by-submission-indicator",
+            submissionIndicatorId,
+          }
+        : finalPrimaryId
+        ? {
+            action: "by-primary-id",
+            primaryId: finalPrimaryId,
+          }
+        : null;
 
+      if (payload) {
+        console.log(
+          "[MinistryFileUploadSection] Edit mode: Deferring deletion, notifying parent with payload:",
+          payload
+        );
+        // Notify parent of pending deletion BEFORE removing from UI
+        // This ensures we capture the primaryId before it's lost
+        if (onPendingDeletion) {
+          onPendingDeletion(payload);
+        }
+      } else {
+        console.warn(
+          "[MinistryFileUploadSection] Edit mode: No submissionIndicatorId or primaryId available. File will be removed from UI but deletion may fail on Save.",
+          {
+            submissionIndicatorId,
+            primaryId,
+            finalPrimaryId,
+            value,
+          }
+        );
+        // Still try to notify parent even without IDs - parent might be able to resolve it
+        // But this is a fallback - ideally primaryId should always be available
+      }
+
+      // Update UI immediately (remove file from display)
+      onChange(null);
+      // After removing file, if "No Document Available" was previously set, restore it
+      if (isNoDocumentAvailableChecked && onNoDocumentAvailableChange) {
+        console.log(
+          `🔄 [MinistryFileUploadSection] File removed, keeping "No Document Available" checked`
+        );
+      }
+      return;
+    }
+
+    // Not in edit mode - delete immediately via API
+    // If we have submissionIndicatorId or primaryId, use the ministry delete API
+    if (submissionIndicatorId || primaryId) {
+      // Try to get primaryId from file value if not passed as prop
+      let finalPrimaryId = primaryId;
+      if (!finalPrimaryId && value && typeof value === 'object') {
+        finalPrimaryId = (value as any)._primaryId;
+      }
+
+      const payload: {
+        action: "by-submission-indicator" | "by-primary-id";
+        submissionIndicatorId?: string;
+        primaryId?: string;
+      } = submissionIndicatorId
+        ? {
+            action: "by-submission-indicator",
+            submissionIndicatorId,
+          }
+        : finalPrimaryId
+        ? {
+            action: "by-primary-id",
+            primaryId: finalPrimaryId,
+          }
+        : null;
+
+      if (!payload) {
+        console.warn(
+          "[MinistryFileUploadSection] No submissionIndicatorId or primaryId provided, cannot delete file via ministry API"
+        );
+        notificationService.error(
+          "Cannot delete file: Missing required information.",
+          "Delete Failed"
+        );
+        return;
+      }
+
+      try {
         console.log(
           "[MinistryFileUploadSection] Calling ministry delete API:",
           payload
@@ -229,8 +331,7 @@ export const MinistryFileUploadSection = ({
       }
     }
 
-    // If we don't have ministry-specific IDs, we should not try to delete
-    // This prevents calling the wrong API endpoint
+    // If we don't have ministry-specific IDs and not in edit mode, show error
     console.warn(
       "[MinistryFileUploadSection] No submissionIndicatorId or primaryId provided, cannot delete file via ministry API"
     );

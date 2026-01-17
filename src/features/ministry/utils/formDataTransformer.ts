@@ -173,7 +173,7 @@ export function transformApiResponseToFormData(
                                   > = {};
                                   itemArray.forEach((item: any) => {
                                     if (item && item.inputId) {
-                                      const value =
+                                      let value =
                                         extractValueFromSubmittedData(
                                           {
                                             valueText: item.valueText,
@@ -183,8 +183,25 @@ export function transformApiResponseToFormData(
                                           },
                                           item.dataType || "string"
                                         );
+                                      
+                                      // For file fields, store primaryId directly in the file value object
+                                      // This ensures we can always access it, even if fieldPrimaryIds lookup fails
+                                      if (
+                                        item.dataType === "file" &&
+                                        item.primaryId &&
+                                        value &&
+                                        typeof value === "object"
+                                      ) {
+                                        // Store primaryId on the file value object itself
+                                        (value as any)._primaryId = item.primaryId;
+                                        // Also store it in nested valueJson if it exists
+                                        if ((value as any).valueJson && typeof (value as any).valueJson === "object") {
+                                          ((value as any).valueJson as any)._primaryId = item.primaryId;
+                                        }
+                                      }
+                                      
                                       itemObject[item.inputId] = value;
-                                      // Store primaryId for this specific field
+                                      // Store primaryId for this specific field in the map
                                       if (item.primaryId) {
                                         fieldPrimaryIds[item.inputId] =
                                           item.primaryId;
@@ -230,7 +247,7 @@ export function transformApiResponseToFormData(
                                   {};
                                 firstElement.forEach((item: any) => {
                                   if (item && item.inputId) {
-                                    const value = extractValueFromSubmittedData(
+                                    let value = extractValueFromSubmittedData(
                                       {
                                         valueText: item.valueText,
                                         valueNumber: item.valueNumber,
@@ -239,8 +256,25 @@ export function transformApiResponseToFormData(
                                       },
                                       item.dataType || "string"
                                     );
+                                    
+                                    // For file fields, store primaryId directly in the file value object
+                                    // This ensures we can always access it, even if fieldPrimaryIds lookup fails
+                                    if (
+                                      item.dataType === "file" &&
+                                      item.primaryId &&
+                                      value &&
+                                      typeof value === "object"
+                                    ) {
+                                      // Store primaryId on the file value object itself
+                                      (value as any)._primaryId = item.primaryId;
+                                      // Also store it in nested valueJson if it exists
+                                      if ((value as any).valueJson && typeof (value as any).valueJson === "object") {
+                                        ((value as any).valueJson as any)._primaryId = item.primaryId;
+                                      }
+                                    }
+                                    
                                     itemObject[item.inputId] = value;
-                                    // Store primaryId for this specific field
+                                    // Store primaryId for this specific field in the map
                                     if (item.primaryId) {
                                       fieldPrimaryIds[item.inputId] =
                                         item.primaryId;
@@ -302,7 +336,7 @@ export function transformApiResponseToFormData(
 
                               entryItems.forEach((item: any) => {
                                 if (item && item.inputId) {
-                                  const value = extractValueFromSubmittedData(
+                                  let value = extractValueFromSubmittedData(
                                     {
                                       valueText: item.valueText,
                                       valueNumber: item.valueNumber,
@@ -311,8 +345,25 @@ export function transformApiResponseToFormData(
                                     },
                                     item.dataType || "string"
                                   );
+                                  
+                                  // For file fields, store primaryId directly in the file value object
+                                  // This ensures we can always access it, even if fieldPrimaryIds lookup fails
+                                  if (
+                                    item.dataType === "file" &&
+                                    item.primaryId &&
+                                    value &&
+                                    typeof value === "object"
+                                  ) {
+                                    // Store primaryId on the file value object itself
+                                    (value as any)._primaryId = item.primaryId;
+                                    // Also store it in nested valueJson if it exists
+                                    if ((value as any).valueJson && typeof (value as any).valueJson === "object") {
+                                      ((value as any).valueJson as any)._primaryId = item.primaryId;
+                                    }
+                                  }
+                                  
                                   itemObject[item.inputId] = value;
-                                  // Store primaryId for this specific field
+                                  // Store primaryId for this specific field in the map
                                   if (item.primaryId) {
                                     fieldPrimaryIds[item.inputId] =
                                       item.primaryId;
