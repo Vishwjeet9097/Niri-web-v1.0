@@ -140,6 +140,38 @@ export async function updateMinistryIndicatorStatus(
 }
 
 /**
+ * Get form status statistics
+ * @param formId - The form ID to get statistics for
+ * @returns Promise with form status statistics
+ */
+export async function getFormStatusStatistics(formId: string): Promise<{
+  status: boolean;
+  data: {
+    formId: string;
+    total: number;
+    totalSentBack: number;
+    totalApproved: number;
+    totalSubmitted: number;
+  };
+  message: string;
+}> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/form-status-statistics/${formId}`);
+    
+    console.log("📤 Fetching form status statistics:", { formId });
+
+    const response = await apiService.get(url, {
+      withCredentials: true,
+    });
+    
+    return response.data || response;
+  } catch (error: any) {
+    console.error("❌ Error in getFormStatusStatistics:", error);
+    throw error;
+  }
+}
+
+/**
  * Delete a file from ministry submission
  * @param payload - The delete payload with action and either submissionIndicatorId or primaryId
  * @returns Promise with the API response

@@ -13,6 +13,8 @@ interface MospiApproverActionButtonsProps {
   timelineCount?: number;
   isAccepted?: boolean;
   disabled?: boolean;
+  submitDisabled?: boolean;
+  sendBackDisabled?: boolean;
 }
 
 export function MospiApproverActionButtons({
@@ -25,6 +27,8 @@ export function MospiApproverActionButtons({
   timelineCount = 0,
   isAccepted = false,
   disabled = false,
+  submitDisabled = false,
+  sendBackDisabled = false,
 }: MospiApproverActionButtonsProps) {
   const [returnedDialogOpen, setReturnedDialogOpen] = useState(false);
 
@@ -83,7 +87,7 @@ export function MospiApproverActionButtons({
             variant="outline"
             size="sm"
             onClick={onSendBack}
-            disabled={disabled}
+            disabled={disabled || sendBackDisabled}
             className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200"
           >
             <RotateCcw className="w-4 h-4 mr-1" />
@@ -93,7 +97,7 @@ export function MospiApproverActionButtons({
             variant="outline"
             size="sm"
             onClick={onAccept}
-            disabled={disabled}
+            disabled={disabled || submitDisabled}
             className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
           >
             <CheckCircle className="w-4 h-4 mr-1" />

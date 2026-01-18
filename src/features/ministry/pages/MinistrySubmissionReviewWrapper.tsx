@@ -159,6 +159,16 @@ export function MinistrySubmissionReviewWrapper({
         description: `Indicator ${pendingSendBackAction.sectionId} sent back successfully`,
       });
 
+      // Dispatch custom event to notify parent component to reload form statistics
+      window.dispatchEvent(
+        new CustomEvent("ministry-indicator-status-updated", {
+          detail: {
+            sectionId: pendingSendBackAction.sectionId,
+            status: "RETURNED_FROM_MOSPI_APPROVER_DRAFT",
+          },
+        })
+      );
+
       // Reload data to reflect the change
       setReloadTrigger((prev) => prev + 1);
     } catch (error: any) {
@@ -190,9 +200,9 @@ export function MinistrySubmissionReviewWrapper({
   const loadSubmissionData = async () => {
     try {
       setLoading(true);
-
+      
       let response;
-
+      
       //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
@@ -214,7 +224,7 @@ export function MinistrySubmissionReviewWrapper({
           ? rawSubmissionId
           : undefined;
       const targetUserId = userId || submission?.user?.id;
-
+        
       if (useConsolidatedApi && useConsolidatedApi === true) {
         if (!targetSubmissionId) {
           console.error(
@@ -240,7 +250,7 @@ export function MinistrySubmissionReviewWrapper({
       } else {
         // Use existing API with userId
         // Only pass submissionId if it's a valid UUID, otherwise use only userId
-
+        
         if (!targetSubmissionId && !targetUserId) {
           console.error("No submission ID or user ID available for review");
           toast({
@@ -291,7 +301,7 @@ export function MinistrySubmissionReviewWrapper({
           JSON.stringify(response.data, null, 2)
         );
         setAssignedIndicators(response.data);
-
+        
         const initialFormData = transformApiResponseToFormData(
           response.data,
           {}
@@ -337,7 +347,7 @@ export function MinistrySubmissionReviewWrapper({
           );
           return mergedFormData;
         });
-
+        
         // Extract submission ID - prioritize from response, then from submission object
         if (useConsolidatedApi) {
           // For consolidated API, use the submissionId from response or prop
@@ -348,14 +358,14 @@ export function MinistrySubmissionReviewWrapper({
           }
         } else {
           let extractedId = response.submissionId || targetSubmissionId;
-          if (!extractedId && targetUserId) {
+        if (!extractedId && targetUserId) {
             extractedId = await extractSubmissionId(
               response,
               targetUserId,
               toast
             );
           }
-          if (extractedId) {
+        if (extractedId) {
             setSubmissionId(extractedId);
           } else if (submission?.id) {
             setSubmissionId(submission.id);
@@ -385,20 +395,20 @@ export function MinistrySubmissionReviewWrapper({
   // Extract categories from assignedIndicators and sort them according to MINISTRY_SUBMISSION_STEPS order
   const categories = useMemo(() => {
     const categoryMap = new Map<string, AssignedIndicator>();
-
+    
     assignedIndicators.forEach((indicator) => {
       const categoryName = Object.keys(indicator)[0];
       if (!categoryMap.has(categoryName)) {
         categoryMap.set(categoryName, indicator);
       }
     });
-
+    
     // Sort categories according to the order defined in MINISTRY_SUBMISSION_STEPS
     // Filter out the review-submit step and get only category steps
     const categorySteps = MINISTRY_SUBMISSION_STEPS.filter(
       (step) => step.key !== "review-submit"
     );
-
+    
     // Create ordered categories list based on MINISTRY_SUBMISSION_STEPS order
     const orderedCategories: AssignedIndicator[] = [];
     categorySteps.forEach((step) => {
@@ -407,7 +417,7 @@ export function MinistrySubmissionReviewWrapper({
         orderedCategories.push(categoryIndicator);
       }
     });
-
+    
     // Add any categories that exist in the data but not in MINISTRY_SUBMISSION_STEPS (fallback)
     categoryMap.forEach((indicator, categoryName) => {
       const exists = orderedCategories.some(
@@ -417,7 +427,7 @@ export function MinistrySubmissionReviewWrapper({
         orderedCategories.push(indicator);
       }
     });
-
+    
     console.log(
       "📋 Extracted categories (ordered):",
       orderedCategories.map((cat) => Object.keys(cat)[0])
@@ -429,19 +439,19 @@ export function MinistrySubmissionReviewWrapper({
   const getCategoryProgress = (categoryIndicator: AssignedIndicator) => {
     const categoryName = Object.keys(categoryIndicator)[0];
     const sections = categoryIndicator[categoryName];
-
+    
     if (!Array.isArray(sections)) {
       return { completed: 0, total: 0, progress: 0 };
     }
-
+    
     let completed = 0;
     const total = sections.length;
-
+    
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
       const sectionKey = `section${section.sNo.replace(".", "_")}`;
-
+      
       if (
         formData[sectionKey] &&
         Object.keys(formData[sectionKey]).length > 0
@@ -449,7 +459,7 @@ export function MinistrySubmissionReviewWrapper({
         completed++;
       }
     });
-
+    
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { completed, total, progress };
   };
@@ -1232,6 +1242,12 @@ export function MinistrySubmissionReviewWrapper({
       return;
     }
 
+    // Set pending send back action for MOSPI Approver
+    setPendingSendBackAction({
+      submissionIndicatorId,
+      sectionId,
+    });
+
     // Set the selected section and open the comment dialog (for send back)
     setSelectedSectionForComment({
       submissionIndicatorId,
@@ -1240,6 +1256,56 @@ export function MinistrySubmissionReviewWrapper({
       isSendBack: true,
     });
     setCommentDialogOpen(true);
+  };
+
+  // Handle accept for MOSPI Approver
+  const handleAcceptMospiApprover = async (
+    submissionIndicatorId: string,
+    sectionId: string
+  ) => {
+    try {
+      setSubmittingIndicatorId(submissionIndicatorId);
+      console.log("📤 Accepting indicator for MOSPI Approver:", {
+        submissionIndicatorId,
+        sectionId,
+        status: "ACCEPTED_BY_MOSPI",
+      });
+
+      await updateMinistryIndicatorStatus(
+        submissionIndicatorId,
+        "ACCEPTED_BY_MOSPI"
+      );
+
+      toast({
+        title: "Success",
+        description: `Indicator ${sectionId} accepted successfully`,
+      });
+
+      // Dispatch custom event to notify parent component to reload form statistics
+      window.dispatchEvent(
+        new CustomEvent("ministry-indicator-status-updated", {
+          detail: {
+            sectionId,
+            status: "ACCEPTED_BY_MOSPI",
+          },
+        })
+      );
+
+      // Reload data to reflect the change
+      setReloadTrigger((prev) => prev + 1);
+    } catch (error: any) {
+      console.error("❌ Error accepting indicator:", error);
+      toast({
+        title: "Error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to accept indicator",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingIndicatorId(null);
+    }
   };
 
   // Handle send back after comment is saved
@@ -1374,53 +1440,53 @@ export function MinistrySubmissionReviewWrapper({
             onValueChange={setActiveCategory}
             className="w-full"
           >
-            <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
-              {categories.map((categoryIndicator) => {
-                const categoryName = Object.keys(categoryIndicator)[0];
-                return (
-                  <TabsTrigger
-                    key={categoryName}
-                    value={categoryName}
-                    className="!w-auto bg-white text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 hover:border-gray-400 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:hover:bg-primary/90 whitespace-nowrap h-8 flex-shrink-0"
-                  >
-                    {categoryName}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            {/* Category Content */}
+          <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
             {categories.map((categoryIndicator) => {
               const categoryName = Object.keys(categoryIndicator)[0];
-              const categoryProgress = getCategoryProgress(categoryIndicator);
-
               return (
-                <TabsContent key={categoryName} value={categoryName}>
-                  <div>
-                    {/* ProgressHeader for current category */}
-                    <ProgressHeader
-                      title={categoryName}
-                      description={categoryDescriptions[categoryName] || ""}
-                      points={250}
-                      completed={categoryProgress.completed}
-                      total={categoryProgress.total}
-                      progress={categoryProgress.progress}
-                    />
+                <TabsTrigger 
+                  key={categoryName} 
+                  value={categoryName}
+                  className="!w-auto bg-white text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 hover:border-gray-400 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:hover:bg-primary/90 whitespace-nowrap h-8 flex-shrink-0"
+                >
+                  {categoryName}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+
+          {/* Category Content */}
+          {categories.map((categoryIndicator) => {
+            const categoryName = Object.keys(categoryIndicator)[0];
+            const categoryProgress = getCategoryProgress(categoryIndicator);
+            
+            return (
+              <TabsContent key={categoryName} value={categoryName}>
+                <div>
+                  {/* ProgressHeader for current category */}
+                  <ProgressHeader
+                    title={categoryName}
+                    description={categoryDescriptions[categoryName] || ""}
+                    points={250}
+                    completed={categoryProgress.completed}
+                    total={categoryProgress.total}
+                    progress={categoryProgress.progress}
+                  />
 
                     {/* DynamicFormBuilder for current category - REVIEW MODE with EDIT support */}
-                    <div className="mt-4 sm:mt-6">
-                      <DynamicFormBuilder
-                        indicators={[categoryIndicator]}
-                        formData={formData}
+                  <div className="mt-4 sm:mt-6">
+                    <DynamicFormBuilder
+                      indicators={[categoryIndicator]}
+                      formData={formData}
                         onChange={handleFormDataChange}
                         mode="review" // Keep in review mode, but allow section-specific editing
                         disabled={false} // Don't globally disable - let form builder handle per-section
-                        submissionId={submissionId || undefined}
+                      submissionId={submissionId || undefined}
                         getFieldError={getFieldErrorMemoized} // Use validation hook for field errors
-                        getDropdownOptions={getDropdownOptions}
-                        // No submit handlers needed in review mode
-                        isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
-                        submittingIndicator={null}
+                      getDropdownOptions={getDropdownOptions}
+                      // No submit handlers needed in review mode
+                      isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
+                      submittingIndicator={null}
                         validationErrors={validationErrors} // Pass validation errors
                         onValidateField={validateFieldOnChange} // Enable validation in edit mode
                         onClearFieldError={clearFieldError} // Enable error clearing
@@ -1634,38 +1700,41 @@ export function MinistrySubmissionReviewWrapper({
                                     });
                                   }
                                 }}
-                                onTimeline={() => {
-                                  // TODO: Implement timeline action
-                                  toast({
-                                    title: "Timeline",
-                                    description: `View timeline for section ${sectionId}`,
-                                  });
-                                }}
-                                timelineCount={0}
+                                onTimeline={() => handleOpenTimeline(sectionId)}
+                                timelineCount={commentCounts[sectionId] || 0}
                               />
                             );
                           }
                           if (user?.role === "MOSPI_APPROVER") {
+                            const sectionStatus = getSectionStatus(sectionId);
+                            const isAccepted = sectionStatus === "ACCEPTED_BY_MOSPI";
+                            
                             return (
                               <MospiApproverActionButtons
                                 sectionId={sectionId}
+                                sectionTitle={sectionName || sectionId}
+                                status={sectionStatus || undefined}
                                 onAccept={() => {
-                                  // TODO: Implement accept action
-                                  toast({
-                                    title: "Accept",
-                                    description: `Accept action for section ${sectionId}`,
-                                  });
+                                  // Handle accept action
+                                  if (sectionSubmissionIndicatorId) {
+                                    handleAcceptMospiApprover(
+                                      sectionSubmissionIndicatorId,
+                                      sectionId
+                                    );
+                                  } else {
+                                    toast({
+                                      title: "Error",
+                                      description: "Submission indicator ID not found",
+                                      variant: "destructive",
+                                    });
+                                  }
                                 }}
                                 onSendBack={() => {
-                                  // TODO: Implement send back action
-                                  toast({
-                                    title: "Send Back",
-                                    description: `Send back section ${sectionId}`,
-                                  });
+                                  handleSendBack(sectionId, sectionName);
                                 }}
                                 onTimeline={() => handleOpenTimeline(sectionId)}
                                 timelineCount={commentCounts[sectionId] || 0}
-                                isAccepted={false}
+                                isAccepted={isAccepted}
                               />
                             );
                           }
@@ -1826,12 +1895,12 @@ export function MinistrySubmissionReviewWrapper({
                           }
                           return null;
                         }}
-                      />
-                    </div>
+                    />
                   </div>
-                </TabsContent>
-              );
-            })}
+                </div>
+              </TabsContent>
+            );
+          })}
           </Tabs>
         )}
 
