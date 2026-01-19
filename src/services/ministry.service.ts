@@ -1900,21 +1900,143 @@ function transformFormDataToApiFormat(
     return value;
   };
 
+  // Helper function to check if a field is "No document available"
+  const isNoDocumentAvailableField = (field: any): boolean => {
+    const label = field.label || "";
+    return (
+      label.toLowerCase().includes("no document available") ||
+      label.toLowerCase() === "no document available"
+    );
+  };
+
+  // Helper function to check if a value is a file (FileUpload object)
+  const isFileValue = (value: any): boolean => {
+    if (!value) return false;
+    // Check if it's a FileUpload object (has file, fileName, or filePath properties)
+    return (
+      typeof value === "object" &&
+      (value.file !== undefined ||
+        value.fileName !== undefined ||
+        value.filePath !== undefined)
+    );
+  };
+
+  // Check if there are any file fields with actual files
+  // Also track which file fields have uploads to find associated "No document available" fields
+  let hasFileUpload = false;
+  const fileFieldIds = new Set<string>();
+  
+  console.log(
+    `[transformFormDataToApiFormat] Checking for file uploads. Section inputs:`,
+    currentSection.inputs?.map((f: any) => ({ id: f.id, type: f.type, label: f.label }))
+  );
+  
+  if (currentSection.inputs && Array.isArray(currentSection.inputs)) {
+    currentSection.inputs.forEach((inputField: any) => {
+      const fieldId = inputField.id;
+      const fieldValue = sectionData[fieldId];
+      
+      console.log(
+        `[transformFormDataToApiFormat] Checking field: ${fieldId}, type: ${inputField.type}, label: ${inputField.label}, value:`,
+        fieldValue
+      );
+      
+      // Check if field is explicitly a file type OR if the value is a file object
+      if (inputField.type === "file" || isFileValue(fieldValue)) {
+        if (isFileValue(fieldValue)) {
+          hasFileUpload = true;
+          fileFieldIds.add(fieldId);
+          console.log(
+            `[transformFormDataToApiFormat] ✅ Found file upload in field: ${fieldId} (type: ${inputField.type})`,
+            fieldValue
+          );
+        } else {
+          console.log(
+            `[transformFormDataToApiFormat] Field ${fieldId} is file type but value is not a file:`,
+            fieldValue
+          );
+        }
+      }
+    });
+  }
+  
+  console.log(
+    `[transformFormDataToApiFormat] File upload check complete. hasFileUpload: ${hasFileUpload}, fileFieldIds:`,
+    Array.from(fileFieldIds)
+  );
+
+  // Also check subsections for file uploads
+  if (currentSection.subsection && Array.isArray(currentSection.subsection)) {
+    currentSection.subsection.forEach((subsectionObj: any) => {
+      const subsectionName = Object.keys(subsectionObj)[0];
+      const subsectionData = subsectionObj[subsectionName];
+      const subsectionItems = sectionData[subsectionName];
+
+      if (Array.isArray(subsectionItems) && subsectionItems.length > 0) {
+        subsectionItems.forEach((item: any) => {
+          if (subsectionData.inputs && Array.isArray(subsectionData.inputs)) {
+            subsectionData.inputs.forEach((inputField: any) => {
+              if (inputField.type === "file") {
+                const fieldId = inputField.id;
+                const fileValue = item[fieldId];
+                if (isFileValue(fileValue)) {
+                  hasFileUpload = true;
+                  fileFieldIds.add(fieldId);
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
   // Process direct inputs
+  // Track "No document available" fields that need to be set to null
+  const noDocAvailableFieldsToNull = new Set<string>();
+  
+  console.log(
+    `[transformFormDataToApiFormat] Processing inputs. hasFileUpload: ${hasFileUpload}, total inputs: ${currentSection.inputs?.length || 0}`
+  );
+  
   if (currentSection.inputs && Array.isArray(currentSection.inputs)) {
     currentSection.inputs.forEach((inputField: any) => {
       const fieldId = inputField.id;
       const rawValue = sectionData[fieldId];
+      const isNoDocField = isNoDocumentAvailableField(inputField);
 
-      // Only include if value exists (not null, undefined, or empty string)
-      if (rawValue !== null && rawValue !== undefined && rawValue !== "") {
-        // Normalize value based on field dataType
-        const normalizedValue = normalizeValue(rawValue, inputField.dataType);
+      console.log(
+        `[transformFormDataToApiFormat] Processing field: ${fieldId}, label: "${inputField.label}", isNoDocField: ${isNoDocField}, hasFileUpload: ${hasFileUpload}, rawValue:`,
+        rawValue
+      );
 
+      // If a file is uploaded and this is the "No document available" field, mark it to be set to null
+      if (hasFileUpload && isNoDocField) {
+        noDocAvailableFieldsToNull.add(fieldId);
+        // Explicitly set "No document available" to null when file is uploaded
+        // Always include it in the payload, even if it's not in sectionData
+        console.log(
+          `[transformFormDataToApiFormat] ✅ Setting "No document available" field (${fieldId}) to null because file is uploaded`
+        );
         inputs.push({
           inputId: fieldId,
-          value: normalizedValue,
+          value: null,
         });
+        return; // Skip the normal processing for this field
+      }
+
+      // Only include if value exists (not null, undefined, or empty string)
+      // But skip if this is a "No document available" field that should be null
+      if (!noDocAvailableFieldsToNull.has(fieldId)) {
+        if (rawValue !== null && rawValue !== undefined && rawValue !== "") {
+          // Normalize value based on field dataType
+          const normalizedValue = normalizeValue(rawValue, inputField.dataType);
+
+          inputs.push({
+            inputId: fieldId,
+            value: normalizedValue,
+          });
+        }
       }
     });
   }
@@ -1928,38 +2050,107 @@ function transformFormDataToApiFormat(
       // Get subsection items from formData (array of objects)
       const subsectionItems = sectionData[subsectionName];
 
+      console.log(
+        `[transformFormDataToApiFormat] Processing subsection: ${subsectionName}, items: ${subsectionItems?.length || 0}`
+      );
+
       if (Array.isArray(subsectionItems) && subsectionItems.length > 0) {
-        subsectionItems.forEach((item: any) => {
+        subsectionItems.forEach((item: any, itemIndex: number) => {
           const subsectionInputs: Array<{ inputId: string; value: any }> = [];
 
+          // Check if this subsection item (row) has any file uploads
+          // Check both by type and by value to catch all file uploads
+          let subsectionHasFile = false;
+          const subsectionNoDocFieldsToNull = new Set<string>();
+          
+          console.log(
+            `[transformFormDataToApiFormat] Processing subsection item ${itemIndex} of ${subsectionName}:`,
+            item
+          );
+          
+          if (subsectionData.inputs && Array.isArray(subsectionData.inputs)) {
+            // First pass: Check for file uploads
+            subsectionData.inputs.forEach((inputField: any) => {
+              const fieldId = inputField.id;
+              const fieldValue = item[fieldId];
+              
+              // Check if field is explicitly a file type OR if the value is a file object
+              if (inputField.type === "file" || isFileValue(fieldValue)) {
+                if (isFileValue(fieldValue)) {
+                  subsectionHasFile = true;
+                  console.log(
+                    `[transformFormDataToApiFormat] ✅ Found file upload in subsection item ${itemIndex}, field: ${fieldId} (type: ${inputField.type})`,
+                    fieldValue
+                  );
+                }
+              }
+            });
+          }
+
+          console.log(
+            `[transformFormDataToApiFormat] Subsection item ${itemIndex} hasFile: ${subsectionHasFile}`
+          );
+
+          // Second pass: Process all fields
           if (subsectionData.inputs && Array.isArray(subsectionData.inputs)) {
             subsectionData.inputs.forEach((inputField: any) => {
               const fieldId = inputField.id;
               const rawValue = item[fieldId];
+              const isNoDocField = isNoDocumentAvailableField(inputField);
 
-              // Only include if value exists
-              if (
-                rawValue !== null &&
-                rawValue !== undefined &&
-                rawValue !== ""
-              ) {
-                // Normalize value based on field dataType
-                const normalizedValue = normalizeValue(
-                  rawValue,
-                  inputField.dataType
+              console.log(
+                `[transformFormDataToApiFormat] Processing subsection field ${itemIndex}.${fieldId}, label: "${inputField.label}", isNoDocField: ${isNoDocField}, hasFile: ${subsectionHasFile}, rawValue:`,
+                rawValue
+              );
+
+              // If a file is uploaded in this subsection row and this is the "No document available" field, set it to null
+              if (subsectionHasFile && isNoDocField) {
+                subsectionNoDocFieldsToNull.add(fieldId);
+                // Explicitly set "No document available" to null when file is uploaded in this row
+                // Always include it in the payload, even if it's not in the item
+                console.log(
+                  `[transformFormDataToApiFormat] ✅ Setting "No document available" field (${fieldId}) to null in subsection item ${itemIndex} because file is uploaded`
                 );
-
                 subsectionInputs.push({
                   inputId: fieldId,
-                  value: normalizedValue,
+                  value: null,
                 });
+                return; // Skip the normal processing for this field
+              }
+
+              // Only include if value exists
+              // But skip if this is a "No document available" field that should be null
+              if (!subsectionNoDocFieldsToNull.has(fieldId)) {
+                if (
+                  rawValue !== null &&
+                  rawValue !== undefined &&
+                  rawValue !== ""
+                ) {
+                  // Normalize value based on field dataType
+                  const normalizedValue = normalizeValue(
+                    rawValue,
+                    inputField.dataType
+                  );
+
+                  subsectionInputs.push({
+                    inputId: fieldId,
+                    value: normalizedValue,
+                  });
+                }
               }
             });
           }
 
           // Only add subsection entry if it has inputs
           if (subsectionInputs.length > 0) {
+            console.log(
+              `[transformFormDataToApiFormat] Adding subsection item ${itemIndex} with ${subsectionInputs.length} inputs`
+            );
             subsection.push(subsectionInputs);
+          } else {
+            console.log(
+              `[transformFormDataToApiFormat] Skipping subsection item ${itemIndex} - no inputs to add`
+            );
           }
         });
       }
