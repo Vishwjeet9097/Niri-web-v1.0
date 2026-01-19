@@ -1699,8 +1699,9 @@ export function MinistrySubmissionReviewWrapper({
                               sectionAssignedTo !== submissionUserId;
                             
                             // Show Send Back button if indicator was originally assigned to a Nodal Officer
+                            // BUT NOT if it's already RESUBMITTED (Nodal already resubmitted after Ministry sent it back)
                             // (assignedTo !== submission.userId means it was assigned to a Nodal Officer)
-                            const shouldShowSendBackToNodal = isAssignedToNodalOfficer;
+                            const shouldShowSendBackToNodal = isAssignedToNodalOfficer && !isResubmitted;
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -1779,23 +1780,8 @@ export function MinistrySubmissionReviewWrapper({
                                     <CheckCircle className="w-4 h-4" />
                                     Resubmitted
                                   </Button>
-                                  {/* Send Back button - show if indicator was originally submitted by Nodal Officer */}
-                                  {!isSectionEditing &&
-                                    !isAccepted &&
-                                    !isAcceptedByMospi &&
-                                    shouldShowSendBackToNodal && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex items-center gap-1"
-                                        onClick={() =>
-                                          handleSendBack(sectionId, sectionName)
-                                        }
-                                      >
-                                        <RotateCcw className="w-4 h-4" />
-                                        Send Back
-                                      </Button>
-                                    )}
+                                  {/* Send Back button - NOT shown for RESUBMITTED status */}
+                                  {/* If Nodal resubmitted after Ministry sent it back, don't show Send Back */}
                                   {/* Accept button - only show when not editing and not already accepted */}
                                   {!isSectionEditing &&
                                     !isAccepted &&
@@ -1859,6 +1845,7 @@ export function MinistrySubmissionReviewWrapper({
                                   !isSectionEditing &&
                                   !isAccepted &&
                                   !isSentBack &&
+                                  !isResubmitted &&
                                   (submission?.user?.role === "NODAL_OFFICER" ||
                                     shouldShowSendBackToNodal)
                                     ? () =>

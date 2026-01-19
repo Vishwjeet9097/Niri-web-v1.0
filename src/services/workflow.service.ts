@@ -486,12 +486,13 @@ class WorkflowService {
     // Get the comment's role (support both userRole and role fields)
     const commentRole = (comment as any).userRole || (comment as any).role;
     
-    // MoSPI users can see all comments
+    // MoSPI users can see all comments EXCEPT Ministry Approver comments
     if (
       userRole === USER_ROLES.MOSPI_REVIEWER ||
       userRole === USER_ROLES.MOSPI_APPROVER
     ) {
-      return true;
+      // Exclude Ministry Approver comments from MoSPI users
+      return commentRole !== "MINISTRY_APPROVER";
     }
 
     // Ministry Approver can see all comments (similar to MoSPI users)
