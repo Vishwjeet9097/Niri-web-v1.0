@@ -110,6 +110,10 @@ export function MinistrySubmissionReviewWrapper({
   const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
     string | null
   >(null);
+  const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [pendingAcceptSectionId, setPendingAcceptSectionId] = useState<
+    string | null
+  >(null);
 
   // Timeline state management
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -1276,10 +1280,25 @@ export function MinistrySubmissionReviewWrapper({
     }
   }, [assignedIndicators, getCommentCount]);
 
-  // Handle accept action
-  const handleAccept = async (sectionId: string) => {
+  // Handle accept action - shows confirmation dialog
+  const handleAccept = (sectionId: string) => {
     console.log(
-      "[MinistrySubmissionReviewWrapper] Accepting section:",
+      "[MinistrySubmissionReviewWrapper] Accept clicked for section:",
+      sectionId
+    );
+    setPendingAcceptSectionId(sectionId);
+    setShowAcceptDialog(true);
+  };
+
+  // Handle confirm accept action
+  const handleConfirmAccept = async () => {
+    if (!pendingAcceptSectionId) {
+      return;
+    }
+
+    const sectionId = pendingAcceptSectionId;
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Confirming accept for section:",
       sectionId
     );
 
@@ -1313,6 +1332,8 @@ export function MinistrySubmissionReviewWrapper({
         description: `Could not find submission indicator for section ${sectionId}`,
         variant: "destructive",
       });
+      setShowAcceptDialog(false);
+      setPendingAcceptSectionId(null);
       return;
     }
 
@@ -1333,6 +1354,10 @@ export function MinistrySubmissionReviewWrapper({
         description: `Section ${sectionId} accepted successfully`,
       });
 
+      // Close dialog and reset state
+      setShowAcceptDialog(false);
+      setPendingAcceptSectionId(null);
+
       // Reload submission data to reflect the updated status
       await loadSubmissionData();
     } catch (error: any) {
@@ -1345,7 +1370,15 @@ export function MinistrySubmissionReviewWrapper({
           `Failed to accept section ${sectionId}`,
         variant: "destructive",
       });
+      setShowAcceptDialog(false);
+      setPendingAcceptSectionId(null);
     }
+  };
+
+  // Handle cancel accept action
+  const handleCancelAccept = () => {
+    setShowAcceptDialog(false);
+    setPendingAcceptSectionId(null);
   };
 
   // Handle send back action - opens comment dialog
@@ -2178,6 +2211,26 @@ export function MinistrySubmissionReviewWrapper({
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSave}>
               Confirm & Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for MINISTRY_APPROVER Accept */}
+      <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAccept}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>
+              Confirm & Accept
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
