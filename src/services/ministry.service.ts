@@ -1909,6 +1909,13 @@ function transformFormDataToApiFormat(
     );
   };
 
+  // Helper function to check if "No document available" value is set
+  const isNoDocumentAvailableValue = (value: any): boolean => {
+    if (!value) return false;
+    const valueStr = String(value).toLowerCase().trim();
+    return valueStr === "no document available" || valueStr.includes("no document available");
+  };
+
   // Helper function to check if a value is a file (FileUpload object)
   const isFileValue = (value: any): boolean => {
     if (!value) return false;
@@ -1919,6 +1926,45 @@ function transformFormDataToApiFormat(
         value.fileName !== undefined ||
         value.filePath !== undefined)
     );
+  };
+
+  // Helper function to check if a field is a file field (by type, label, or other indicators)
+  const isFileField = (field: any, value?: any): boolean => {
+    // Check by type first
+    if (field.type === "file") {
+      return true;
+    }
+    
+    // Check by value (if provided)
+    if (value !== undefined && isFileValue(value)) {
+      return true;
+    }
+    
+    // Check by label keywords (fallback for when type is not set)
+    const label = (field.label || "").toLowerCase();
+    const fileKeywords = [
+      "upload",
+      "file",
+      "evidence",
+      "document",
+      "attachment",
+      "pdf",
+      "image",
+      "photo",
+    ];
+    
+    // Check if label contains file-related keywords
+    // But exclude "No document available" field
+    if (!isNoDocumentAvailableField(field)) {
+      const hasFileKeyword = fileKeywords.some((keyword) =>
+        label.includes(keyword)
+      );
+      if (hasFileKeyword) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   // Check if there are any file fields with actual files
@@ -1941,18 +1987,18 @@ function transformFormDataToApiFormat(
         fieldValue
       );
       
-      // Check if field is explicitly a file type OR if the value is a file object
-      if (inputField.type === "file" || isFileValue(fieldValue)) {
+      // Check if it's a file field (by type, value, or label)
+      if (isFileField(inputField, fieldValue)) {
         if (isFileValue(fieldValue)) {
           hasFileUpload = true;
           fileFieldIds.add(fieldId);
           console.log(
-            `[transformFormDataToApiFormat] ✅ Found file upload in field: ${fieldId} (type: ${inputField.type})`,
+            `[transformFormDataToApiFormat] ✅ Found file upload in field: ${fieldId} (type: ${inputField.type}, label: ${inputField.label})`,
             fieldValue
           );
         } else {
           console.log(
-            `[transformFormDataToApiFormat] Field ${fieldId} is file type but value is not a file:`,
+            `[transformFormDataToApiFormat] Field ${fieldId} is a file field but value is not a file:`,
             fieldValue
           );
         }
@@ -1992,11 +2038,38 @@ function transformFormDataToApiFormat(
   }
 
   // Process direct inputs
-  // Track "No document available" fields that need to be set to null
+  // Track "No document available" fields that need to be set to null (when file is uploaded)
+  // Track file fields that need to be set to null (when "No document available" is checked)
   const noDocAvailableFieldsToNull = new Set<string>();
+  const fileFieldsToNull = new Set<string>();
+  
+  // First pass: Check if "No document available" is checked, then mark file fields to null
+  if (currentSection.inputs && Array.isArray(currentSection.inputs)) {
+    currentSection.inputs.forEach((inputField: any) => {
+      const fieldId = inputField.id;
+      const rawValue = sectionData[fieldId];
+      
+      if (isNoDocumentAvailableField(inputField) && isNoDocumentAvailableValue(rawValue)) {
+        // "No document available" is checked - find all file fields and mark them to be set to null
+        console.log(
+          `[transformFormDataToApiFormat] "No document available" is checked (${fieldId}), finding file fields to null`
+        );
+        
+        currentSection.inputs.forEach((otherField: any) => {
+          if (otherField.type === "file" || isFileValue(sectionData[otherField.id])) {
+            fileFieldsToNull.add(otherField.id);
+            console.log(
+              `[transformFormDataToApiFormat] Marking file field (${otherField.id}) to be set to null because "No document available" is checked`
+            );
+          }
+        });
+      }
+    });
+  }
   
   console.log(
-    `[transformFormDataToApiFormat] Processing inputs. hasFileUpload: ${hasFileUpload}, total inputs: ${currentSection.inputs?.length || 0}`
+    `[transformFormDataToApiFormat] Processing inputs. hasFileUpload: ${hasFileUpload}, total inputs: ${currentSection.inputs?.length || 0}, fileFieldsToNull:`,
+    Array.from(fileFieldsToNull)
   );
   
   if (currentSection.inputs && Array.isArray(currentSection.inputs)) {
@@ -2004,13 +2077,14 @@ function transformFormDataToApiFormat(
       const fieldId = inputField.id;
       const rawValue = sectionData[fieldId];
       const isNoDocField = isNoDocumentAvailableField(inputField);
+      const isFileField = inputField.type === "file" || isFileValue(rawValue);
 
       console.log(
-        `[transformFormDataToApiFormat] Processing field: ${fieldId}, label: "${inputField.label}", isNoDocField: ${isNoDocField}, hasFileUpload: ${hasFileUpload}, rawValue:`,
+        `[transformFormDataToApiFormat] Processing field: ${fieldId}, label: "${inputField.label}", isNoDocField: ${isNoDocField}, isFileField: ${isFileField}, hasFileUpload: ${hasFileUpload}, rawValue:`,
         rawValue
       );
 
-      // If a file is uploaded and this is the "No document available" field, mark it to be set to null
+      // If a file is uploaded and this is the "No document available" field, set it to null
       if (hasFileUpload && isNoDocField) {
         noDocAvailableFieldsToNull.add(fieldId);
         // Explicitly set "No document available" to null when file is uploaded
@@ -2025,9 +2099,22 @@ function transformFormDataToApiFormat(
         return; // Skip the normal processing for this field
       }
 
+      // If "No document available" is checked and this is a file field, set it to null
+      if (isFileField && fileFieldsToNull.has(fieldId)) {
+        console.log(
+          `[transformFormDataToApiFormat] ✅ Setting file field (${fieldId}) to null because "No document available" is checked`
+        );
+        inputs.push({
+          inputId: fieldId,
+          value: null,
+        });
+        return; // Skip the normal processing for this field
+      }
+
       // Only include if value exists (not null, undefined, or empty string)
       // But skip if this is a "No document available" field that should be null
-      if (!noDocAvailableFieldsToNull.has(fieldId)) {
+      // Or if this is a file field that should be null
+      if (!noDocAvailableFieldsToNull.has(fieldId) && !fileFieldsToNull.has(fieldId)) {
         if (rawValue !== null && rawValue !== undefined && rawValue !== "") {
           // Normalize value based on field dataType
           const normalizedValue = normalizeValue(rawValue, inputField.dataType);
@@ -2062,6 +2149,7 @@ function transformFormDataToApiFormat(
           // Check both by type and by value to catch all file uploads
           let subsectionHasFile = false;
           const subsectionNoDocFieldsToNull = new Set<string>();
+          const subsectionFileFieldsToNull = new Set<string>();
           
           console.log(
             `[transformFormDataToApiFormat] Processing subsection item ${itemIndex} of ${subsectionName}:`,
@@ -2069,7 +2157,7 @@ function transformFormDataToApiFormat(
           );
           
           if (subsectionData.inputs && Array.isArray(subsectionData.inputs)) {
-            // First pass: Check for file uploads
+            // First pass: Check for file uploads and "No document available" values
             subsectionData.inputs.forEach((inputField: any) => {
               const fieldId = inputField.id;
               const fieldValue = item[fieldId];
@@ -2084,11 +2172,62 @@ function transformFormDataToApiFormat(
                   );
                 }
               }
+              
+              // Check if "No document available" is checked in this row
+              if (isNoDocumentAvailableField(inputField) && isNoDocumentAvailableValue(fieldValue)) {
+                console.log(
+                  `[transformFormDataToApiFormat] 🔍 "No document available" is checked in subsection item ${itemIndex} (field: ${fieldId}), scanning all fields in this item to find file fields`
+                );
+                console.log(
+                  `[transformFormDataToApiFormat] All fields in subsection definition:`,
+                  subsectionData.inputs?.map((f: any) => ({ id: f.id, type: f.type, label: f.label }))
+                );
+                
+                // Find all file fields in this subsection row and mark them to be set to null
+                // Check by field type first (primary check), then by value to catch all file fields
+                subsectionData.inputs.forEach((otherField: any) => {
+                  const otherFieldId = otherField.id;
+                  const otherFieldValue = item[otherFieldId];
+                  
+                  // Use the isFileField helper which checks type, value, and label
+                  const isFile = isFileField(otherField, otherFieldValue);
+                  const isNoDocField = isNoDocumentAvailableField(otherField);
+                  
+                  console.log(
+                    `[transformFormDataToApiFormat] Checking field ${otherFieldId} (type: ${otherField.type}, label: ${otherField.label}): isFile=${isFile}, isNoDocField=${isNoDocField}, value:`,
+                    otherFieldValue
+                  );
+                  
+                  // Don't mark the "No document available" field itself
+                  if (!isNoDocField) {
+                    if (isFile) {
+                      subsectionFileFieldsToNull.add(otherFieldId);
+                      console.log(
+                        `[transformFormDataToApiFormat] ✅ Marking file field (${otherFieldId}, type: ${otherField.type}, label: ${otherField.label}) to be set to null in subsection item ${itemIndex} because "No document available" is checked`
+                      );
+                    } else {
+                      console.log(
+                        `[transformFormDataToApiFormat] ⏭️ Skipping field ${otherFieldId} - not a file field (type: ${otherField.type}, label: ${otherField.label})`
+                      );
+                    }
+                  } else {
+                    console.log(
+                      `[transformFormDataToApiFormat] ⏭️ Skipping field ${otherFieldId} - this is the "No document available" field itself`
+                    );
+                  }
+                });
+                
+                console.log(
+                  `[transformFormDataToApiFormat] After scanning, fileFieldsToNull for item ${itemIndex}:`,
+                  Array.from(subsectionFileFieldsToNull)
+                );
+              }
             });
           }
 
           console.log(
-            `[transformFormDataToApiFormat] Subsection item ${itemIndex} hasFile: ${subsectionHasFile}`
+            `[transformFormDataToApiFormat] Subsection item ${itemIndex} hasFile: ${subsectionHasFile}, fileFieldsToNull:`,
+            Array.from(subsectionFileFieldsToNull)
           );
 
           // Second pass: Process all fields
@@ -2097,9 +2236,11 @@ function transformFormDataToApiFormat(
               const fieldId = inputField.id;
               const rawValue = item[fieldId];
               const isNoDocField = isNoDocumentAvailableField(inputField);
+              // Check if it's a file field (by type, value, or label)
+              const isFile = isFileField(inputField, rawValue);
 
               console.log(
-                `[transformFormDataToApiFormat] Processing subsection field ${itemIndex}.${fieldId}, label: "${inputField.label}", isNoDocField: ${isNoDocField}, hasFile: ${subsectionHasFile}, rawValue:`,
+                `[transformFormDataToApiFormat] Processing subsection field ${itemIndex}.${fieldId}, label: "${inputField.label}", type: ${inputField.type}, isNoDocField: ${isNoDocField}, isFile: ${isFile}, hasFile: ${subsectionHasFile}, shouldNull: ${subsectionFileFieldsToNull.has(fieldId)}, rawValue:`,
                 rawValue
               );
 
@@ -2118,9 +2259,24 @@ function transformFormDataToApiFormat(
                 return; // Skip the normal processing for this field
               }
 
+              // If "No document available" is checked in this row and this is a file field, set it to null
+              // Check both by field type and by whether it's marked to be null
+              if (subsectionFileFieldsToNull.has(fieldId)) {
+                console.log(
+                  `[transformFormDataToApiFormat] ✅ Setting file field (${fieldId}, type: ${inputField.type}, label: ${inputField.label}) to null in subsection item ${itemIndex} because "No document available" is checked`
+                );
+                subsectionInputs.push({
+                  inputId: fieldId,
+                  value: null,
+                });
+                return; // Skip the normal processing for this field
+              }
+
               // Only include if value exists
               // But skip if this is a "No document available" field that should be null
-              if (!subsectionNoDocFieldsToNull.has(fieldId)) {
+              // Or if this is a file field that should be null
+              // Note: File fields that should be null are already handled above and return early
+              if (!subsectionNoDocFieldsToNull.has(fieldId) && !subsectionFileFieldsToNull.has(fieldId)) {
                 if (
                   rawValue !== null &&
                   rawValue !== undefined &&
@@ -2137,6 +2293,11 @@ function transformFormDataToApiFormat(
                     value: normalizedValue,
                   });
                 }
+              } else if (subsectionFileFieldsToNull.has(fieldId)) {
+                // This should not happen as we return early above, but just in case
+                console.warn(
+                  `[transformFormDataToApiFormat] File field ${fieldId} in subsection item ${itemIndex} should be null but wasn't handled above`
+                );
               }
             });
           }
