@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Clock, User, MessageSquare } from "lucide-react";
+import { Clock, User, MessageSquare, Loader2 } from "lucide-react";
 
 interface Comment {
   role: string;
@@ -29,6 +29,7 @@ interface TimelineModalProps {
   sectionId: string;
   sectionTitle: string;
   comments: Comment[];
+  isLoading?: boolean;
 }
 
 export const TimelineModal = ({
@@ -37,10 +38,36 @@ export const TimelineModal = ({
   sectionId,
   sectionTitle,
   comments,
+  isLoading = false,
 }: TimelineModalProps) => {
   const [filteredComments, setFilteredComments] = useState<Comment[]>([]);
+  const hasLoadedOnce = useRef(false);
+  const currentSectionRef = useRef<string>("");
 
   useEffect(() => {
+    // Reset hasLoadedOnce when modal opens/closes or section changes
+    if (!isOpen) {
+      hasLoadedOnce.current = false;
+      currentSectionRef.current = "";
+      setFilteredComments([]);
+      return;
+    }
+
+    // Reset if section changed
+    if (currentSectionRef.current !== sectionId) {
+      hasLoadedOnce.current = false;
+      currentSectionRef.current = sectionId;
+      setFilteredComments([]);
+    }
+
+    // If loading, don't update filtered comments yet
+    if (isLoading) {
+      setFilteredComments([]);
+      return;
+    }
+
+    // Mark that we've loaded at least once for this section
+    hasLoadedOnce.current = true;
 
     // Filter comments for the specific section
     const sectionComments = comments.filter(comment => {
@@ -55,7 +82,7 @@ export const TimelineModal = ({
     );
     
     setFilteredComments(sortedComments);
-  }, [comments, sectionId]);
+  }, [comments, sectionId, isLoading, isOpen]);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -121,7 +148,12 @@ export const TimelineModal = ({
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">
-          {filteredComments.length === 0 ? (
+          {isLoading || !hasLoadedOnce.current ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+              <p>Loading comments...</p>
+            </div>
+          ) : filteredComments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No comments available for this section</p>

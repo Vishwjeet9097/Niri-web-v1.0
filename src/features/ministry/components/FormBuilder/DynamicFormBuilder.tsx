@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEditableSectionStore } from "@/utils/EditableSection";
+import { useAuth } from "@/features/auth/AuthProvider";
 import type { DynamicFormBuilderProps } from "./types";
 
 export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
@@ -29,6 +30,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     renderSectionActionButtons,
     onPendingDeletion,
   }) => {
+    const { user } = useAuth();
     const generateItemId = useCallback(() => crypto.randomUUID(), []);
     // Subscribe to editableSections to trigger re-renders when edit state changes
     const editableSections = useEditableSectionStore(
@@ -188,6 +190,11 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                     upperStatus === "ACCEPTED_BY_MOSPI" ||
                     upperStatus === "ACCEPTED");
                 const isResubmitted = upperStatus === "RESUBMITTED";
+                // Check if section was returned from MOSPI Approver
+                // For Nodal Officers, sections returned from MOSPI should not be editable until Ministry sends them back
+                const isReturnedFromMospi =
+                  upperStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
+                  upperStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT";
                 // Indicator is considered submitted if: it's in submittedIndicators OR it's accepted OR it's resubmitted
                 const isSubmitted =
                   isIndicatorSubmitted?.(indicatorId) ||
@@ -196,11 +203,13 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   isResubmitted;
                 // Check if this specific section is in edit mode
                 const isSectionInEditMode = isSectionEditable(indicatorId);
-                // Section is disabled if: globally disabled OR section is accepted OR section is resubmitted OR (not in edit mode AND in review mode)
+                // Section is disabled if: globally disabled OR section is accepted OR section is resubmitted OR 
+                // (for Nodal Officers: section was returned from MOSPI) OR (not in edit mode AND in review mode)
                 const isSectionDisabled =
                   disabled ||
                   isSectionAccepted ||
                   isResubmitted ||
+                  (user?.role === "NODAL_OFFICER" && isReturnedFromMospi) ||
                   (mode === "review" && !isSectionInEditMode);
 
                 console.log(

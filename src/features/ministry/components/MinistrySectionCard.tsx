@@ -49,10 +49,13 @@ export const MinistrySectionCard = ({
     const upperStatus = indicatorStatus.toUpperCase();
 
     // Accepted statuses (ministry or MOSPI)
+    // Also include RETURNED_FROM_MOSPI_APPROVER - show as "Accepted" until Ministry sends it back
     if (
       upperStatus === "ACCEPTED" ||
       upperStatus === "ACCEPTED_BY_MINISTRY" ||
-      upperStatus === "ACCEPTED_BY_MOSPI"
+      upperStatus === "ACCEPTED_BY_MOSPI" ||
+      upperStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
+      upperStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
     ) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-300 flex items-center gap-1 ml-2">
@@ -76,7 +79,8 @@ export const MinistrySectionCard = ({
       );
     }
 
-    // Sent Back statuses
+    // Sent Back statuses (only RETURNED_FROM_MINISTRY shows as "Sent Back")
+    // RETURNED_FROM_MOSPI_APPROVER is shown as "Accepted" above
     if (
       upperStatus === "REVERTED" ||
       upperStatus === "RETURNED_FROM_MINISTRY" ||
