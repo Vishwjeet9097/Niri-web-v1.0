@@ -409,6 +409,13 @@ export function UserManagementPage() {
         const ministryUserIdStr = String(user.id).trim();
         const nodalOfficerIdStr = String(officer.id).trim();
         
+        console.log('[handleMinistryEditUser] Filtering indicators - ministryUserId:', ministryUserIdStr, 'nodalOfficerId:', nodalOfficerIdStr);
+        console.log('[handleMinistryEditUser] Sample of allIndicatorsFlat (first 5):', allIndicatorsFlat.slice(0, 5).map(item => ({
+          id: item.id || item.code,
+          assignedTo: item.assignedTo,
+          status: item.indicatorStatus || item.status
+        })));
+        
         // Helper function to check if status indicates indicator has been submitted to ministry level or beyond
         // Only these statuses should prevent reassignment by ministry approver
         const isIndicatorSubmittedToMinistry = (status: string | null): boolean => {
@@ -496,14 +503,28 @@ export function UserManagementPage() {
         // Filter indicators to only show those assigned to ministry user (for reassignment)
         // Show indicators where:
         // 1. assignedTo === nodalOfficerId (assigned to this nodal officer - always show for preselection)
-        // 2. assignedTo === ministryUserId (assigned to ministry user - show ALL regardless of status)
-        // 3. assignedTo is null/empty (unassigned indicators - these are also ministry user's indicators) AND indicatorStatus is null
+        // 2. assignedTo === ministryUserId (assigned to ministry user) AND status is null or "DRAFT"
+        // 3. assignedTo is null/empty (unassigned indicators) AND indicatorStatus is null or "DRAFT"
         // Exclude indicators assigned to other nodal officers
         const ministryUserIndicators = allIndicatorsFlat.filter((item) => {
           const assignedTo = item.assignedTo || null;
           const assignedToStr = assignedTo ? String(assignedTo).trim() : '';
-          const status = item.indicatorStatus || item.status || null;
+          // Get indicatorStatus first (submission status), fallback to status (indicator detail status)
+          const indicatorStatus = item.indicatorStatus || null;
+          const indicatorDetailStatus = item.status || null;
           const indicatorId = item.id || item.code || item.value || '';
+          
+          // Check if indicatorStatus is null or DRAFT
+          // Note: indicatorDetailStatus (item.status) being true/false indicates if the indicator is active, not submission status
+          // We only care about indicatorStatus (submission status) for filtering
+          let statusStr = '';
+          if (indicatorStatus !== null && indicatorStatus !== undefined) {
+            statusStr = String(indicatorStatus).trim().toUpperCase();
+          }
+          
+          // Valid statuses: null, undefined, empty string, or "DRAFT"
+          // Boolean true for indicatorDetailStatus should not affect filtering (that's just if indicator is active)
+          const isValidStatus = statusStr === '' || statusStr === 'DRAFT';
           
           // Always show indicators assigned to this nodal officer (for preselection)
           if (assignedToStr && assignedToStr === nodalOfficerIdStr) {
@@ -511,36 +532,37 @@ export function UserManagementPage() {
             return true;
           }
           
-          // Show indicators assigned to ministry user, but exclude those with status "SUBMITTED_TO_MINISTRY"
+          // Show indicators assigned to ministry user, but only if indicatorStatus is null or "DRAFT"
           if (assignedToStr && assignedToStr === ministryUserIdStr) {
-            const statusStr = status ? String(status).trim().toUpperCase() : '';
-            // Exclude if status is "SUBMITTED_TO_MINISTRY"
-            if (statusStr === 'SUBMITTED_TO_MINISTRY') {
-              console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - assigned to ministry user but status is SUBMITTED_TO_MINISTRY`);
+            if (isValidStatus) {
+              console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - assigned to ministry user (${assignedToStr}) with indicatorStatus: ${statusStr || 'null'}`);
+              return true;
+            } else {
+              console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - assigned to ministry user (${assignedToStr}) but indicatorStatus is: ${statusStr}`);
               return false;
             }
-            console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - assigned to ministry user (status: ${status})`);
-            return true;
-          }
-          
-          // Exclude indicators assigned to other nodal officers
-          if (assignedToStr && assignedToStr !== '' && assignedToStr !== ministryUserIdStr) {
-            console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - assigned to other nodal officer: ${assignedToStr}`);
-            return false; // Exclude indicators assigned to other nodal officers
           }
           
           // Show unassigned indicators (assignedTo is null/empty) - these are also ministry user's indicators
-          // But only if status is null
+          // But only if indicatorStatus is null or "DRAFT"
           if (!assignedToStr || assignedToStr === '') {
-            // Only include if indicatorStatus is null (not submitted)
-            if (status === null || status === undefined || status === '') {
-              console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - unassigned (ministry user's indicator) with null status`);
+            if (isValidStatus) {
+              console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - unassigned with indicatorStatus: ${statusStr || 'null'}`);
               return true;
+            } else {
+              console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - unassigned but indicatorStatus is: ${statusStr}`);
+              return false;
             }
-            console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - unassigned but status is not null: ${status}`);
-            return false; // Exclude if status is not null (already submitted)
           }
           
+          // Exclude indicators assigned to other nodal officers (or anyone else)
+          if (assignedToStr && assignedToStr !== '' && assignedToStr !== ministryUserIdStr && assignedToStr !== nodalOfficerIdStr) {
+            console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - assigned to other user: ${assignedToStr} (not ministry: ${ministryUserIdStr}, not nodal: ${nodalOfficerIdStr})`);
+            return false;
+          }
+          
+          // Should not reach here, but exclude by default
+          console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - no matching condition (assignedTo: ${assignedToStr}, indicatorStatus: ${statusStr})`);
           return false;
         });
         
