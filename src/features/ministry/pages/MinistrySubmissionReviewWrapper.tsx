@@ -135,7 +135,7 @@ export function MinistrySubmissionReviewWrapper({
     sectionId: string;
   } | null>(null);
 
-  // Handler to execute after comment is saved for send back action
+  // Handler to execute after comment is saved for send back action (MOSPI Approver)
   const handleSendBackAfterComment = async () => {
     if (!pendingSendBackAction) {
       return;
@@ -171,6 +171,10 @@ export function MinistrySubmissionReviewWrapper({
 
       // Reload data to reflect the change
       setReloadTrigger((prev) => prev + 1);
+
+      // Close dialog and reset state after successful send back
+      setCommentDialogOpen(false);
+      setSelectedSectionForComment(null);
     } catch (error: any) {
       console.error("❌ Error sending back indicator:", error);
       toast({
@@ -181,6 +185,7 @@ export function MinistrySubmissionReviewWrapper({
           "Failed to send back indicator",
         variant: "destructive",
       });
+      throw error; // Re-throw to let the dialog handle it
     } finally {
       setSubmittingIndicatorId(null);
       setPendingSendBackAction(null);
@@ -655,17 +660,26 @@ export function MinistrySubmissionReviewWrapper({
           submissionIndicatorId,
           "RESUBMITTED"
         );
+        
+        // Reload submission data to reflect the updated RESUBMITTED status
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Reloading data after resubmission"
+        );
+        await loadSubmissionData();
       }
 
       // Update local formData immediately with the saved data (optimistic update)
-      setFormData((prevFormData) => {
-        const updatedFormData = { ...prevFormData };
-        updatedFormData[sectionKey] = {
-          ...(prevFormData[sectionKey] || {}),
-          ...sectionData,
-        };
-        return { ...updatedFormData };
-      });
+      // Only update if not RESUBMITTED (since we reload data for RESUBMITTED)
+      if (statusToSet !== "RESUBMITTED") {
+        setFormData((prevFormData) => {
+          const updatedFormData = { ...prevFormData };
+          updatedFormData[sectionKey] = {
+            ...(prevFormData[sectionKey] || {}),
+            ...sectionData,
+          };
+          return { ...updatedFormData };
+        });
+      }
 
       // Clear edit mode
       setEditable(sectionId, false);
@@ -687,7 +701,9 @@ export function MinistrySubmissionReviewWrapper({
 
       toast({
         title: "Success",
-        description: `Section ${sectionId} updated successfully`,
+        description: statusToSet === "RESUBMITTED" 
+          ? `Section ${sectionId} resubmitted successfully`
+          : `Section ${sectionId} updated successfully`,
       });
     } catch (error: any) {
       console.error("Error saving section:", error);
@@ -1923,19 +1939,38 @@ export function MinistrySubmissionReviewWrapper({
           }
         }}
         onSuccess={() => {
-          // Optionally refresh data or show success message
-          console.log("Comment added successfully");
-          if (pendingSendBackAction) {
+          // Handle MOSPI Approver send back via onSuccess (when onSendBack is not provided)
+          // This is for backward compatibility with the existing flow
+          if (pendingSendBackAction && !selectedSectionForComment?.isSendBack) {
             // Small delay to ensure comment is saved before status update
             setTimeout(() => {
               handleSendBackAfterComment();
             }, 300);
+          } else if (!pendingSendBackAction && !selectedSectionForComment?.isSendBack) {
+            // Regular comment (not send back)
+            console.log("Comment added successfully");
           }
         }}
         onSendBack={
           selectedSectionForComment?.isSendBack &&
           selectedSectionForComment?.sectionId
-            ? handleSendBackAfterCommentMinistry
+            ? async (sectionId: string) => {
+                // Determine which handler to use based on user role
+                if (user?.role === "MINISTRY_APPROVER") {
+                  // Clear pending send back action before executing (not needed for MINISTRY handler)
+                  setPendingSendBackAction(null);
+                  // Call MINISTRY_APPROVER send back handler
+                  await handleSendBackAfterCommentMinistry(sectionId);
+                } else if (user?.role === "MOSPI_APPROVER") {
+                  // For MOSPI_APPROVER, use the pending action handler
+                  // Don't clear pendingSendBackAction here - handleSendBackAfterComment needs it
+                  await handleSendBackAfterComment();
+                } else {
+                  // Fallback: try MINISTRY handler
+                  setPendingSendBackAction(null);
+                  await handleSendBackAfterCommentMinistry(sectionId);
+                }
+              }
             : undefined
         }
         sectionTitle={selectedSectionForComment?.sectionTitle}

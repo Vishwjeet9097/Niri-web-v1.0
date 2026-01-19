@@ -1,6 +1,10 @@
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { submitIndicatorToMinistryApprover } from "@/services/ministry.service";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { 
+  submitIndicatorToMinistryApprover,
+  updateSubmissionIndicatorStatus 
+} from "@/services/ministry.service";
 import { validateSection } from "../utils/validation";
 import { getCategoryFromSectionId } from "../utils/formDataTransformer";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
@@ -29,6 +33,7 @@ export function useMinistrySubmissionActions({
   clearValidationErrorsForSection,
 }: UseMinistrySubmissionActionsProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
@@ -201,17 +206,48 @@ export function useMinistrySubmissionActions({
       console.log("📋 Submission Indicator ID:", submissionIndicatorId);
       console.log("📋 Submission ID:", submissionId);
 
+      // Determine status based on user role and current section status
+      let statusToSet = "SUBMITTED_TO_MINISTRY"; // Default status
+      
+      // Get current section status from currentSection object
+      const sectionStatus = (currentSection as any)?.status;
+      
+      // If NODAL_OFFICER is submitting a section that was RETURNED_FROM_MINISTRY, set status to RESUBMITTED
+      if (
+        user?.role === "NODAL_OFFICER" &&
+        sectionStatus?.toUpperCase() === "RETURNED_FROM_MINISTRY"
+      ) {
+        statusToSet = "RESUBMITTED";
+        console.log(
+          "[useMinistrySubmissionActions] NODAL_OFFICER resubmitting sent back indicator:",
+          indicatorCode,
+          "Status will be set to: RESUBMITTED"
+        );
+      }
+
+      console.log("📋 Status to set:", statusToSet);
+
       // All API calls happen here: file uploads + submission
-      // Submit with status: "SUBMITTED_TO_MINISTRY"
       const response = await submitIndicatorToMinistryApprover(
         submissionIndicatorId,
         sectionData,
         currentSection,
         submissionId || undefined,
-        "SUBMITTED_TO_MINISTRY" // Submit status
+        statusToSet // Use determined status
       );
 
       console.log("✅ Indicator submission response:", response);
+
+      // If status is RESUBMITTED, also update the indicator status explicitly
+      if (statusToSet === "RESUBMITTED") {
+        console.log(
+          "[useMinistrySubmissionActions] Updating indicator status to RESUBMITTED"
+        );
+        await updateSubmissionIndicatorStatus(
+          submissionIndicatorId,
+          "RESUBMITTED"
+        );
+      }
 
       // Update submitted indicators immediately BEFORE clearing submittingIndicator
       // This ensures the button shows "Submitted" immediately
@@ -231,7 +267,9 @@ export function useMinistrySubmissionActions({
 
       toast({
         title: "Success",
-        description: `Indicator ${indicatorCode} submitted successfully.`,
+        description: statusToSet === "RESUBMITTED"
+          ? `Indicator ${indicatorCode} resubmitted successfully.`
+          : `Indicator ${indicatorCode} submitted successfully.`,
         variant: "default",
       });
 
@@ -250,7 +288,7 @@ export function useMinistrySubmissionActions({
       // Clear submittingIndicator on error too
       setSubmittingIndicator(null);
     }
-  }, [pendingIndicator, submissionId, toast, setSubmittedIndicators]);
+  }, [pendingIndicator, submissionId, toast, setSubmittedIndicators, user?.role]);
 
   // Handle cancel from modal
   const handleCancelSubmit = useCallback(() => {

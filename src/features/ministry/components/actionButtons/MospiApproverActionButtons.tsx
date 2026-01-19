@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, RotateCcw, Clock } from "lucide-react";
-import { MinistryReturnedDialog } from "../modals/MinistryReturnedDialog";
 
 interface MospiApproverActionButtonsProps {
   sectionId?: string;
@@ -30,39 +28,31 @@ export function MospiApproverActionButtons({
   submitDisabled = false,
   sendBackDisabled = false,
 }: MospiApproverActionButtonsProps) {
-  const [returnedDialogOpen, setReturnedDialogOpen] = useState(false);
-
   console.log("MospiApproverActionButtons status:", status);
-  // If status is RETURNED_FROM_MOSPI_APPROVER_DRAFT, show "Returned Back" button that opens dialog and Timeline button
+  // If status is RETURNED_FROM_MOSPI_APPROVER_DRAFT, show "Send Back" badge and Timeline button
   if (status === "RETURNED_FROM_MOSPI_APPROVER_DRAFT") {
     return (
-      <>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setReturnedDialogOpen(true)}
-            className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200"
-          >
-            <RotateCcw className="w-4 h-4 mr-1" />
-            Returned Back
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onTimeline}
-            className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-          >
-            <Clock className="w-4 h-4 mr-1" />
-            Timeline ({timelineCount})
-          </Button>
-        </div>
-        <MinistryReturnedDialog
-          isOpen={returnedDialogOpen}
-          onClose={() => setReturnedDialogOpen(false)}
-          sectionTitle={sectionTitle || sectionId || "Unknown Section"}
-        />
-      </>
+      <div className="flex items-center gap-2">
+        {/* Send Back badge - matches Ministry Approver Sent Back styling */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+          disabled
+        >
+          <RotateCcw className="w-4 h-4" />
+          Send Back
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onTimeline}
+          className="flex items-center gap-1 h-7 px-2 text-xs"
+        >
+          <Clock className="w-3 h-3" />
+          Timeline ({timelineCount})
+        </Button>
+      </div>
     );
   }
 
@@ -83,24 +73,26 @@ export function MospiApproverActionButtons({
         </Button>
       ) : (
         <>
+          {/* Send Back Button - matches Ministry Approver styling */}
           <Button
             variant="outline"
             size="sm"
             onClick={onSendBack}
             disabled={disabled || sendBackDisabled}
-            className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200"
+            className="flex items-center gap-1"
           >
-            <RotateCcw className="w-4 h-4 mr-1" />
+            <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
+          {/* Accept Button - matches Ministry Approver styling */}
           <Button
             variant="outline"
             size="sm"
             onClick={onAccept}
             disabled={disabled || submitDisabled}
-            className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            <CheckCircle className="w-4 h-4 mr-1" />
+            <CheckCircle className="w-4 h-4" />
             Accept
           </Button>
         </>
@@ -109,9 +101,9 @@ export function MospiApproverActionButtons({
         variant="outline"
         size="sm"
         onClick={onTimeline}
-        className="bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+        className="flex items-center gap-1 h-7 px-2 text-xs"
       >
-        <Clock className="w-4 h-4 mr-1" />
+        <Clock className="w-3 h-3" />
         Timeline ({timelineCount})
       </Button>
     </div>

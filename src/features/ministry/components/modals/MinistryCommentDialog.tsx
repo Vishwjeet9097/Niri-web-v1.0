@@ -75,24 +75,35 @@ export function MinistryCommentDialog({
 
       await addMinistrySubmissionComment(submissionIndicatorId, comment.trim());
 
+      // If onSendBack is provided, call it after saving comment (for send back flow)
+      if (onSendBack && sectionId) {
+        try {
+          await onSendBack(sectionId);
+          // Close dialog after successful send back
+          setComment("");
+          onClose();
+        } catch (sendBackError: any) {
+          // Error is already handled by onSendBack, but keep dialog open
+          // so user can see the error and potentially retry
+          console.error("❌ Error in send back:", sendBackError);
+          // Don't close dialog on error - let user see the error message
+          throw sendBackError; // Re-throw to prevent closing dialog
+        }
+        return;
+      }
+
+      // For regular comments (no onSendBack), show success and close dialog
       toast({
         title: "Success",
         description: "Comment added successfully",
       });
 
-      // Call onSuccess callback if provided
+      // Call onSuccess callback if provided (only for regular comments)
       if (onSuccess) {
         onSuccess();
       }
 
-      // If onSendBack is provided, call it after saving comment (for send back flow)
-      if (onSendBack && sectionId) {
-        await onSendBack(sectionId);
-        // Parent will handle closing if needed, so we don't close here
-        return;
-      }
-
-      // For regular comments (no onSendBack), close dialog after a small delay
+      // Close dialog after a small delay for regular comments
       setTimeout(() => {
         setComment("");
         onClose();
@@ -127,9 +138,15 @@ export function MinistryCommentDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add Comment</DialogTitle>
+          <DialogTitle>
+            {onSendBack ? "Send Back with Comment" : "Add Comment"}
+          </DialogTitle>
           <DialogDescription>
-            {sectionTitle
+            {onSendBack
+              ? sectionTitle
+                ? `Add a comment and send back: ${sectionTitle}`
+                : "Add a comment to send back this section"
+              : sectionTitle
               ? `Add or edit your comment for: ${sectionTitle}`
               : "Add or edit your comment"}
           </DialogDescription>
@@ -153,7 +170,7 @@ export function MinistryCommentDialog({
           </Button>
           <Button onClick={handleSave} disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Comment
+            {onSendBack ? "Send Back" : "Save Comment"}
           </Button>
         </DialogFooter>
       </DialogContent>
