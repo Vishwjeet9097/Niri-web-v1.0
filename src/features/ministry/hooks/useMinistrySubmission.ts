@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { getMinistrySubmissionDetails, minstryRegistrationForm } from "@/services/ministry.service";
+import { getMinistrySubmissionDetails, minstryRegistrationForm, getRemainingMinistryIndicators } from "@/services/ministry.service";
 import { useToast } from "@/hooks/use-toast";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
@@ -17,6 +17,7 @@ interface UseMinistrySubmissionReturn {
   loading: boolean;
   noSubmissionFound: boolean;
   submissionError: string | null;
+  allIndicatorsAssigned: boolean;
   handleCreateSubmission: () => Promise<void>;
   setFormData: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   setSubmittedIndicators: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -43,6 +44,7 @@ export function useMinistrySubmission(
   const [submissionId, setSubmissionId] = useState<string | null>(submissionIdFromParams || null);
   const [noSubmissionFound, setNoSubmissionFound] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [allIndicatorsAssigned, setAllIndicatorsAssigned] = useState(false);
   
   const hasCheckedSubmissionRef = useRef(false);
   const isInitialLoadRef = useRef(true);
@@ -250,6 +252,35 @@ export function useMinistrySubmission(
     }
   }, [user?.id, user?.role, submissionIdFromParams, reviewUserId, toast, persistedFormData]);
 
+  // Check if all indicators are assigned to nodals (only for MINISTRY_APPROVER when no submission found)
+  useEffect(() => {
+    const checkAllIndicatorsAssigned = async () => {
+      // Only check for MINISTRY_APPROVER when no submission is found
+      if (user?.role === "MINISTRY_APPROVER" && noSubmissionFound && user?.id && !checking && !loading) {
+        try {
+          const remainingIndicators = await getRemainingMinistryIndicators(user.id);
+          
+          // Check if remaining indicators is empty or has no items
+          const isEmpty = 
+            remainingIndicators == null ||
+            (Array.isArray(remainingIndicators) && remainingIndicators.length === 0) ||
+            (typeof remainingIndicators === 'object' && !Array.isArray(remainingIndicators) && Object.keys(remainingIndicators).length === 0);
+          
+          setAllIndicatorsAssigned(isEmpty);
+        } catch (error) {
+          console.error("⚠️ Error checking remaining indicators:", error);
+          // On error, assume not all are assigned (safer to allow creation)
+          setAllIndicatorsAssigned(false);
+        }
+      } else {
+        // Reset when conditions are not met
+        setAllIndicatorsAssigned(false);
+      }
+    };
+
+    checkAllIndicatorsAssigned();
+  }, [user?.role, user?.id, noSubmissionFound, checking, loading]);
+
   // Handle creating a new submission
   const handleCreateSubmission = async () => {
     if (!user?.id || !user?.ministryId) {
@@ -382,6 +413,7 @@ export function useMinistrySubmission(
     loading,
     noSubmissionFound,
     submissionError,
+    allIndicatorsAssigned,
     handleCreateSubmission,
     setFormData,
     setSubmittedIndicators,
