@@ -19,7 +19,7 @@ import {
 } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
-import { getMinistryFormIndicators, getRemainingMinistryIndicators, minstryRegistrationForm, reassignIndicatorsToNodal } from "@/services/ministry.service";
+import { getMinistryFormIndicators, getRemainingMinistryIndicators, minstryRegistrationForm, reassignIndicatorsToNodal, removeAssignedIndicators } from "@/services/ministry.service";
 import { EmptyState } from "./components/EmptyState";
 import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
@@ -148,26 +148,49 @@ export function UserManagementPage() {
  
         // Transform backend users to NodalOfficer format
         let transformedOfficers: NodalOfficer[] = backendUsers.map(
-          (user: any) => ({
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            contactNumber: user.contactNumber || "",
-            email: user.email,
-            role: user.role as
-              | "NODAL_OFFICER"
-              | "STATE_APPROVER"
-              | "MOSPI_REVIEWER"
-              | "MOSPI_APPROVER"
-            | "MINISTRY_APPROVER",
-            state: user.stateUt || user.state || "",
-            stateId: user.stateId || "",
-            assignedIndicator: user.assignedIndicator,
-            assignedIndicators: user.assignedIndicators || [],
-            isActive: user.isActive,
-            ministryId: user.ministryId,
-          createdAt: new Date(user.createdAt).getTime(),
-          })
+          (user: any) => {
+            // Extract indicator codes from assignedIndicators array
+            // Backend returns array of objects with {code, name} or array of strings
+            let indicatorCodes: string[] = [];
+            if (user.assignedIndicators && Array.isArray(user.assignedIndicators)) {
+              console.log('[loadOfficers] User assignedIndicators raw data:', user.id, user.assignedIndicators);
+              indicatorCodes = user.assignedIndicators.map((ind: any) => {
+                // If it's an object, extract the code property
+                if (typeof ind === 'object' && ind !== null) {
+                  const code = ind.code || ind.id || ind.value || String(ind);
+                  console.log('[loadOfficers] Extracted code from object:', code, ind);
+                  return code;
+                }
+                // If it's already a string, use it directly
+                console.log('[loadOfficers] Using string directly:', ind);
+                return String(ind);
+              }).filter((code: string) => code && code.trim() !== '');
+              console.log('[loadOfficers] Final indicator codes for user:', user.id, indicatorCodes);
+            } else {
+              console.log('[loadOfficers] No assignedIndicators or not an array for user:', user.id, user.assignedIndicators);
+            }
+            
+            return {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              contactNumber: user.contactNumber || "",
+              email: user.email,
+              role: user.role as
+                | "NODAL_OFFICER"
+                | "STATE_APPROVER"
+                | "MOSPI_REVIEWER"
+                | "MOSPI_APPROVER"
+              | "MINISTRY_APPROVER",
+              state: user.stateUt || user.state || "",
+              stateId: user.stateId || "",
+              assignedIndicator: user.assignedIndicator,
+              assignedIndicators: indicatorCodes,
+              isActive: user.isActive,
+              ministryId: user.ministryId,
+              createdAt: new Date(user.createdAt).getTime(),
+            };
+          }
         );
 
         // For MINISTRY_APPROVER: Filter to show only NODAL_OFFICER users assigned to their ministry
@@ -1690,17 +1713,97 @@ export function UserManagementPage() {
               | "MINISTRY_APPROVER",
           } as any);
 
+          // Get currently assigned indicators for this nodal officer
+          // First try from ministryAssignableIndicators state (indicators with isSelected: true)
+          let currentlyAssignedIndicators: string[] = [];
+          
+          // Extract from ministryAssignableIndicators that have isSelected: true
+          if (Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0) {
+            currentlyAssignedIndicators = ministryAssignableIndicators
+              .filter((ind: any) => ind && ind.isSelected === true)
+              .map((ind: any) => String(ind.value || ind.id || ind.code || ''))
+              .filter((val: string) => val !== '');
+          }
+          
+          // Fallback: try from editingOfficer.assignedIndicators
+          if (currentlyAssignedIndicators.length === 0 && editingOfficer.assignedIndicators && Array.isArray(editingOfficer.assignedIndicators)) {
+            editingOfficer.assignedIndicators.forEach((ind: any) => {
+              const value = typeof ind === 'string' ? ind : String(ind?.value || ind?.id || ind?.code || ind || '');
+              if (value) {
+                currentlyAssignedIndicators.push(value);
+              }
+            });
+          }
+          
+          // If still empty, fetch from API to get the latest assigned indicators
+          if (currentlyAssignedIndicators.length === 0 && editingOfficer.id && user?.id) {
+            try {
+              console.log('[handleMinistryIndicatorSaveUser] Fetching currently assigned indicators from API');
+              const nodalIndicatorsResponse = await getRemainingMinistryIndicators(editingOfficer.id);
+              let nodalIndicatorsData = nodalIndicatorsResponse;
+              if (nodalIndicatorsResponse && typeof nodalIndicatorsResponse === 'object' && 'data' in nodalIndicatorsResponse) {
+                nodalIndicatorsData = nodalIndicatorsResponse.data;
+              }
+              
+              // Flatten the response
+              let assignedIndicatorsFlat: any[] = [];
+              if (Array.isArray(nodalIndicatorsData)) {
+                assignedIndicatorsFlat = nodalIndicatorsData;
+              } else if (nodalIndicatorsData && typeof nodalIndicatorsData === 'object') {
+                Object.values(nodalIndicatorsData).forEach((categoryIndicators: any) => {
+                  if (Array.isArray(categoryIndicators)) {
+                    categoryIndicators.forEach((item: any) => {
+                      if (item && typeof item === 'object') {
+                        assignedIndicatorsFlat.push(item);
+                      }
+                    });
+                  }
+                });
+              }
+              
+              // Extract indicator IDs
+              assignedIndicatorsFlat.forEach((item: any) => {
+                const value = item.id || item.code || item.value || '';
+                if (value) {
+                  currentlyAssignedIndicators.push(String(value));
+                }
+              });
+              
+              console.log('[handleMinistryIndicatorSaveUser] Fetched currently assigned indicators from API:', currentlyAssignedIndicators);
+            } catch (error) {
+              console.error('[handleMinistryIndicatorSaveUser] Error fetching assigned indicators:', error);
+            }
+          }
+
+          console.log('[handleMinistryIndicatorSaveUser] Currently assigned indicators:', currentlyAssignedIndicators);
+          
+          const newIndicators = (officerData.ministryAssignedIndicators || []).map((ind: any) => String(ind).trim());
+          console.log('[handleMinistryIndicatorSaveUser] New indicators:', newIndicators);
+          
+          // Normalize both arrays to strings for comparison
+          const normalizedCurrent = currentlyAssignedIndicators.map((ind) => String(ind).trim());
+          const normalizedNew = newIndicators.map((ind) => String(ind).trim());
+          
+          // Find indicators to remove (in current but not in new)
+          const indicatorsToRemove = normalizedCurrent.filter(
+            (ind) => ind && !normalizedNew.includes(ind)
+          );
+          
+          console.log('[handleMinistryIndicatorSaveUser] Indicators to remove:', indicatorsToRemove);
+          console.log('[handleMinistryIndicatorSaveUser] Comparison details:', {
+            normalizedCurrent,
+            normalizedNew,
+            indicatorsToRemoveCount: indicatorsToRemove.length,
+            userId: user?.id
+          });
+
           // If indicators are provided, reassign them
-          if (
-            officerData.ministryAssignedIndicators &&
-            officerData.ministryAssignedIndicators.length > 0 &&
-            user?.id
-          ) {
+          if (newIndicators.length > 0 && user?.id) {
             try {
               await reassignIndicatorsToNodal(
                 editingOfficer.id, // nodalUserId
                 user.id, // ministryUserId
-                officerData.ministryAssignedIndicators // indicatorsId
+                newIndicators // indicatorsId
               );
 
               notificationService.success(
@@ -1718,11 +1821,69 @@ export function UserManagementPage() {
                 "Reassignment Failed"
               );
             }
-          } else {
+          }
+
+          // If there are indicators to remove (including when all are removed)
+          if (indicatorsToRemove.length > 0 && user?.id) {
+            console.log('[handleMinistryIndicatorSaveUser] Calling removeAssignedIndicators API with:', {
+              ministryUserId: user.id,
+              indicatorsId: indicatorsToRemove,
+              count: indicatorsToRemove.length
+            });
+            try {
+              const removeResponse = await removeAssignedIndicators(
+                user.id, // ministryUserId
+                indicatorsToRemove // indicatorsId
+              );
+              
+              console.log('[handleMinistryIndicatorSaveUser] removeAssignedIndicators API response:', removeResponse);
+
+              if (newIndicators.length === 0) {
+                notificationService.success(
+                  "All indicators removed from nodal officer successfully",
+                  "Update Successful"
+                );
+              } else {
+                console.log(`[handleMinistryIndicatorSaveUser] Removed ${indicatorsToRemove.length} indicators from nodal officer`);
+                // If we also reassigned indicators, don't show duplicate success message
+                if (newIndicators.length === 0) {
+                  notificationService.success(
+                    `${indicatorsToRemove.length} indicator(s) removed from nodal officer successfully`,
+                    "Update Successful"
+                  );
+                }
+              }
+            } catch (error: any) {
+              console.error('[handleMinistryIndicatorSaveUser] Error removing indicators:', error);
+              console.error('[handleMinistryIndicatorSaveUser] Error details:', {
+                message: error?.message,
+                response: error?.response,
+                status: error?.response?.status,
+                data: error?.response?.data,
+              });
+              let errorMessage = "Failed to remove indicators. Please try again.";
+              if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              }
+              notificationService.error(
+                errorMessage,
+                "Removal Failed"
+              );
+            }
+          } else if (newIndicators.length === 0 && currentlyAssignedIndicators.length === 0) {
+            // No indicators to update
+            console.log('[handleMinistryIndicatorSaveUser] No indicators to update');
             notificationService.success(
               "Officer updated successfully",
               "Update Successful"
             );
+          } else {
+            console.log('[handleMinistryIndicatorSaveUser] No indicators to remove:', {
+              indicatorsToRemove: indicatorsToRemove.length,
+              newIndicators: newIndicators.length,
+              currentlyAssigned: currentlyAssignedIndicators.length,
+              userId: user?.id
+            });
           }
 
           // Refresh the user list after update

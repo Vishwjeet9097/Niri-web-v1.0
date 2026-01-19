@@ -437,6 +437,38 @@ export async function getRemainingMinistryIndicators(userId?: string) {
 }
 
 /**
+ * Remove assigned indicators from a nodal officer and reassign them back to ministry user
+ * @param ministryUserId - The ID of the ministry approver
+ * @param indicatorsId - Array of indicator IDs to remove/reassign
+ * @returns Promise with the API response
+ */
+export async function removeAssignedIndicators(
+  ministryUserId: string,
+  indicatorsId: string[]
+) {
+  try {
+    const url = getApiUrl("/ministry/form/create/remove-assigned-indicator");
+    console.log("[removeAssignedIndicators] Calling API:", url);
+    console.log("[removeAssignedIndicators] Payload:", { ministryUserId, indicatorsId });
+    
+    const response = await apiService.post(
+      url,
+      {
+        ministryUserId,
+        indicatorsId,
+      },
+      { withCredentials: true }
+    );
+    
+    console.log("[removeAssignedIndicators] Response:", response);
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error("[removeAssignedIndicators] API Error:", error);
+    throw error;
+  }
+}
+
+/**
  * Reassign indicators to a nodal officer by a ministry approver
  * @param nodalUserId - The ID of the nodal officer
  * @param ministryUserId - The ID of the ministry approver
