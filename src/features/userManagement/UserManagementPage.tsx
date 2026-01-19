@@ -1725,13 +1725,37 @@ export function UserManagementPage() {
             <SelectContent>
               <SelectItem value="all">Select Roles</SelectItem>
 
-              {user?.role !== "ADMIN" && user?.role !== "MOSPI_APPROVER" && (
+              {/* For MINISTRY_APPROVER and STATE_APPROVER: Only show NODAL_OFFICER */}
+              {(user?.role === "MINISTRY_APPROVER" || user?.role === "STATE_APPROVER") && (
                 <SelectItem value="NODAL_OFFICER">
                   {getRoleDisplayName("NODAL_OFFICER")}
                 </SelectItem>
               )}
-              {user?.role !== "STATE_APPROVER" && (
+
+              {/* For MOSPI_APPROVER: Show STATE_APPROVER, MOSPI_REVIEWER, MINISTRY_APPROVER */}
+              {user?.role === "MOSPI_APPROVER" && (
                 <>
+                  <SelectItem value="NODAL_OFFICER">
+                    {getRoleDisplayName("NODAL_OFFICER")}
+                  </SelectItem>
+                  <SelectItem value="STATE_APPROVER">
+                    {getRoleDisplayName("STATE_APPROVER")}
+                  </SelectItem>
+                  <SelectItem value="MOSPI_REVIEWER">
+                    {getRoleDisplayName("MOSPI_REVIEWER")}
+                  </SelectItem>
+                  <SelectItem value="MINISTRY_APPROVER">
+                    {getRoleDisplayName("MINISTRY_APPROVER")}
+                  </SelectItem>
+                </>
+              )}
+
+              {/* For ADMIN: Show all roles */}
+              {user?.role === "ADMIN" && (
+                <>
+                  <SelectItem value="NODAL_OFFICER">
+                    {getRoleDisplayName("NODAL_OFFICER")}
+                  </SelectItem>
                   <SelectItem value="STATE_APPROVER">
                     {getRoleDisplayName("STATE_APPROVER")}
                   </SelectItem>
@@ -1741,16 +1765,13 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                   <SelectItem value="MINISTRY_APPROVER">
+                  <SelectItem value="MINISTRY_APPROVER">
                     {getRoleDisplayName("MINISTRY_APPROVER")}
                   </SelectItem>
-                  
+                  <SelectItem value="ADMIN">
+                    {getRoleDisplayName("ADMIN")}
+                  </SelectItem>
                 </>
-              )}
-              {user?.role == "ADMIN" && (
-                <SelectItem value="ADMIN">
-                  {getRoleDisplayName("ADMIN")}
-                </SelectItem>
               )}
             </SelectContent>
           </Select>

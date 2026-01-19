@@ -26,6 +26,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { getMenuConfig } from "@/utils/roles";
+import { getRemainingMinistryIndicators, getMinistryDashboardData } from "@/services/ministry.service";
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -41,6 +42,8 @@ export function DashboardLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+  
+  console.log("🔍 [DashboardLayout.jsx] Component rendering, user role:", user?.role, "user id:", user?.id);
   const [openDropdown, setOpenDropdown] = useState(null);
   const { hasSubmission } = useUserSubmissionStatus();
   const {
@@ -48,6 +51,14 @@ export function DashboardLayout() {
     loading: indicatorLoading,
     refresh: refreshIndicators,
   } = useIndicatorAccess();
+  const [ministryDashboardData, setMinistryDashboardData] = useState({
+    totalIndicators: 0,
+    totalAssignedMinistryApprover: 0,
+    totalIndicatorNodalMinistry: 0,
+  });
+  const [isMinistryDashboardDataLoading, setIsMinistryDashboardDataLoading] = useState(true);
+  const [remainingMinistryIndicators, setRemainingMinistryIndicators] = useState(null);
+  const hasInitiallyLoadedRef = useRef(false);
 
   // ✅ Use ref to store refresh function to prevent effect re-runs
   const refreshIndicatorsRef = useRef(refreshIndicators);
@@ -64,6 +75,141 @@ export function DashboardLayout() {
       !availableIndicators || availableIndicators.length === 0;
     return hasSubmission || hasNoIndicators;
   }, [user?.role, hasSubmission, availableIndicators?.length]);
+
+  // Memoize the disabled state for MINISTRY_APPROVER - similar to STATE_APPROVER
+  // Use getRemainingMinistryIndicators to match the page component logic
+  const isMinistryCreateSubmissionDisabled = useMemo(() => {
+    if (user?.role !== "MINISTRY_APPROVER") return false;
+
+    // During loading, always disable (prevents flickering)
+    if (isMinistryDashboardDataLoading || remainingMinistryIndicators === null) return true;
+
+    // Check if remaining indicators is empty or has no items (same logic as useMinistrySubmission)
+    const isEmpty = 
+      remainingMinistryIndicators == null ||
+      (Array.isArray(remainingMinistryIndicators) && remainingMinistryIndicators.length === 0) ||
+      (typeof remainingMinistryIndicators === 'object' && !Array.isArray(remainingMinistryIndicators) && Object.keys(remainingMinistryIndicators).length === 0);
+
+    console.log("🔍 [DashboardLayout.jsx] Computing isMinistryCreateSubmissionDisabled", {
+      remainingMinistryIndicators,
+      isEmpty,
+      totalAssignedMinistryApprover: ministryDashboardData.totalAssignedMinistryApprover,
+      isMinistryDashboardDataLoading,
+    });
+
+    // Disable if no remaining indicators available (all assigned to nodals)
+    const shouldDisable = isEmpty;
+    
+    console.log("🔍 [DashboardLayout.jsx] Should disable?", shouldDisable, "isEmpty:", isEmpty, "remainingIndicatorsLength:", Array.isArray(remainingMinistryIndicators) ? remainingMinistryIndicators.length : 'not array');
+    return shouldDisable;
+  }, [user?.role, remainingMinistryIndicators, isMinistryDashboardDataLoading]);
+
+  // Load remaining indicators for MINISTRY_APPROVER - matches useMinistrySubmission logic
+  useEffect(() => {
+    const loadRemainingIndicators = async () => {
+      if (user?.role === "MINISTRY_APPROVER" && user?.id) {
+        setIsMinistryDashboardDataLoading(true);
+        try {
+          console.log("🔍 [DashboardLayout.jsx] Loading remaining indicators for user:", user.id);
+          // Use getRemainingMinistryIndicators to match the page component logic
+          const remaining = await getRemainingMinistryIndicators(user.id);
+          console.log("🔍 [DashboardLayout.jsx] Remaining indicators received:", remaining);
+          
+          setRemainingMinistryIndicators(remaining);
+          setIsMinistryDashboardDataLoading(false);
+          hasInitiallyLoadedRef.current = true; // Mark initial load as complete
+          
+          // Also load dashboard data for other purposes
+          const dashboardData = await getMinistryDashboardData(user.id);
+          setMinistryDashboardData({
+            totalIndicators: dashboardData?.totalIndicators || 0,
+            totalAssignedMinistryApprover: dashboardData?.totalAssignedMinistryApprover || 0,
+            totalIndicatorNodalMinistry: dashboardData?.totalIndicatorNodalMinistry || 0,
+          });
+          
+          console.log("🔍 [DashboardLayout.jsx] State updated, loading: false");
+        } catch (error) {
+          console.error("⚠️ Error loading remaining indicators:", error);
+          setRemainingMinistryIndicators([]);
+          setIsMinistryDashboardDataLoading(false);
+        }
+      } else {
+        setRemainingMinistryIndicators(null);
+        setIsMinistryDashboardDataLoading(false);
+      }
+    };
+
+    loadRemainingIndicators();
+  }, [user?.role, user?.id]);
+
+  // Refresh dashboard data when location changes (e.g., coming back from User Management)
+  // Only run this AFTER initial load is complete to prevent double-loading and flickering
+  useEffect(() => {
+    if (
+      user?.role === "MINISTRY_APPROVER" &&
+      location.pathname !== "/user-management" &&
+      user?.id &&
+      hasInitiallyLoadedRef.current // Only run if initial load has completed
+    ) {
+      // Small delay to ensure the component is fully mounted
+      const timer = setTimeout(async () => {
+        try {
+          setIsMinistryDashboardDataLoading(true);
+          console.log("🔍 [DashboardLayout.jsx] Refreshing remaining indicators on location change");
+          const remaining = await getRemainingMinistryIndicators(user.id);
+          console.log("🔍 [DashboardLayout.jsx] Refreshed remaining indicators:", remaining);
+          
+          setRemainingMinistryIndicators(remaining);
+          setIsMinistryDashboardDataLoading(false);
+          
+          // Also refresh dashboard data
+          const dashboardData = await getMinistryDashboardData(user.id);
+          setMinistryDashboardData({
+            totalIndicators: dashboardData?.totalIndicators || 0,
+            totalAssignedMinistryApprover: dashboardData?.totalAssignedMinistryApprover || 0,
+            totalIndicatorNodalMinistry: dashboardData?.totalIndicatorNodalMinistry || 0,
+          });
+        } catch (error) {
+          console.error("⚠️ Error refreshing ministry dashboard data:", error);
+          setIsMinistryDashboardDataLoading(false);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, user?.role, user?.id]);
+
+  // Listen for indicators updated event (from User Management)
+  useEffect(() => {
+    if (user?.role === "MINISTRY_APPROVER" && user?.id) {
+      const handleIndicatorUpdate = async () => {
+        try {
+          setIsMinistryDashboardDataLoading(true);
+          console.log("🔍 [DashboardLayout.jsx] Indicators updated event received, refreshing remaining indicators");
+          const remaining = await getRemainingMinistryIndicators(user.id);
+          
+          setRemainingMinistryIndicators(remaining);
+          setIsMinistryDashboardDataLoading(false);
+          console.log("🔍 [DashboardLayout.jsx] Remaining indicators updated from event:", remaining);
+          
+          // Also refresh dashboard data
+          const dashboardData = await getMinistryDashboardData(user.id);
+          setMinistryDashboardData({
+            totalIndicators: dashboardData?.totalIndicators || 0,
+            totalAssignedMinistryApprover: dashboardData?.totalAssignedMinistryApprover || 0,
+            totalIndicatorNodalMinistry: dashboardData?.totalIndicatorNodalMinistry || 0,
+          });
+        } catch (error) {
+          console.error("⚠️ Error checking ministry dashboard data on event:", error);
+          setIsMinistryDashboardDataLoading(false);
+        }
+      };
+
+      window.addEventListener("indicatorsUpdated", handleIndicatorUpdate);
+      return () => {
+        window.removeEventListener("indicatorsUpdated", handleIndicatorUpdate);
+      };
+    }
+  }, [user?.role, user?.id]);
 
   // Track indicator count separately to detect changes without causing re-renders
   const indicatorCount = useMemo(
@@ -90,8 +236,8 @@ export function DashboardLayout() {
 
   // Auto-refresh indicators when window regains focus or storage changes
   useEffect(() => {
-    // Only setup auto-refresh for STATE_APPROVER
-    if (user?.role !== "STATE_APPROVER") return;
+    // Setup auto-refresh for STATE_APPROVER
+    if (user?.role === "STATE_APPROVER") {
 
     // ✅ Helper function uses ref to avoid dependency issues
     const refreshAndUpdate = async (clearCache = false) => {
@@ -154,7 +300,9 @@ export function DashboardLayout() {
         clearTimeout(focusTimeout);
       }
     };
+    }
   }, [user?.role]); // ✅ Only depend on user?.role - refreshIndicators removed from deps (using ref instead)
+
 
   const navigation = getMenuConfig().filter((item) =>
     item.roles.includes(user?.role)
@@ -307,24 +455,48 @@ export function DashboardLayout() {
                             const childActive = isActive(child.path);
                             const isCreateSubmission =
                               child.path === "/submissions";
+                            const isMinistryCreateSubmission =
+                              child.path === "/ministry/submission";
 
                             // Use memoized disabled state - only disable if already disabled, don't add loading state
                             // This prevents flickering during refresh
                             const isDisabled =
-                              isCreateSubmission && isCreateSubmissionDisabled;
+                              (isCreateSubmission && isCreateSubmissionDisabled) ||
+                              (isMinistryCreateSubmission && isMinistryCreateSubmissionDisabled);
                             const hasNoIndicators =
                               user?.role === "STATE_APPROVER" &&
                               indicatorCount === 0;
 
+                            // Debug logging for ministry create submission
+                            if (isMinistryCreateSubmission) {
+                              console.log("🔍 [DashboardLayout.jsx] Button rendering:", {
+                                isMinistryCreateSubmission,
+                                isCreateSubmissionDisabled,
+                                isMinistryCreateSubmissionDisabled,
+                                isDisabled,
+                                ministryDashboardData,
+                                childPath: child.path,
+                                userRole: user?.role,
+                                willBeDisabled: isDisabled,
+                              });
+                            }
+
                             return (
                               <button
                                 key={child.label} // Stable key prevents flickering
-                                onClick={() => {
+                                onClick={(e) => {
+                                  // Double-check disabled state to prevent any navigation
                                   if (isDisabled) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     // Show helpful message if disabled due to no indicators
                                     if (hasNoIndicators) {
                                       notificationService.warning(
                                         "At least one indicator must be assigned to the State Approver before creating a submission."
+                                      );
+                                    } else if (isMinistryCreateSubmission && isMinistryCreateSubmissionDisabled) {
+                                      notificationService.warning(
+                                        "No indicators are available for you. Please contact your administrator to assign indicators before creating a submission."
                                       );
                                     }
                                     return; // prevent navigation
@@ -335,17 +507,23 @@ export function DashboardLayout() {
                                 }}
                                 disabled={isDisabled}
                                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 w-full text-left ${
-                                  childActive
+                                  childActive && !isDisabled
                                     ? "bg-blue-50 text-blue-600"
-                                    : "text-foreground hover:bg-blue-50 hover:text-blue-600"
+                                    : "text-foreground"
+                                } ${
+                                  !isDisabled
+                                    ? "hover:bg-blue-50 hover:text-blue-600"
+                                    : ""
                                 } ${
                                   isDisabled
-                                    ? "opacity-50 cursor-not-allowed"
+                                    ? "opacity-50 cursor-not-allowed pointer-events-none"
                                     : ""
                                 }`}
                                 title={
                                   isDisabled && hasNoIndicators
                                     ? "At least one indicator must be assigned to the State Approver before creating a submission."
+                                    : isDisabled && isMinistryCreateSubmission && isMinistryCreateSubmissionDisabled
+                                    ? "No indicators are available. Please contact your administrator to assign indicators before creating a submission."
                                     : undefined
                                 }
                               >

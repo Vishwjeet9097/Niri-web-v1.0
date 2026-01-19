@@ -49,6 +49,7 @@ export function MinistrySubmissionWrapper() {
     loading,
     noSubmissionFound,
     submissionError,
+    allIndicatorsAssigned,
     handleCreateSubmission,
     setFormData,
     setSubmittedIndicators,
@@ -143,6 +144,7 @@ export function MinistrySubmissionWrapper() {
       <MinistryEmptyState
         onCreateSubmission={handleCreateSubmission}
         error={submissionError || undefined}
+        disabled={allIndicatorsAssigned}
       />
     );
   }
@@ -161,9 +163,6 @@ export function MinistrySubmissionWrapper() {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <p className="text-muted-foreground">No indicators assigned</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Debug: assignedIndicators.length = {assignedIndicators.length}
-        </p>
       </div>
     );
   }

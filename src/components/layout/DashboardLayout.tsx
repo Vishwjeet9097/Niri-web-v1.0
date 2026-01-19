@@ -1,5 +1,5 @@
 import { FloatingThemeToggle } from "@/app/ThemeProvider";
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import {
@@ -18,6 +18,8 @@ import { NotificationCenter } from "@/features/notifications/NotificationCenter"
 import { authService } from "@/services/auth.service";
 import { notificationService } from "@/services/notification.service";
 import { getMenuConfig } from "@/utils/roles";
+import { getRemainingMinistryIndicators, getMinistryDashboardData } from "@/services/ministry.service";
+import { useAuth } from "@/features/auth/AuthProvider";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   dashboard: LayoutDashboard,
@@ -33,7 +35,21 @@ export function DashboardLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const user = authService.getUser();
+  const { user } = useAuth();
+  
+  console.log("🔍 [DashboardLayout.tsx] Component rendering, user role:", user?.role);
+  const [ministryDashboardData, setMinistryDashboardData] = useState<{
+    totalIndicators: number;
+    totalAssignedMinistryApprover: number;
+    totalIndicatorNodalMinistry: number;
+  }>({
+    totalIndicators: 0,
+    totalAssignedMinistryApprover: 0,
+    totalIndicatorNodalMinistry: 0,
+  });
+  const [isMinistryDashboardDataLoading, setIsMinistryDashboardDataLoading] = useState(true);
+  const [remainingMinistryIndicators, setRemainingMinistryIndicators] = useState<any[] | null>(null);
+  const hasInitiallyLoadedRef = useRef(false);
 
   const handleLogout = () => {
     authService.logout();
@@ -69,6 +85,139 @@ export function DashboardLayout() {
   const hasStateUt = !!(user as any)?.stateUt || !!(user as any)?.state_ut || !!(user as any)?.state;
   const hasMinistryId = !!(user as any)?.ministryId && String((user as any)?.ministryId || "").trim() !== "";
   const showFirstDataSubmission = hasStateUt && !hasMinistryId;
+
+  // Load remaining indicators for MINISTRY_APPROVER - matches useMinistrySubmission logic
+  useEffect(() => {
+    const loadRemainingIndicators = async () => {
+      if (user?.role === "MINISTRY_APPROVER" && user?.id) {
+        setIsMinistryDashboardDataLoading(true);
+        try {
+          console.log("🔍 [DashboardLayout.tsx] Loading remaining indicators for user:", user.id);
+          // Use getRemainingMinistryIndicators to match the page component logic
+          const remaining = await getRemainingMinistryIndicators(user.id);
+          console.log("🔍 [DashboardLayout.tsx] Remaining indicators received:", remaining);
+          
+          setRemainingMinistryIndicators(remaining);
+          setIsMinistryDashboardDataLoading(false);
+          hasInitiallyLoadedRef.current = true; // Mark initial load as complete
+          
+          // Also load dashboard data for other purposes
+          const dashboardData = await getMinistryDashboardData(user.id);
+          setMinistryDashboardData({
+            totalIndicators: dashboardData?.totalIndicators || 0,
+            totalAssignedMinistryApprover: dashboardData?.totalAssignedMinistryApprover || 0,
+            totalIndicatorNodalMinistry: dashboardData?.totalIndicatorNodalMinistry || 0,
+          });
+          
+          console.log("🔍 [DashboardLayout.tsx] State updated, loading: false");
+        } catch (error) {
+          console.error("⚠️ Error loading remaining indicators:", error);
+          setRemainingMinistryIndicators([]);
+          setIsMinistryDashboardDataLoading(false);
+        }
+      } else {
+        setRemainingMinistryIndicators(null);
+        setIsMinistryDashboardDataLoading(false);
+      }
+    };
+
+    loadRemainingIndicators();
+  }, [user?.role, user?.id]);
+
+  // Memoize the disabled state calculation to prevent flickering
+  // Use getRemainingMinistryIndicators to match the page component logic
+  const isMinistryCreateSubmissionDisabled = useMemo(() => {
+    if (user?.role !== "MINISTRY_APPROVER") return false;
+
+    // If still loading, default to disabled (data not ready yet)
+    if (isMinistryDashboardDataLoading || remainingMinistryIndicators === null) return true;
+
+    // Check if remaining indicators is empty or has no items (same logic as useMinistrySubmission)
+    const isEmpty = 
+      remainingMinistryIndicators == null ||
+      (Array.isArray(remainingMinistryIndicators) && remainingMinistryIndicators.length === 0) ||
+      (typeof remainingMinistryIndicators === 'object' && !Array.isArray(remainingMinistryIndicators) && Object.keys(remainingMinistryIndicators).length === 0);
+
+    console.log("🔍 [DashboardLayout.tsx] Computing isMinistryCreateSubmissionDisabled", {
+      remainingMinistryIndicators,
+      isEmpty,
+      totalAssignedMinistryApprover: ministryDashboardData.totalAssignedMinistryApprover,
+      isMinistryDashboardDataLoading,
+    });
+
+    // Disable if no remaining indicators available (all assigned to nodals)
+    const shouldDisable = isEmpty;
+    
+    console.log("🔍 [DashboardLayout.tsx] Should disable?", shouldDisable, "isEmpty:", isEmpty, "remainingIndicatorsLength:", Array.isArray(remainingMinistryIndicators) ? remainingMinistryIndicators.length : 'not array');
+    return shouldDisable;
+  }, [user?.role, remainingMinistryIndicators, isMinistryDashboardDataLoading]);
+
+  // Refresh dashboard data when location changes (especially after coming from User Management)
+  // Only run this AFTER initial load is complete to prevent double-loading and flickering
+  useEffect(() => {
+    if (
+      user?.role === "MINISTRY_APPROVER" && 
+      user?.id &&
+      hasInitiallyLoadedRef.current // Only run if initial load has completed
+    ) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsMinistryDashboardDataLoading(true);
+          console.log("🔍 [DashboardLayout.tsx] Refreshing remaining indicators on location change");
+          const remaining = await getRemainingMinistryIndicators(user.id);
+          console.log("🔍 [DashboardLayout.tsx] Refreshed remaining indicators:", remaining);
+          
+          setRemainingMinistryIndicators(remaining);
+          setIsMinistryDashboardDataLoading(false);
+          
+          // Also refresh dashboard data
+          const dashboardData = await getMinistryDashboardData(user.id);
+          setMinistryDashboardData({
+            totalIndicators: dashboardData?.totalIndicators || 0,
+            totalAssignedMinistryApprover: dashboardData?.totalAssignedMinistryApprover || 0,
+            totalIndicatorNodalMinistry: dashboardData?.totalIndicatorNodalMinistry || 0,
+          });
+        } catch (error) {
+          console.error("⚠️ Error refreshing ministry dashboard data:", error);
+          setIsMinistryDashboardDataLoading(false);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, user?.role, user?.id]);
+
+  // Listen for indicators updated event (from User Management)
+  useEffect(() => {
+    if (user?.role === "MINISTRY_APPROVER" && user?.id) {
+      const handleIndicatorUpdate = async () => {
+        try {
+          setIsMinistryDashboardDataLoading(true);
+          console.log("🔍 [DashboardLayout.tsx] Indicators updated event received, refreshing remaining indicators");
+          const remaining = await getRemainingMinistryIndicators(user.id);
+          
+          setRemainingMinistryIndicators(remaining);
+          setIsMinistryDashboardDataLoading(false);
+          console.log("🔍 [DashboardLayout.tsx] Remaining indicators updated from event:", remaining);
+          
+          // Also refresh dashboard data
+          const dashboardData = await getMinistryDashboardData(user.id);
+          setMinistryDashboardData({
+            totalIndicators: dashboardData?.totalIndicators || 0,
+            totalAssignedMinistryApprover: dashboardData?.totalAssignedMinistryApprover || 0,
+            totalIndicatorNodalMinistry: dashboardData?.totalIndicatorNodalMinistry || 0,
+          });
+        } catch (error) {
+          console.error("⚠️ Error checking ministry dashboard data on event:", error);
+          setIsMinistryDashboardDataLoading(false);
+        }
+      };
+
+      window.addEventListener("indicatorsUpdated", handleIndicatorUpdate);
+      return () => {
+        window.removeEventListener("indicatorsUpdated", handleIndicatorUpdate);
+      };
+    }
+  }, [user?.role, user?.id]);
   
   // Debug for NODAL_OFFICER
   if (role === "NODAL_OFFICER") {
@@ -214,17 +363,6 @@ export function DashboardLayout() {
           }`}
         >
           <nav className="flex flex-col h-full p-4">
-
-            {/* Debug Panel: Remove after troubleshooting */}
-            <div style={{ background: '#f8f8f8', color: '#333', fontSize: 12, padding: 8, marginBottom: 8, border: '1px solid #eee', borderRadius: 4 }}>
-              <strong>DEBUG USER:</strong>
-              <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>{JSON.stringify(user, null, 2)}</pre>
-              <div><strong>hasStateUt:</strong> {String(hasStateUt)}</div>
-              <div><strong>hasMinistryId:</strong> {String(hasMinistryId)}</div>
-              <div><strong>showFirstDataSubmission:</strong> {String(showFirstDataSubmission)}</div>
-              <div><strong>Menus shown:</strong> {filteredMenus.filter(m => m.label === 'Data Submission').length}</div>
-            </div>
-
             <div className="flex-1 space-y-1 overflow-y-auto">
               {filteredMenus.map((item, index) => {
                 const Icon = ICON_MAP[item.icon] || LayoutDashboard;
@@ -291,22 +429,62 @@ export function DashboardLayout() {
                         <div className="ml-4 mt-1 flex flex-col space-y-1">
                           {item.children.map((child) => {
                             const childActive = isActive(child.path);
+                            const isMinistryCreateSubmission = child.path === "/ministry/submission";
+                            
+                            // Use memoized disabled state - similar to STATE_APPROVER pattern
+                            const isDisabled = isMinistryCreateSubmission && isMinistryCreateSubmissionDisabled;
+
+                            // Debug logging for ministry create submission
+                            if (isMinistryCreateSubmission) {
+                              console.log("🔍 [DashboardLayout.tsx] Button rendering:", {
+                                isMinistryCreateSubmission,
+                                isMinistryCreateSubmissionDisabled,
+                                isDisabled,
+                                ministryDashboardData,
+                                userRole: user?.role,
+                                childPath: child.path,
+                              });
+                            }
+
                             return (
-                              <Link
+                              <button
                                 key={child.label}
-                                to={child.path}
-                                onClick={() => {
+                                onClick={(e) => {
+                                  // Double-check disabled state to prevent any navigation
+                                  if (isDisabled) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    notificationService.warning(
+                                      "No indicators are available for you. Please contact your administrator to assign indicators before creating a submission."
+                                    );
+                                    return; // prevent navigation
+                                  }
+                                  navigate(child.path);
                                   setSidebarOpen(false);
                                   setOpenDropdown(null);
                                 }}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                                  childActive
+                                disabled={isDisabled}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 w-full text-left ${
+                                  childActive && !isDisabled
                                     ? "bg-blue-50 text-blue-600"
-                                    : "text-foreground hover:bg-blue-50 hover:text-blue-600"
+                                    : "text-foreground"
+                                } ${
+                                  !isDisabled
+                                    ? "hover:bg-blue-50 hover:text-blue-600"
+                                    : ""
+                                } ${
+                                  isDisabled
+                                    ? "opacity-50 cursor-not-allowed pointer-events-none"
+                                    : ""
                                 }`}
+                                title={
+                                  isDisabled && isMinistryCreateSubmission
+                                    ? "No indicators are available. Please contact your administrator to assign indicators before creating a submission."
+                                    : undefined
+                                }
                               >
                                 {child.label}
-                              </Link>
+                              </button>
                             );
                           })}
                         </div>
