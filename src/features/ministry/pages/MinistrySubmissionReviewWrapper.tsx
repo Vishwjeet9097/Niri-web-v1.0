@@ -38,6 +38,7 @@ import { useMinistryValidation } from "../hooks/useMinistryValidation";
 import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
 import { TimelineModal } from "@/features/dataSubmission/components/modals/TimelineModal";
+import { workflowService } from "@/services/workflow.service";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -989,20 +990,24 @@ export function MinistrySubmissionReviewWrapper({
     comments: any[],
     sectionId: string
   ): any[] => {
-    return comments.map((comment) => ({
-      role: comment.user?.role || "UNKNOWN",
-      text: comment.text || "",
-      type: "comment",
-      userId: comment.userId || "",
-      sectionId: sectionId,
-      timestamp:
-        comment.createdAt || comment.timestamp || new Date().toISOString(),
-      userName: comment.user
-        ? `${comment.user.firstName || ""} ${
-            comment.user.lastName || ""
-          }`.trim() || comment.user.email
-        : undefined,
-    }));
+    return comments.map((comment) => {
+      const commentRole = comment.user?.role || "UNKNOWN";
+      return {
+        role: commentRole,
+        userRole: commentRole, // Add userRole for compatibility with getCommentVisibility
+        text: comment.text || "",
+        type: "comment",
+        userId: comment.userId || "",
+        sectionId: sectionId,
+        timestamp:
+          comment.createdAt || comment.timestamp || new Date().toISOString(),
+        userName: comment.user
+          ? `${comment.user.firstName || ""} ${
+              comment.user.lastName || ""
+            }`.trim() || comment.user.email
+          : undefined,
+      };
+    });
   };
 
   // Function to fetch comments for a section
@@ -1065,12 +1070,55 @@ export function MinistrySubmissionReviewWrapper({
           "[MinistrySubmissionReviewWrapper] Formatted comments:",
           formattedComments
         );
-        setTimelineComments(formattedComments);
+        
+        // Filter comments based on user role visibility
+        const currentUserRole = user?.role as any;
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Filtering comments. User role:",
+          currentUserRole,
+          "Total formatted comments:",
+          formattedComments.length
+        );
+        
+        const visibleComments = formattedComments.filter((comment: any) => {
+          try {
+            // Create a comment object compatible with getCommentVisibility
+            const reviewComment = {
+              ...comment,
+              userRole: comment.userRole || comment.role,
+            };
+            const isVisible = workflowService.getCommentVisibility(reviewComment, currentUserRole);
+            console.log(
+              "[MinistrySubmissionReviewWrapper] Comment visibility check:",
+              {
+                commentRole: reviewComment.userRole,
+                userRole: currentUserRole,
+                isVisible,
+              }
+            );
+            return isVisible;
+          } catch (error) {
+            console.error("[MinistrySubmissionReviewWrapper] Error checking comment visibility:", error, comment);
+            // If there's an error, don't show the comment
+            return false;
+          }
+        });
+        
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Visible comments after filtering:",
+          visibleComments.length,
+          "out of",
+          formattedComments.length,
+          "User role:",
+          currentUserRole
+        );
+        setTimelineComments(visibleComments);
       } else {
         console.warn(
           "[MinistrySubmissionReviewWrapper] No comments found in response:",
           response
         );
+        // Still set empty array so modal can show "No comments" message
         setTimelineComments([]);
       }
     } catch (error: any) {
@@ -1088,8 +1136,17 @@ export function MinistrySubmissionReviewWrapper({
 
   // Handle opening timeline
   const handleOpenTimeline = async (sectionId: string) => {
+    console.log("[MinistrySubmissionReviewWrapper] Opening timeline for section:", sectionId);
+    // Set timeline section first to ensure modal opens
     setTimelineSection(sectionId);
-    await fetchCommentsForSection(sectionId);
+    // Fetch comments asynchronously
+    try {
+      await fetchCommentsForSection(sectionId);
+    } catch (error) {
+      console.error("[MinistrySubmissionReviewWrapper] Error in handleOpenTimeline:", error);
+      // Even if there's an error, keep the modal open with empty comments
+      setTimelineComments([]);
+    }
   };
 
   // Handle closing timeline
@@ -1856,20 +1913,11 @@ export function MinistrySubmissionReviewWrapper({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                      console.log(
-                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                        sectionId
-                                      );
-                                      toast({
-                                        title: "Timeline",
-                                        description: `View timeline for section ${sectionId}`,
-                                      });
-                                    }}
+                                    onClick={() => handleOpenTimeline(sectionId)}
                                     className="flex items-center gap-1 h-7 px-2 text-xs"
                                   >
                                     <Clock className="w-3 h-3" />
-                                    Timeline (0)
+                                    Timeline ({commentCounts[sectionId] || 0})
                                   </Button>
                                 </div>
                               );
@@ -1962,21 +2010,11 @@ export function MinistrySubmissionReviewWrapper({
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => {
-                                    console.log(
-                                      "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                      sectionId
-                                    );
-                                    // TODO: Implement timeline action
-                                    toast({
-                                      title: "Timeline",
-                                      description: `View timeline for section ${sectionId}`,
-                                    });
-                                  }}
+                                  onClick={() => handleOpenTimeline(sectionId)}
                                   className="flex items-center gap-1 h-7 px-2 text-xs"
                                 >
                                   <Clock className="w-3 h-3" />
-                                  Timeline (0)
+                                  Timeline ({commentCounts[sectionId] || 0})
                                 </Button>
                               </div>
                             );

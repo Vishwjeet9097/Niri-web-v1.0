@@ -41,7 +41,14 @@ export function MinistryIndicatorActions({
 
     const upperStatus = indicatorStatus.toUpperCase();
 
-    if (upperStatus === "ACCEPTED") {
+    // Accepted statuses - also include RETURNED_FROM_MOSPI_APPROVER to show as "Accepted" until Ministry sends it back
+    if (
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "ACCEPTED_BY_MINISTRY" ||
+      upperStatus === "ACCEPTED_BY_MOSPI" ||
+      upperStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
+      upperStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
+    ) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-300 flex items-center gap-1 ml-2">
           <CheckCircle2 className="w-3 h-3" />
@@ -59,7 +66,7 @@ export function MinistryIndicatorActions({
       );
     }
 
-    if (upperStatus === "REVERTED") {
+    if (upperStatus === "REVERTED" || upperStatus === "RETURNED_FROM_MINISTRY") {
       return (
         <Badge className="bg-orange-100 text-orange-800 border-orange-300 flex items-center gap-1 ml-2">
           <RotateCcw className="w-3 h-3" />
