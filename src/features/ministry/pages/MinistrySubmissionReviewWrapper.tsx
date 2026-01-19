@@ -1137,6 +1137,9 @@ export function MinistrySubmissionReviewWrapper({
   // Handle opening timeline
   const handleOpenTimeline = async (sectionId: string) => {
     console.log("[MinistrySubmissionReviewWrapper] Opening timeline for section:", sectionId);
+    // Clear previous comments and set loading state
+    setTimelineComments([]);
+    setLoadingComments(true);
     // Set timeline section first to ensure modal opens
     setTimelineSection(sectionId);
     // Fetch comments asynchronously
@@ -1146,6 +1149,7 @@ export function MinistrySubmissionReviewWrapper({
       console.error("[MinistrySubmissionReviewWrapper] Error in handleOpenTimeline:", error);
       // Even if there's an error, keep the modal open with empty comments
       setTimelineComments([]);
+      setLoadingComments(false);
     }
   };
 
@@ -1153,6 +1157,7 @@ export function MinistrySubmissionReviewWrapper({
   const handleCloseTimeline = () => {
     setTimelineSection(null);
     setTimelineComments([]);
+    setLoadingComments(false);
   };
 
   // Handler for pending file deletions (called when user clicks 'x' in edit mode)
@@ -1181,18 +1186,64 @@ export function MinistrySubmissionReviewWrapper({
         const response = await getMinistrySubmissionIndicatorComments(
           submissionIndicatorId
         );
-        if (response?.status && Array.isArray(response.data)) {
-          const count = response.data.length;
+        
+        // Handle both response formats:
+        // 1. Direct array: [{...}, {...}]
+        // 2. Wrapped format: { status: true, data: [{...}, {...}] }
+        let commentsArray: any[] = [];
+
+        if (Array.isArray(response)) {
+          commentsArray = response;
+        } else if (response?.status && Array.isArray(response.data)) {
+          commentsArray = response.data;
+        } else if (Array.isArray(response?.data)) {
+          commentsArray = response.data;
+        }
+
+        if (commentsArray.length > 0) {
+          // Format comments similar to formatCommentsForTimeline
+          const formattedComments = commentsArray.map((comment) => {
+            const commentRole = comment.user?.role || "UNKNOWN";
+            return {
+              role: commentRole,
+              userRole: commentRole,
+              text: comment.text || "",
+              type: "comment",
+              userId: comment.userId || "",
+              sectionId: sectionId,
+              timestamp: comment.createdAt || comment.timestamp || new Date().toISOString(),
+            };
+          });
+
+          // Filter comments based on user role visibility
+          const currentUserRole = user?.role as any;
+          const visibleComments = formattedComments.filter((comment: any) => {
+            try {
+              const reviewComment = {
+                ...comment,
+                userRole: comment.userRole || comment.role,
+              };
+              return workflowService.getCommentVisibility(reviewComment, currentUserRole);
+            } catch (error) {
+              console.error("[MinistrySubmissionReviewWrapper] Error checking comment visibility in count:", error);
+              return false;
+            }
+          });
+
+          const count = visibleComments.length;
           setCommentCounts((prev) => ({ ...prev, [sectionId]: count }));
           return count;
         }
+        
+        setCommentCounts((prev) => ({ ...prev, [sectionId]: 0 }));
         return 0;
       } catch (error) {
         console.error("Error fetching comment count:", error);
+        setCommentCounts((prev) => ({ ...prev, [sectionId]: 0 }));
         return 0;
       }
     },
-    [getSubmissionIndicatorId]
+    [getSubmissionIndicatorId, user?.role]
   );
 
   // Fetch comment counts for all sections when data loads
@@ -2059,6 +2110,12 @@ export function MinistrySubmissionReviewWrapper({
           } else if (!pendingSendBackAction && !selectedSectionForComment?.isSendBack) {
             // Regular comment (not send back)
             console.log("Comment added successfully");
+            // Refresh comment count for the section (fire and forget)
+            if (selectedSectionForComment?.sectionId) {
+              getCommentCount(selectedSectionForComment.sectionId).catch((error) => {
+                console.error("Error refreshing comment count:", error);
+              });
+            }
           }
         }}
         onSendBack={
@@ -2119,6 +2176,7 @@ export function MinistrySubmissionReviewWrapper({
           sectionId={timelineSection}
           sectionTitle={getSectionTitle(timelineSection)}
           comments={timelineComments}
+          isLoading={loadingComments}
           key={`timeline-${timelineSection}-${timelineComments.length}`}
         />
       )}
