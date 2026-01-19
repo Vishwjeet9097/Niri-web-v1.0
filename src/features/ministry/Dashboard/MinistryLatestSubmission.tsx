@@ -1,7 +1,38 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { getNodalDashboardSubmissions } from "@/services/ministry.service";
+import { calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
+import { notificationService } from "@/services/notification.service";
+
+// Helper function to map backend status to frontend status
+const mapBackendStatusToFrontend = (backendStatus: string): string => {
+  const statusMap: Record<string, string> = {
+    DRAFT: "DRAFT",
+    SUBMITTED_TO_STATE: "SUBMITTED_TO_STATE",
+    SUBMITTED_TO_MINISTRY: "SUBMITTED_TO_MINISTRY",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    SUBMITTED_TO_MOSPI: "SUBMITTED_TO_MOSPI",
+    SUBMITTED_TO_MOSPI_REVIEWER: "SUBMITTED_TO_MOSPI_REVIEWER",
+    SUBMITTED_TO_MOSPI_APPROVER: "SUBMITTED_TO_MOSPI_APPROVER",
+    ACCEPTED_BY_MOSPI: "ACCEPTED_BY_MOSPI",
+    MOSPI_APPROVED: "MOSPI_APPROVED",
+    MOSPI_REJECTED: "MOSPI_REJECTED",
+    RETURNED_FROM_MOSPI: "RETURNED_FROM_MOSPI",
+    RETURNED_FROM_MOSPI_APPROVER_DRAFT: "RETURNED_FROM_MOSPI_APPROVER_DRAFT",
+    // Legacy mappings
+    draft: "DRAFT",
+    under_review: "SUBMITTED_TO_STATE",
+    approved: "APPROVED",
+    need_revision: "REJECTED",
+  };
+
+  return statusMap[backendStatus] || backendStatus;
+};
 
 type SubmissionStatus =
   | "draft"
@@ -10,6 +41,7 @@ type SubmissionStatus =
   | "need_revision"
   | "DRAFT"
   | "SUBMITTED_TO_STATE"
+  | "SUBMITTED_TO_MINISTRY"
   | "APPROVED"
   | "REJECTED"
   | "SUBMITTED_TO_MOSPI"
@@ -20,7 +52,9 @@ type SubmissionStatus =
   | "RETURNED_FROM_STATE"
   | "SUBMITTED_TO_MOSPI_REVIEWER"
   | "SUBMITTED_TO_MOSPI_APPROVER"
-  | "REJECTED_FINAL";
+  | "ACCEPTED_BY_MOSPI"
+  | "REJECTED_FINAL"
+  | "RETURNED_FROM_MOSPI_APPROVER_DRAFT";
 
 interface Submission {
   id: string;
@@ -29,24 +63,131 @@ interface Submission {
   submissionDate: string;
   deadline: string;
   progress: number;
+  nextStep?: string;
   reviewerNote?: string;
   submittedBy?: string;
   stateUt?: string;
   submission?: Record<string, unknown>;
 }
 
-interface MinistryLatestSubmissionProps {
-  filteredSubmissions: Submission[];
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-}
-
-export function MinistryLatestSubmission({
-  filteredSubmissions,
-  searchQuery,
-  setSearchQuery,
-}: MinistryLatestSubmissionProps) {
+export function MinistryLatestSubmission() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Load submissions from API
+  useEffect(() => {
+    const loadSubmissions = async () => {
+      if (!user?.id) return;
+
+      try {
+        setLoading(true);
+        console.log("🔍 Loading ministry submissions for MINISTRY_APPROVER, userId:", user.id);
+
+        // Call the API endpoint: /ministry/dashboard/submission-details/{userId}
+        const response = await getNodalDashboardSubmissions(user.id);
+
+        console.log("📋 Ministry submissions response:", response);
+
+        if (response?.status && response.data?.submissions) {
+          // Process submissions to calculate progress based on ACCEPTED status
+          const processedSubmissions = await Promise.all(
+            response.data.submissions.map(async (sub: any) => {
+              const fd = sub.form_data || sub.formData || {};
+              // Add submittedBy (user ID) to formData for progress calculation
+              const fdWithSubmittedBy = {
+                ...fd,
+                submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+              };
+
+              const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+              const progress = progressData.progress;
+
+              let nextStep = "Complete submission";
+              if (sub.status === "DRAFT")
+                nextStep = "Complete all required sections";
+              else if (sub.status === "SUBMITTED_TO_MINISTRY") {
+                if (progress === 100) {
+                  nextStep = "Waiting for your approval";
+                } else {
+                  nextStep = "Waiting for ministry approval";
+                }
+              } else if (sub.status === "SUBMITTED_TO_MOSPI_REVIEWER" || sub.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                nextStep = "Submitted to MoSPI";
+              } else if (sub.status === "ACCEPTED_BY_MOSPI" || sub.status === "APPROVED")
+                nextStep = "Submission approved";
+              else if (sub.status === "REJECTED" || sub.status === "RETURNED_FROM_MOSPI")
+                nextStep = "Address reviewer feedback";
+
+              const reviewerNote =
+                sub.review_comments && sub.review_comments.length > 0
+                  ? sub.review_comments[sub.review_comments.length - 1]?.text
+                  : sub.reviewComments && sub.reviewComments.length > 0
+                  ? sub.reviewComments[sub.reviewComments.length - 1]?.text
+                  : undefined;
+
+              const mappedStatus = mapBackendStatusToFrontend(sub.status || sub.formStatus);
+              // Map SUBMITTED_TO_MINISTRY to SUBMITTED_TO_STATE for UnifiedSubmissionCard compatibility
+              const finalStatus = mappedStatus === "SUBMITTED_TO_MINISTRY" ? "SUBMITTED_TO_STATE" : mappedStatus;
+              
+              return {
+                id: sub.id,
+                title: sub.submission_id || sub.submissionId || `Submission ${sub.id}`,
+                status: finalStatus as any, // Type assertion needed due to UnifiedSubmissionCard type constraints
+                referenceId: sub.submission_id || sub.submissionId,
+                updatedDate: sub.updatedAt
+                  ? new Date(sub.updatedAt).toLocaleDateString()
+                  : "",
+                dueDate: sub.dueDate || "TBD",
+                progress: Math.round(progress),
+                nextStep,
+                reviewerNote,
+                submission: sub,
+                submittedBy: sub.user
+                  ? `${sub.user.firstName || ""} ${sub.user.lastName || ""}`.trim()
+                  : "Unknown",
+                stateUt: sub.stateUt || sub.state_ut,
+                submissionDate: sub.updatedAt
+                  ? new Date(sub.updatedAt).toLocaleDateString()
+                  : "",
+                deadline: sub.dueDate || "TBD",
+              };
+            })
+          );
+
+          console.log("✅ Processed ministry submissions:", processedSubmissions);
+          setSubmissions(processedSubmissions);
+        } else {
+          console.warn("⚠️ Unexpected response structure:", response);
+          setSubmissions([]);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load ministry submissions:", error);
+        notificationService.error(
+          "Failed to load ministry submissions. Please try again.",
+          "Load Error"
+        );
+        setSubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSubmissions();
+  }, [user?.id]);
+
+  // Filter submissions based on search query
+  const filteredSubmissions = submissions.filter((submission) => {
+    const searchMatch =
+      !searchQuery ||
+      submission.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      submission.submittedBy?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return searchMatch;
+  });
 
   return (
     <div className="grid gap-6 lg:grid-cols-1">
@@ -89,45 +230,46 @@ export function MinistryLatestSubmission({
           </div>
 
           <div className="space-y-4">
-            {filteredSubmissions.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading submissions...
+              </div>
+            ) : filteredSubmissions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No submissions found for the selected filter.
               </div>
             ) : (
-              filteredSubmissions?.map((submission) => (
+              filteredSubmissions?.map((submission) => {
+                // Map SUBMITTED_TO_MINISTRY to SUBMITTED_TO_STATE for UnifiedSubmissionCard
+                const cardStatus = submission.status === "SUBMITTED_TO_MINISTRY" 
+                  ? "SUBMITTED_TO_STATE" 
+                  : submission.status;
+                
+                return (
                 <UnifiedSubmissionCard
                   key={submission.id}
                   id={submission.id}
                   title={submission.title}
-                  status={submission.status}
+                  status={cardStatus as any}
                   referenceId={submission.title}
                   updatedDate={submission.submissionDate}
                   dueDate={submission.deadline}
                   progress={submission.progress}
-                  nextStep={
-                    submission.status === "APPROVED"
-                      ? "Submission approved"
-                      : submission.status === "REJECTED"
-                      ? "Address reviewer feedback"
-                      : submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
-                        submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
-                        submission.status === "RETURNED_FROM_MOSPI"
-                      ? "Waiting for MoSPI approval"
-                      : "Waiting for state approval"
-                  }
+                  nextStep={submission.nextStep || "Complete submission"}
                   reviewerNote={submission.reviewerNote}
                   submission={submission.submission || (submission as unknown as Record<string, unknown>)}
-                  currentUserRole="STATE_APPROVER"
+                  currentUserRole="MINISTRY_APPROVER"
                   submittedBy={submission.submittedBy}
                   stateUt={submission.stateUt}
                   onReview={() =>
-                    navigate(`/data-submission/review/${submission.id}`)
+                    navigate(`/ministry/review-submissions/form-review/${submission.id}`)
                   }
                   onViewDetails={() =>
-                    navigate(`/data-submission/review/${submission.id}`)
+                    navigate(`/ministry/review-submissions/form-review/${submission.id}`)
                   }
                 />
-              ))
+                );
+              })
             )}
           </div>
         </div>
