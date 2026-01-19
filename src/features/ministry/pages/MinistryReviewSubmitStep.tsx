@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { AssignedIndicator } from "../components/FormBuilder/types";
+import { getSubmissionsForCurrentUser } from "@/services/ministry.service";
+import { useToast } from "@/hooks/use-toast";
 
 interface MinistryReviewSubmitStepProps {
   assignedIndicators: AssignedIndicator[];
@@ -36,6 +39,62 @@ export const MinistryReviewSubmitStep = ({
   onPrevious,
 }: MinistryReviewSubmitStepProps) => {
   const [loading, setLoading] = useState(false);
+  const [submissionUuid, setSubmissionUuid] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Helper function to check if a string is a UUID
+  const isUUID = (str: string | null | undefined): boolean => {
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
+  // Fetch submission UUID when component loads or submissionId changes
+  useEffect(() => {
+    const fetchSubmissionUuid = async () => {
+      if (!submissionId) {
+        setSubmissionUuid(null);
+        return;
+      }
+
+      // If submissionId is already a UUID, use it directly
+      if (isUUID(submissionId)) {
+        setSubmissionUuid(submissionId);
+        return;
+      }
+
+      // Otherwise, fetch the submission to get the UUID
+      try {
+        const response = await getSubmissionsForCurrentUser();
+        let submissionsData: any[] = [];
+        
+        if (Array.isArray(response)) {
+          submissionsData = response;
+        } else if (response?.data && Array.isArray(response.data)) {
+          submissionsData = response.data;
+        }
+
+        // Find the submission by submissionId (display ID) or id (UUID)
+        const foundSubmission = submissionsData.find(
+          (sub) => sub.id === submissionId || sub.submissionId === submissionId
+        );
+
+        if (foundSubmission?.id) {
+          // Use the UUID id field
+          setSubmissionUuid(foundSubmission.id);
+        } else {
+          console.warn("Could not find submission with UUID");
+          setSubmissionUuid(null);
+        }
+      } catch (error: any) {
+        console.error("Error fetching submission UUID:", error);
+        setSubmissionUuid(null);
+      }
+    };
+
+    fetchSubmissionUuid();
+  }, [submissionId]);
 
   // Calculate summary for each category
   const calculateCategorySummary = () => {
@@ -361,8 +420,19 @@ export const MinistryReviewSubmitStep = ({
           <div className="flex gap-3">
             <Button 
               variant="outline" 
-              disabled={loading || !submissionId}
+              disabled={loading || !submissionUuid}
               className="w-full sm:w-auto"
+              onClick={() => {
+                if (submissionUuid) {
+                  navigate(`/ministry/review-submissions/form-review/${submissionUuid}`);
+                } else {
+                  toast({
+                    title: "Error",
+                    description: "Could not find submission. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              }}
             >
               <Eye className="w-4 h-4 mr-2" />
               Review Submission
