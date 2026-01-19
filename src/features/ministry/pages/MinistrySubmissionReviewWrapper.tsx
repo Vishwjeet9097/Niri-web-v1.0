@@ -901,6 +901,26 @@ export function MinistrySubmissionReviewWrapper({
     return null;
   };
 
+  // Helper function to get assignedTo from section
+  const getSectionAssignedTo = (sectionId: string): string | null => {
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            return (section as any).assignedTo || null;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   // Helper function to check if section is accepted
   const isSectionAccepted = (sectionId: string): boolean => {
     const status = getSectionStatus(sectionId);
@@ -1549,6 +1569,28 @@ export function MinistrySubmissionReviewWrapper({
                               "RETURNED_FROM_MINISTRY";
                             const isResubmitted =
                               sectionStatus?.toUpperCase() === "RESUBMITTED";
+                            
+                            // Check if indicator was returned from MOSPI Approver
+                            const isReturnedFromMospi =
+                              sectionStatus?.toUpperCase() ===
+                              "RETURNED_FROM_MOSPI_APPROVER";
+                            
+                            // Get assignedTo for this section
+                            const sectionAssignedTo = getSectionAssignedTo(sectionId);
+                            const submissionUserId = submission?.user?.id;
+                            
+                            // Check if indicator was originally assigned to Nodal Officer
+                            // If assignedTo !== submission.userId, it means it was assigned to a Nodal Officer
+                            const isAssignedToNodalOfficer =
+                              sectionAssignedTo &&
+                              submissionUserId &&
+                              sectionAssignedTo !== submissionUserId;
+                            
+                            // Show Send Back button if:
+                            // 1. Indicator was returned from MOSPI Approver
+                            // 2. AND indicator was originally assigned to a Nodal Officer (assignedTo !== submission.userId)
+                            const shouldShowSendBackToNodal =
+                              isReturnedFromMospi && isAssignedToNodalOfficer;
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -1563,6 +1605,11 @@ export function MinistrySubmissionReviewWrapper({
                                 isSentBack,
                                 isResubmitted,
                                 sectionStatus,
+                                isReturnedFromMospi,
+                                sectionAssignedTo,
+                                submissionUserId,
+                                isAssignedToNodalOfficer,
+                                shouldShowSendBackToNodal,
                                 editingSectionsArray:
                                   Array.from(editingSections),
                                 hasOnSave: isSectionEditing,
@@ -1621,6 +1668,22 @@ export function MinistrySubmissionReviewWrapper({
                                     <CheckCircle className="w-4 h-4" />
                                     Resubmitted
                                   </Button>
+                                  {/* Send Back button - show if indicator was returned from MOSPI and assigned to Nodal */}
+                                  {!isSectionEditing &&
+                                    !isAccepted &&
+                                    shouldShowSendBackToNodal && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() =>
+                                          handleSendBack(sectionId, sectionName)
+                                        }
+                                      >
+                                        <RotateCcw className="w-4 h-4" />
+                                        Send Back
+                                      </Button>
+                                    )}
                                   {/* Accept button - only show when not editing and not already accepted */}
                                   {!isSectionEditing && !isAccepted && (
                                     <Button
@@ -1682,7 +1745,8 @@ export function MinistrySubmissionReviewWrapper({
                                   !isSectionEditing &&
                                   !isAccepted &&
                                   !isSentBack &&
-                                  submission?.user?.role === "NODAL_OFFICER"
+                                  (submission?.user?.role === "NODAL_OFFICER" ||
+                                    shouldShowSendBackToNodal)
                                     ? () =>
                                         handleSendBack(sectionId, sectionName)
                                     : undefined
