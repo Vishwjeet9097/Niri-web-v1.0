@@ -1811,6 +1811,9 @@ export function MinistrySubmissionReviewWrapper({
                               );
                             }
 
+                            // Get form/submission level status
+                            const formStatus = submission?.status || submission?.formStatus || undefined;
+                            
                             return (
                               <MinistryApproverActionButtons
                                 key={`${sectionId}-${
@@ -1858,6 +1861,7 @@ export function MinistrySubmissionReviewWrapper({
                                 isSentBack={isSentBack}
                                 isReturnedFromMospi={isReturnedFromMospi}
                                 isAcceptedByMospi={isAcceptedByMospi}
+                                formStatus={formStatus}
                                 isSaving={isSaving}
                               />
                             );
@@ -1891,12 +1895,36 @@ export function MinistrySubmissionReviewWrapper({
                           if (user?.role === "MOSPI_APPROVER") {
                             const sectionStatus = getSectionStatus(sectionId);
                             const isAccepted = sectionStatus === "ACCEPTED_BY_MOSPI";
+                            // Get form/submission level status
+                            const formStatus = submission?.status || submission?.formStatus || undefined;
+                            
+                            // Determine original MOSPI status - preserve the status that indicates MOSPI Approver's decision
+                            // This preserves the original state even if Ministry edits change the status
+                            // If form is RETURNED_FROM_MOSPI_APPROVER, check if current status indicates it was sent back or accepted
+                            const upperSectionStatus = sectionStatus?.toUpperCase() || "";
+                            let originalMospiStatus: string | undefined = undefined;
+                            
+                            // If current status indicates it was sent back or accepted, use that as original status
+                            // This works as long as the status still contains the MOSPI decision information
+                            // If status was completely changed by Ministry edits, we'll fall back to current status check
+                            if (upperSectionStatus.includes("RETURNED_FROM_MOSPI_APPROVER") || 
+                                upperSectionStatus.includes("RETURNED_FROM_MOSPI") ||
+                                upperSectionStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT") {
+                              originalMospiStatus = sectionStatus; // Preserve the sent back status
+                            } else if (upperSectionStatus.includes("ACCEPTED_BY_MOSPI") ||
+                                      upperSectionStatus === "ACCEPTED_BY_MOSPI_APPROVER_DRAFT") {
+                              originalMospiStatus = sectionStatus; // Preserve the accepted status
+                            }
+                            // If status doesn't clearly indicate MOSPI decision, originalMospiStatus remains undefined
+                            // and component will use current status check as fallback
                             
                             return (
                               <MospiApproverActionButtons
                                 sectionId={sectionId}
                                 sectionTitle={sectionName || sectionId}
                                 status={sectionStatus || undefined}
+                                formStatus={formStatus}
+                                originalMospiStatus={originalMospiStatus}
                                 onAccept={() => {
                                   // Handle accept action
                                   if (sectionSubmissionIndicatorId) {

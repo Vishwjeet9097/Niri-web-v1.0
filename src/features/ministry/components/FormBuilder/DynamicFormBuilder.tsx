@@ -203,12 +203,14 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   isResubmitted;
                 // Check if this specific section is in edit mode
                 const isSectionInEditMode = isSectionEditable(indicatorId);
-                // Section is disabled if: globally disabled OR section is accepted OR section is resubmitted OR 
+                // Section is disabled if: globally disabled OR section is accepted OR 
+                // (section is resubmitted AND NOT in edit mode for ministry approver) OR
                 // (for Nodal Officers: section was returned from MOSPI) OR (not in edit mode AND in review mode)
+                // Note: For MINISTRY_APPROVER, resubmitted sections should be editable when in edit mode
                 const isSectionDisabled =
                   disabled ||
                   isSectionAccepted ||
-                  isResubmitted ||
+                  (isResubmitted && !(user?.role === "MINISTRY_APPROVER" && isSectionInEditMode)) ||
                   (user?.role === "NODAL_OFFICER" && isReturnedFromMospi) ||
                   (mode === "review" && !isSectionInEditMode);
 

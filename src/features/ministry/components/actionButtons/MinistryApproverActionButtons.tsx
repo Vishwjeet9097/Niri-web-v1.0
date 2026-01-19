@@ -21,8 +21,9 @@ interface MinistryApproverActionButtonsProps {
   timelineCount?: number;
   isAccepted?: boolean;
   isSentBack?: boolean; // New prop to indicate if section was sent back
-  isReturnedFromMospi?: boolean; // New prop to indicate if section was returned from MOSPI
+  isReturnedFromMospi?: boolean; // New prop to indicate if section was returned from MOSPI (indicator-level)
   isAcceptedByMospi?: boolean; // New prop to indicate if section was accepted by MOSPI
+  formStatus?: string; // Form/submission level status
   disabled?: boolean;
   isSaving?: boolean;
 }
@@ -41,6 +42,7 @@ export function MinistryApproverActionButtons({
   isSentBack = false,
   isReturnedFromMospi = false,
   isAcceptedByMospi = false,
+  formStatus,
   disabled = false,
   isSaving = false,
 }: MinistryApproverActionButtonsProps) {
@@ -58,10 +60,21 @@ export function MinistryApproverActionButtons({
     isAccepted,
     disabled,
     isSaving,
+    formStatus,
+    isReturnedFromMospi,
   });
 
   // If in edit mode, show Save and Cancel buttons
   const isEditMode = !!onSave || !!onCancel;
+
+  // Check form status to determine if form was returned from MOSPI (case-insensitive)
+  const upperFormStatus = formStatus?.toUpperCase() || "";
+  const isFormReturnedFromMospiApprover = 
+    upperFormStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
+    upperFormStatus === "RETURNED_FROM_MOSPI";
+  
+  // Use form status if available, otherwise fall back to indicator-level status
+  const shouldShowReturnedFromMospi = isFormReturnedFromMospiApprover || isReturnedFromMospi;
 
   console.log("[MinistryApproverActionButtons] Button visibility check:", {
     sectionId,
@@ -72,6 +85,9 @@ export function MinistryApproverActionButtons({
     hasOnEdit: !!onEdit,
     hasOnAccept: !!onAccept,
     hasOnSendBack: !!onSendBack,
+    formStatus,
+    isFormReturnedFromMospiApprover,
+    shouldShowReturnedFromMospi,
   });
 
   return (
@@ -89,8 +105,10 @@ export function MinistryApproverActionButtons({
           Accepted by MOSPI
         </Button>
       )}
-      {isReturnedFromMospi && (
-        // Show "Returned from MOSPI" badge when returned from MOSPI Approver
+      {shouldShowReturnedFromMospi && !isAcceptedByMospi && (
+        // Show "Returned from MOSPI" badge when form was returned from MOSPI Approver
+        // Check form status first, then fall back to indicator-level status
+        // Don't show if indicator was accepted by MOSPI (can't be both accepted and returned)
         <Button
           variant="outline"
           size="sm"

@@ -318,13 +318,13 @@ const ReviewerDashboardPage: React.FC = () => {
           <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-gray-100 p-1 gap-1">
             <TabsTrigger 
               value="state" 
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               State/UT
             </TabsTrigger>
             <TabsTrigger 
               value="ministry"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               Ministry
             </TabsTrigger>
