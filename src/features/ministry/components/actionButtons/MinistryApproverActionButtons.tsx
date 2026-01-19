@@ -21,6 +21,9 @@ interface MinistryApproverActionButtonsProps {
   timelineCount?: number;
   isAccepted?: boolean;
   isSentBack?: boolean; // New prop to indicate if section was sent back
+  isReturnedFromMospi?: boolean; // New prop to indicate if section was returned from MOSPI (indicator-level)
+  isAcceptedByMospi?: boolean; // New prop to indicate if section was accepted by MOSPI
+  formStatus?: string; // Form/submission level status
   disabled?: boolean;
   isSaving?: boolean;
 }
@@ -37,6 +40,9 @@ export function MinistryApproverActionButtons({
   timelineCount = 0,
   isAccepted = false,
   isSentBack = false,
+  isReturnedFromMospi = false,
+  isAcceptedByMospi = false,
+  formStatus,
   disabled = false,
   isSaving = false,
 }: MinistryApproverActionButtonsProps) {
@@ -54,10 +60,21 @@ export function MinistryApproverActionButtons({
     isAccepted,
     disabled,
     isSaving,
+    formStatus,
+    isReturnedFromMospi,
   });
 
   // If in edit mode, show Save and Cancel buttons
   const isEditMode = !!onSave || !!onCancel;
+
+  // Check form status to determine if form was returned from MOSPI (case-insensitive)
+  const upperFormStatus = formStatus?.toUpperCase() || "";
+  const isFormReturnedFromMospiApprover = 
+    upperFormStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
+    upperFormStatus === "RETURNED_FROM_MOSPI";
+  
+  // Use form status if available, otherwise fall back to indicator-level status
+  const shouldShowReturnedFromMospi = isFormReturnedFromMospiApprover || isReturnedFromMospi;
 
   console.log("[MinistryApproverActionButtons] Button visibility check:", {
     sectionId,
@@ -68,11 +85,41 @@ export function MinistryApproverActionButtons({
     hasOnEdit: !!onEdit,
     hasOnAccept: !!onAccept,
     hasOnSendBack: !!onSendBack,
+    formStatus,
+    isFormReturnedFromMospiApprover,
+    shouldShowReturnedFromMospi,
   });
 
   return (
     <div className="flex items-center gap-2">
-      {isAccepted ? (
+      {/* Show badges first - these are informational and don't replace action buttons */}
+      {isAcceptedByMospi && (
+        // Show "Accepted from MOSPI" badge when accepted by MOSPI
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+          disabled
+        >
+          <CheckCircle className="w-4 h-4 mr-1" />
+          Accepted by MOSPI
+        </Button>
+      )}
+      {shouldShowReturnedFromMospi && !isAcceptedByMospi && (
+        // Show "Returned from MOSPI" badge when form was returned from MOSPI Approver
+        // Check form status first, then fall back to indicator-level status
+        // Don't show if indicator was accepted by MOSPI (can't be both accepted and returned)
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+          disabled
+        >
+          <RotateCcw className="w-4 h-4" />
+          Returned from MOSPI
+        </Button>
+      )}
+      {isAccepted && !isAcceptedByMospi && (
         <Button
           variant="outline"
           size="sm"
@@ -82,7 +129,8 @@ export function MinistryApproverActionButtons({
           <CheckCircle className="w-4 h-4 mr-1" />
           Accepted
         </Button>
-      ) : isSentBack ? (
+      )}
+      {isSentBack && !isReturnedFromMospi && (
         // Show Sent Back badge when section is sent back (matches STATE level styling)
         <Button
           variant="outline"
@@ -93,7 +141,10 @@ export function MinistryApproverActionButtons({
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
-      ) : isEditMode ? (
+      )}
+      
+      {/* Action buttons - shown based on their normal conditions */}
+      {isEditMode ? (
         <>
           {/* Save and Cancel buttons when in edit mode - matches State approver styling */}
           <Button

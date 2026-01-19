@@ -151,7 +151,7 @@ function UserTableComponent({
               Contact Number
             </TableHead>
             <SortableHeader field="email">Email</SortableHeader>
-            {userRole === "STATE_APPROVER" && (
+            {(userRole === "STATE_APPROVER" || userRole === "MINISTRY_APPROVER") && (
               <TableHead className="text-[#212121] text-xs font-semibold">
                 Assigned Indicators
               </TableHead>
@@ -208,7 +208,7 @@ function UserTableComponent({
               )}
               <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
               <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
-              {userRole === "STATE_APPROVER" && (
+              {(userRole === "STATE_APPROVER" || userRole === "MINISTRY_APPROVER") && (
                 <TableCell className="text-xs text-[#212121]">
                   {officer.role === "NODAL_OFFICER" &&
                   officer.assignedIndicators &&

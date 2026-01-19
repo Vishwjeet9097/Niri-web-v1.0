@@ -38,6 +38,7 @@ import { useMinistryValidation } from "../hooks/useMinistryValidation";
 import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
 import { TimelineModal } from "@/features/dataSubmission/components/modals/TimelineModal";
+import { workflowService } from "@/services/workflow.service";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -901,6 +902,26 @@ export function MinistrySubmissionReviewWrapper({
     return null;
   };
 
+  // Helper function to get assignedTo from section
+  const getSectionAssignedTo = (sectionId: string): string | null => {
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+
+          if (section.sNo === sectionId) {
+            return (section as any).assignedTo || null;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   // Helper function to check if section is accepted
   const isSectionAccepted = (sectionId: string): boolean => {
     const status = getSectionStatus(sectionId);
@@ -969,20 +990,24 @@ export function MinistrySubmissionReviewWrapper({
     comments: any[],
     sectionId: string
   ): any[] => {
-    return comments.map((comment) => ({
-      role: comment.user?.role || "UNKNOWN",
-      text: comment.text || "",
-      type: "comment",
-      userId: comment.userId || "",
-      sectionId: sectionId,
-      timestamp:
-        comment.createdAt || comment.timestamp || new Date().toISOString(),
-      userName: comment.user
-        ? `${comment.user.firstName || ""} ${
-            comment.user.lastName || ""
-          }`.trim() || comment.user.email
-        : undefined,
-    }));
+    return comments.map((comment) => {
+      const commentRole = comment.user?.role || "UNKNOWN";
+      return {
+        role: commentRole,
+        userRole: commentRole, // Add userRole for compatibility with getCommentVisibility
+        text: comment.text || "",
+        type: "comment",
+        userId: comment.userId || "",
+        sectionId: sectionId,
+        timestamp:
+          comment.createdAt || comment.timestamp || new Date().toISOString(),
+        userName: comment.user
+          ? `${comment.user.firstName || ""} ${
+              comment.user.lastName || ""
+            }`.trim() || comment.user.email
+          : undefined,
+      };
+    });
   };
 
   // Function to fetch comments for a section
@@ -1045,12 +1070,55 @@ export function MinistrySubmissionReviewWrapper({
           "[MinistrySubmissionReviewWrapper] Formatted comments:",
           formattedComments
         );
-        setTimelineComments(formattedComments);
+        
+        // Filter comments based on user role visibility
+        const currentUserRole = user?.role as any;
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Filtering comments. User role:",
+          currentUserRole,
+          "Total formatted comments:",
+          formattedComments.length
+        );
+        
+        const visibleComments = formattedComments.filter((comment: any) => {
+          try {
+            // Create a comment object compatible with getCommentVisibility
+            const reviewComment = {
+              ...comment,
+              userRole: comment.userRole || comment.role,
+            };
+            const isVisible = workflowService.getCommentVisibility(reviewComment, currentUserRole);
+            console.log(
+              "[MinistrySubmissionReviewWrapper] Comment visibility check:",
+              {
+                commentRole: reviewComment.userRole,
+                userRole: currentUserRole,
+                isVisible,
+              }
+            );
+            return isVisible;
+          } catch (error) {
+            console.error("[MinistrySubmissionReviewWrapper] Error checking comment visibility:", error, comment);
+            // If there's an error, don't show the comment
+            return false;
+          }
+        });
+        
+        console.log(
+          "[MinistrySubmissionReviewWrapper] Visible comments after filtering:",
+          visibleComments.length,
+          "out of",
+          formattedComments.length,
+          "User role:",
+          currentUserRole
+        );
+        setTimelineComments(visibleComments);
       } else {
         console.warn(
           "[MinistrySubmissionReviewWrapper] No comments found in response:",
           response
         );
+        // Still set empty array so modal can show "No comments" message
         setTimelineComments([]);
       }
     } catch (error: any) {
@@ -1068,14 +1136,28 @@ export function MinistrySubmissionReviewWrapper({
 
   // Handle opening timeline
   const handleOpenTimeline = async (sectionId: string) => {
+    console.log("[MinistrySubmissionReviewWrapper] Opening timeline for section:", sectionId);
+    // Clear previous comments and set loading state
+    setTimelineComments([]);
+    setLoadingComments(true);
+    // Set timeline section first to ensure modal opens
     setTimelineSection(sectionId);
-    await fetchCommentsForSection(sectionId);
+    // Fetch comments asynchronously
+    try {
+      await fetchCommentsForSection(sectionId);
+    } catch (error) {
+      console.error("[MinistrySubmissionReviewWrapper] Error in handleOpenTimeline:", error);
+      // Even if there's an error, keep the modal open with empty comments
+      setTimelineComments([]);
+      setLoadingComments(false);
+    }
   };
 
   // Handle closing timeline
   const handleCloseTimeline = () => {
     setTimelineSection(null);
     setTimelineComments([]);
+    setLoadingComments(false);
   };
 
   // Handler for pending file deletions (called when user clicks 'x' in edit mode)
@@ -1104,18 +1186,64 @@ export function MinistrySubmissionReviewWrapper({
         const response = await getMinistrySubmissionIndicatorComments(
           submissionIndicatorId
         );
-        if (response?.status && Array.isArray(response.data)) {
-          const count = response.data.length;
+        
+        // Handle both response formats:
+        // 1. Direct array: [{...}, {...}]
+        // 2. Wrapped format: { status: true, data: [{...}, {...}] }
+        let commentsArray: any[] = [];
+
+        if (Array.isArray(response)) {
+          commentsArray = response;
+        } else if (response?.status && Array.isArray(response.data)) {
+          commentsArray = response.data;
+        } else if (Array.isArray(response?.data)) {
+          commentsArray = response.data;
+        }
+
+        if (commentsArray.length > 0) {
+          // Format comments similar to formatCommentsForTimeline
+          const formattedComments = commentsArray.map((comment) => {
+            const commentRole = comment.user?.role || "UNKNOWN";
+            return {
+              role: commentRole,
+              userRole: commentRole,
+              text: comment.text || "",
+              type: "comment",
+              userId: comment.userId || "",
+              sectionId: sectionId,
+              timestamp: comment.createdAt || comment.timestamp || new Date().toISOString(),
+            };
+          });
+
+          // Filter comments based on user role visibility
+          const currentUserRole = user?.role as any;
+          const visibleComments = formattedComments.filter((comment: any) => {
+            try {
+              const reviewComment = {
+                ...comment,
+                userRole: comment.userRole || comment.role,
+              };
+              return workflowService.getCommentVisibility(reviewComment, currentUserRole);
+            } catch (error) {
+              console.error("[MinistrySubmissionReviewWrapper] Error checking comment visibility in count:", error);
+              return false;
+            }
+          });
+
+          const count = visibleComments.length;
           setCommentCounts((prev) => ({ ...prev, [sectionId]: count }));
           return count;
         }
+        
+        setCommentCounts((prev) => ({ ...prev, [sectionId]: 0 }));
         return 0;
       } catch (error) {
         console.error("Error fetching comment count:", error);
+        setCommentCounts((prev) => ({ ...prev, [sectionId]: 0 }));
         return 0;
       }
     },
-    [getSubmissionIndicatorId]
+    [getSubmissionIndicatorId, user?.role]
   );
 
   // Fetch comment counts for all sections when data loads
@@ -1549,6 +1677,31 @@ export function MinistrySubmissionReviewWrapper({
                               "RETURNED_FROM_MINISTRY";
                             const isResubmitted =
                               sectionStatus?.toUpperCase() === "RESUBMITTED";
+                            
+                            // Check if indicator was returned from MOSPI Approver
+                            const isReturnedFromMospi =
+                              sectionStatus?.toUpperCase() ===
+                              "RETURNED_FROM_MOSPI_APPROVER";
+                            
+                            // Check if indicator was accepted by MOSPI
+                            const isAcceptedByMospi =
+                              sectionStatus?.toUpperCase() === "ACCEPTED_BY_MOSPI";
+                            
+                            // Get assignedTo for this section
+                            const sectionAssignedTo = getSectionAssignedTo(sectionId);
+                            const submissionUserId = submission?.user?.id;
+                            
+                            // Check if indicator was originally assigned to Nodal Officer
+                            // If assignedTo !== submission.userId, it means it was assigned to a Nodal Officer
+                            const isAssignedToNodalOfficer =
+                              sectionAssignedTo &&
+                              submissionUserId &&
+                              sectionAssignedTo !== submissionUserId;
+                            
+                            // Show Send Back button if indicator was originally assigned to a Nodal Officer
+                            // BUT NOT if it's already RESUBMITTED (Nodal already resubmitted after Ministry sent it back)
+                            // (assignedTo !== submission.userId means it was assigned to a Nodal Officer)
+                            const shouldShowSendBackToNodal = isAssignedToNodalOfficer && !isResubmitted;
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -1563,6 +1716,12 @@ export function MinistrySubmissionReviewWrapper({
                                 isSentBack,
                                 isResubmitted,
                                 sectionStatus,
+                                isReturnedFromMospi,
+                                isAcceptedByMospi,
+                                sectionAssignedTo,
+                                submissionUserId,
+                                isAssignedToNodalOfficer,
+                                shouldShowSendBackToNodal,
                                 editingSectionsArray:
                                   Array.from(editingSections),
                                 hasOnSave: isSectionEditing,
@@ -1621,18 +1780,22 @@ export function MinistrySubmissionReviewWrapper({
                                     <CheckCircle className="w-4 h-4" />
                                     Resubmitted
                                   </Button>
+                                  {/* Send Back button - NOT shown for RESUBMITTED status */}
+                                  {/* If Nodal resubmitted after Ministry sent it back, don't show Send Back */}
                                   {/* Accept button - only show when not editing and not already accepted */}
-                                  {!isSectionEditing && !isAccepted && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                                      onClick={() => handleAccept(sectionId)}
-                                    >
-                                      <CheckCircle className="w-4 h-4" />
-                                      Accept
-                                    </Button>
-                                  )}
+                                  {!isSectionEditing &&
+                                    !isAccepted &&
+                                    !isAcceptedByMospi && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                        onClick={() => handleAccept(sectionId)}
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                        Accept
+                                      </Button>
+                                    )}
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1648,6 +1811,9 @@ export function MinistrySubmissionReviewWrapper({
                               );
                             }
 
+                            // Get form/submission level status
+                            const formStatus = submission?.status || submission?.formStatus || undefined;
+                            
                             return (
                               <MinistryApproverActionButtons
                                 key={`${sectionId}-${
@@ -1682,7 +1848,9 @@ export function MinistrySubmissionReviewWrapper({
                                   !isSectionEditing &&
                                   !isAccepted &&
                                   !isSentBack &&
-                                  submission?.user?.role === "NODAL_OFFICER"
+                                  !isResubmitted &&
+                                  (submission?.user?.role === "NODAL_OFFICER" ||
+                                    shouldShowSendBackToNodal)
                                     ? () =>
                                         handleSendBack(sectionId, sectionName)
                                     : undefined
@@ -1691,6 +1859,9 @@ export function MinistrySubmissionReviewWrapper({
                                 timelineCount={commentCounts[sectionId] || 0}
                                 isAccepted={isAccepted}
                                 isSentBack={isSentBack}
+                                isReturnedFromMospi={isReturnedFromMospi}
+                                isAcceptedByMospi={isAcceptedByMospi}
+                                formStatus={formStatus}
                                 isSaving={isSaving}
                               />
                             );
@@ -1724,12 +1895,36 @@ export function MinistrySubmissionReviewWrapper({
                           if (user?.role === "MOSPI_APPROVER") {
                             const sectionStatus = getSectionStatus(sectionId);
                             const isAccepted = sectionStatus === "ACCEPTED_BY_MOSPI";
+                            // Get form/submission level status
+                            const formStatus = submission?.status || submission?.formStatus || undefined;
+                            
+                            // Determine original MOSPI status - preserve the status that indicates MOSPI Approver's decision
+                            // This preserves the original state even if Ministry edits change the status
+                            // If form is RETURNED_FROM_MOSPI_APPROVER, check if current status indicates it was sent back or accepted
+                            const upperSectionStatus = sectionStatus?.toUpperCase() || "";
+                            let originalMospiStatus: string | undefined = undefined;
+                            
+                            // If current status indicates it was sent back or accepted, use that as original status
+                            // This works as long as the status still contains the MOSPI decision information
+                            // If status was completely changed by Ministry edits, we'll fall back to current status check
+                            if (upperSectionStatus.includes("RETURNED_FROM_MOSPI_APPROVER") || 
+                                upperSectionStatus.includes("RETURNED_FROM_MOSPI") ||
+                                upperSectionStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT") {
+                              originalMospiStatus = sectionStatus; // Preserve the sent back status
+                            } else if (upperSectionStatus.includes("ACCEPTED_BY_MOSPI") ||
+                                      upperSectionStatus === "ACCEPTED_BY_MOSPI_APPROVER_DRAFT") {
+                              originalMospiStatus = sectionStatus; // Preserve the accepted status
+                            }
+                            // If status doesn't clearly indicate MOSPI decision, originalMospiStatus remains undefined
+                            // and component will use current status check as fallback
                             
                             return (
                               <MospiApproverActionButtons
                                 sectionId={sectionId}
                                 sectionTitle={sectionName || sectionId}
                                 status={sectionStatus || undefined}
+                                formStatus={formStatus}
+                                originalMospiStatus={originalMospiStatus}
                                 onAccept={() => {
                                   // Handle accept action
                                   if (sectionSubmissionIndicatorId) {
@@ -1784,20 +1979,11 @@ export function MinistrySubmissionReviewWrapper({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                      console.log(
-                                        "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                        sectionId
-                                      );
-                                      toast({
-                                        title: "Timeline",
-                                        description: `View timeline for section ${sectionId}`,
-                                      });
-                                    }}
+                                    onClick={() => handleOpenTimeline(sectionId)}
                                     className="flex items-center gap-1 h-7 px-2 text-xs"
                                   >
                                     <Clock className="w-3 h-3" />
-                                    Timeline (0)
+                                    Timeline ({commentCounts[sectionId] || 0})
                                   </Button>
                                 </div>
                               );
@@ -1890,21 +2076,11 @@ export function MinistrySubmissionReviewWrapper({
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => {
-                                    console.log(
-                                      "[MinistrySubmissionReviewWrapper] Timeline clicked for section:",
-                                      sectionId
-                                    );
-                                    // TODO: Implement timeline action
-                                    toast({
-                                      title: "Timeline",
-                                      description: `View timeline for section ${sectionId}`,
-                                    });
-                                  }}
+                                  onClick={() => handleOpenTimeline(sectionId)}
                                   className="flex items-center gap-1 h-7 px-2 text-xs"
                                 >
                                   <Clock className="w-3 h-3" />
-                                  Timeline (0)
+                                  Timeline ({commentCounts[sectionId] || 0})
                                 </Button>
                               </div>
                             );
@@ -1949,6 +2125,12 @@ export function MinistrySubmissionReviewWrapper({
           } else if (!pendingSendBackAction && !selectedSectionForComment?.isSendBack) {
             // Regular comment (not send back)
             console.log("Comment added successfully");
+            // Refresh comment count for the section (fire and forget)
+            if (selectedSectionForComment?.sectionId) {
+              getCommentCount(selectedSectionForComment.sectionId).catch((error) => {
+                console.error("Error refreshing comment count:", error);
+              });
+            }
           }
         }}
         onSendBack={
@@ -2009,6 +2191,7 @@ export function MinistrySubmissionReviewWrapper({
           sectionId={timelineSection}
           sectionTitle={getSectionTitle(timelineSection)}
           comments={timelineComments}
+          isLoading={loadingComments}
           key={`timeline-${timelineSection}-${timelineComments.length}`}
         />
       )}

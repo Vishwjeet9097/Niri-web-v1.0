@@ -482,26 +482,38 @@ class WorkflowService {
   }
 
   // Get comment visibility based on user role
-  getCommentVisibility(comment: ReviewComment, userRole: UserRole): boolean {
-    // MoSPI users can see all comments
+  getCommentVisibility(comment: ReviewComment, userRole: UserRole | string): boolean {
+    // Get the comment's role (support both userRole and role fields)
+    const commentRole = (comment as any).userRole || (comment as any).role;
+    
+    // MoSPI users can see all comments EXCEPT Ministry Approver comments
     if (
       userRole === USER_ROLES.MOSPI_REVIEWER ||
       userRole === USER_ROLES.MOSPI_APPROVER
     ) {
+      // Exclude Ministry Approver comments from MoSPI users
+      return commentRole !== "MINISTRY_APPROVER";
+    }
+
+    // Ministry Approver can see all comments (similar to MoSPI users)
+    if (userRole === "MINISTRY_APPROVER") {
       return true;
     }
 
     // State Approver can see state-level and nodal comments
     if (userRole === USER_ROLES.STATE_APPROVER) {
       return (
-        comment.userRole === USER_ROLES.STATE_APPROVER ||
-        comment.userRole === USER_ROLES.NODAL_OFFICER
+        commentRole === USER_ROLES.STATE_APPROVER ||
+        commentRole === USER_ROLES.NODAL_OFFICER
       );
     }
 
-    // Nodal Officer can only see their own comments
+    // Nodal Officer can see their own comments and MINISTRY_APPROVER comments
     if (userRole === USER_ROLES.NODAL_OFFICER) {
-      return comment.userRole === USER_ROLES.NODAL_OFFICER;
+      return (
+        commentRole === USER_ROLES.NODAL_OFFICER ||
+        commentRole === "MINISTRY_APPROVER"
+      );
     }
 
     return false;
