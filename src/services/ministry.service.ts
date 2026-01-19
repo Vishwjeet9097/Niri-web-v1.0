@@ -387,12 +387,52 @@ export async function getRemainingMinistryIndicators(userId?: string) {
     let url = getApiUrl("/ministry/form/create/indicators");
     if (userId) {
       url += `?userId=${encodeURIComponent(userId)}`;
+      console.log("[getRemainingMinistryIndicators] Calling endpoint with userId:", userId);
+    } else {
+      console.log("[getRemainingMinistryIndicators] Calling endpoint without userId");
     }
+    console.log("[getRemainingMinistryIndicators] Full URL:", url);
+    
     const response = await apiService.get(url, { withCredentials: true });
-    return response.data?.data || response.data || [];
-  } catch (error) {
+    console.log("[getRemainingMinistryIndicators] Raw response:", response);
+    console.log("[getRemainingMinistryIndicators] Response type:", typeof response);
+    console.log("[getRemainingMinistryIndicators] Is array?", Array.isArray(response));
+    
+    // Handle response structure: API returns { status, data, message }
+    // apiService.get may return the response directly or wrapped
+    if (response) {
+      // Check if response has the expected structure { status, data, message }
+      if (typeof response === 'object' && !Array.isArray(response)) {
+        if ('status' in response && 'data' in response) {
+          console.log("[getRemainingMinistryIndicators] Found response with status and data");
+          return response; // Return the full response object { status, data, message }
+        }
+        // If response.data exists, it might be nested
+        if (response.data !== undefined) {
+          console.log("[getRemainingMinistryIndicators] Found response.data");
+          // If response.data has a 'data' property, it's the wrapped response
+          if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+            console.log("[getRemainingMinistryIndicators] Found nested response.data.data");
+            return response.data; // Return { status, data, message }
+          }
+          // Otherwise, response.data might be the data directly
+          return response.data;
+        }
+      }
+      // If response is directly an array or object, return it
+      return response;
+    }
+    console.warn("[getRemainingMinistryIndicators] No response data found");
+    return { status: false, data: {}, message: "No data received" };
+  } catch (error: any) {
     console.error("[getRemainingMinistryIndicators] API Error:", error);
-    return [];
+    console.error("[getRemainingMinistryIndicators] Error details:", {
+      message: error?.message,
+      response: error?.response,
+      status: error?.response?.status,
+      data: error?.response?.data,
+    });
+    return { status: false, data: {}, message: error?.message || "Failed to fetch indicators" };
   }
 }
 
