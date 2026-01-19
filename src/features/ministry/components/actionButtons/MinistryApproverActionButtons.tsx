@@ -21,6 +21,8 @@ interface MinistryApproverActionButtonsProps {
   timelineCount?: number;
   isAccepted?: boolean;
   isSentBack?: boolean; // New prop to indicate if section was sent back
+  isReturnedFromMospi?: boolean; // New prop to indicate if section was returned from MOSPI
+  isAcceptedByMospi?: boolean; // New prop to indicate if section was accepted by MOSPI
   disabled?: boolean;
   isSaving?: boolean;
 }
@@ -37,6 +39,8 @@ export function MinistryApproverActionButtons({
   timelineCount = 0,
   isAccepted = false,
   isSentBack = false,
+  isReturnedFromMospi = false,
+  isAcceptedByMospi = false,
   disabled = false,
   isSaving = false,
 }: MinistryApproverActionButtonsProps) {
@@ -72,7 +76,32 @@ export function MinistryApproverActionButtons({
 
   return (
     <div className="flex items-center gap-2">
-      {isAccepted ? (
+      {/* Show badges first - these are informational and don't replace action buttons */}
+      {isAcceptedByMospi && (
+        // Show "Accepted from MOSPI" badge when accepted by MOSPI
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+          disabled
+        >
+          <CheckCircle className="w-4 h-4 mr-1" />
+          Accepted by MOSPI
+        </Button>
+      )}
+      {isReturnedFromMospi && (
+        // Show "Returned from MOSPI" badge when returned from MOSPI Approver
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+          disabled
+        >
+          <RotateCcw className="w-4 h-4" />
+          Returned from MOSPI
+        </Button>
+      )}
+      {isAccepted && !isAcceptedByMospi && (
         <Button
           variant="outline"
           size="sm"
@@ -82,7 +111,8 @@ export function MinistryApproverActionButtons({
           <CheckCircle className="w-4 h-4 mr-1" />
           Accepted
         </Button>
-      ) : isSentBack ? (
+      )}
+      {isSentBack && !isReturnedFromMospi && (
         // Show Sent Back badge when section is sent back (matches STATE level styling)
         <Button
           variant="outline"
@@ -93,7 +123,10 @@ export function MinistryApproverActionButtons({
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
-      ) : isEditMode ? (
+      )}
+      
+      {/* Action buttons - shown based on their normal conditions */}
+      {isEditMode ? (
         <>
           {/* Save and Cancel buttons when in edit mode - matches State approver styling */}
           <Button

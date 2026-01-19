@@ -1575,6 +1575,10 @@ export function MinistrySubmissionReviewWrapper({
                               sectionStatus?.toUpperCase() ===
                               "RETURNED_FROM_MOSPI_APPROVER";
                             
+                            // Check if indicator was accepted by MOSPI
+                            const isAcceptedByMospi =
+                              sectionStatus?.toUpperCase() === "ACCEPTED_BY_MOSPI";
+                            
                             // Get assignedTo for this section
                             const sectionAssignedTo = getSectionAssignedTo(sectionId);
                             const submissionUserId = submission?.user?.id;
@@ -1586,11 +1590,9 @@ export function MinistrySubmissionReviewWrapper({
                               submissionUserId &&
                               sectionAssignedTo !== submissionUserId;
                             
-                            // Show Send Back button if:
-                            // 1. Indicator was returned from MOSPI Approver
-                            // 2. AND indicator was originally assigned to a Nodal Officer (assignedTo !== submission.userId)
-                            const shouldShowSendBackToNodal =
-                              isReturnedFromMospi && isAssignedToNodalOfficer;
+                            // Show Send Back button if indicator was originally assigned to a Nodal Officer
+                            // (assignedTo !== submission.userId means it was assigned to a Nodal Officer)
+                            const shouldShowSendBackToNodal = isAssignedToNodalOfficer;
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -1606,6 +1608,7 @@ export function MinistrySubmissionReviewWrapper({
                                 isResubmitted,
                                 sectionStatus,
                                 isReturnedFromMospi,
+                                isAcceptedByMospi,
                                 sectionAssignedTo,
                                 submissionUserId,
                                 isAssignedToNodalOfficer,
@@ -1668,9 +1671,10 @@ export function MinistrySubmissionReviewWrapper({
                                     <CheckCircle className="w-4 h-4" />
                                     Resubmitted
                                   </Button>
-                                  {/* Send Back button - show if indicator was returned from MOSPI and assigned to Nodal */}
+                                  {/* Send Back button - show if indicator was originally submitted by Nodal Officer */}
                                   {!isSectionEditing &&
                                     !isAccepted &&
+                                    !isAcceptedByMospi &&
                                     shouldShowSendBackToNodal && (
                                       <Button
                                         variant="outline"
@@ -1685,17 +1689,19 @@ export function MinistrySubmissionReviewWrapper({
                                       </Button>
                                     )}
                                   {/* Accept button - only show when not editing and not already accepted */}
-                                  {!isSectionEditing && !isAccepted && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                                      onClick={() => handleAccept(sectionId)}
-                                    >
-                                      <CheckCircle className="w-4 h-4" />
-                                      Accept
-                                    </Button>
-                                  )}
+                                  {!isSectionEditing &&
+                                    !isAccepted &&
+                                    !isAcceptedByMospi && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                        onClick={() => handleAccept(sectionId)}
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                        Accept
+                                      </Button>
+                                    )}
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1755,6 +1761,8 @@ export function MinistrySubmissionReviewWrapper({
                                 timelineCount={commentCounts[sectionId] || 0}
                                 isAccepted={isAccepted}
                                 isSentBack={isSentBack}
+                                isReturnedFromMospi={isReturnedFromMospi}
+                                isAcceptedByMospi={isAcceptedByMospi}
                                 isSaving={isSaving}
                               />
                             );
