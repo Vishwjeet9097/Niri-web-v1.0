@@ -1093,6 +1093,12 @@ export const InfraFinancingReview = ({
   const [stateApproverSentBackSectionId, setStateApproverSentBackSectionId] =
     useState<string | null>(null);
 
+  // State for MOSPI approver dependency warning (indicators 1.3 and 1.4 must be handled together)
+  const [showDependencyWarning, setShowDependencyWarning] = useState(false);
+  const [dependencyAction, setDependencyAction] = useState<"accept" | "sendBack" | null>(null);
+  const [dependencySectionId, setDependencySectionId] = useState<string | null>(null);
+  const [shouldSendBackBoth, setShouldSendBackBoth] = useState(false);
+
   // State for Add More form in section 1.5
   const [showAddForm1_5, setShowAddForm1_5] = useState(false);
   const [newEntry1_5, setNewEntry1_5] = useState({
@@ -4027,6 +4033,14 @@ export const InfraFinancingReview = ({
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
 
+      // If we're in a "send back both" scenario, also send back the other indicator
+      if (shouldSendBackBoth && (pendingActionSectionId === "1.3" || pendingActionSectionId === "1.4")) {
+        const otherSectionId = pendingActionSectionId === "1.3" ? "1.4" : "1.3";
+        console.log(`[InfraFinancingReview] Sending back both indicators: ${pendingActionSectionId} and ${otherSectionId}`);
+        await performIndicatorStatus(otherSectionId, false);
+        setShouldSendBackBoth(false);
+      }
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Ensure comment modal is closed
@@ -4112,6 +4126,54 @@ export const InfraFinancingReview = ({
     setPendingActionSectionId(null);
   };
 
+  // Handle dependency warning - accept both indicators together
+  const handleAcceptBothIndicators = async () => {
+    if (dependencySectionId) {
+      const otherSectionId = dependencySectionId === "1.3" ? "1.4" : "1.3";
+      
+      // Accept both indicators sequentially
+      try {
+        await performIndicatorStatus(dependencySectionId, true);
+        await performIndicatorStatus(otherSectionId, true);
+        
+        // Close the dependency warning modal
+        setShowDependencyWarning(false);
+        setDependencyAction(null);
+        setDependencySectionId(null);
+      } catch (error) {
+        console.error("Failed to accept both indicators:", error);
+        // Keep modal open on error so user can retry
+      }
+    }
+  };
+
+  // Handle dependency warning - send back both indicators together
+  const handleSendBackBothIndicators = async () => {
+    if (dependencySectionId) {
+      // Close the dependency warning modal first
+      setShowDependencyWarning(false);
+      const currentSectionId = dependencySectionId;
+      setDependencyAction(null);
+      setDependencySectionId(null);
+      
+      // Set flag to indicate we should send back both indicators
+      setShouldSendBackBoth(true);
+      
+      // For send back, we need to open comment modal for the first indicator
+      // The comment will apply to both indicators, and handleConfirmSendBack will handle both
+      setIsMospiApproverSentBack(true);
+      setMospiSentBackSectionId(currentSectionId);
+      handleOpenModal(currentSectionId);
+    }
+  };
+
+  // Handle dependency warning - cancel action
+  const handleCancelDependencyWarning = () => {
+    setShowDependencyWarning(false);
+    setDependencyAction(null);
+    setDependencySectionId(null);
+  };
+
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
   const renderMOSPIReviewerComments = (sectionId: string) => {
     const getUserRole = () => {
@@ -4183,6 +4245,70 @@ export const InfraFinancingReview = ({
         </p>
       </div>
     );
+  };
+
+  // Helper function to check if the other dependent indicator (1.3 or 1.4) exists and needs to be handled together
+  const checkDependentIndicatorStatus = (sectionId: string): {
+    otherSectionId: string;
+    otherSectionStatus: string | null;
+    needsWarning: boolean;
+  } => {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
+    
+    // Only check dependency for MOSPI_APPROVER and indicators 1.3 or 1.4
+    if (!isMospiApprover || (sectionId !== "1.3" && sectionId !== "1.4")) {
+      return { otherSectionId: "", otherSectionStatus: null, needsWarning: false };
+    }
+
+    const otherSectionId = sectionId === "1.3" ? "1.4" : "1.3";
+    const otherSectionKey = `section${otherSectionId.replace(".", "_")}`;
+    
+    // Check if the other indicator exists in the submission (has data)
+    // We need to check both formData and submissionData to see if the indicator exists
+    const otherSectionData = (formData && formData[otherSectionKey]) || 
+                            (submissionData && submissionData[otherSectionKey]);
+    
+    // Check if the other indicator has meaningful data (exists in the form)
+    let otherIndicatorExists = false;
+    if (otherSectionData) {
+      if (otherSectionId === "1.3") {
+        // For 1.3, check if ulbList has data
+        const ulbList = Array.isArray(otherSectionData) 
+          ? (otherSectionData as any)?.ulbList 
+          : otherSectionData?.ulbList;
+        otherIndicatorExists = Array.isArray(ulbList) && ulbList.length > 0;
+      } else if (otherSectionId === "1.4") {
+        // For 1.4, check if bondList has data
+        const bondList = Array.isArray(otherSectionData)
+          ? (otherSectionData as any)?.bondList
+          : otherSectionData?.bondList;
+        otherIndicatorExists = Array.isArray(bondList) && bondList.length > 0;
+      }
+    }
+    
+    // Also check sectionsWithData to see if the other indicator is present
+    if (!otherIndicatorExists && sectionsWithData.includes(otherSectionKey)) {
+      otherIndicatorExists = true;
+    }
+
+    const otherMospiStatus = otherSectionData
+      ? Array.isArray(otherSectionData)
+        ? (otherSectionData as any)?.mospi_status
+        : otherSectionData?.mospi_status
+      : null;
+
+    // Show warning if the other indicator exists
+    // If the other indicator exists, both must be handled together (both accept or both send back)
+    // We show warning regardless of the other indicator's current status, as per requirement:
+    // "if any of the accepted then he has to accept another and of the sent back then he has to sent it back"
+    const needsWarning = otherIndicatorExists;
+
+    return {
+      otherSectionId,
+      otherSectionStatus: otherMospiStatus,
+      needsWarning,
+    };
   };
 
   // 🧑‍💻🧑‍💻Edited by Harsh
@@ -4375,11 +4501,19 @@ export const InfraFinancingReview = ({
             className="flex items-center gap-1"
             onClick={() => {
               // For MOSPI_APPROVER, send back action:
-              // 1. Set flag to track this is a "Sent Back" action
-              // 2. Open comment modal first
-              setIsMospiApproverSentBack(true);
-              setMospiSentBackSectionId(sectionId);
-              handleOpenModal(sectionId);
+              // Check if this is indicator 1.3 or 1.4 and if the other indicator needs to be handled together
+              const dependencyCheck = checkDependentIndicatorStatus(sectionId);
+              if (dependencyCheck.needsWarning) {
+                // Show dependency warning modal
+                setDependencyAction("sendBack");
+                setDependencySectionId(sectionId);
+                setShowDependencyWarning(true);
+              } else {
+                // Proceed with normal send back flow
+                setIsMospiApproverSentBack(true);
+                setMospiSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }
             }}
             disabled={shouldBeEditable(sectionId)}
           >
@@ -4392,9 +4526,18 @@ export const InfraFinancingReview = ({
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
               // For MOSPI_APPROVER, accept action:
-              // Show confirmation dialog directly (no comment required)
-              setPendingActionSectionId(sectionId);
-              setShowAcceptDialog(true);
+              // Check if this is indicator 1.3 or 1.4 and if the other indicator needs to be handled together
+              const dependencyCheck = checkDependentIndicatorStatus(sectionId);
+              if (dependencyCheck.needsWarning) {
+                // Show dependency warning modal
+                setDependencyAction("accept");
+                setDependencySectionId(sectionId);
+                setShowDependencyWarning(true);
+              } else {
+                // Proceed with normal accept flow
+                setPendingActionSectionId(sectionId);
+                setShowAcceptDialog(true);
+              }
             }}
             disabled={shouldBeEditable(sectionId)}
           >
@@ -6859,6 +7002,46 @@ export const InfraFinancingReview = ({
             <AlertDialogAction onClick={handleConfirmAccept}>
               Confirm & Accept
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dependency Warning Dialog for MOSPI_APPROVER - Indicators 1.3 and 1.4 */}
+      <AlertDialog open={showDependencyWarning} onOpenChange={setShowDependencyWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dependent Indicators</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dependencySectionId && (
+                <div className="space-y-3">
+                  <p className="text-sm">
+                    Indicators <strong>1.3</strong> and <strong>1.4</strong> are dependent on each other.
+                  </p>
+                  <p className="text-sm font-medium">
+                    {dependencyAction === "accept"
+                      ? "If you accept indicator " + dependencySectionId + ", you must also accept indicator " + (dependencySectionId === "1.3" ? "1.4" : "1.3") + "."
+                      : "If you send back indicator " + dependencySectionId + ", you must also send back indicator " + (dependencySectionId === "1.3" ? "1.4" : "1.3") + "."}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Please choose an action:
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={handleCancelDependencyWarning}>
+              Cancel
+            </AlertDialogCancel>
+            {dependencyAction === "accept" ? (
+              <AlertDialogAction onClick={handleAcceptBothIndicators} className="bg-primary text-primary-foreground">
+                Accept Both Indicators
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction onClick={handleSendBackBothIndicators} className="bg-destructive text-destructive-foreground">
+                Send Back Both Indicators
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
