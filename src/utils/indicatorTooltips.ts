@@ -45,85 +45,85 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
     code: "2.1",
     fieldName: "Infrastructure Act / Policy",
     tooltip:
-      "**Provide copy of the Infrastructure Act/Policy. In case no specific infrastructure act or policy is available, sector specific policies promoting infra in the respective sectors can be submitted, provided the State has a minimum of 3 sector-specific policies for infrastructure.**\n\nEach sector gets 10 marks and to secure full marks, 5 sector-specific policies will be required. Copy of each Act/Policy to be provided. An overarching Infrastructure Act/Policy is required for supporting development of infrastructure projects across multiple sectors. For this indicator, infrastructure sectors will be either those under Ministry of Finance's Harmonised Master List or those approved as infra through some policy by the State itself.",
+      "Data Requirement: Provide details on the existence of a State Infrastructure Act or an overarching Infrastructure Policy supporting development of infrastructure projects across multiple sectors.\n\nData Validation & Calculation: Submitted Act/Policy will be verified for State notification/approval and applicability across multiple infrastructure sectors.\n\nScoring Methodology: Yes/No. Full marks are awarded if a qualifying Infrastructure Act or Policy exists.\n\nDocuments Required: Copy of the notified Infrastructure Act or Infrastructure Policy.",
   },
   "2.2": {
     code: "2.2",
     fieldName: "Specialized Infrastructure Entity",
     tooltip:
-      "**Provide Notification for establishment of specialized Authority/Department/Agency and functions/ mandate of entity to be provided.**\n\nSpecialized Entity specified means any state-level Institutional Entity established through Cabinet approval, statute, or Government Order in form of an Authority/Department/Agency, whose primary and exclusive mandate is infrastructure project development and structuring across multiple sectors. Statutory Development Authorities, Urban Local Bodies, Industrial or Area Development Authorities, Housing Boards, sector-specific utilities, line departments performing routine administrative functions, or SPVs constituted for a single project, geography, or corridor shall not qualify under this indicator.",
+      "Data Requirement: Provide details of a State-level specialized Authority/Department/Agency established with a primary and exclusive mandate for infrastructure development across multiple sectors.\n\nData Validation & Calculation: Notification and mandate will be verified to ensure the entity is not sector-specific, project-specific, or a routine line department.\n\nScoring Methodology: Yes/No. Full marks are awarded if a qualifying specialized entity exists.\n\nDocuments Required: Government Order / Notification establishing the entity along with mandate/functions.",
   },
   "2.3": {
     code: "2.3",
     fieldName: "Sector Infrastructure Development Plan",
     tooltip:
-      "**Provide a copy of the Sector Infrastructure Developmental Plan, if available.**\n\nSector Infrastructure Development Plan means a formally approved, sector-specific planning document prepared by the concerned infrastructure department (or a designated nodal infrastructure agency) for a defined medium- to long-term horizon (normally 5–10 years). The plan must include inter-alia - current status and targets of infra development with quantum of investment required and proposed ways to mobilize such investment to achieve the targets. Broad policy statements or general development plans without quantified targets, investment estimates, and financing pathways shall not qualify.",
+      "Data Requirement: Provide count and details of sector-specific Infrastructure Development Plans prepared for a medium- to long-term horizon, covering infrastructure status, targets, and investment requirements.\n\nData Validation & Calculation: Each submitted plan will be verified for formal approval, sector coverage, and inclusion of quantified targets and investment estimates.\n\nScoring Methodology: 10 marks for each qualifying sector Infrastructure Development Plan, subject to a maximum of 50 marks.\n\nDocuments Required: Copy of approved Sector Infrastructure Development Plan(s).",
   },
   "2.4": {
     code: "2.4",
     fieldName: "Investment-ready Project Pipeline",
     tooltip:
-      "**Provide the website link where the projects are hosted and visible to investors.**\n\nInvestment ready project pipeline means a publicly available list of infrastructure that is ready for market engagement / for bidding out and where the public authority is seeking an investor or an equity/JV/developmental partner. Projects included must have crossed minimum preparation thresholds (such as preliminary feasibility/DPR) and identification of implementation structure. The pipeline shall be hosted on an official state/center government website, be accessible to investors, and include basic project details and timelines.",
+      "Data Requirement: Provide details and official website link of an investment-ready infrastructure project pipeline hosted on a government portal and visible to investors.\n\nData Validation & Calculation: Portal accessibility and minimum project readiness (feasibility/DPR and identified implementation structure) will be verified.\n\nScoring Methodology: Yes/No. Full marks are awarded if an investment-ready project pipeline is available.\n\nDocuments Required: Official website link hosting the investment-ready project pipeline.",
   },
   "2.5": {
     code: "2.5",
     fieldName: "Asset Monetisation Pipeline",
     tooltip:
-      '**Provide the list of assets and the website link where the details have been hosted.**\n\nAn "Asset Monetisation Pipeline" shall mean a publicly available list of core brownfield infrastructure assets proposed for monetisation through time-bound transfer of usage or revenue rights to the private sector for an upfront and/or periodic consideration, without transfer of asset ownership. The pipeline shall specify the mode of monetization of the brownfield assets (e.g., TOT, lease, concession, InvIT, O&M with revenue share), indicative timelines, and basic asset details. The pipeline shall be hosted on an official government website and accessible to investors.',
+      "Data Requirement: Provide details and official website link of a publicly available Asset Monetization Pipeline listing brownfield infrastructure assets proposed for monetization.\n\nData Validation & Calculation: Pipeline will be verified for public accessibility and inclusion of asset details, monetization mode, and indicative timelines.\n\nScoring Methodology: Yes/No. Full marks are awarded if an Asset Monetization Pipeline is available.\n\nDocuments Required: Official website link and list of assets included in the Asset Monetization Pipeline.",
   },
   "3.1": {
     code: "3.1",
     fieldName: "PPP Policy",
     tooltip:
-      "**Provide the Copy of the PPP Policy or copy of relevant provisions of Infrastructure Act/Policy for promoting/ developing PPP projects.**\n\nPPP Policy should be available for supporting development of infrastructure projects in PPP across multiple sectors. It could be either a standalone Policy or a part of the Infrastructure Act/Policy, provided that in such case it clearly specifies provisions for promoting/developing PPP projects.",
+      "Data Requirement: Provide details of a standalone PPP Act/Policy or PPP-related provisions within an Infrastructure Act/Policy applicable across sectors.\n\nData Validation & Calculation: Policy document will be verified for explicit provisions promoting PPP projects.\n\nScoring Methodology: Yes/No. Full marks are awarded if a qualifying PPP Act or Policy exists.\n\nDocuments Required: Copy of PPP Act/Policy or relevant policy provisions.",
   },
   "3.2": {
     code: "3.2",
     fieldName: "State PPP Cell / Unit",
     tooltip:
-      "**Provide copy of the Notification for establishment of PPP Unit. If it is part of Specialized Entity then relevant provisions of its mandate for promoting/undertaking PPP projects are to be provided.**\n\nFunctional State/UT PPP Cell/Unit is either a standalone entity setup for promoting/undertaking PPP mode of infra project development. It could also be part of a Specialized Entity, if its ToR or mandate clearly specifies provisions for promoting/undertaking PPP projects.",
+      "Data Requirement: Provide details of a functional State/UT PPP Cell or Unit established for promoting and undertaking PPP projects.\n\nData Validation & Calculation: Notification and mandate will be verified to confirm PPP-specific functions.\n\nScoring Methodology: Yes/No. Full marks are awarded if a functional PPP Cell/Unit exists.\n\nDocuments Required: Government Order / Notification establishing the PPP Cell/Unit and its mandate.",
   },
   "3.3": {
     code: "3.3",
     fieldName: "VGF / IIPDF Proposals",
     tooltip:
-      "**Provide List and details of submitted VGF/IIPDF proposals.**\n\nProposals submitted for VGF or Project Development support to either DEA in stipulated format (VGF/IIPDF Memo or online via https://www.pppinindia.gov.in/ portal) or under a State-Specific Scheme in financial year of assessment (indicated at the time of NIE-I's notification) will be considered. If the project is being considered under a state scheme, the policy document for the scheme should also be attached. It should also be noted that any project which receives VGF support from both Centre and State, will only be counted once, to avoid any duplication or repetition of projects being considered.",
+      "Data Requirement: Provide count and list of PPP or infrastructure project proposals submitted under VGF or IIPDF during the assessment year.\n\nData Validation & Calculation: Submitted proposals will be verified against DEA records or State scheme documentation.\n\nScoring Methodology: 5 marks for each qualifying project, subject to a maximum of 50 marks.\n\nDocuments Required: List of VGF/IIPDF proposals and copies of submission documents.",
   },
   "3.4": {
     code: "3.4",
     fieldName: "PPP Project Cost Ratio",
     tooltip:
-      "**Provide the List of PPP projects awarded in the financial year of Assessment. Copy of Letter of Award may also be requested for verification of project details.**\n\nThis metric indicates the extent to which the State is leveraging private capital and non-budgetary resources to supplement public infrastructure investment, rather than relying solely on budgetary funding. For this parameter, the ratio of Total Project Cost (TPC) of PPP projects awarded during the financial year of assessment to the State's annual budgeted capital allocation will be calculated. Full marks will be provided where the computed value of the ratio is 50% or higher. Proportionate marks shall be awarded for values below the threshold, as per the scoring framework.",
+      "Data Requirement: Provide Total Project Cost (TPC) of awarded PPP projects and total budgeted capital allocation of the State for the assessment year.\n\nData Validation & Calculation: Percentage is calculated as the ratio of TPC of awarded PPP projects to total budgeted capital allocation.\n\nScoring Methodology: 2 marks for every 1%, subject to a maximum of 100 marks.\n\nDocuments Required: List of awarded PPP projects with TPC details and State budgeted capital allocation documents.",
   },
   "4.1": {
     code: "4.1",
     fieldName: "State Project Monitoring System",
     tooltip:
-      "**Provide the relevant Government Order / notification and the portal link evidencing the State Project Monitoring Group mechanism.**\n\nState Infrastructure Project Monitoring mechanism as extension or on lines of GoI's PMG (Project Monitoring Group) portal for tracking monitoring of implementation of infrastructure projects. The portal should enable project-wise, milestone-based monitoring, identification of inter-departmental issues, and monitoring through a defined escalation mechanism, with reviews at highest levels of government.",
+      "Data Requirement: Provide details of a State/UT Project Monitoring Portal for infrastructure projects on the lines of GoI PMG.\n\nData Validation & Calculation: Portal availability and usage will be verified through portal access and official notifications.\n\nScoring Methodology: Yes/No. Full marks are awarded if the portal is available and in use.\n\nDocuments Required: Government Order / Notification and official portal link.",
   },
   "4.2": {
     code: "4.2",
     fieldName: "PM GatiShakti Usage",
     tooltip:
-      "**Provide Evidence of project-specific use of the platform, such as screenshots of the PM GatiShakti planning interface, State-level dashboards linked to PM GatiShakti, official communications, or project IDs generated on the PM GatiShakti platform.**\n\nAdoption of PM GatiShakti for project planning means use of PM GatiShakti digital platform and its data layers at the project identification and planning stage to inform project alignment, inter-sectoral coordination, and optimisation of project scope and location. Generic references to PM GatiShakti in policy documents without demonstrable project-level usage shall not qualify. Final decision regarding applicability of the same rests with DEA.",
+      "Data Requirement: Provide count and details of infrastructure projects planned using the PM GatiShakti platform.\n\nData Validation & Calculation: Project-level usage will be verified through screenshots, project IDs, or official communications.\n\nScoring Methodology: 10 marks for each project planned through PM GatiShakti, subject to a maximum of 30 marks.\n\nDocuments Required: Screenshots, project IDs, or official communications evidencing PM GatiShakti usage.",
   },
   "4.3": {
     code: "4.3",
     fieldName: "ADR Mechanism",
     tooltip:
-      "**Provide Copy of official orders/notifications for ADR mechanism dedicated to infrastructure projects.**\n\nAlternative Dispute Resolution (ADR) means any State/UT-notified or contractually mandated mechanism for time-bound resolution of disputes arising from infrastructure or PPP projects, prior to or in lieu of litigation. ADR may include arbitration, conciliation, mediation, dispute resolution boards, or judicial settlement mechanisms (including Lok Adalats or notified settlement schemes), provided these are explicitly applicable to infrastructure contracts. Generic legal provisions or ad-hoc schemes not linked to infrastructure projects shall not qualify.",
+      "Data Requirement: Provide details of a notified ADR mechanism applicable to infrastructure or PPP projects.\n\nData Validation & Calculation: Notification will be verified for infrastructure-specific applicability.\n\nScoring Methodology: Yes/No. Full marks are awarded if an ADR mechanism exists.\n\nDocuments Required: Government Order / Notification establishing the ADR mechanism.",
   },
   "4.4": {
     code: "4.4",
     fieldName: "Innovative Practices",
     tooltip:
-      "**Provide documentary evidence for each of the identified innovative practices.**\n\nInnovative practice must be other than those covered under NIE-I metrics. The purpose of the innovative practice shall be including but not limited to encouraging bankable and viable project structuring, faster rolling out of projects, promoting private investment in Infra, promoting user pay models, and efficient project monitoring, etc. Right to accept the indicated policy as innovative practice will be with IFS, DEA.",
+      "Data Requirement: Provide count and description of innovative practices undertaken for promotion or development of infrastructure.\n\nData Validation & Calculation: Practices will be reviewed for relevance, uniqueness, and infrastructure impact.\n\nScoring Methodology: 10 marks for each qualifying innovative practice, subject to a maximum of 50 marks.\n\nDocuments Required: Documentary evidence supporting each innovative practice.",
   },
   "4.5": {
     code: "4.5",
     fieldName: "Infrastructure Training",
     tooltip:
-      "**Provide list of officials who have completed infrastructure focused training in the assessment year.**\n\nInfra-Trainings includes training on infra development imparted by any source: GoI, State, academic institutes, international agencies, etc.",
+      "Data Requirement: Provide count and list of officers who participated in infrastructure-focused training during the assessment year.\n\nData Validation & Calculation: Training records will be verified for relevance and completion.\n\nScoring Methodology: 1 mark for each officer participation, subject to a maximum of 50 marks.\n\nDocuments Required: List of officials and training participation/completion certificates.",
   },
 };
 
