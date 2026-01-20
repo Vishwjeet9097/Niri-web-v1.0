@@ -46,7 +46,7 @@ export function MinistryEmptyState({ onCreateSubmission, error, disabled = false
               </p>
             </div>
 
-            {onCreateSubmission && (
+            {/* {onCreateSubmission && (
               <Button 
                 onClick={onCreateSubmission} 
                 className="mt-4" 
@@ -55,7 +55,7 @@ export function MinistryEmptyState({ onCreateSubmission, error, disabled = false
               >
                 Create New Submission
               </Button>
-            )}
+            )} */}
 
             <Alert className="mt-6 text-left">
               <AlertCircle className="h-4 w-4" />

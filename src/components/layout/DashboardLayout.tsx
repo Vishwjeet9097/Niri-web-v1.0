@@ -96,6 +96,8 @@ export function DashboardLayout() {
           // Use getRemainingMinistryIndicators to match the page component logic
           const remaining = await getRemainingMinistryIndicators(user.id);
           console.log("🔍 [DashboardLayout.tsx] Remaining indicators received:", remaining);
+          console.log("🔍 [DashboardLayout.tsx] availableIndicators:", remaining?.availableIndicators);
+          console.log("🔍 [DashboardLayout.tsx] availableIndicators length:", remaining?.availableIndicators?.length);
           
           setRemainingMinistryIndicators(remaining);
           setIsMinistryDashboardDataLoading(false);
@@ -127,30 +129,65 @@ export function DashboardLayout() {
   // Memoize the disabled state calculation to prevent flickering
   // Use getRemainingMinistryIndicators to match the page component logic
   const isMinistryCreateSubmissionDisabled = useMemo(() => {
-    if (user?.role !== "MINISTRY_APPROVER") return false;
+    console.log("🔍 [DashboardLayout.tsx] useMemo EXECUTING on mount/update", {
+      userRole: user?.role,
+      isMinistryDashboardDataLoading,
+      remainingMinistryIndicators,
+      remainingMinistryIndicatorsType: typeof remainingMinistryIndicators,
+      isNull: remainingMinistryIndicators === null,
+    });
+
+    if (user?.role !== "MINISTRY_APPROVER") {
+      console.log("🔍 [DashboardLayout.tsx] Not MINISTRY_APPROVER, returning false");
+      return false;
+    }
 
     // If still loading, default to disabled (data not ready yet)
-    if (isMinistryDashboardDataLoading || remainingMinistryIndicators === null) return true;
+    if (isMinistryDashboardDataLoading || remainingMinistryIndicators === null) {
+      console.log("🔍 [DashboardLayout.tsx] Loading or null, returning true", {
+        isMinistryDashboardDataLoading,
+        remainingMinistryIndicators,
+        isNull: remainingMinistryIndicators === null,
+      });
+      return true;
+    }
 
-    // Check if remaining indicators is empty or has no items (same logic as useMinistrySubmission)
-    const isEmpty = 
-      remainingMinistryIndicators == null ||
-      (Array.isArray(remainingMinistryIndicators) && remainingMinistryIndicators.length === 0) ||
-      (typeof remainingMinistryIndicators === 'object' && !Array.isArray(remainingMinistryIndicators) && Object.keys(remainingMinistryIndicators).length === 0);
+    // Extract availableIndicators directly from the response
+    const availableIndicators = (remainingMinistryIndicators as any)?.availableIndicators;
+    const availableIndicatorsLength = Array.isArray(availableIndicators) ? availableIndicators.length : -1;
 
     console.log("🔍 [DashboardLayout.tsx] Computing isMinistryCreateSubmissionDisabled", {
       remainingMinistryIndicators,
-      isEmpty,
+      availableIndicators,
+      availableIndicatorsLength,
+      hasAvailableIndicators: !!availableIndicators,
+      isArray: Array.isArray(availableIndicators),
       totalAssignedMinistryApprover: ministryDashboardData.totalAssignedMinistryApprover,
       isMinistryDashboardDataLoading,
     });
 
-    // Disable if no remaining indicators available (all assigned to nodals)
-    const shouldDisable = isEmpty;
+    // Disable if availableIndicators array exists and has length 0
+    // Explicitly check: if availableIndicators is an array with length 0, disable the button
+    const shouldDisable = !!(availableIndicators && Array.isArray(availableIndicators) && availableIndicators.length === 0);
     
-    console.log("🔍 [DashboardLayout.tsx] Should disable?", shouldDisable, "isEmpty:", isEmpty, "remainingIndicatorsLength:", Array.isArray(remainingMinistryIndicators) ? remainingMinistryIndicators.length : 'not array');
+    console.log("🔍 [DashboardLayout.tsx] Should disable?", shouldDisable, {
+      availableIndicatorsLength,
+      condition: availableIndicators && Array.isArray(availableIndicators) && availableIndicators.length === 0,
+      breakdown: {
+        hasAvailableIndicators: !!availableIndicators,
+        isArray: Array.isArray(availableIndicators),
+        length: availableIndicators?.length,
+        lengthEqualsZero: availableIndicators?.length === 0,
+      },
+    });
     return shouldDisable;
-  }, [user?.role, remainingMinistryIndicators, isMinistryDashboardDataLoading]);
+  }, [user?.role, remainingMinistryIndicators, isMinistryDashboardDataLoading, ministryDashboardData.totalAssignedMinistryApprover]);
+
+  // Force recalculation on mount to ensure useMemo runs immediately
+  useEffect(() => {
+    console.log("🔍 [DashboardLayout.tsx] Component mounted, useMemo should have run");
+    console.log("🔍 [DashboardLayout.tsx] Current disabled state:", isMinistryCreateSubmissionDisabled);
+  }, []);
 
   // Refresh dashboard data when location changes (especially after coming from User Management)
   // Only run this AFTER initial load is complete to prevent double-loading and flickering
@@ -436,13 +473,18 @@ export function DashboardLayout() {
 
                             // Debug logging for ministry create submission
                             if (isMinistryCreateSubmission) {
+                              const availableIndicators = (remainingMinistryIndicators as any)?.availableIndicators;
                               console.log("🔍 [DashboardLayout.tsx] Button rendering:", {
                                 isMinistryCreateSubmission,
                                 isMinistryCreateSubmissionDisabled,
                                 isDisabled,
+                                remainingMinistryIndicators,
+                                availableIndicators,
+                                availableIndicatorsLength: availableIndicators?.length,
                                 ministryDashboardData,
                                 userRole: user?.role,
                                 childPath: child.path,
+                                willDisable: isDisabled,
                               });
                             }
 

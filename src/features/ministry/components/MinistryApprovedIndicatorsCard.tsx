@@ -20,6 +20,7 @@ interface ProgressStats {
   total: number;
   percentage: number;
   formId?: string | null;
+  formStatus?: string | null;
 }
 
 interface MinistryApprovedIndicatorsCardProps {
@@ -62,22 +63,25 @@ export function MinistryApprovedIndicatorsCard({
         console.log('✅ [MinistryProgress] API response:', response);
 
         // Handle different response structures:
-        // 1. Wrapped: { status, data: { accepted, total, formId }, message }
-        // 2. Direct: { accepted, total, formId }
+        // 1. Wrapped: { status, data: { accepted, total, formId, formStatus }, message }
+        // 2. Direct: { accepted, total, formId, formStatus }
         let accepted = 0;
         let total = 0;
         let formId: string | null = null;
+        let formStatus: string | null = null;
 
         if (response?.status && response?.data) {
           // Wrapped response structure
           accepted = response.data.accepted || 0;
           total = response.data.total || 0;
           formId = response.data.formId || null;
+          formStatus = response.data.formStatus || null;
         } else if (response?.accepted !== undefined && response?.total !== undefined) {
           // Direct response structure (data object)
           accepted = response.accepted || 0;
           total = response.total || 0;
           formId = response.formId || null;
+          formStatus = response.formStatus || null;
         } else {
           console.warn('⚠️ [MinistryProgress] Unexpected response structure:', response);
           // Try to extract from response.data if it exists
@@ -85,17 +89,21 @@ export function MinistryApprovedIndicatorsCard({
             accepted = response.data.accepted || 0;
             total = response.data.total || 0;
             formId = response.data.formId || null;
+            formStatus = response.data.formStatus || null;
           }
         }
 
         // Calculate percentage
         const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
 
+        console.log('✅ [MinistryProgress] Extracted formStatus:', formStatus);
+
         setMinistryProgress({
           approved: accepted,
           total: total,
           percentage,
           formId,
+          formStatus,
         });
 
         // Reset submission state if not all indicators are accepted
@@ -187,11 +195,34 @@ export function MinistryApprovedIndicatorsCard({
       return;
     }
 
-    // Prevent opening modal if already submitted or not all indicators are accepted
-    if (isSubmittedToMospi || ministryProgress.percentage !== 100) {
+    // Check if formStatus allows submission (null, DRAFT, or RETURNED_FROM_MOSPI)
+    const allowedFormStatuses = [null, 'DRAFT', 'RETURNED_FROM_MOSPI'];
+    const isFormStatusAllowed = allowedFormStatuses.includes(ministryProgress.formStatus);
+
+    console.log('🔍 [MinistrySubmit] Checking submit conditions:', {
+      percentage: ministryProgress.percentage,
+      formStatus: ministryProgress.formStatus,
+      isFormStatusAllowed,
+      isSubmittedToMospi,
+    });
+
+    // Prevent opening modal if:
+    // 1. Already submitted to MoSPI
+    // 2. Not all indicators are accepted (percentage !== 100)
+    // 3. FormStatus is not allowed (not null, DRAFT, or RETURNED_FROM_MOSPI)
+    if (isSubmittedToMospi || ministryProgress.percentage !== 100 || !isFormStatusAllowed) {
+      let errorMessage = 'Cannot submit. ';
+      if (isSubmittedToMospi) {
+        errorMessage += 'Form has already been submitted to MoSPI.';
+      } else if (ministryProgress.percentage !== 100) {
+        errorMessage += 'Not all indicators are accepted.';
+      } else if (!isFormStatusAllowed) {
+        errorMessage += `Form status (${ministryProgress.formStatus || 'null'}) does not allow submission.`;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Cannot submit. Either already submitted or not all indicators are accepted.',
+        description: errorMessage,
         variant: 'destructive',
       });
       return;
@@ -251,18 +282,23 @@ export function MinistryApprovedIndicatorsCard({
             let total = 0;
             let formId: string | null = null;
 
+            let formStatus: string | null = null;
+            
             if (response?.status && response?.data) {
               accepted = response.data.accepted || 0;
               total = response.data.total || 0;
               formId = response.data.formId || null;
+              formStatus = response.data.formStatus || null;
             } else if (response?.accepted !== undefined && response?.total !== undefined) {
               accepted = response.accepted || 0;
               total = response.total || 0;
               formId = response.formId || null;
+              formStatus = response.formStatus || null;
             } else if (response?.data) {
               accepted = response.data.accepted || 0;
               total = response.data.total || 0;
               formId = response.data.formId || null;
+              formStatus = response.data.formStatus || null;
             }
 
             const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
@@ -271,6 +307,7 @@ export function MinistryApprovedIndicatorsCard({
               total: total,
               percentage,
               formId,
+              formStatus,
             });
           } catch (error) {
             console.error('❌ [MinistrySubmit] Failed to refresh progress after submission:', error);
@@ -364,7 +401,8 @@ export function MinistryApprovedIndicatorsCard({
               submitting || 
               progressLoading || 
               ministryProgress.percentage !== 100 || 
-              isSubmittedToMospi
+              isSubmittedToMospi ||
+              !([null, 'DRAFT', 'RETURNED_FROM_MOSPI'].includes(ministryProgress.formStatus))
             }
           >
             Submit Now

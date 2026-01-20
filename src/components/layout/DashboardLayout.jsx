@@ -98,7 +98,7 @@ export function DashboardLayout() {
     });
 
     // Disable if no remaining indicators available (all assigned to nodals)
-    const shouldDisable = isEmpty;
+    const shouldDisable = remainingMinistryIndicators.availableIndicators.length === 0;
     
     console.log("🔍 [DashboardLayout.jsx] Should disable?", shouldDisable, "isEmpty:", isEmpty, "remainingIndicatorsLength:", Array.isArray(remainingMinistryIndicators) ? remainingMinistryIndicators.length : 'not array');
     return shouldDisable;
