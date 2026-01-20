@@ -699,6 +699,13 @@ export const PPPDevelopmentReview = ({
   const [stateApproverSentBackSectionId, setStateApproverSentBackSectionId] =
     useState<string | null>(null);
 
+  // State for MOSPI approver dependency warning (indicator 3.4 depends on 1.1 and 1.2)
+  const [showDependencyWarning, setShowDependencyWarning] = useState(false);
+  const [dependencyAction, setDependencyAction] = useState<"accept" | "sendBack" | null>(null);
+  const [dependencySectionId, setDependencySectionId] = useState<string | null>(null);
+  const [shouldSendBackBoth, setShouldSendBackBoth] = useState(false);
+  const [indicatorsToSendBack, setIndicatorsToSendBack] = useState<string[]>([]);
+
   // Helper function to check user role
   const getUserRole = () => {
     try {
@@ -711,6 +718,76 @@ export const PPPDevelopmentReview = ({
       console.error("Error reading user role:", error);
     }
     return null;
+  };
+
+  // Helper function to check if indicators 1.1, 1.2, and 3.4 exist (for 3.4 dependency)
+  // Indicators 1.1, 1.2, and 3.4 must all be handled together
+  const checkDependentIndicatorStatus = (sectionId: string): {
+    otherSectionId: string;
+    otherSectionStatus: string | null;
+    needsWarning: boolean;
+    dependentIndicators: string[]; // All indicators that must be handled together
+  } => {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
+    
+    // Only check dependency for MOSPI_APPROVER and indicator 3.4
+    if (!isMospiApprover || sectionId !== "3.4") {
+      return { otherSectionId: "", otherSectionStatus: null, needsWarning: false, dependentIndicators: [] };
+    }
+
+    // For 3.4, check if 1.1 and 1.2 exist in the submission
+    // 1.1 and 1.2 are in infraFinancing category
+    const submissionFormData = submission?.formData || submission?.form_data || {};
+    const infraFinancingData = submissionFormData.infraFinancing || submissionFormData;
+    
+    // Check if 1.1 exists
+    const section1_1Data = infraFinancingData?.section1_1 || submissionFormData?.section1_1;
+    let indicator1_1Exists = false;
+    if (section1_1Data) {
+      const capitalAllocation = Array.isArray(section1_1Data)
+        ? (section1_1Data as any)?.capitalAllocation
+        : section1_1Data?.capitalAllocation;
+      const gsdpForFY = Array.isArray(section1_1Data)
+        ? (section1_1Data as any)?.gsdpForFY
+        : section1_1Data?.gsdpForFY;
+      indicator1_1Exists = !!(capitalAllocation || gsdpForFY);
+    }
+
+    // Check if 1.2 exists
+    const section1_2Data = infraFinancingData?.section1_2 || submissionFormData?.section1_2;
+    let indicator1_2Exists = false;
+    if (section1_2Data) {
+      const actualCapex = Array.isArray(section1_2Data)
+        ? (section1_2Data as any)?.actualCapex
+        : section1_2Data?.actualCapex;
+      const stateCapexUtilisation = Array.isArray(section1_2Data)
+        ? (section1_2Data as any)?.stateCapexUtilisation
+        : section1_2Data?.stateCapexUtilisation;
+      indicator1_2Exists = !!(actualCapex || stateCapexUtilisation);
+    }
+
+    // If any of 1.1 or 1.2 exists, all three (1.1, 1.2, 3.4) must be handled together
+    const needsWarning = indicator1_1Exists || indicator1_2Exists;
+
+    const dependentIndicators: string[] = ["3.4"];
+    if (indicator1_1Exists) dependentIndicators.push("1.1");
+    if (indicator1_2Exists) dependentIndicators.push("1.2");
+
+    const otherSectionId = indicator1_1Exists ? "1.1" : "1.2";
+    const otherSectionData = indicator1_1Exists ? section1_1Data : section1_2Data;
+    const otherMospiStatus = otherSectionData
+      ? Array.isArray(otherSectionData)
+        ? (otherSectionData as any)?.mospi_status
+        : otherSectionData?.mospi_status
+      : null;
+
+    return {
+      otherSectionId,
+      otherSectionStatus: otherMospiStatus,
+      needsWarning,
+      dependentIndicators: needsWarning ? dependentIndicators : [],
+    };
   };
 
   // Helper function to check if section should be editable based on mospi_status for STATE_APPROVER
@@ -3066,6 +3143,63 @@ export const PPPDevelopmentReview = ({
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
 
+      // If we're in a "send back both" scenario, also send back the other dependent indicators
+      if (shouldSendBackBoth && indicatorsToSendBack.length > 0) {
+        console.log(`[PPPDevelopmentReview] Sending back dependent indicators:`, indicatorsToSendBack);
+        for (const indicatorId of indicatorsToSendBack) {
+          if (indicatorId !== pendingActionSectionId) {
+            if (indicatorId === "1.1" || indicatorId === "1.2") {
+              // 1.1 and 1.2 are in infraFinancing category
+              try {
+                const payload: any = {
+                  submissionId,
+                  category: "infraFinancing",
+                  section: `section${indicatorId.replace(".", "_")}`,
+                  status: false,
+                  mospi_status: "REVERTED",
+                };
+                await apiService.indicatorStatus(payload);
+                console.log(`✅ Indicator ${indicatorId} mospi_status updated to REVERTED`);
+                
+                // Dispatch custom event to notify other components
+                window.dispatchEvent(
+                  new CustomEvent("niri-indicator-status-updated", {
+                    detail: { sectionId: indicatorId, status: "REVERTED" },
+                  })
+                );
+              } catch (error) {
+                console.error(`❌ Failed to send back indicator ${indicatorId}:`, error);
+              }
+            }
+          }
+        }
+        setShouldSendBackBoth(false);
+        setIndicatorsToSendBack([]);
+      } else if (shouldSendBackBoth && pendingActionSectionId === "3.4") {
+        // Fallback for backward compatibility
+        console.log(`[PPPDevelopmentReview] Sending back both indicators: 3.4 and 1.1`);
+        try {
+          const payload: any = {
+            submissionId,
+            category: "infraFinancing",
+            section: "section1_1",
+            status: false,
+            mospi_status: "REVERTED",
+          };
+          await apiService.indicatorStatus(payload);
+          console.log(`✅ Indicator 1.1 mospi_status updated to REVERTED`);
+          
+          window.dispatchEvent(
+            new CustomEvent("niri-indicator-status-updated", {
+              detail: { sectionId: "1.1", status: "REVERTED" },
+            })
+          );
+        } catch (error) {
+          console.error(`❌ Failed to send back indicator 1.1:`, error);
+        }
+        setShouldSendBackBoth(false);
+      }
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Ensure comment modal is closed
@@ -3079,6 +3213,84 @@ export const PPPDevelopmentReview = ({
   const handleCancelSendBack = () => {
     setShowSendBackDialog(false);
     setPendingActionSectionId(null);
+  };
+
+  // Handle dependency warning - accept all dependent indicators together
+  const handleAcceptBothIndicators = async () => {
+    if (dependencySectionId && dependencySectionId === "3.4") {
+      const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+      const indicatorsToAccept = dependencyCheck.dependentIndicators.length > 0 
+        ? dependencyCheck.dependentIndicators 
+        : [dependencySectionId, dependencyCheck.otherSectionId].filter(Boolean);
+      
+      try {
+        // Accept all indicators sequentially
+        for (const indicatorId of indicatorsToAccept) {
+          if (indicatorId === "3.4") {
+            // 3.4 is in pppDevelopment category
+            await performIndicatorStatus("3.4", true);
+          } else if (indicatorId === "1.1" || indicatorId === "1.2") {
+            // 1.1 and 1.2 are in infraFinancing category
+            const payload: any = {
+              submissionId,
+              category: "infraFinancing",
+              section: `section${indicatorId.replace(".", "_")}`,
+              status: true,
+              mospi_status: "ACCEPTED",
+            };
+            await apiService.indicatorStatus(payload);
+            console.log(`✅ Indicator ${indicatorId} mospi_status updated to ACCEPTED`);
+            
+            // Dispatch custom event to notify other components
+            window.dispatchEvent(
+              new CustomEvent("niri-indicator-status-updated", {
+                detail: { sectionId: indicatorId, status: "ACCEPTED" },
+              })
+            );
+          }
+        }
+        
+        // Close the dependency warning modal
+        setShowDependencyWarning(false);
+        setDependencyAction(null);
+        setDependencySectionId(null);
+      } catch (error) {
+        console.error("Failed to accept indicators:", error);
+        // Keep modal open on error so user can retry
+      }
+    }
+  };
+
+  // Handle dependency warning - send back all dependent indicators together
+  const handleSendBackBothIndicators = async () => {
+    if (dependencySectionId && dependencySectionId === "3.4") {
+      const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+      const indicatorsToHandle = dependencyCheck.dependentIndicators.length > 0 
+        ? dependencyCheck.dependentIndicators 
+        : [dependencySectionId, dependencyCheck.otherSectionId].filter(Boolean);
+      
+      // Close the dependency warning modal first
+      setShowDependencyWarning(false);
+      setDependencyAction(null);
+      setDependencySectionId(null);
+      
+      // Set flag and store which indicators to send back
+      setShouldSendBackBoth(true);
+      setIndicatorsToSendBack(indicatorsToHandle);
+      
+      // For send back, we need to open comment modal for indicator 3.4
+      // The comment will apply to all indicators, and handleConfirmSendBack will handle all
+      setIsMospiApproverSentBack(true);
+      setMospiSentBackSectionId("3.4");
+      handleOpenModal("3.4");
+    }
+  };
+
+  // Handle dependency warning - cancel action
+  const handleCancelDependencyWarning = () => {
+    setShowDependencyWarning(false);
+    setDependencyAction(null);
+    setDependencySectionId(null);
   };
 
   // Handle Accept confirmation
@@ -3428,11 +3640,19 @@ export const PPPDevelopmentReview = ({
             className="flex items-center gap-1"
             onClick={() => {
               // For MOSPI_APPROVER, send back action:
-              // 1. Set flag to track this is a "Sent Back" action
-              // 2. Open comment modal first
-              setIsMospiApproverSentBack(true);
-              setMospiSentBackSectionId(sectionId);
-              handleOpenModal(sectionId);
+              // Check if this is indicator 3.4 and if indicator 1.1 needs to be handled together
+              const dependencyCheck = checkDependentIndicatorStatus(sectionId);
+              if (dependencyCheck.needsWarning) {
+                // Show dependency warning modal
+                setDependencyAction("sendBack");
+                setDependencySectionId(sectionId);
+                setShowDependencyWarning(true);
+              } else {
+                // Proceed with normal send back flow
+                setIsMospiApproverSentBack(true);
+                setMospiSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }
             }}
             disabled={shouldBeEditable(sectionId)}
           >
@@ -3445,9 +3665,18 @@ export const PPPDevelopmentReview = ({
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
               // For MOSPI_APPROVER, accept action:
-              // Show confirmation dialog directly (no comment required)
-              setPendingActionSectionId(sectionId);
-              setShowAcceptDialog(true);
+              // Check if this is indicator 3.4 and if indicator 1.1 needs to be handled together
+              const dependencyCheck = checkDependentIndicatorStatus(sectionId);
+              if (dependencyCheck.needsWarning) {
+                // Show dependency warning modal
+                setDependencyAction("accept");
+                setDependencySectionId(sectionId);
+                setShowDependencyWarning(true);
+              } else {
+                // Proceed with normal accept flow
+                setPendingActionSectionId(sectionId);
+                setShowAcceptDialog(true);
+              }
             }}
             disabled={shouldBeEditable(sectionId)}
           >
@@ -6194,6 +6423,53 @@ export const PPPDevelopmentReview = ({
             <AlertDialogAction onClick={handleConfirmAccept}>
               Confirm & Accept
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dependency Warning Dialog for MOSPI_APPROVER - Indicator 3.4 depends on 1.1 */}
+      <AlertDialog open={showDependencyWarning} onOpenChange={setShowDependencyWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dependent Indicators</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dependencySectionId && (() => {
+                const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+                const dependentIndicators = dependencyCheck.dependentIndicators.length > 0 
+                  ? dependencyCheck.dependentIndicators 
+                  : [dependencySectionId, dependencyCheck.otherSectionId].filter(Boolean);
+                
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm">
+                      Indicators <strong>1.1</strong>, <strong>1.2</strong>, and <strong>3.4</strong> are dependent on each other.
+                    </p>
+                    <p className="text-sm font-medium">
+                      {dependencyAction === "accept"
+                        ? `If you accept indicator ${dependencySectionId}, you must also accept ${dependentIndicators.filter(id => id !== dependencySectionId).map(id => `indicator ${id}`).join(" and ")}.`
+                        : `If you send back indicator ${dependencySectionId}, you must also send back ${dependentIndicators.filter(id => id !== dependencySectionId).map(id => `indicator ${id}`).join(" and ")}.`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Please choose an action:
+                    </p>
+                  </div>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={handleCancelDependencyWarning}>
+              Cancel
+            </AlertDialogCancel>
+            {dependencyAction === "accept" ? (
+              <AlertDialogAction onClick={handleAcceptBothIndicators} className="bg-primary text-primary-foreground">
+                Accept All Indicators
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction onClick={handleSendBackBothIndicators} className="bg-destructive text-destructive-foreground">
+                Send Back All Indicators
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

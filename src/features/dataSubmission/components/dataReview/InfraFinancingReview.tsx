@@ -1098,6 +1098,7 @@ export const InfraFinancingReview = ({
   const [dependencyAction, setDependencyAction] = useState<"accept" | "sendBack" | null>(null);
   const [dependencySectionId, setDependencySectionId] = useState<string | null>(null);
   const [shouldSendBackBoth, setShouldSendBackBoth] = useState(false);
+  const [indicatorsToSendBack, setIndicatorsToSendBack] = useState<string[]>([]);
 
   // State for Add More form in section 1.5
   const [showAddForm1_5, setShowAddForm1_5] = useState(false);
@@ -4033,8 +4034,43 @@ export const InfraFinancingReview = ({
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
 
-      // If we're in a "send back both" scenario, also send back the other indicator
-      if (shouldSendBackBoth && (pendingActionSectionId === "1.3" || pendingActionSectionId === "1.4")) {
+      // If we're in a "send back both" scenario, also send back the other dependent indicators
+      if (shouldSendBackBoth && indicatorsToSendBack.length > 0) {
+        console.log(`[InfraFinancingReview] Sending back dependent indicators:`, indicatorsToSendBack);
+        for (const indicatorId of indicatorsToSendBack) {
+          if (indicatorId !== pendingActionSectionId) {
+            if (indicatorId === "3.4") {
+              // 3.4 is in pppDevelopment category, need to call API directly
+              try {
+                const payload: any = {
+                  submissionId,
+                  category: "pppDevelopment",
+                  section: "section3_4",
+                  status: false,
+                  mospi_status: "REVERTED",
+                };
+                await apiService.indicatorStatus(payload);
+                console.log(`✅ Indicator 3.4 mospi_status updated to REVERTED`);
+                
+                // Dispatch custom event to notify other components
+                window.dispatchEvent(
+                  new CustomEvent("niri-indicator-status-updated", {
+                    detail: { sectionId: "3.4", status: "REVERTED" },
+                  })
+                );
+              } catch (error) {
+                console.error(`❌ Failed to send back indicator 3.4:`, error);
+              }
+            } else {
+              // 1.1, 1.2, 1.3, 1.4 are in infraFinancing category
+              await performIndicatorStatus(indicatorId, false);
+            }
+          }
+        }
+        setShouldSendBackBoth(false);
+        setIndicatorsToSendBack([]);
+      } else if (shouldSendBackBoth && (pendingActionSectionId === "1.3" || pendingActionSectionId === "1.4")) {
+        // Fallback for 1.3/1.4 pair (backward compatibility)
         const otherSectionId = pendingActionSectionId === "1.3" ? "1.4" : "1.3";
         console.log(`[InfraFinancingReview] Sending back both indicators: ${pendingActionSectionId} and ${otherSectionId}`);
         await performIndicatorStatus(otherSectionId, false);
@@ -4126,41 +4162,72 @@ export const InfraFinancingReview = ({
     setPendingActionSectionId(null);
   };
 
-  // Handle dependency warning - accept both indicators together
+  // Handle dependency warning - accept all dependent indicators together
   const handleAcceptBothIndicators = async () => {
     if (dependencySectionId) {
-      const otherSectionId = dependencySectionId === "1.3" ? "1.4" : "1.3";
+      const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+      const indicatorsToAccept = dependencyCheck.dependentIndicators.length > 0 
+        ? dependencyCheck.dependentIndicators 
+        : [dependencySectionId, dependencyCheck.otherSectionId].filter(Boolean);
       
-      // Accept both indicators sequentially
       try {
-        await performIndicatorStatus(dependencySectionId, true);
-        await performIndicatorStatus(otherSectionId, true);
+        // Accept all indicators sequentially
+        for (const indicatorId of indicatorsToAccept) {
+          if (indicatorId === "3.4") {
+            // 3.4 is in pppDevelopment category, need to call API directly
+            const payload: any = {
+              submissionId,
+              category: "pppDevelopment",
+              section: "section3_4",
+              status: true,
+              mospi_status: "ACCEPTED",
+            };
+            await apiService.indicatorStatus(payload);
+            console.log(`✅ Indicator 3.4 mospi_status updated to ACCEPTED`);
+            
+            // Dispatch custom event to notify other components
+            window.dispatchEvent(
+              new CustomEvent("niri-indicator-status-updated", {
+                detail: { sectionId: "3.4", status: "ACCEPTED" },
+              })
+            );
+          } else {
+            // 1.1, 1.2, 1.3, 1.4 are in infraFinancing category
+            await performIndicatorStatus(indicatorId, true);
+          }
+        }
         
         // Close the dependency warning modal
         setShowDependencyWarning(false);
         setDependencyAction(null);
         setDependencySectionId(null);
       } catch (error) {
-        console.error("Failed to accept both indicators:", error);
+        console.error("Failed to accept indicators:", error);
         // Keep modal open on error so user can retry
       }
     }
   };
 
-  // Handle dependency warning - send back both indicators together
+  // Handle dependency warning - send back all dependent indicators together
   const handleSendBackBothIndicators = async () => {
     if (dependencySectionId) {
+      const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+      const indicatorsToHandle = dependencyCheck.dependentIndicators.length > 0 
+        ? dependencyCheck.dependentIndicators 
+        : [dependencySectionId, dependencyCheck.otherSectionId].filter(Boolean);
+      
       // Close the dependency warning modal first
       setShowDependencyWarning(false);
       const currentSectionId = dependencySectionId;
       setDependencyAction(null);
       setDependencySectionId(null);
       
-      // Set flag to indicate we should send back both indicators
+      // Set flag and store which indicators to send back
       setShouldSendBackBoth(true);
+      setIndicatorsToSendBack(indicatorsToHandle);
       
       // For send back, we need to open comment modal for the first indicator
-      // The comment will apply to both indicators, and handleConfirmSendBack will handle both
+      // The comment will apply to all indicators, and handleConfirmSendBack will handle all
       setIsMospiApproverSentBack(true);
       setMospiSentBackSectionId(currentSectionId);
       handleOpenModal(currentSectionId);
@@ -4247,68 +4314,150 @@ export const InfraFinancingReview = ({
     );
   };
 
-  // Helper function to check if the other dependent indicator (1.3 or 1.4) exists and needs to be handled together
+  // Helper function to check if the other dependent indicator exists and needs to be handled together
+  // Handles dependencies: 1.3/1.4 (pair), 1.1/1.2/3.4 (all three together)
   const checkDependentIndicatorStatus = (sectionId: string): {
     otherSectionId: string;
     otherSectionStatus: string | null;
     needsWarning: boolean;
+    dependentIndicators: string[]; // All indicators that must be handled together
   } => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
     
-    // Only check dependency for MOSPI_APPROVER and indicators 1.3 or 1.4
-    if (!isMospiApprover || (sectionId !== "1.3" && sectionId !== "1.4")) {
-      return { otherSectionId: "", otherSectionStatus: null, needsWarning: false };
+    // Only check dependency for MOSPI_APPROVER
+    if (!isMospiApprover) {
+      return { otherSectionId: "", otherSectionStatus: null, needsWarning: false, dependentIndicators: [] };
     }
 
-    const otherSectionId = sectionId === "1.3" ? "1.4" : "1.3";
-    const otherSectionKey = `section${otherSectionId.replace(".", "_")}`;
-    
-    // Check if the other indicator exists in the submission (has data)
-    // We need to check both formData and submissionData to see if the indicator exists
-    const otherSectionData = (formData && formData[otherSectionKey]) || 
-                            (submissionData && submissionData[otherSectionKey]);
-    
-    // Check if the other indicator has meaningful data (exists in the form)
-    let otherIndicatorExists = false;
-    if (otherSectionData) {
-      if (otherSectionId === "1.3") {
-        // For 1.3, check if ulbList has data
-        const ulbList = Array.isArray(otherSectionData) 
-          ? (otherSectionData as any)?.ulbList 
-          : otherSectionData?.ulbList;
-        otherIndicatorExists = Array.isArray(ulbList) && ulbList.length > 0;
-      } else if (otherSectionId === "1.4") {
-        // For 1.4, check if bondList has data
-        const bondList = Array.isArray(otherSectionData)
-          ? (otherSectionData as any)?.bondList
-          : otherSectionData?.bondList;
-        otherIndicatorExists = Array.isArray(bondList) && bondList.length > 0;
+    // For 1.3 and 1.4, they are a pair
+    if (sectionId === "1.3" || sectionId === "1.4") {
+      const otherSectionId = sectionId === "1.3" ? "1.4" : "1.3";
+      const otherSectionKey = `section${otherSectionId.replace(".", "_")}`;
+      
+      // Check if the other indicator exists
+      const otherSectionData = (formData && formData[otherSectionKey]) || 
+                              (submissionData && submissionData[otherSectionKey]);
+      
+      let otherIndicatorExists = false;
+      if (otherSectionData) {
+        if (otherSectionId === "1.3") {
+          const ulbList = Array.isArray(otherSectionData) 
+            ? (otherSectionData as any)?.ulbList 
+            : otherSectionData?.ulbList;
+          otherIndicatorExists = Array.isArray(ulbList) && ulbList.length > 0;
+        } else if (otherSectionId === "1.4") {
+          const bondList = Array.isArray(otherSectionData)
+            ? (otherSectionData as any)?.bondList
+            : otherSectionData?.bondList;
+          otherIndicatorExists = Array.isArray(bondList) && bondList.length > 0;
+        }
       }
+      
+      if (!otherIndicatorExists && sectionsWithData.includes(otherSectionKey)) {
+        otherIndicatorExists = true;
+      }
+
+      const otherMospiStatus = otherSectionData
+        ? Array.isArray(otherSectionData)
+          ? (otherSectionData as any)?.mospi_status
+          : otherSectionData?.mospi_status
+        : null;
+
+      return {
+        otherSectionId,
+        otherSectionStatus: otherMospiStatus,
+        needsWarning: otherIndicatorExists,
+        dependentIndicators: otherIndicatorExists ? [sectionId, otherSectionId] : [],
+      };
     }
-    
-    // Also check sectionsWithData to see if the other indicator is present
-    if (!otherIndicatorExists && sectionsWithData.includes(otherSectionKey)) {
-      otherIndicatorExists = true;
+
+    // For 1.1 and 1.2, check if 1.2, 1.1, and 3.4 all exist
+    if (sectionId === "1.1" || sectionId === "1.2") {
+      // Check if 1.2 exists
+      const section1_2Key = "section1_2";
+      const section1_2Data = (formData && formData[section1_2Key]) || 
+                             (submissionData && submissionData[section1_2Key]);
+      
+      let indicator1_2Exists = false;
+      if (section1_2Data) {
+        const actualCapex = Array.isArray(section1_2Data)
+          ? (section1_2Data as any)?.actualCapex
+          : section1_2Data?.actualCapex;
+        const stateCapexUtilisation = Array.isArray(section1_2Data)
+          ? (section1_2Data as any)?.stateCapexUtilisation
+          : section1_2Data?.stateCapexUtilisation;
+        indicator1_2Exists = !!(actualCapex || stateCapexUtilisation);
+      }
+      if (!indicator1_2Exists && sectionsWithData.includes(section1_2Key)) {
+        indicator1_2Exists = true;
+      }
+
+      // Check if 1.1 exists
+      const section1_1Key = "section1_1";
+      const section1_1Data = (formData && formData[section1_1Key]) || 
+                             (submissionData && submissionData[section1_1Key]);
+      
+      let indicator1_1Exists = false;
+      if (section1_1Data) {
+        const capitalAllocation = Array.isArray(section1_1Data)
+          ? (section1_1Data as any)?.capitalAllocation
+          : section1_1Data?.capitalAllocation;
+        const gsdpForFY = Array.isArray(section1_1Data)
+          ? (section1_1Data as any)?.gsdpForFY
+          : section1_1Data?.gsdpForFY;
+        indicator1_1Exists = !!(capitalAllocation || gsdpForFY);
+      }
+      if (!indicator1_1Exists && sectionsWithData.includes(section1_1Key)) {
+        indicator1_1Exists = true;
+      }
+
+      // Check if 3.4 exists (in submission's formData, different category)
+      const submissionFormData = submission?.formData || submission?.form_data || {};
+      const pppDevelopmentData = submissionFormData.pppDevelopment || submissionFormData;
+      const section3_4Data = pppDevelopmentData?.section3_4 || submissionFormData?.section3_4;
+      
+      let indicator3_4Exists = false;
+      if (section3_4Data) {
+        const totalProjectsAwarded = Array.isArray(section3_4Data)
+          ? (section3_4Data as any)?.totalProjectsAwarded
+          : section3_4Data?.totalProjectsAwarded;
+        const projects = Array.isArray(section3_4Data)
+          ? (section3_4Data as any)?.projects
+          : section3_4Data?.projects;
+        indicator3_4Exists = !!(totalProjectsAwarded || (Array.isArray(projects) && projects.length > 0));
+      }
+
+      // If any of the other indicators (1.1, 1.2, or 3.4) exists, all three must be handled together
+      const needsWarning = (sectionId === "1.1" && indicator1_2Exists) || 
+                          (sectionId === "1.2" && indicator1_1Exists) ||
+                          indicator3_4Exists;
+
+      const dependentIndicators: string[] = [];
+      if (indicator1_1Exists || sectionId === "1.1") dependentIndicators.push("1.1");
+      if (indicator1_2Exists || sectionId === "1.2") dependentIndicators.push("1.2");
+      if (indicator3_4Exists) dependentIndicators.push("3.4");
+
+      // Determine the primary "other" section for backward compatibility
+      const otherSectionId = sectionId === "1.1" ? "1.2" : "1.1";
+      const otherSectionData = sectionId === "1.1" ? section1_2Data : section1_1Data;
+      const otherMospiStatus = otherSectionData
+        ? Array.isArray(otherSectionData)
+          ? (otherSectionData as any)?.mospi_status
+          : otherSectionData?.mospi_status
+        : null;
+
+      return {
+        otherSectionId,
+        otherSectionStatus: otherMospiStatus,
+        needsWarning,
+        dependentIndicators: needsWarning ? dependentIndicators : [],
+      };
     }
 
-    const otherMospiStatus = otherSectionData
-      ? Array.isArray(otherSectionData)
-        ? (otherSectionData as any)?.mospi_status
-        : otherSectionData?.mospi_status
-      : null;
+    // Not a dependent indicator
+    return { otherSectionId: "", otherSectionStatus: null, needsWarning: false, dependentIndicators: [] };
 
-    // Show warning if the other indicator exists
-    // If the other indicator exists, both must be handled together (both accept or both send back)
-    // We show warning regardless of the other indicator's current status, as per requirement:
-    // "if any of the accepted then he has to accept another and of the sent back then he has to sent it back"
-    const needsWarning = otherIndicatorExists;
-
-    return {
-      otherSectionId,
-      otherSectionStatus: otherMospiStatus,
-      needsWarning,
-    };
   };
 
   // 🧑‍💻🧑‍💻Edited by Harsh
@@ -7006,27 +7155,41 @@ export const InfraFinancingReview = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dependency Warning Dialog for MOSPI_APPROVER - Indicators 1.3 and 1.4 */}
+      {/* Dependency Warning Dialog for MOSPI_APPROVER - Indicators 1.3/1.4 and 1.1/1.2 */}
       <AlertDialog open={showDependencyWarning} onOpenChange={setShowDependencyWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Dependent Indicators</AlertDialogTitle>
             <AlertDialogDescription>
-              {dependencySectionId && (
-                <div className="space-y-3">
-                  <p className="text-sm">
-                    Indicators <strong>1.3</strong> and <strong>1.4</strong> are dependent on each other.
-                  </p>
-                  <p className="text-sm font-medium">
-                    {dependencyAction === "accept"
-                      ? "If you accept indicator " + dependencySectionId + ", you must also accept indicator " + (dependencySectionId === "1.3" ? "1.4" : "1.3") + "."
-                      : "If you send back indicator " + dependencySectionId + ", you must also send back indicator " + (dependencySectionId === "1.3" ? "1.4" : "1.3") + "."}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Please choose an action:
-                  </p>
-                </div>
-              )}
+              {dependencySectionId && (() => {
+                const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+                const dependentIndicators = dependencyCheck.dependentIndicators.length > 0 
+                  ? dependencyCheck.dependentIndicators 
+                  : [dependencySectionId, dependencyCheck.otherSectionId].filter(Boolean);
+                const is1_3_1_4 = (dependencySectionId === "1.3" || dependencySectionId === "1.4");
+                const is1_1_1_2_3_4 = (dependencySectionId === "1.1" || dependencySectionId === "1.2" || dependencySectionId === "3.4");
+                
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm">
+                      {is1_3_1_4 && (
+                        <>Indicators <strong>1.3</strong> and <strong>1.4</strong> are dependent on each other.</>
+                      )}
+                      {is1_1_1_2_3_4 && (
+                        <>Indicators <strong>1.1</strong>, <strong>1.2</strong>, and <strong>3.4</strong> are dependent on each other.</>
+                      )}
+                    </p>
+                    <p className="text-sm font-medium">
+                      {dependencyAction === "accept"
+                        ? `If you accept indicator ${dependencySectionId}, you must also accept ${dependentIndicators.filter(id => id !== dependencySectionId).map(id => `indicator ${id}`).join(" and ")}.`
+                        : `If you send back indicator ${dependencySectionId}, you must also send back ${dependentIndicators.filter(id => id !== dependencySectionId).map(id => `indicator ${id}`).join(" and ")}.`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Please choose an action:
+                    </p>
+                  </div>
+                );
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -7035,11 +7198,11 @@ export const InfraFinancingReview = ({
             </AlertDialogCancel>
             {dependencyAction === "accept" ? (
               <AlertDialogAction onClick={handleAcceptBothIndicators} className="bg-primary text-primary-foreground">
-                Accept Both Indicators
+                Accept All Indicators
               </AlertDialogAction>
             ) : (
               <AlertDialogAction onClick={handleSendBackBothIndicators} className="bg-destructive text-destructive-foreground">
-                Send Back Both Indicators
+                Send Back All Indicators
               </AlertDialogAction>
             )}
           </AlertDialogFooter>
