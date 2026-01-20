@@ -2,7 +2,15 @@ import { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Clock, RotateCcw, Edit3, Check, X, RefreshCw } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  RotateCcw,
+  Edit3,
+  Check,
+  X,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MinistrySectionCardProps {
@@ -40,7 +48,15 @@ export const MinistrySectionCard = ({
 
     const upperStatus = indicatorStatus.toUpperCase();
 
-    if (upperStatus === "ACCEPTED") {
+    // Accepted statuses (ministry or MOSPI)
+    // Also include RETURNED_FROM_MOSPI_APPROVER - show as "Accepted" until Ministry sends it back
+    if (
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "ACCEPTED_BY_MINISTRY" ||
+      upperStatus === "ACCEPTED_BY_MOSPI" ||
+      upperStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
+      upperStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
+    ) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-300 flex items-center gap-1 ml-2">
           <CheckCircle2 className="w-3 h-3" />
@@ -49,7 +65,12 @@ export const MinistrySectionCard = ({
       );
     }
 
-    if (upperStatus === "SUBMITTED_TO_STATE") {
+    // Under Review statuses (when nodal has submitted)
+    if (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "SUBMITTED_TO_MINISTRY" ||
+      upperStatus === "RESUBMITTED"
+    ) {
       return (
         <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 flex items-center gap-1 ml-2">
           <Clock className="w-3 h-3" />
@@ -58,7 +79,13 @@ export const MinistrySectionCard = ({
       );
     }
 
-    if (upperStatus === "REVERTED") {
+    // Sent Back statuses (only RETURNED_FROM_MINISTRY shows as "Sent Back")
+    // RETURNED_FROM_MOSPI_APPROVER is shown as "Accepted" above
+    if (
+      upperStatus === "REVERTED" ||
+      upperStatus === "RETURNED_FROM_MINISTRY" ||
+      upperStatus === "RETURNED_FROM_MOSPI"
+    ) {
       return (
         <Badge className="bg-orange-100 text-orange-800 border-orange-300 flex items-center gap-1 ml-2">
           <RotateCcw className="w-3 h-3" />
@@ -67,11 +94,12 @@ export const MinistrySectionCard = ({
       );
     }
 
-    if (upperStatus === "RESUBMITTED") {
+    // Draft status
+    if (upperStatus === "DRAFT") {
       return (
-        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 flex items-center gap-1 ml-2">
+        <Badge className="bg-gray-100 text-gray-800 border-gray-300 flex items-center gap-1 ml-2">
           <Clock className="w-3 h-3" />
-          Under Review
+          Draft
         </Badge>
       );
     }
@@ -172,4 +200,3 @@ export const MinistrySectionCard = ({
     </Card>
   );
 };
-

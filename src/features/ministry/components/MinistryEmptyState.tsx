@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 interface MinistryEmptyStateProps {
   onCreateSubmission?: () => void;
   error?: string;
+  disabled?: boolean;
 }
 
-export function MinistryEmptyState({ onCreateSubmission, error }: MinistryEmptyStateProps) {
+export function MinistryEmptyState({ onCreateSubmission, error, disabled = false }: MinistryEmptyStateProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
@@ -39,12 +40,19 @@ export function MinistryEmptyState({ onCreateSubmission, error }: MinistryEmptyS
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">No Submission Found</h2>
               <p className="text-muted-foreground max-w-md">
-                You don't have an active ministry submission. Please create a new submission to get started with your ministry data submission.
+                {disabled 
+                  ? "All indicators have been assigned to nodals. You cannot create another submission at this time."
+                  : "You don't have an active ministry submission. Please create a new submission to get started with your ministry data submission."}
               </p>
             </div>
 
             {onCreateSubmission && (
-              <Button onClick={onCreateSubmission} className="mt-4">
+              <Button 
+                onClick={onCreateSubmission} 
+                className="mt-4" 
+                disabled={disabled}
+                title={disabled ? "All indicators have been assigned to nodals. Cannot create another submission." : undefined}
+              >
                 Create New Submission
               </Button>
             )}

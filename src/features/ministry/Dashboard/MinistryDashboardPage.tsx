@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MinistryLatestSubmission } from "./MinistryLatestSubmission";
-import { getMinistryDashboardData, getMinistrySubmissions } from "@/services/ministry.service";
+import { getMinistryDashboardData } from "@/services/ministry.service";
 import {
   FileText,
   CheckCircle,
@@ -31,12 +31,7 @@ export function MinistryDashboardPage() {
     returnedFromMospi: 0,
   });
 
-  // Submissions data for MinistryLatestSubmission - loaded from service
-  const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Search query state for MinistryLatestSubmission functionality
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Load dashboard data from service
   useEffect(() => {
@@ -72,36 +67,6 @@ export function MinistryDashboardPage() {
     loadDashboardData();
   }, [user?.id]);
 
-  // Load submissions data separately
-  useEffect(() => {
-    const loadSubmissions = async () => {
-      if (!user?.id) return;
-      
-      try {
-        // Load submissions data
-        const submissionsData = await getMinistrySubmissions(user?.id);
-        setSubmissions(submissionsData || []);
-      } catch (error) {
-        console.error("Failed to load ministry submissions:", error);
-        setSubmissions([]);
-      }
-    };
-
-    loadSubmissions();
-  }, [user?.id]);
-
-  // Filter submissions based on search query
-  const filteredSubmissions = submissions.filter((submission) => {
-    const searchMatch =
-      !searchQuery ||
-      submission.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.submittedBy
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return searchMatch;
-  });
 
   // Show loading state
   if (loading) {
@@ -269,11 +234,7 @@ export function MinistryDashboardPage() {
       </div>
 
       {/* Main Content Grid - MinistryLatestSubmission */}
-      <MinistryLatestSubmission
-        filteredSubmissions={filteredSubmissions}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-      />
+      <MinistryLatestSubmission />
     </div>
   );
 }

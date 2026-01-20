@@ -66,6 +66,7 @@ function AdminDashboardPage() {
   const nodalOfficers = Array.isArray(roleUsers.NODAL_OFFICER) ? roleUsers.NODAL_OFFICER.length : 0;
   const mospiReviewers = Array.isArray(roleUsers.MOSPI_REVIEWER) ? roleUsers.MOSPI_REVIEWER.length : 0;
   const mospiApprovers = Array.isArray(roleUsers.MOSPI_APPROVER) ? roleUsers.MOSPI_APPROVER.length : 0;
+  const ministryApprovers = Array.isArray(roleUsers.MINISTRY_APPROVER) ? roleUsers.MINISTRY_APPROVER.length : 0;
   const administrators = Array.isArray(roleUsers.ADMIN) ? roleUsers.ADMIN.length : 0;
 
   const dynamicStats = [
@@ -74,6 +75,7 @@ function AdminDashboardPage() {
     { label: getRoleDisplayName("NODAL_OFFICER"), value: nodalOfficers, change: 0 },
     { label: getRoleDisplayName("MOSPI_REVIEWER"), value: mospiReviewers, change: 0 },
     { label: getRoleDisplayName("MOSPI_APPROVER"), value: mospiApprovers, change: 0 },
+    { label: getRoleDisplayName("MINISTRY_APPROVER"), value: ministryApprovers, change: 0 },
     { label: getRoleDisplayName("ADMIN"), value: administrators, change: 0 },
   ];
 
@@ -153,6 +155,7 @@ function AdminDashboardPage() {
             [getRoleDisplayName("NODAL_OFFICER")]: UserCog,
             [getRoleDisplayName("MOSPI_REVIEWER")]: User,
             [getRoleDisplayName("MOSPI_APPROVER")]: UserCircle,
+            [getRoleDisplayName("MINISTRY_APPROVER")]: UserCircle,
             [getRoleDisplayName("ADMIN")]: Shield,
           };
           const colorMap: Record<string, string> = {
@@ -161,6 +164,7 @@ function AdminDashboardPage() {
             [getRoleDisplayName("NODAL_OFFICER")]: "text-yellow-500",
             [getRoleDisplayName("MOSPI_REVIEWER")]: "text-purple-500",
             [getRoleDisplayName("MOSPI_APPROVER")]: "text-pink-500",
+            [getRoleDisplayName("MINISTRY_APPROVER")]: "text-indigo-500",
             [getRoleDisplayName("ADMIN")]: "text-red-500",
           };
           const Icon = iconMap[stat.label] || Users;
@@ -213,6 +217,7 @@ function AdminDashboardPage() {
                    <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
                   <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
                   <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
+                  <SelectItem value="MINISTRY_APPROVER">{getRoleDisplayName("MINISTRY_APPROVER")}</SelectItem>
                   <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
                 </SelectContent>
               </Select>

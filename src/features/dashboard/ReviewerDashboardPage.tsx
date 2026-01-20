@@ -16,8 +16,10 @@ const ReviewerDashboardPage: React.FC = () => {
   const { hasRole, user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [ministrySubmissions, setMinistrySubmissions] = useState<any[]>([]);
+  const [allMinistrySubmissions, setAllMinistrySubmissions] = useState<any[]>([]); // Store all ministry submissions for filtering
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedCardTitle, setSelectedCardTitle] = useState<string | null>(null);
   const [isFilteredByCard, setIsFilteredByCard] = useState(false);
   const [activeTab, setActiveTab] = useState<"state" | "ministry">("state");
   const tableRef = useRef<HTMLDivElement>(null);
@@ -51,8 +53,11 @@ const ReviewerDashboardPage: React.FC = () => {
             ministryName: sub.user?.ministryName,
           }));
           
+          // Store all submissions for filtering
+          setAllMinistrySubmissions(mappedSubmissions);
           setMinistrySubmissions(mappedSubmissions);
         } else {
+          setAllMinistrySubmissions([]);
           setMinistrySubmissions([]);
         }
       } catch (error) {
@@ -61,6 +66,7 @@ const ReviewerDashboardPage: React.FC = () => {
           "Failed to load ministry submissions. Please try again.",
           "Load Error"
         );
+        setAllMinistrySubmissions([]);
         setMinistrySubmissions([]);
       } finally {
         setLoading(false);
@@ -123,6 +129,49 @@ const ReviewerDashboardPage: React.FC = () => {
   // Load submissions with status filter when card is clicked
   useEffect(() => {
     const loadSubmissionsByStatus = async () => {
+      // Handle ministry tab filtering (client-side)
+      if (activeTab === "ministry") {
+        if (!selectedCardTitle) {
+          // If card is cleared, show all ministry submissions
+          if (isFilteredByCard) {
+            setMinistrySubmissions(allMinistrySubmissions);
+            setIsFilteredByCard(false);
+          }
+          return;
+        }
+
+        // Filter ministry submissions client-side based on card title
+        let filteredSubmissions = [...allMinistrySubmissions];
+
+        if (selectedCardTitle === "Approved") {
+          filteredSubmissions = allMinistrySubmissions.filter((sub: any) => {
+            const formStatus = sub.formStatus || sub.status;
+            return formStatus === "ACCEPTED_BY_MOSPI" || formStatus === "APPROVED";
+          });
+        } else if (selectedCardTitle === "Under Review") {
+          filteredSubmissions = allMinistrySubmissions.filter((sub: any) => {
+            const formStatus = sub.formStatus || sub.status;
+            return formStatus === "SUBMITTED_TO_MOSPI_REVIEWER";
+          });
+        } else if (selectedCardTitle === "Full Submission") {
+          // For Full Submission, show all submissions (no filter)
+          filteredSubmissions = allMinistrySubmissions;
+        }
+
+        setMinistrySubmissions(filteredSubmissions);
+        setIsFilteredByCard(true);
+
+        // Smooth scroll to table after filtering
+        setTimeout(() => {
+          tableRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 100);
+        return;
+      }
+
+      // Handle state/UT tab filtering (API-based)
       if (!selectedStatus) {
         // If status is cleared, reload all submissions (reset to initial state)
         const loadAllSubmissions = async () => {
@@ -224,13 +273,22 @@ const ReviewerDashboardPage: React.FC = () => {
       }
     };
 
-    // Only call when status changes (card clicked or cleared)
+    // Only call when status or card title changes (card clicked or cleared)
     loadSubmissionsByStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus]);
+  }, [selectedStatus, selectedCardTitle, activeTab, allMinistrySubmissions]);
 
   const handleStatusFilterChange = (status: string | null) => {
-    setSelectedStatus(status);
+    // For ministry tab, status is actually the card title
+    if (activeTab === "ministry") {
+      setSelectedCardTitle(status);
+    } else {
+      setSelectedStatus(status);
+    }
+  };
+
+  const handleCardTitleChange = (title: string | null) => {
+    setSelectedCardTitle(title);
   };
 
   return (
@@ -260,13 +318,13 @@ const ReviewerDashboardPage: React.FC = () => {
           <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-gray-100 p-1 gap-1">
             <TabsTrigger 
               value="state" 
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               State/UT
             </TabsTrigger>
             <TabsTrigger 
               value="ministry"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               Ministry
             </TabsTrigger>
@@ -283,6 +341,7 @@ const ReviewerDashboardPage: React.FC = () => {
           <TabsContent value="ministry" className="mt-6">
             <MospiApproverMinistryOverviewCards
               onStatusFilterChange={handleStatusFilterChange}
+              onCardTitleChange={handleCardTitleChange}
             />
           </TabsContent>
         </Tabs>

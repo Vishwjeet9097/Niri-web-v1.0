@@ -29,6 +29,7 @@ export const MospiApproverDashboardPage = () => {
   const [ministrySubmissions, setMinistrySubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedState, setSelectedState] = useState("All");
+  const [selectedMinistry, setSelectedMinistry] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [isFilteredByCard, setIsFilteredByCard] = useState(false);
@@ -433,7 +434,12 @@ export const MospiApproverDashboardPage = () => {
     return sourceSubmissions.filter((submission) => {
       // For ministry tab, all submissions are already ministry submissions
       if (activeTab === "ministry") {
-        // State filter doesn't apply to ministry tab
+        // Ministry filter
+        const ministryMatch =
+          selectedMinistry === "All" ||
+          submission.user?.ministryName === selectedMinistry ||
+          submission.ministryName === selectedMinistry;
+        
         // Search filter
         const searchMatch =
           !searchQuery ||
@@ -451,7 +457,7 @@ export const MospiApproverDashboardPage = () => {
           submission.status?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           submission.formStatus?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        return searchMatch;
+        return ministryMatch && searchMatch;
       }
 
       // For state tab, use existing logic
@@ -487,7 +493,7 @@ export const MospiApproverDashboardPage = () => {
 
       return tabMatch && stateMatch && searchMatch;
     });
-  }, [submissions, ministrySubmissions, selectedState, searchQuery, activeTab]);
+  }, [submissions, ministrySubmissions, selectedState, selectedMinistry, searchQuery, activeTab]);
 
   // Get unique states for filter (only for state tab)
   const states = useMemo(() => {
@@ -499,6 +505,17 @@ export const MospiApproverDashboardPage = () => {
       ...Array.from(new Set(submissions.map((s) => s.stateUt).filter(Boolean))),
     ];
   }, [submissions, activeTab]);
+
+  // Get unique ministries for filter (only for ministry tab)
+  const ministries = useMemo(() => {
+    if (activeTab === "state") {
+      return ["All"];
+    }
+    const ministryNames = ministrySubmissions
+      .map((s) => s.user?.ministryName || s.ministryName)
+      .filter(Boolean);
+    return ["All", ...Array.from(new Set(ministryNames))];
+  }, [ministrySubmissions, activeTab]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -615,17 +632,19 @@ export const MospiApproverDashboardPage = () => {
           setSelectedStatus(null);
           setSelectedCardTitle(null);
           setIsFilteredByCard(false);
+          setSelectedState("All");
+          setSelectedMinistry("All");
         }} className="w-full mb-6">
           <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-gray-100 p-1 gap-1">
             <TabsTrigger 
               value="state" 
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               State/UT
             </TabsTrigger>
             <TabsTrigger 
               value="ministry"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-gray-700 transition-all data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
               Ministry
             </TabsTrigger>
@@ -763,6 +782,28 @@ export const MospiApproverDashboardPage = () => {
                         {states.map((state) => (
                           <option key={state} value={state}>
                             {state}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {activeTab === "ministry" && (
+                    <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                      <label
+                        htmlFor="ministry-filter"
+                        className="text-sm text-gray-600 whitespace-nowrap"
+                      >
+                        Ministry
+                      </label>
+                      <select
+                        id="ministry-filter"
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[150px]"
+                        value={selectedMinistry}
+                        onChange={(e) => setSelectedMinistry(e.target.value)}
+                      >
+                        {ministries.map((ministry) => (
+                          <option key={ministry} value={ministry}>
+                            {ministry}
                           </option>
                         ))}
                       </select>

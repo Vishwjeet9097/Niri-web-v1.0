@@ -151,7 +151,7 @@ function UserTableComponent({
               Contact Number
             </TableHead>
             <SortableHeader field="email">Email</SortableHeader>
-            {userRole === "STATE_APPROVER" && (
+            {(userRole === "STATE_APPROVER" || userRole === "MINISTRY_APPROVER") && (
               <TableHead className="text-[#212121] text-xs font-semibold">
                 Assigned Indicators
               </TableHead>
@@ -183,57 +183,73 @@ function UserTableComponent({
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
-              <TableCell className="text-xs text-[#212121]">
-                {/* MINISTRY_APPROVER: only ministry */}
-                {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
-                {officer.role === "NODAL_OFFICER" && officer.ministryId && getMinistryName(officer.ministryId)}
-                {/* STATE_APPROVER: only state */}
-                {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
-                {/* MOSPI_REVIEWER: state and ministry if both, else only state */}
-                {officer.role === "MOSPI_REVIEWER" && (
-                  <>
-                    {officer.stateId || officer.state}
-                    {officer.ministryId && getMinistryName(officer.ministryId)
-                      ? ` / ${getMinistryName(officer.ministryId)}`
-                      : ""}
-                  </>
-                )}
-                {/* fallback for other roles */}
-                {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
-              </TableCell>
-              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
-              {/* ...existing code... */}
               {userRole !== "STATE_APPROVER" && (
                 <TableCell className="text-xs text-[#212121]">
-                  {officer.stateId || officer.state}
+                  {/* MINISTRY_APPROVER: only ministry */}
+                  {officer.role === "MINISTRY_APPROVER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                  {officer.role === "NODAL_OFFICER" && officer.ministryId && getMinistryName(officer.ministryId)}
+                  {/* STATE_APPROVER: only state */}
+                  {officer.role === "STATE_APPROVER" && (officer.stateId || officer.state)}
+                  {/* MOSPI_REVIEWER: state and ministry if both, else only state */}
+                  {officer.role === "MOSPI_REVIEWER" && (
+                    <>
+                      {officer.stateId || officer.state}
+                      {officer.ministryId && (() => {
+                        // Handle multiple ministries (comma-separated)
+                        const ministryIds = String(officer.ministryId).split(",").map(m => m.trim()).filter(Boolean);
+                        const ministryNames = ministryIds.map(id => getMinistryName(id)).filter(Boolean);
+                        return ministryNames.length > 0 ? ` / ${ministryNames.join(", ")}` : "";
+                      })()}
+                    </>
+                  )}
+                  {/* fallback for other roles */}
+                  {!["MINISTRY_APPROVER","STATE_APPROVER","MOSPI_REVIEWER"].includes(officer.role) && (officer.stateId || officer.state)}
                 </TableCell>
               )}
-              <TableCell className="text-xs text-[#212121]">
-                +91 {officer.contactNumber}
-              </TableCell>
-              <TableCell className="text-xs text-[#212121]">
-                {officer.email}
-              </TableCell>
-              {userRole === "STATE_APPROVER" && (
+              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
+              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
+              {(userRole === "STATE_APPROVER" || userRole === "MINISTRY_APPROVER") && (
                 <TableCell className="text-xs text-[#212121]">
-                  {officer.role === "NODAL_OFFICER" &&
-                  officer.assignedIndicators &&
-                  officer.assignedIndicators.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {officer.assignedIndicators.map((indicator, idx) => (
-                        <Badge
-                          key={idx}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {indicator}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  {(() => {
+                    // Debug logging
+                    if (officer.role === "NODAL_OFFICER") {
+                      console.log('[UserTable] NODAL_OFFICER assignedIndicators:', {
+                        officerId: officer.id,
+                        officerName: `${officer.firstName} ${officer.lastName}`,
+                        assignedIndicators: officer.assignedIndicators,
+                        isArray: Array.isArray(officer.assignedIndicators),
+                        length: officer.assignedIndicators?.length || 0,
+                      });
+                    }
+                    
+                    return officer.role === "NODAL_OFFICER" &&
+                      officer.assignedIndicators &&
+                      officer.assignedIndicators.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {officer.assignedIndicators.map((indicator, idx) => {
+                          // Extract indicator code - handle both object and string formats
+                          // (fallback in case data format changes)
+                          const indicatorCode = 
+                            typeof indicator === 'string' 
+                              ? indicator 
+                              : indicator?.code || indicator?.id || indicator?.value || String(indicator);
+                          console.log('[UserTable] Rendering indicator badge:', { indicator, indicatorCode, idx });
+                          return (
+                            <Badge
+                              key={idx}
+                              variant="secondary"
+                              className="text-xs"
+                              title={indicatorCode}
+                            >
+                              {indicatorCode}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    );
+                  })()}
                 </TableCell>
               )}
               <TableCell>

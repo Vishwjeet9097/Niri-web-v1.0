@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
-import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails } from '@/services/ministry.service';
+import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails, submitMospiFormAction, getFormStatusStatistics } from '@/services/ministry.service';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useToast } from '@/hooks/use-toast';
+import { Send, RotateCcw, CheckCircle } from 'lucide-react';
 import { MinistrySubmissionDetailsCard } from '../components/MinistrySubmissionDetailsCard';
 import { MinistryOverviewTab } from '../components/tabs/MinistryOverviewTab';
 import { MinistryDataReviewTab } from '../components/tabs/MinistryDataReviewTab';
@@ -33,6 +35,17 @@ export function MinistryFormReviewSubmissionPage() {
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  
+  // Form status statistics for MOSPI Approver button logic
+  const [formStatusStats, setFormStatusStats] = useState<{
+    total: number;
+    totalSentBack: number;
+    totalApproved: number;
+    totalSubmitted: number;
+  } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -42,6 +55,148 @@ export function MinistryFormReviewSubmissionPage() {
       setError('Submission ID not found');
     }
   }, [id, isConsolidated]);
+
+  // Fetch form status statistics for MOSPI Approver
+  useEffect(() => {
+    const fetchFormStatusStats = async () => {
+      console.log("🔍 fetchFormStatusStats called:", {
+        userRole: user?.role,
+        hasSubmission: !!submission,
+        submissionFormId: submission?.formId,
+        submissionId: submission?.id,
+      });
+
+      if (user?.role !== "MOSPI_APPROVER") {
+        console.log("⚠️ User is not MOSPI_APPROVER, skipping stats fetch");
+        return;
+      }
+
+      if (!submission) {
+        console.log("⚠️ Submission not loaded yet, skipping stats fetch");
+        return;
+      }
+
+      // Get formId from submission
+      const currentFormId = submission?.formId || submission?.id;
+      if (!currentFormId) {
+        console.log("⚠️ No formId available for statistics");
+        return;
+      }
+
+      try {
+        setLoadingStats(true);
+        console.log("📊 Fetching form status statistics for formId:", currentFormId);
+        const response = await getFormStatusStatistics(currentFormId);
+        
+        console.log("📊 Raw API response:", response);
+        console.log("📊 Response type:", typeof response);
+        console.log("📊 Response keys:", response ? Object.keys(response) : "null");
+        
+        // Handle different response structures
+        let statsData: any = null;
+        
+        if (response?.status && response?.data) {
+          // Standard structure: { status: true, data: { formId, total, ... } }
+          statsData = response.data;
+          console.log("✅ Using response.data:", statsData);
+        } else if ((response as any)?.formId) {
+          // Direct data structure: { formId: ..., total: ..., ... }
+          statsData = response;
+          console.log("✅ Using direct response:", statsData);
+        } else if ((response as any)?.data?.formId) {
+          // Nested data structure: { data: { formId: ..., total: ..., ... } }
+          statsData = (response as any).data;
+          console.log("✅ Using response.data (nested):", statsData);
+        } else {
+          console.warn("⚠️ Unexpected response structure:", response);
+          console.warn("⚠️ Full response:", JSON.stringify(response, null, 2));
+        }
+        
+        if (statsData && statsData.formId) {
+          console.log("✅ Setting formStatusStats:", statsData);
+          setFormStatusStats(statsData);
+        } else {
+          console.error("❌ Invalid stats data structure:", statsData);
+        }
+      } catch (error: any) {
+        console.error("❌ Error fetching form status statistics:", error);
+        console.error("❌ Error details:", {
+          message: error?.message,
+          response: error?.response,
+          data: error?.response?.data,
+        });
+        // Don't show error toast, just log it
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchFormStatusStats();
+  }, [user?.role, submission]);
+
+  // Debug: Log when formStatusStats changes
+  useEffect(() => {
+    console.log("🔄 formStatusStats state changed:", formStatusStats);
+  }, [formStatusStats]);
+
+  // Listen for indicator status updates to reload form statistics
+  useEffect(() => {
+    const handleIndicatorStatusUpdate = async (event: CustomEvent) => {
+      console.log("🔄 Indicator status updated, reloading form statistics:", event.detail);
+      
+      if (user?.role !== "MOSPI_APPROVER") {
+        return;
+      }
+
+      const currentFormId = submission?.formId || submission?.id;
+      if (!currentFormId) {
+        console.log("⚠️ No formId available for statistics reload");
+        return;
+      }
+
+      // Small delay to ensure backend has processed the update
+      setTimeout(async () => {
+        try {
+          setLoadingStats(true);
+          console.log("📊 Reloading form status statistics after indicator update for formId:", currentFormId);
+          const response = await getFormStatusStatistics(currentFormId);
+          
+          // Handle different response structures
+          let statsData: any = null;
+          
+          if (response?.status && response?.data) {
+            statsData = response.data;
+          } else if ((response as any)?.formId) {
+            statsData = response;
+          } else if ((response as any)?.data?.formId) {
+            statsData = (response as any).data;
+          }
+          
+          if (statsData && statsData.formId) {
+            console.log("✅ Reloaded form status statistics:", statsData);
+            setFormStatusStats(statsData);
+          }
+        } catch (error: any) {
+          console.error("❌ Error reloading form status statistics:", error);
+        } finally {
+          setLoadingStats(false);
+        }
+      }, 500); // 500ms delay to ensure backend has processed the update
+    };
+
+    // Listen for custom event when indicator status is updated
+    window.addEventListener(
+      "ministry-indicator-status-updated",
+      handleIndicatorStatusUpdate as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "ministry-indicator-status-updated",
+        handleIndicatorStatusUpdate as EventListener
+      );
+    };
+  }, [user?.role, submission?.formId, submission?.id]);
 
   const loadSubmission = async () => {
     try {
@@ -124,7 +279,7 @@ export function MinistryFormReviewSubmissionPage() {
   };
 
   const handleBack = () => {
-    navigate('/ministry/review-submissions');
+    navigate('/data-submission/review');
   };
 
   const statusConfig: Record<string, { label: string; badgeClass: string }> = {
@@ -186,6 +341,136 @@ export function MinistryFormReviewSubmissionPage() {
 
   const ministryName = submission.user?.ministryName || 'N/A';
   const submissionId = submission.submissionId || 'N/A';
+  const formId = submission.formId || submission.id;
+
+  // Handle MOSPI Reviewer action: Send to Approver
+  const handleSendToApprover = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("📤 Sending to Approver, formId:", formId);
+      
+      await submitMospiFormAction(formId, "submit-to-approver");
+      
+      toast({
+        title: "Success",
+        description: "Submission sent to Approver successfully",
+      });
+      
+      // Reload submission to reflect status change
+      await loadSubmission();
+      
+      // Reload form status statistics for MOSPI Approver
+      if (isMospiApprover && formId) {
+        try {
+          const response = await getFormStatusStatistics(formId);
+          if (response?.status && response?.data) {
+            setFormStatusStats(response.data);
+          }
+        } catch (error) {
+          console.error("Error reloading form status statistics:", error);
+        }
+      }
+    } catch (error: any) {
+      console.error("❌ Error sending to approver:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to send to approver",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle MOSPI Approver action: Send Back
+  const handleSendBack = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("📤 Sending back, formId:", formId);
+      
+      await submitMospiFormAction(formId, "send-back");
+      
+      toast({
+        title: "Success",
+        description: "Submission sent back successfully",
+      });
+      
+      // Reload submission to reflect status change
+      await loadSubmission();
+      
+      // Reload form status statistics for MOSPI Approver
+      if (isMospiApprover && formId) {
+        try {
+          const response = await getFormStatusStatistics(formId);
+          if (response?.status && response?.data) {
+            setFormStatusStats(response.data);
+          }
+        } catch (error) {
+          console.error("Error reloading form status statistics:", error);
+        }
+      }
+    } catch (error: any) {
+      console.error("❌ Error sending back:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to send back",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle MOSPI Approver action: Submit (Accept)
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("📤 Submitting (Accepting), formId:", formId);
+      
+      await submitMospiFormAction(formId, "accept");
+      
+      toast({
+        title: "Success",
+        description: "Submission accepted successfully",
+      });
+      
+      // Reload submission to reflect status change
+      await loadSubmission();
+      
+      // Reload form status statistics for MOSPI Approver
+      if (isMospiApprover && formId) {
+        try {
+          const response = await getFormStatusStatistics(formId);
+          if (response?.status && response?.data) {
+            setFormStatusStats(response.data);
+          }
+        } catch (error) {
+          console.error("Error reloading form status statistics:", error);
+        }
+      }
+    } catch (error: any) {
+      console.error("❌ Error accepting submission:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || error?.message || "Failed to accept submission",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Check if user is MOSPI Reviewer or Approver
+  const isMospiReviewer = user?.role === "MOSPI_REVIEWER";
+  const isMospiApprover = user?.role === "MOSPI_APPROVER";
+  
+  // Debug: Log user role to verify
+  console.log("🔍 MinistryFormReviewSubmissionPage - User:", user);
+  console.log("🔍 User role:", user?.role);
+  console.log("🔍 isMospiReviewer:", isMospiReviewer);
+  console.log("🔍 isMospiApprover:", isMospiApprover);
+  console.log("🔍 formId:", formId);
+  console.log("🔍 submission:", submission);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -215,10 +500,147 @@ export function MinistryFormReviewSubmissionPage() {
               </p>
             </div>
 
-            {/* Status Badge */}
-            <Badge variant="outline" className={`${config.badgeClass} text-xs font-medium px-3 py-1`}>
-              {config.label}
-            </Badge>
+            {/* Status Badge and Action Buttons */}
+            <div className="flex items-center gap-3">
+              {/* Status Badge */}
+              <Badge variant="outline" className={`${config.badgeClass} text-xs font-medium px-3 py-1`}>
+                {config.label}
+              </Badge>
+              
+              {/* Action Buttons - MOSPI Reviewer */}
+              {isMospiReviewer && (
+                <Button
+                  onClick={handleSendToApprover}
+                  disabled={isSubmitting || submission?.status !== "SUBMITTED_TO_MOSPI_REVIEWER"}
+                  className="flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send to Approver
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              {/* Action Buttons - MOSPI Approver */}
+              {isMospiApprover && (() => {
+                // First check: If formStatus is not SUBMITTED_TO_MOSPI_APPROVER, disable both buttons
+                const isCorrectStatus = submission?.status === "SUBMITTED_TO_MOSPI_APPROVER";
+                
+                if (!isCorrectStatus) {
+                  console.log("⚠️ Disabling buttons: formStatus is not SUBMITTED_TO_MOSPI_APPROVER", {
+                    currentStatus: submission?.status,
+                    requiredStatus: "SUBMITTED_TO_MOSPI_APPROVER",
+                  });
+                }
+                
+                // Calculate button enable/disable logic based on form status statistics
+                let isSubmitEnabled = false;
+                let isSendBackEnabled = false;
+                
+                console.log("🔍 Button Logic - formStatusStats:", formStatusStats);
+                console.log("🔍 Button Logic - submission status:", submission?.status);
+                
+                if (formStatusStats && isCorrectStatus) {
+                  const { total, totalSentBack, totalApproved, totalSubmitted } = formStatusStats;
+                  
+                  console.log("🔍 Button Logic - Stats:", {
+                    total,
+                    totalSentBack,
+                    totalApproved,
+                    totalSubmitted,
+                  });
+                  
+                  // If totalSubmitted !== total, disable both buttons
+                  if (totalSubmitted !== total) {
+                    console.log("⚠️ Disabling both: totalSubmitted !== total");
+                    isSubmitEnabled = false;
+                    isSendBackEnabled = false;
+                  } else {
+                    // If totalSubmitted === total:
+                    // - Submit enabled when totalApproved === total
+                    isSubmitEnabled = totalApproved === total;
+                    
+                    // - Send Back enabled when totalSentBack !== 0
+                    isSendBackEnabled = totalSentBack !== 0;
+                    
+                    console.log("✅ Button states:", {
+                      isSubmitEnabled,
+                      isSendBackEnabled,
+                      reason: {
+                        submit: totalApproved === total ? "All approved" : `${totalApproved}/${total} approved`,
+                        sendBack: totalSentBack !== 0 ? `Has ${totalSentBack} sent back` : "No sent back items",
+                      },
+                    });
+                  }
+                } else {
+                  if (!isCorrectStatus) {
+                    console.log("⚠️ Buttons disabled: formStatus is not SUBMITTED_TO_MOSPI_APPROVER");
+                  } else {
+                    console.log("⚠️ formStatusStats is null/undefined");
+                  }
+                }
+                
+                // Final disabled state: combine status check with stats logic
+                const sendBackDisabled = isSubmitting || !isCorrectStatus || !isSendBackEnabled;
+                const submitDisabled = isSubmitting || !isCorrectStatus || !isSubmitEnabled;
+                
+                console.log("🔍 Final button disabled states:", {
+                  isSubmitting,
+                  isCorrectStatus,
+                  isSendBackEnabled,
+                  isSubmitEnabled,
+                  sendBackDisabled,
+                  submitDisabled,
+                });
+                
+                return (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleSendBack}
+                      disabled={sendBackDisabled}
+                      variant="outline"
+                      className="flex items-center gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="w-4 h-4" />
+                          Send Back
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={submitDisabled}
+                      className="flex items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Submit
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </CardContent>
       </Card>

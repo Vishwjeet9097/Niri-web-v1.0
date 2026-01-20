@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Clock, User, MessageSquare } from "lucide-react";
+import { Clock, User, MessageSquare, Loader2 } from "lucide-react";
 
 interface Comment {
   role: string;
@@ -29,6 +29,7 @@ interface TimelineModalProps {
   sectionId: string;
   sectionTitle: string;
   comments: Comment[];
+  isLoading?: boolean;
 }
 
 export const TimelineModal = ({
@@ -37,32 +38,51 @@ export const TimelineModal = ({
   sectionId,
   sectionTitle,
   comments,
+  isLoading = false,
 }: TimelineModalProps) => {
   const [filteredComments, setFilteredComments] = useState<Comment[]>([]);
+  const hasLoadedOnce = useRef(false);
+  const currentSectionRef = useRef<string>("");
 
   useEffect(() => {
-    // Debug logging removed for performance
+    // Reset hasLoadedOnce when modal opens/closes or section changes
+    if (!isOpen) {
+      hasLoadedOnce.current = false;
+      currentSectionRef.current = "";
+      setFilteredComments([]);
+      return;
+    }
 
-    // Debug logging removed for performance
+    // Reset if section changed
+    if (currentSectionRef.current !== sectionId) {
+      hasLoadedOnce.current = false;
+      currentSectionRef.current = sectionId;
+      setFilteredComments([]);
+    }
 
-    // Debug logging removed for performance
+    // If loading, don't update filtered comments yet
+    if (isLoading) {
+      setFilteredComments([]);
+      return;
+    }
+
+    // Mark that we've loaded at least once for this section
+    hasLoadedOnce.current = true;
 
     // Filter comments for the specific section
-    const sectionComments = comments.filter(comment => comment.sectionId === sectionId);
-    // Debug logging removed for performance
-
-    // Debug logging removed for performance
+    const sectionComments = comments.filter(comment => {
+      const matches = comment.sectionId === sectionId;
+      console.log("[TimelineModal] Comment sectionId:", comment.sectionId, "matches:", matches);
+      return matches;
+    });
 
     // Sort by timestamp (newest first)
     const sortedComments = sectionComments.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-    // Debug logging removed for performance
-
-    // Debug logging removed for performance
-
+    
     setFilteredComments(sortedComments);
-  }, [comments, sectionId]);
+  }, [comments, sectionId, isLoading, isOpen]);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -74,6 +94,8 @@ export const TimelineModal = ({
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "NODAL_OFFICER":
         return "bg-orange-100 text-orange-800 border-orange-200";
+      case "MINISTRY_APPROVER":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -89,6 +111,8 @@ export const TimelineModal = ({
         return "MoSPI Approver";
       case "NODAL_OFFICER":
         return "Nodal Officer";
+      case "MINISTRY_APPROVER":
+        return "Ministry Approver";
       default:
         return role.replace('_', ' ');
     }
@@ -124,7 +148,12 @@ export const TimelineModal = ({
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">
-          {filteredComments.length === 0 ? (
+          {isLoading || !hasLoadedOnce.current ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+              <p>Loading comments...</p>
+            </div>
+          ) : filteredComments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No comments available for this section</p>

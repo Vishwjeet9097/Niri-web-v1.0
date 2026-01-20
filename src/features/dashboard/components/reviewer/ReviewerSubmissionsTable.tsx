@@ -20,6 +20,7 @@ export default function ReviewerSubmissionsTable({
 }: ReviewerSubmissionsTableProps = {}) {
   const { user } = useAuth();
   const [selectedState, setSelectedState] = useState("All");
+  const [selectedMinistry, setSelectedMinistry] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,12 @@ export default function ReviewerSubmissionsTable({
   const displaySubmissions =
     propSubmissions !== undefined ? propSubmissions : submissions;
   const displayLoading = propLoading !== undefined ? propLoading : loading;
+
+  // Reset filters when tab changes
+  useEffect(() => {
+    setSelectedState("All");
+    setSelectedMinistry("All");
+  }, [activeTab]);
 
   useEffect(() => {
     // Only load if props are not provided
@@ -85,7 +92,34 @@ export default function ReviewerSubmissionsTable({
     // This includes submissions at all stages (reviewer, approver, approved, rejected, etc.)
     const statusMatch = submission.status; // Show all statuses
 
-    // State filter
+    // For ministry tab, filter by ministry
+    if (activeTab === "ministry") {
+      const ministryMatch =
+        selectedMinistry === "All" ||
+        submission.user?.ministryName === selectedMinistry ||
+        submission.ministryName === selectedMinistry;
+
+      // Search filter
+      const searchMatch =
+        !searchQuery ||
+        submission.submissionId
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        submission.user?.ministryName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.user?.ministry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.user?.firstName
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        submission.user?.lastName
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        submission.status?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.formStatus?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return statusMatch && ministryMatch && searchMatch;
+    }
+
+    // For state tab, filter by state
     const stateMatch =
       selectedState === "All" || submission.stateUt === selectedState;
 
@@ -107,11 +141,25 @@ export default function ReviewerSubmissionsTable({
     return statusMatch && stateMatch && searchMatch;
   });
 
-  // Get unique states for filter
-  const states = [
-    "All",
-    ...Array.from(new Set(displaySubmissions.map((s) => s.stateUt))),
-  ];
+  // Get unique states for filter (only for state tab)
+  const states = activeTab === "ministry" 
+    ? ["All"]
+    : [
+        "All",
+        ...Array.from(new Set(displaySubmissions.map((s) => s.stateUt).filter(Boolean))),
+      ];
+
+  // Get unique ministries for filter (only for ministry tab)
+  const ministries = activeTab === "state"
+    ? ["All"]
+    : [
+        "All",
+        ...Array.from(new Set(
+          displaySubmissions
+            .map((s) => s.user?.ministryName || s.ministryName)
+            .filter(Boolean)
+        )),
+      ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -173,26 +221,50 @@ export default function ReviewerSubmissionsTable({
               className="pl-10 pr-4 py-2 border rounded-md text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div>
-            <label
-              htmlFor="state-filter"
-              className="mr-2 text-sm text-gray-600"
-            >
-              States
-            </label>
-            <select
-              id="state-filter"
-              className="border rounded px-2 py-1 text-sm"
-              value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
-            >
-              {states.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
-            </select>
-          </div>
+          {activeTab === "state" && (
+            <div>
+              <label
+                htmlFor="state-filter"
+                className="mr-2 text-sm text-gray-600"
+              >
+                States
+              </label>
+              <select
+                id="state-filter"
+                className="border rounded px-2 py-1 text-sm"
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+              >
+                {states.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {activeTab === "ministry" && (
+            <div>
+              <label
+                htmlFor="ministry-filter"
+                className="mr-2 text-sm text-gray-600"
+              >
+                Ministry
+              </label>
+              <select
+                id="ministry-filter"
+                className="border rounded px-2 py-1 text-sm min-w-[150px]"
+                value={selectedMinistry}
+                onChange={(e) => setSelectedMinistry(e.target.value)}
+              >
+                {ministries.map((ministry) => (
+                  <option key={ministry} value={ministry}>
+                    {ministry}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
       <p className="text-sm text-muted-foreground mb-2">

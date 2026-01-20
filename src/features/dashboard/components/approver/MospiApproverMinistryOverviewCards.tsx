@@ -185,7 +185,9 @@ export const MospiApproverMinistryOverviewCards = ({
               const newTitle = selectedCardTitle === "Under Review" ? null : "Under Review";
               setSelectedCardTitle(newTitle);
               onCardTitleChange?.(newTitle);
-              onStatusFilterChange?.(newTitle ? "UNDER_REVIEW" : null);
+              // For ministry submissions, use card title for client-side filtering
+              // Status value is not used for API calls in ministry tab
+              onStatusFilterChange?.(newTitle ? "Under Review" : null);
             }}
             isSelected={selectedCardTitle === "Under Review"}
           />

@@ -16,12 +16,15 @@ export const useEditableSectionStore = create<EditableSectionStore>((set, get) =
   editableSections: [],
   
   setEditable: (sectionId: string, isEditing: boolean) => {
-    set((state) => ({
-      editableSections: [
+    console.log(`[EditableSectionStore] Setting section ${sectionId} to isEditing=${isEditing}`);
+    set((state) => {
+      const newSections = [
         ...state.editableSections.filter(section => section.sectionId !== sectionId),
         { sectionId, isEditing }
-      ]
-    }));
+      ];
+      console.log(`[EditableSectionStore] Updated editableSections:`, newSections);
+      return { editableSections: newSections };
+    });
   },
 
   isEditable: (sectionId: string) => {
