@@ -19,7 +19,7 @@ import {
 } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
-import { getMinistryFormIndicators, getRemainingMinistryIndicators, minstryRegistrationForm, reassignIndicatorsToNodal } from "@/services/ministry.service";
+import { getMinistryFormIndicators, getRemainingMinistryIndicators, minstryRegistrationForm, reassignIndicatorsToNodal, removeAssignedIndicators } from "@/services/ministry.service";
 import { EmptyState } from "./components/EmptyState";
 import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
@@ -148,26 +148,49 @@ export function UserManagementPage() {
  
         // Transform backend users to NodalOfficer format
         let transformedOfficers: NodalOfficer[] = backendUsers.map(
-          (user: any) => ({
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            contactNumber: user.contactNumber || "",
-            email: user.email,
-            role: user.role as
-              | "NODAL_OFFICER"
-              | "STATE_APPROVER"
-              | "MOSPI_REVIEWER"
-              | "MOSPI_APPROVER"
-            | "MINISTRY_APPROVER",
-            state: user.stateUt || user.state || "",
-            stateId: user.stateId || "",
-            assignedIndicator: user.assignedIndicator,
-            assignedIndicators: user.assignedIndicators || [],
-            isActive: user.isActive,
-            ministryId: user.ministryId,
-          createdAt: new Date(user.createdAt).getTime(),
-          })
+          (user: any) => {
+            // Extract indicator codes from assignedIndicators array
+            // Backend returns array of objects with {code, name} or array of strings
+            let indicatorCodes: string[] = [];
+            if (user.assignedIndicators && Array.isArray(user.assignedIndicators)) {
+              console.log('[loadOfficers] User assignedIndicators raw data:', user.id, user.assignedIndicators);
+              indicatorCodes = user.assignedIndicators.map((ind: any) => {
+                // If it's an object, extract the code property
+                if (typeof ind === 'object' && ind !== null) {
+                  const code = ind.code || ind.id || ind.value || String(ind);
+                  console.log('[loadOfficers] Extracted code from object:', code, ind);
+                  return code;
+                }
+                // If it's already a string, use it directly
+                console.log('[loadOfficers] Using string directly:', ind);
+                return String(ind);
+              }).filter((code: string) => code && code.trim() !== '');
+              console.log('[loadOfficers] Final indicator codes for user:', user.id, indicatorCodes);
+            } else {
+              console.log('[loadOfficers] No assignedIndicators or not an array for user:', user.id, user.assignedIndicators);
+            }
+            
+            return {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              contactNumber: user.contactNumber || "",
+              email: user.email,
+              role: user.role as
+                | "NODAL_OFFICER"
+                | "STATE_APPROVER"
+                | "MOSPI_REVIEWER"
+                | "MOSPI_APPROVER"
+              | "MINISTRY_APPROVER",
+              state: user.stateUt || user.state || "",
+              stateId: user.stateId || "",
+              assignedIndicator: user.assignedIndicator,
+              assignedIndicators: indicatorCodes,
+              isActive: user.isActive,
+              ministryId: user.ministryId,
+              createdAt: new Date(user.createdAt).getTime(),
+            };
+          }
         );
 
         // For MINISTRY_APPROVER: Filter to show only NODAL_OFFICER users assigned to their ministry
@@ -320,144 +343,337 @@ export function UserManagementPage() {
 
   // Ministry Approver: Edit handler (fetch assignable indicators)
   const handleMinistryEditUser = async (officer: NodalOfficer) => {
-  setEditingOfficer(officer);
-  setShowForm(true);   
+    setEditingOfficer(officer);
+    setShowForm(true);   
 
-  if (officer?.id) {
-    try {
-      // Get remaining indicators for this nodal officer (these should be checked/selected)
-      let nodalOfficerData = await getRemainingMinistryIndicators(officer.id);
-      // Get ALL indicators (these will all be shown in dropdown)
-      let allDataData = await getRemainingMinistryIndicators(user.id); 
-      
-      // Defensive: Handle response structure for all indicators
-      let allIndicators = allDataData;
-      if (allDataData && typeof allDataData === 'object' && allDataData.status && allDataData.data) {
-        allIndicators = allDataData.data;
-      }
-      
-      // Defensive: Handle response structure for remaining indicators
-      let remainingIndicators = nodalOfficerData;
-      if (nodalOfficerData && typeof nodalOfficerData === 'object' && nodalOfficerData.status && nodalOfficerData.data) {
-        remainingIndicators = nodalOfficerData.data;
-      }
-      
-      // Flatten all indicators into array (these will all be shown in dropdown)
-      let allFlat: any[] = [];
-      if (Array.isArray(allIndicators)) {
-        allFlat = allIndicators;
-      } else if (allIndicators && typeof allIndicators === 'object') {
-        Object.entries(allIndicators).forEach(([section, arr]) => {
-          if (Array.isArray(arr)) {
-            arr.forEach((item) => {
-              if (item && typeof item === 'object') {
-                allFlat.push({ ...item, section });
-              }
-            });
-          }
-        });
-      }
-      
-      // Flatten remaining indicators into array (these match what should be checked)
-      let remainingFlat: any[] = [];
-      if (Array.isArray(remainingIndicators)) {
-        remainingFlat = remainingIndicators;
-      } else if (remainingIndicators && typeof remainingIndicators === 'object') {
-        Object.entries(remainingIndicators).forEach(([section, arr]) => {
-          if (Array.isArray(arr)) {
-            arr.forEach((item) => {
-              if (item && typeof item === 'object') {
-                remainingFlat.push({ ...item, section });
-              }
-            });
-          }
-        });
-      }
-      
-      // Merge both datasets (allDataData and nodalOfficerData) into dropdown
-      // Use a Map to avoid duplicates based on identifier (id, code, or value)
-      const mergedMap = new Map<string, any>();
-      
-      // Add all indicators from allDataData
-      allFlat.forEach((item) => {
-        if (item && typeof item === 'object') {
-          const id = item.id || item.code || item.value || '';
-          if (id && !mergedMap.has(String(id))) {
-            mergedMap.set(String(id), item);
-          }
+    if (officer?.id && user?.id) {
+      try {
+        // When editing a nodal officer, we need:
+        // 1. All indicators from ministry approver (to show in dropdown)
+        // 2. Indicators assigned to this nodal officer (to mark as selected)
+        // 3. Indicators assigned to OTHER nodals (to exclude them)
+        // 4. Submitted status for assigned indicators (to disable them)
+        
+        // Get all indicators for the ministry approver
+        const ministryIndicatorsResponse = await getRemainingMinistryIndicators(user.id);
+        
+        // Get indicators for the nodal officer (to check assigned and submitted status)
+        const nodalIndicatorsResponse = await getRemainingMinistryIndicators(officer.id);
+        
+        // Extract data from responses
+        let ministryIndicatorsData = ministryIndicatorsResponse;
+        if (ministryIndicatorsResponse && typeof ministryIndicatorsResponse === 'object' && 'data' in ministryIndicatorsResponse) {
+          ministryIndicatorsData = ministryIndicatorsResponse.data;
         }
-      });
-      
-      // Add indicators from nodalOfficerData (will overwrite duplicates if any)
-      remainingFlat.forEach((item) => {
-        if (item && typeof item === 'object') {
-          const id = item.id || item.code || item.value || '';
-          if (id) {
-            mergedMap.set(String(id), item);
-          }
+        
+        let nodalIndicatorsData = nodalIndicatorsResponse;
+        if (nodalIndicatorsResponse && typeof nodalIndicatorsResponse === 'object' && 'data' in nodalIndicatorsResponse) {
+          nodalIndicatorsData = nodalIndicatorsResponse.data;
         }
-      });
-      
-      // Convert merged map back to array
-      const mergedFlat = Array.from(mergedMap.values());
-      
-      // Create a set of identifiers from remaining indicators (nodalOfficerData) for matching
-      // These are the indicators that exist for this nodal officer - they should be disabled
-      const remainingIds = new Set<string>();
-      remainingFlat.forEach((item) => {
-        if (item && typeof item === 'object') {
-          const id = item.id || item.code || item.value || '';
-          if (id) {
-            remainingIds.add(String(id));
-          }
+        
+        // Flatten ministry indicators (all available indicators)
+        let allIndicatorsFlat: any[] = [];
+        if (Array.isArray(ministryIndicatorsData)) {
+          allIndicatorsFlat = ministryIndicatorsData;
+        } else if (ministryIndicatorsData && typeof ministryIndicatorsData === 'object') {
+          Object.entries(ministryIndicatorsData).forEach(([category, arr]) => {
+            if (Array.isArray(arr)) {
+              arr.forEach((item) => {
+                if (item && typeof item === 'object') {
+                  allIndicatorsFlat.push({ ...item, section: category, category });
+                }
+              });
+            }
+          });
         }
-      });
-      
-      // Format ALL indicators (merged from allDataData and nodalOfficerData) for MultiSelect
-      // ALL indicators from both datasets will be shown in dropdown
-      // Only matched indicators (those in nodalOfficerData) will be selected/checked
-      // All indicators are enabled (not disabled) so users can interact with them
-      const formattedAllIndicators = mergedFlat
-        .filter((item) => item && typeof item === 'object') // Safety filter
-        .map((item) => {
-          const value = item.id || item.code || item.value || '';
-          // Check if this indicator exists in nodalOfficerData (remaining indicators)
-          // If it exists, it means it's already assigned to this officer, so select it
-          const isMatched = value && remainingIds.has(String(value));
+        
+        // Flatten nodal indicators (assigned indicators with status)
+        let assignedIndicatorsFlat: any[] = [];
+        if (Array.isArray(nodalIndicatorsData)) {
+          assignedIndicatorsFlat = nodalIndicatorsData;
+        } else if (nodalIndicatorsData && typeof nodalIndicatorsData === 'object') {
+          Object.entries(nodalIndicatorsData).forEach(([category, arr]) => {
+            if (Array.isArray(arr)) {
+              arr.forEach((item) => {
+                if (item && typeof item === 'object') {
+                  assignedIndicatorsFlat.push({ ...item, section: category, category });
+                }
+              });
+            }
+          });
+        }
+        
+        console.log('[handleMinistryEditUser] assignedIndicatorsFlat from nodal API:', assignedIndicatorsFlat);
+        console.log('[handleMinistryEditUser] allIndicatorsFlat from ministry API:', allIndicatorsFlat.length);
+        
+        const ministryUserIdStr = String(user.id).trim();
+        const nodalOfficerIdStr = String(officer.id).trim();
+        
+        console.log('[handleMinistryEditUser] Filtering indicators - ministryUserId:', ministryUserIdStr, 'nodalOfficerId:', nodalOfficerIdStr);
+        console.log('[handleMinistryEditUser] Sample of allIndicatorsFlat (first 5):', allIndicatorsFlat.slice(0, 5).map(item => ({
+          id: item.id || item.code,
+          assignedTo: item.assignedTo,
+          status: item.indicatorStatus || item.status
+        })));
+        
+        // Helper function to check if status indicates indicator has been submitted to ministry level or beyond
+        // Only these statuses should prevent reassignment by ministry approver
+        const isIndicatorSubmittedToMinistry = (status: string | null): boolean => {
+          if (!status) return false;
+          const upperStatus = String(status).trim().toUpperCase();
           
-          return {
-            value: value || '',
-            label: `${item.sNo ? item.sNo + ' - ' : ''}${item.name || item.label || item.code || ''}`,
-            section: item.category || item.section || item.section || '',
-            description: item.description || '',
-            // All indicators are enabled (not disabled) - users can select/deselect any
-            disabled: false,
-            // Add a flag to identify matched indicators (these will be checked/selected)
-            _isMatched: isMatched,
+          // Statuses that indicate submission to ministry or beyond - these should be disabled
+          const submittedStatuses = [
+            'SUBMITTED_TO_MINISTRY',
+            'ACCEPTED_BY_MINISTRY',
+            'SUBMITTED_TO_MOSPI_REVIEWER',
+            'SUBMITTED_TO_MOSPI_APPROVER',
+            'ACCEPTED_BY_MOSPI',
+            'APPROVED',
+            'SUBMITTED_TO_MOSPI',
+            'REVERTED', // Reverted indicators should not be reassignable
+            'RESUBMITTED', // Resubmitted indicators should not be reassignable
+          ];
+          
+          return submittedStatuses.includes(upperStatus);
+        };
+        
+        // Create a map of indicators assigned to THIS nodal officer with their status
+        // Check both the nodal indicators response AND the assignedTo field in ministry indicators
+        const thisNodalAssignedMap = new Map<string, { isSelected: boolean; isSubmitted: boolean; status: string | null }>();
+        
+        // Helper function to add indicator to map with all possible keys
+        const addToMap = (item: any, isSelected: boolean) => {
+          const itemId = item.id || '';
+          const itemCode = item.code || '';
+          const itemValue = item.value || '';
+          const status = item.indicatorStatus || item.status || null;
+          const isSubmitted = isIndicatorSubmittedToMinistry(status);
+          
+          const assignedInfo = {
+            isSelected: isSelected,
+            isSubmitted: isSubmitted,
+            status: status,
           };
-        })
-        .filter((item) => item.value !== ''); // Remove items without valid values
-      
-      // Set all indicators as options (all will be shown in dropdown)
-      // All indicators from getMinistryFormIndicators() are included
-      // Only matched ones (from getRemainingMinistryIndicators) are disabled
-      setMinistryAssignableIndicators(Array.isArray(formattedAllIndicators) ? formattedAllIndicators : []);
-      
-    } catch (err) {
-      console.error('Error in handleMinistryEditUser:', err);
-      setMinistryAssignableIndicators([]);
-      if (toast) {
-        toast({
-          title: 'Unexpected Error',
-          description: 'An unexpected error occurred while loading ministry indicators. Please try again or contact support.',
-          variant: 'destructive',
+          
+          // Store with all possible identifier formats to ensure we can find it later
+          if (itemId) {
+            thisNodalAssignedMap.set(String(itemId).trim(), assignedInfo);
+          }
+          if (itemCode) {
+            thisNodalAssignedMap.set(String(itemCode).trim(), assignedInfo);
+          }
+          if (itemValue) {
+            thisNodalAssignedMap.set(String(itemValue).trim(), assignedInfo);
+          }
+          // Also store with the primary identifier (id > code > value)
+          const primaryId = itemId || itemCode || itemValue || '';
+          if (primaryId) {
+            thisNodalAssignedMap.set(String(primaryId).trim(), assignedInfo);
+          }
+        };
+        
+        // First, check the nodal indicators response
+        assignedIndicatorsFlat.forEach((item) => {
+          addToMap(item, true);
         });
+        
+        // Also check the ministry indicators response for assignedTo field
+        console.log('[handleMinistryEditUser] Checking assignedTo field in ministry indicators, officer.id:', officer.id);
+        allIndicatorsFlat.forEach((item) => {
+          const assignedTo = item.assignedTo || null;
+          const assignedToStr = assignedTo ? String(assignedTo).trim() : '';
+          
+          // Debug logging
+          if (assignedToStr) {
+            const indicatorId = item.id || item.code || item.value || '';
+            console.log(`[handleMinistryEditUser] Indicator ${indicatorId}: assignedTo=${assignedToStr}, officer.id=${nodalOfficerIdStr}, match=${assignedToStr === nodalOfficerIdStr}`);
+          }
+          
+          // If assignedTo matches this nodal officer, mark as assigned
+          if (assignedToStr && assignedToStr === nodalOfficerIdStr) {
+            const indicatorId = item.id || item.code || item.value || '';
+            console.log(`[handleMinistryEditUser] ✓ Marking indicator ${indicatorId} as assigned to this nodal`);
+            addToMap(item, true);
+          }
+        });
+        
+        console.log('[handleMinistryEditUser] thisNodalAssignedMap:', Array.from(thisNodalAssignedMap.entries()));
+        
+        // Filter indicators to only show those assigned to ministry user (for reassignment)
+        // Show indicators where:
+        // 1. assignedTo === nodalOfficerId (assigned to this nodal officer - always show for preselection)
+        // 2. assignedTo === ministryUserId (assigned to ministry user) AND status is null or "DRAFT"
+        // 3. assignedTo is null/empty (unassigned indicators) AND indicatorStatus is null or "DRAFT"
+        // Exclude indicators assigned to other nodal officers
+        const ministryUserIndicators = allIndicatorsFlat.filter((item) => {
+          const assignedTo = item.assignedTo || null;
+          const assignedToStr = assignedTo ? String(assignedTo).trim() : '';
+          // Get indicatorStatus first (submission status), fallback to status (indicator detail status)
+          const indicatorStatus = item.indicatorStatus || null;
+          const indicatorDetailStatus = item.status || null;
+          const indicatorId = item.id || item.code || item.value || '';
+          
+          // Check if indicatorStatus is null or DRAFT
+          // Note: indicatorDetailStatus (item.status) being true/false indicates if the indicator is active, not submission status
+          // We only care about indicatorStatus (submission status) for filtering
+          let statusStr = '';
+          if (indicatorStatus !== null && indicatorStatus !== undefined) {
+            statusStr = String(indicatorStatus).trim().toUpperCase();
+          }
+          
+          // Valid statuses: null, undefined, empty string, or "DRAFT"
+          // Boolean true for indicatorDetailStatus should not affect filtering (that's just if indicator is active)
+          const isValidStatus = statusStr === '' || statusStr === 'DRAFT';
+          
+          // Always show indicators assigned to this nodal officer (for preselection)
+          if (assignedToStr && assignedToStr === nodalOfficerIdStr) {
+            console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - assigned to this nodal officer`);
+            return true;
+          }
+          
+          // Show indicators assigned to ministry user, but only if indicatorStatus is null or "DRAFT"
+          if (assignedToStr && assignedToStr === ministryUserIdStr) {
+            if (isValidStatus) {
+              console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - assigned to ministry user (${assignedToStr}) with indicatorStatus: ${statusStr || 'null'}`);
+              return true;
+            } else {
+              console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - assigned to ministry user (${assignedToStr}) but indicatorStatus is: ${statusStr}`);
+              return false;
+            }
+          }
+          
+          // Show unassigned indicators (assignedTo is null/empty) - these are also ministry user's indicators
+          // But only if indicatorStatus is null or "DRAFT"
+          if (!assignedToStr || assignedToStr === '') {
+            if (isValidStatus) {
+              console.log(`[handleMinistryEditUser] ✓ Including indicator ${indicatorId} - unassigned with indicatorStatus: ${statusStr || 'null'}`);
+              return true;
+            } else {
+              console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - unassigned but indicatorStatus is: ${statusStr}`);
+              return false;
+            }
+          }
+          
+          // Exclude indicators assigned to other nodal officers (or anyone else)
+          if (assignedToStr && assignedToStr !== '' && assignedToStr !== ministryUserIdStr && assignedToStr !== nodalOfficerIdStr) {
+            console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - assigned to other user: ${assignedToStr} (not ministry: ${ministryUserIdStr}, not nodal: ${nodalOfficerIdStr})`);
+            return false;
+          }
+          
+          // Should not reach here, but exclude by default
+          console.log(`[handleMinistryEditUser] ✗ Excluding indicator ${indicatorId} - no matching condition (assignedTo: ${assignedToStr}, indicatorStatus: ${statusStr})`);
+          return false;
+        });
+        
+        console.log('[handleMinistryEditUser] Filtered ministry user indicators:', ministryUserIndicators.length);
+        console.log('[handleMinistryEditUser] Indicators assigned to this nodal:', thisNodalAssignedMap.size);
+        
+        // Format indicators for MultiSelect:
+        // - Only show indicators assigned to ministry user or this nodal officer (for reassignment)
+        // - Mark indicators assigned to this nodal officer as selected
+        // - Mark submitted ones as disabled
+        const formattedIndicators = ministryUserIndicators
+          .filter((item) => {
+            if (!item || typeof item !== 'object') return false;
+            const value = item.id || item.code || item.value || '';
+            if (!value) return false;
+            
+            // Include all ministry user indicators (already filtered above)
+            return true;
+          })
+          .map((item) => {
+            // Extract value - use consistent format (id, code, or value)
+            const itemId = item.id || '';
+            const itemCode = item.code || '';
+            const itemValue = item.value || '';
+            // Prioritize id, then code, then value
+            const value = itemId || itemCode || itemValue || '';
+            const valueStr = String(value).trim();
+            
+            const sNo = item.sNo || '';
+            const name = item.name || item.label || item.code || '';
+            const section = item.category || item.section || '';
+            
+            // Check if this indicator is assigned to the nodal officer
+            // Try multiple key formats to ensure we find it
+            let assignedInfo = thisNodalAssignedMap.get(valueStr);
+            if (!assignedInfo && itemId) {
+              assignedInfo = thisNodalAssignedMap.get(String(itemId).trim());
+            }
+            if (!assignedInfo && itemCode) {
+              assignedInfo = thisNodalAssignedMap.get(String(itemCode).trim());
+            }
+            
+            const isSelected = assignedInfo?.isSelected || false;
+            const isSubmitted = assignedInfo?.isSubmitted || false;
+            const isDisabled = isSubmitted; // Disable if submitted
+            
+            console.log(`[handleMinistryEditUser] Mapping indicator: value=${valueStr}, isSelected=${isSelected}, assignedInfo:`, assignedInfo);
+            
+            // Add "(Submitted)" to label if submitted
+            const labelText = isSubmitted 
+              ? `${sNo ? sNo + ' - ' : ''}${name} (Submitted)`
+              : `${sNo ? sNo + ' - ' : ''}${name}`;
+            
+            return {
+              value: valueStr,
+              label: labelText,
+              section,
+              description: item.description || '',
+              disabled: isDisabled,
+              isSelected: isSelected, // Explicitly set isSelected flag
+              isSubmitted: isSubmitted,
+            };
+          });
+    
+        console.log('[handleMinistryEditUser] Formatted indicators:', formattedIndicators.length, formattedIndicators);
+        console.log('[handleMinistryEditUser] Indicators with isSelected=true:', formattedIndicators.filter(ind => ind.isSelected));
+        
+        // Fallback: If no indicators are marked as selected, check officer.assignedIndicators
+        const selectedCount = formattedIndicators.filter(ind => ind.isSelected).length;
+        if (selectedCount === 0 && Array.isArray(officer.assignedIndicators) && officer.assignedIndicators.length > 0) {
+          console.log('[handleMinistryEditUser] No indicators marked as selected, using fallback from officer.assignedIndicators:', officer.assignedIndicators);
+          
+          // Create a set of assigned indicator IDs from officer.assignedIndicators
+          const assignedIndicatorIds = new Set<string>();
+          officer.assignedIndicators.forEach((ind: any) => {
+            const value = typeof ind === 'string' ? ind : String(ind?.value || ind?.id || ind?.code || ind || '');
+            if (value) {
+              assignedIndicatorIds.add(value);
+            }
+          });
+          
+          // Update formatted indicators to mark assigned ones as selected
+          const updatedFormattedIndicators = formattedIndicators.map((ind) => {
+            const isAssigned = assignedIndicatorIds.has(ind.value);
+            return {
+              ...ind,
+              isSelected: isAssigned || ind.isSelected, // Mark as selected if in assignedIndicatorIds
+            };
+          });
+          
+          console.log('[handleMinistryEditUser] Updated indicators with fallback:', updatedFormattedIndicators.filter(ind => ind.isSelected));
+          setMinistryAssignableIndicators(updatedFormattedIndicators);
+        } else {
+          setMinistryAssignableIndicators(formattedIndicators);
+        }
+        
+      } catch (err) {
+        console.error('Error in handleMinistryEditUser:', err);
+        setMinistryAssignableIndicators([]);
+        if (toast) {
+          toast({
+            title: 'Unexpected Error',
+            description: 'An unexpected error occurred while loading ministry indicators. Please try again or contact support.',
+            variant: 'destructive',
+          });
+        }
       }
+    } else {
+      setMinistryAssignableIndicators([]);
     }
-  } else {
-    setMinistryAssignableIndicators([]);
-  }
-};
+  };
 
   const handleEditUser = (officer: NodalOfficer) => {
     setEditingOfficer(officer);
@@ -1519,17 +1735,97 @@ export function UserManagementPage() {
               | "MINISTRY_APPROVER",
           } as any);
 
+          // Get currently assigned indicators for this nodal officer
+          // First try from ministryAssignableIndicators state (indicators with isSelected: true)
+          let currentlyAssignedIndicators: string[] = [];
+          
+          // Extract from ministryAssignableIndicators that have isSelected: true
+          if (Array.isArray(ministryAssignableIndicators) && ministryAssignableIndicators.length > 0) {
+            currentlyAssignedIndicators = ministryAssignableIndicators
+              .filter((ind: any) => ind && ind.isSelected === true)
+              .map((ind: any) => String(ind.value || ind.id || ind.code || ''))
+              .filter((val: string) => val !== '');
+          }
+          
+          // Fallback: try from editingOfficer.assignedIndicators
+          if (currentlyAssignedIndicators.length === 0 && editingOfficer.assignedIndicators && Array.isArray(editingOfficer.assignedIndicators)) {
+            editingOfficer.assignedIndicators.forEach((ind: any) => {
+              const value = typeof ind === 'string' ? ind : String(ind?.value || ind?.id || ind?.code || ind || '');
+              if (value) {
+                currentlyAssignedIndicators.push(value);
+              }
+            });
+          }
+          
+          // If still empty, fetch from API to get the latest assigned indicators
+          if (currentlyAssignedIndicators.length === 0 && editingOfficer.id && user?.id) {
+            try {
+              console.log('[handleMinistryIndicatorSaveUser] Fetching currently assigned indicators from API');
+              const nodalIndicatorsResponse = await getRemainingMinistryIndicators(editingOfficer.id);
+              let nodalIndicatorsData = nodalIndicatorsResponse;
+              if (nodalIndicatorsResponse && typeof nodalIndicatorsResponse === 'object' && 'data' in nodalIndicatorsResponse) {
+                nodalIndicatorsData = nodalIndicatorsResponse.data;
+              }
+              
+              // Flatten the response
+              let assignedIndicatorsFlat: any[] = [];
+              if (Array.isArray(nodalIndicatorsData)) {
+                assignedIndicatorsFlat = nodalIndicatorsData;
+              } else if (nodalIndicatorsData && typeof nodalIndicatorsData === 'object') {
+                Object.values(nodalIndicatorsData).forEach((categoryIndicators: any) => {
+                  if (Array.isArray(categoryIndicators)) {
+                    categoryIndicators.forEach((item: any) => {
+                      if (item && typeof item === 'object') {
+                        assignedIndicatorsFlat.push(item);
+                      }
+                    });
+                  }
+                });
+              }
+              
+              // Extract indicator IDs
+              assignedIndicatorsFlat.forEach((item: any) => {
+                const value = item.id || item.code || item.value || '';
+                if (value) {
+                  currentlyAssignedIndicators.push(String(value));
+                }
+              });
+              
+              console.log('[handleMinistryIndicatorSaveUser] Fetched currently assigned indicators from API:', currentlyAssignedIndicators);
+            } catch (error) {
+              console.error('[handleMinistryIndicatorSaveUser] Error fetching assigned indicators:', error);
+            }
+          }
+
+          console.log('[handleMinistryIndicatorSaveUser] Currently assigned indicators:', currentlyAssignedIndicators);
+          
+          const newIndicators = (officerData.ministryAssignedIndicators || []).map((ind: any) => String(ind).trim());
+          console.log('[handleMinistryIndicatorSaveUser] New indicators:', newIndicators);
+          
+          // Normalize both arrays to strings for comparison
+          const normalizedCurrent = currentlyAssignedIndicators.map((ind) => String(ind).trim());
+          const normalizedNew = newIndicators.map((ind) => String(ind).trim());
+          
+          // Find indicators to remove (in current but not in new)
+          const indicatorsToRemove = normalizedCurrent.filter(
+            (ind) => ind && !normalizedNew.includes(ind)
+          );
+          
+          console.log('[handleMinistryIndicatorSaveUser] Indicators to remove:', indicatorsToRemove);
+          console.log('[handleMinistryIndicatorSaveUser] Comparison details:', {
+            normalizedCurrent,
+            normalizedNew,
+            indicatorsToRemoveCount: indicatorsToRemove.length,
+            userId: user?.id
+          });
+
           // If indicators are provided, reassign them
-          if (
-            officerData.ministryAssignedIndicators &&
-            officerData.ministryAssignedIndicators.length > 0 &&
-            user?.id
-          ) {
+          if (newIndicators.length > 0 && user?.id) {
             try {
               await reassignIndicatorsToNodal(
                 editingOfficer.id, // nodalUserId
                 user.id, // ministryUserId
-                officerData.ministryAssignedIndicators // indicatorsId
+                newIndicators // indicatorsId
               );
 
               notificationService.success(
@@ -1547,11 +1843,69 @@ export function UserManagementPage() {
                 "Reassignment Failed"
               );
             }
-          } else {
+          }
+
+          // If there are indicators to remove (including when all are removed)
+          if (indicatorsToRemove.length > 0 && user?.id) {
+            console.log('[handleMinistryIndicatorSaveUser] Calling removeAssignedIndicators API with:', {
+              ministryUserId: user.id,
+              indicatorsId: indicatorsToRemove,
+              count: indicatorsToRemove.length
+            });
+            try {
+              const removeResponse = await removeAssignedIndicators(
+                user.id, // ministryUserId
+                indicatorsToRemove // indicatorsId
+              );
+              
+              console.log('[handleMinistryIndicatorSaveUser] removeAssignedIndicators API response:', removeResponse);
+
+              if (newIndicators.length === 0) {
+                notificationService.success(
+                  "All indicators removed from nodal officer successfully",
+                  "Update Successful"
+                );
+              } else {
+                console.log(`[handleMinistryIndicatorSaveUser] Removed ${indicatorsToRemove.length} indicators from nodal officer`);
+                // If we also reassigned indicators, don't show duplicate success message
+                if (newIndicators.length === 0) {
+                  notificationService.success(
+                    `${indicatorsToRemove.length} indicator(s) removed from nodal officer successfully`,
+                    "Update Successful"
+                  );
+                }
+              }
+            } catch (error: any) {
+              console.error('[handleMinistryIndicatorSaveUser] Error removing indicators:', error);
+              console.error('[handleMinistryIndicatorSaveUser] Error details:', {
+                message: error?.message,
+                response: error?.response,
+                status: error?.response?.status,
+                data: error?.response?.data,
+              });
+              let errorMessage = "Failed to remove indicators. Please try again.";
+              if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              }
+              notificationService.error(
+                errorMessage,
+                "Removal Failed"
+              );
+            }
+          } else if (newIndicators.length === 0 && currentlyAssignedIndicators.length === 0) {
+            // No indicators to update
+            console.log('[handleMinistryIndicatorSaveUser] No indicators to update');
             notificationService.success(
               "Officer updated successfully",
               "Update Successful"
             );
+          } else {
+            console.log('[handleMinistryIndicatorSaveUser] No indicators to remove:', {
+              indicatorsToRemove: indicatorsToRemove.length,
+              newIndicators: newIndicators.length,
+              currentlyAssigned: currentlyAssignedIndicators.length,
+              userId: user?.id
+            });
           }
 
           // Refresh the user list after update
@@ -1725,13 +2079,37 @@ export function UserManagementPage() {
             <SelectContent>
               <SelectItem value="all">Select Roles</SelectItem>
 
-              {user?.role !== "ADMIN" && user?.role !== "MOSPI_APPROVER" && (
+              {/* For MINISTRY_APPROVER and STATE_APPROVER: Only show NODAL_OFFICER */}
+              {(user?.role === "MINISTRY_APPROVER" || user?.role === "STATE_APPROVER") && (
                 <SelectItem value="NODAL_OFFICER">
                   {getRoleDisplayName("NODAL_OFFICER")}
                 </SelectItem>
               )}
-              {user?.role !== "STATE_APPROVER" && (
+
+              {/* For MOSPI_APPROVER: Show STATE_APPROVER, MOSPI_REVIEWER, MINISTRY_APPROVER */}
+              {user?.role === "MOSPI_APPROVER" && (
                 <>
+                  <SelectItem value="NODAL_OFFICER">
+                    {getRoleDisplayName("NODAL_OFFICER")}
+                  </SelectItem>
+                  <SelectItem value="STATE_APPROVER">
+                    {getRoleDisplayName("STATE_APPROVER")}
+                  </SelectItem>
+                  <SelectItem value="MOSPI_REVIEWER">
+                    {getRoleDisplayName("MOSPI_REVIEWER")}
+                  </SelectItem>
+                  <SelectItem value="MINISTRY_APPROVER">
+                    {getRoleDisplayName("MINISTRY_APPROVER")}
+                  </SelectItem>
+                </>
+              )}
+
+              {/* For ADMIN: Show all roles */}
+              {user?.role === "ADMIN" && (
+                <>
+                  <SelectItem value="NODAL_OFFICER">
+                    {getRoleDisplayName("NODAL_OFFICER")}
+                  </SelectItem>
                   <SelectItem value="STATE_APPROVER">
                     {getRoleDisplayName("STATE_APPROVER")}
                   </SelectItem>
@@ -1741,16 +2119,13 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                   <SelectItem value="MINISTRY_APPROVER">
+                  <SelectItem value="MINISTRY_APPROVER">
                     {getRoleDisplayName("MINISTRY_APPROVER")}
                   </SelectItem>
-                  
+                  <SelectItem value="ADMIN">
+                    {getRoleDisplayName("ADMIN")}
+                  </SelectItem>
                 </>
-              )}
-              {user?.role == "ADMIN" && (
-                <SelectItem value="ADMIN">
-                  {getRoleDisplayName("ADMIN")}
-                </SelectItem>
               )}
             </SelectContent>
           </Select>

@@ -210,23 +210,46 @@ function UserTableComponent({
               <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
               {(userRole === "STATE_APPROVER" || userRole === "MINISTRY_APPROVER") && (
                 <TableCell className="text-xs text-[#212121]">
-                  {officer.role === "NODAL_OFFICER" &&
-                  officer.assignedIndicators &&
-                  officer.assignedIndicators.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {officer.assignedIndicators.map((indicator, idx) => (
-                        <Badge
-                          key={idx}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {indicator}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  {(() => {
+                    // Debug logging
+                    if (officer.role === "NODAL_OFFICER") {
+                      console.log('[UserTable] NODAL_OFFICER assignedIndicators:', {
+                        officerId: officer.id,
+                        officerName: `${officer.firstName} ${officer.lastName}`,
+                        assignedIndicators: officer.assignedIndicators,
+                        isArray: Array.isArray(officer.assignedIndicators),
+                        length: officer.assignedIndicators?.length || 0,
+                      });
+                    }
+                    
+                    return officer.role === "NODAL_OFFICER" &&
+                      officer.assignedIndicators &&
+                      officer.assignedIndicators.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {officer.assignedIndicators.map((indicator, idx) => {
+                          // Extract indicator code - handle both object and string formats
+                          // (fallback in case data format changes)
+                          const indicatorCode = 
+                            typeof indicator === 'string' 
+                              ? indicator 
+                              : indicator?.code || indicator?.id || indicator?.value || String(indicator);
+                          console.log('[UserTable] Rendering indicator badge:', { indicator, indicatorCode, idx });
+                          return (
+                            <Badge
+                              key={idx}
+                              variant="secondary"
+                              className="text-xs"
+                              title={indicatorCode}
+                            >
+                              {indicatorCode}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    );
+                  })()}
                 </TableCell>
               )}
               <TableCell>

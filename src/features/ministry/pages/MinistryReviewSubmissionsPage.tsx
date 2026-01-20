@@ -15,7 +15,6 @@ export function MinistryReviewSubmissionsPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const navigate = useNavigate();
 
@@ -78,11 +77,6 @@ export function MinistryReviewSubmissionsPage() {
         
         setSubmissions(submissionsData);
         setError(null);
-        setDebugInfo({
-          rawResponse: response,
-          processedData: submissionsData,
-          count: submissionsData.length,
-        });
         
         if (submissionsData.length === 0) {
           console.warn('⚠️ No submissions found for current user');
@@ -92,10 +86,6 @@ export function MinistryReviewSubmissionsPage() {
         console.warn('⚠️ Unexpected response structure from new API:', response);
         setSubmissions([]);
         setError('Unexpected response format from server.');
-        setDebugInfo({
-          rawResponse: response,
-          error: 'Unexpected response structure',
-        });
       }
     } catch (error: any) {
       console.error('❌ Error loading submissions:', error);
@@ -109,11 +99,6 @@ export function MinistryReviewSubmissionsPage() {
       notificationService.error(errorMessage);
       setSubmissions([]);
       setError(errorMessage);
-      setDebugInfo({
-        error: errorMessage,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
     } finally {
       setLoading(false);
     }
@@ -232,16 +217,6 @@ export function MinistryReviewSubmissionsPage() {
             <p className="text-sm text-muted-foreground mb-4">
               {error || 'No ministry submissions have been created yet. Once a ministry approver creates and submits indicators, they will appear here.'}
             </p>
-            {debugInfo && (
-              <details className="mt-4 text-left max-w-2xl w-full">
-                <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-                  Debug Information
-                </summary>
-                <pre className="mt-2 p-4 bg-muted rounded text-xs overflow-auto">
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              </details>
-            )}
           </CardContent>
         </Card>
       ) : (
