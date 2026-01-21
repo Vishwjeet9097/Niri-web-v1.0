@@ -5148,6 +5148,94 @@ class ApiService implements HttpClient {
 
   // services/api.service.ts
 
+  async indicatorStatus(
+
+    payload: {
+
+      submissionId: string;
+
+      category: string;
+
+      section: string;
+
+      status: boolean;
+
+      mospi_status?: string;
+
+      nodalOfficerId?: string; // For sending back to specific NODAL_OFFICER
+
+    },
+
+    token?: string
+
+  ) {
+
+    try {
+
+      const config: AxiosRequestConfig | undefined = token
+
+        ? {
+
+            headers: {
+
+              "Content-Type": "application/json",
+
+              Authorization: token.startsWith("Bearer")
+
+                ? token
+
+                : `Bearer ${token}`,
+
+            },
+
+          }
+
+        : undefined;
+
+
+
+      const response = await this.axios.post(
+
+        "/submission/indicator-submission-status",
+
+        payload,
+
+        config
+
+      );
+
+
+
+      // Follow existing pattern used across the service: prefer response.data.data when present.
+
+      return response.data?.data !== undefined
+
+        ? response.data.data
+
+        : response.data;
+
+    } catch (error: any) {
+
+      // Handle 304 as success (consistent with other methods)
+
+      if (error.response?.status === 304) {
+
+        const cached = error.response?.data || {};
+
+        return cached?.data !== undefined ? cached.data : cached;
+
+      }
+
+      // Re-throw for centralized error handling in interceptors / callers
+
+      throw error;
+
+    }
+
+  }
+
+
+
   async getStateIndicatorStatuses(year?: string): Promise<{
     status: boolean;
     message?: string;
