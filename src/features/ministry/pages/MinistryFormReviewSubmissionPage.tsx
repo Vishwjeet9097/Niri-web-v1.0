@@ -279,7 +279,15 @@ export function MinistryFormReviewSubmissionPage() {
   };
 
   const handleBack = () => {
-    navigate('/data-submission/review');
+    // Redirect based on user role
+    if (user?.role === "MINISTRY_APPROVER") {
+      navigate('/ministry/review-submissions');
+    } else if (user?.role === "NODAL_OFFICER") {
+      navigate('/ministry/nodal');
+    } else {
+      // For MOSPI_APPROVER and MOSPI_REVIEWER, keep current behavior
+      navigate('/data-submission/review');
+    }
   };
 
   const statusConfig: Record<string, { label: string; badgeClass: string }> = {
