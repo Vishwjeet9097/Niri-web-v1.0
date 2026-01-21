@@ -9,6 +9,7 @@ import { Dropdown } from "@/utils/getDropDowns";
 import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
+import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import type { FileUpload } from "@/features/submission/types";
 import type { FieldRendererProps } from "./types";
 
@@ -525,34 +526,22 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
             </Label>
             {isEditable ? (
               isMMYYFormat ? (
-                // MM/YY format - use text input with pattern
-                <Input
-                  type="text"
+                // MM/YY format - use MonthYearPicker dropdown
+                <MonthYearPicker
                   value={value || ""}
-                  onChange={(e) => {
-                    let newValue = e.target.value;
-                    // Allow MM/YY format (e.g., "01/24")
-                    // Remove any non-digit or slash characters
-                    newValue = newValue.replace(/[^\d/]/g, "");
-                    // Limit to MM/YY format (5 characters max: MM/YY)
-                    if (newValue.length <= 5) {
-                      onChange(newValue);
-                      // Always validate on change
-                      if (onValidate && field) {
-                        onValidate(dateFieldPath, newValue, field);
-                      }
-                    }
-                  }}
-                  onBlur={() => {
-                    // Validate on blur as well
-                    if (onValidate && field && value) {
-                      onValidate(dateFieldPath, value, field);
+                  onChange={(newValue) => {
+                    onChange(newValue);
+                    // Always validate on change
+                    if (onValidate && field) {
+                      onValidate(dateFieldPath, newValue, field);
                     }
                   }}
                   disabled={disabled}
-                  className={error ? "border-destructive" : className}
-                  placeholder="MM/YY (e.g., 01/24)"
-                  maxLength={5}
+                  placeholder="Select month/year"
+                  className={cn(
+                    error ? "border-destructive" : "",
+                    className
+                  )}
                 />
               ) : (
                 // Standard date format - use date input

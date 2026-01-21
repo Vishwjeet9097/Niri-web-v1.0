@@ -10,6 +10,7 @@ import { Dropdown } from "@/utils/getDropDowns";
 import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
+import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import type { SubsectionRendererProps } from "./types";
 
 interface MinistrySubsectionFormProps extends SubsectionRendererProps {}
@@ -476,34 +477,19 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                   </Label>
                   {isEditable ? (
                     isMMYYFormat ? (
-                      // MM/YY format - use text input with pattern
-                      <Input
-                        type="text"
+                      // MM/YY format - use MonthYearPicker dropdown
+                      <MonthYearPicker
                         value={fieldValue || ""}
-                        onChange={(e) => {
-                          let newValue = e.target.value;
-                          // Allow MM/YY format (e.g., "01/24")
-                          // Remove any non-digit or slash characters
-                          newValue = newValue.replace(/[^\d/]/g, "");
-                          // Limit to MM/YY format (5 characters max: MM/YY)
-                          if (newValue.length <= 5) {
-                            onChange(index, field.id, newValue);
-                            // Always validate on change
-                            if (onValidateField && field) {
-                              onValidateField(fieldPath, newValue, field);
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          // Validate on blur as well
-                          if (onValidateField && field && fieldValue) {
-                            onValidateField(fieldPath, fieldValue, field);
+                        onChange={(newValue) => {
+                          onChange(index, field.id, newValue);
+                          // Always validate on change
+                          if (onValidateField && field) {
+                            onValidateField(fieldPath, newValue, field);
                           }
                         }}
                         disabled={disabled}
+                        placeholder="Select month/year"
                         className={error ? "border-destructive" : ""}
-                        placeholder="MM/YY (e.g., 01/24)"
-                        maxLength={5}
                       />
                     ) : (
                       // Standard date format - use date input
