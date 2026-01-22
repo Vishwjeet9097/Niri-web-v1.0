@@ -101,9 +101,15 @@ export const validateField = (
                            (field.label?.toLowerCase().includes('percentage') && field.label?.toLowerCase().includes('ppp')) ||
                            field.uiComponent === 'Auto-calculated field';
   
+  // Check if this is a calculated total field (not a percentage, so no 0-100 validation)
+  const isCalculatedTotalField = field.label?.toLowerCase().includes('total of all tpc') ||
+                                 (field.label?.toLowerCase().includes('total') && 
+                                  field.label?.toLowerCase().includes('tpc') && 
+                                  field.label?.toLowerCase().includes('ppp'));
+  
   // For calculated fields, if they have a value (including 0), skip required validation
   // The value will be calculated automatically, so if it exists, it's valid
-  if (isPercentageField && (value !== null && value !== undefined && value !== '')) {
+  if ((isPercentageField || isCalculatedTotalField) && (value !== null && value !== undefined && value !== '')) {
     // Value exists, skip required validation and proceed to other validations
   } else {
     // Required validation for other fields
@@ -186,7 +192,8 @@ export const validateField = (
       
       // Special validation for percentage fields (must be between 0 and 100)
       // Note: isPercentageField is already defined at the top of the function
-      if (isPercentageField && value !== null && value !== undefined && value !== '') {
+      // Note: isCalculatedTotalField is for totals, not percentages, so skip 0-100 validation
+      if (isPercentageField && !isCalculatedTotalField && value !== null && value !== undefined && value !== '') {
         const numValue = Number(value);
         if (!isNaN(numValue)) {
           if (numValue < 0) {
@@ -195,6 +202,14 @@ export const validateField = (
           if (numValue > 100) {
             return `${field.label} cannot exceed 100%.`;
           }
+        }
+      }
+      
+      // For calculated total fields, only check that they're not negative
+      if (isCalculatedTotalField && value !== null && value !== undefined && value !== '') {
+        const numValue = Number(value);
+        if (!isNaN(numValue) && numValue < 0) {
+          return `${field.label} cannot be negative.`;
         }
       }
       break;

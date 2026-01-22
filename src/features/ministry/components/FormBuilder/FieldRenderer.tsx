@@ -93,7 +93,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
       field.label?.toLowerCase().includes("auto-calculated") ||
       field.label?.toLowerCase().includes("% capex utilization") ||
       field.label?.toLowerCase().includes("percentage of ppp project") ||
-      field.label?.toLowerCase().includes("% of ppp project");
+      field.label?.toLowerCase().includes("% of ppp project") ||
+      field.label?.toLowerCase().includes("total of all tpc") ||
+      (field.label?.toLowerCase().includes("total") && 
+       field.label?.toLowerCase().includes("tpc") && 
+       field.label?.toLowerCase().includes("ppp"));
 
     // Check if this is a calculation input field (must be > 0)
     const isCalculationInputField =
