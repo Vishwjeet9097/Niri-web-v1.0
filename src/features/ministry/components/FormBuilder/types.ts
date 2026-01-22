@@ -62,6 +62,9 @@ export interface DynamicFormBuilderProps {
     sectionName: string,
     indicatorCode: string
   ) => React.ReactNode; // Action buttons for each section in review mode
+  renderScoreDisplay?: (
+    indicatorCode: string
+  ) => React.ReactNode; // Score display component for each section (for MOSPI approver)
   // Props for edit mode deferred deletion
   onPendingDeletion?: (deletionInfo: {
     action: "by-submission-indicator" | "by-primary-id";

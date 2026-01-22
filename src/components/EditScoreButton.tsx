@@ -14,12 +14,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Edit2, Clock } from "lucide-react";
 import { apiService } from "@/services/api.service";
+import { 
+  getMinistryIndicatorScore, 
+  getLatestMinistryManualScoreUpdate,
+  getMinistryManualScoreUpdateHistory,
+  saveMinistryManualScoreUpdate
+} from "@/services/ministry.service";
 
 interface EditScoreButtonProps {
   submissionId: string;
   indicatorCode: string;
-  mospiStatus?: string | null; // "ACCEPTED" | "REVERTED" | null
+  mospiStatus?: string | null; // "ACCEPTED" | "ACCEPTED_BY_MOSPI" | "REVERTED" | null
   onScoreUpdated?: () => void;
+  submissionType?: "state" | "ministry"; // Add submission type prop
 }
 
 interface IndicatorScore {
@@ -44,6 +51,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
   indicatorCode,
   mospiStatus,
   onScoreUpdated,
+  submissionType = "state", // Default to "state" for backward compatibility
 }) => {
   const [open, setOpen] = useState(false);
   const [indicatorScore, setIndicatorScore] = useState<IndicatorScore | null>(null);
@@ -78,8 +86,11 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
         setLoading(true);
         setError("");
         try {
-          // Fetch system score
-          const score = await apiService.getIndicatorScore(submissionId, indicatorCode);
+          // Fetch system score - use ministry API if submissionType is 'ministry', otherwise use state API
+          const score = submissionType === "ministry"
+            ? await getMinistryIndicatorScore(submissionId, indicatorCode)
+            : await apiService.getIndicatorScore(submissionId, indicatorCode);
+          
           if (score) {
             setIndicatorScore(score);
           } else {
@@ -88,7 +99,10 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
 
           // Fetch latest manual update
           try {
-            const latestUpdate = await apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
+            const latestUpdate = submissionType === "ministry"
+              ? await getLatestMinistryManualScoreUpdate(submissionId, indicatorCode)
+              : await apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
+            
             if (latestUpdate) {
               // Populate updated score field with latest manual update
               setUpdatedScore(latestUpdate.manualUpdatedScore.toString());
@@ -113,7 +127,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
 
       fetchData();
     }
-  }, [open, submissionId, indicatorCode]);
+  }, [open, submissionId, indicatorCode, submissionType]);
 
   // Fetch manual update history when modal opens
   useEffect(() => {
@@ -121,7 +135,9 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
       const fetchHistory = async () => {
         setLoadingHistory(true);
         try {
-          const history = await apiService.getManualScoreUpdateHistory(submissionId, indicatorCode);
+          const history = submissionType === "ministry"
+            ? await getMinistryManualScoreUpdateHistory(submissionId, indicatorCode)
+            : await apiService.getManualScoreUpdateHistory(submissionId, indicatorCode);
           setManualUpdateHistory(Array.isArray(history) ? history : []);
         } catch (error) {
           console.error("Error fetching manual update history:", error);
@@ -135,7 +151,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
     } else {
       setManualUpdateHistory([]);
     }
-  }, [open, submissionId, indicatorCode]);
+  }, [open, submissionId, indicatorCode, submissionType]);
 
   const handleSave = async () => {
     if (!indicatorScore) return;
@@ -180,22 +196,36 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
         throw new Error(`Unable to determine category for indicator ${indicatorCode}`);
       }
 
-      // Call API to save manual score update
-      await apiService.saveManualScoreUpdate(
-        submissionId,
-        indicatorCode,
-        category,
-        scoreValue,
-        indicatorScore.maxScore,
-        updateReason.trim()
-      );
+      // Call API to save manual score update - use ministry API if submissionType is 'ministry', otherwise use state API
+      if (submissionType === "ministry") {
+        await saveMinistryManualScoreUpdate(
+          submissionId,
+          indicatorCode,
+          category,
+          scoreValue,
+          indicatorScore.maxScore,
+          updateReason.trim()
+        );
+      } else {
+        await apiService.saveManualScoreUpdate(
+          submissionId,
+          indicatorCode,
+          category,
+          scoreValue,
+          indicatorScore.maxScore,
+          updateReason.trim()
+        );
+      }
 
-      // Refresh history and close modal
-      const history = await apiService.getManualScoreUpdateHistory(submissionId, indicatorCode);
+      // Refresh history
+      const history = submissionType === "ministry"
+        ? await getMinistryManualScoreUpdateHistory(submissionId, indicatorCode)
+        : await apiService.getManualScoreUpdateHistory(submissionId, indicatorCode);
       setManualUpdateHistory(Array.isArray(history) ? history : []);
       
-      // Update the updated score field with the newly saved value
-      setUpdatedScore(scoreValue.toString());
+      // Clear the form fields after successful save
+      setUpdatedScore("");
+      setUpdateReason("");
 
       // Close modal and notify parent
       setOpen(false);
@@ -227,8 +257,18 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
     if (!newOpen) {
       setError("");
       setUpdateReason("");
+      setUpdatedScore(""); // Clear updated score when modal closes
       // Reset to appropriate tab based on mospiStatus
-      setActiveTab(mospiStatus === "ACCEPTED" ? "history" : "edit");
+      const upperStatus = mospiStatus?.toUpperCase() || "";
+      const isAcceptedStatus = upperStatus === "ACCEPTED" || upperStatus === "ACCEPTED_BY_MOSPI";
+      setActiveTab(isAcceptedStatus ? "history" : "edit");
+    } else {
+      // When opening, set to history tab if accepted
+      const upperStatus = mospiStatus?.toUpperCase() || "";
+      const isAcceptedStatus = upperStatus === "ACCEPTED" || upperStatus === "ACCEPTED_BY_MOSPI";
+      if (isAcceptedStatus) {
+        setActiveTab("history");
+      }
     }
   };
 
@@ -252,15 +292,20 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
     return null;
   }
 
-  // When ACCEPTED, show view-only mode
-  const isAccepted = mospiStatus === "ACCEPTED";
+  // When ACCEPTED_BY_MOSPI, show view-only mode
+  // Check for both "ACCEPTED" (for state) and "ACCEPTED_BY_MOSPI" (for ministry)
+  const upperStatus = mospiStatus?.toUpperCase() || "";
+  const isAccepted = upperStatus === "ACCEPTED" || upperStatus === "ACCEPTED_BY_MOSPI";
 
   return (
     <>
       <Button
         variant="ghost"
         size="sm"
-        className="h-6 w-6 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        className={isAccepted 
+          ? "h-6 w-6 p-0 hover:bg-gray-100 cursor-pointer" 
+          : "h-6 w-6 p-0 hover:bg-gray-100"
+        }
         onClick={() => {
           setOpen(true);
           // If ACCEPTED, open directly to History tab
@@ -271,7 +316,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
         title={isAccepted ? "View Score History" : "Edit Score"}
       >
         {isAccepted ? (
-          <Clock className="h-3.5 w-3.5 text-gray-600" />
+          <Clock className="h-3.5 w-3.5 text-gray-500" />
         ) : (
           <Edit2 className="h-3.5 w-3.5 text-gray-600" />
         )}
@@ -285,7 +330,7 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
             </DialogTitle>
             <DialogDescription>
               {isAccepted 
-                ? "View the score history and update timeline for this indicator."
+                ? "View the score history for this indicator. Editing is disabled for accepted indicators."
                 : "Update the score for this indicator. The score cannot exceed the maximum score."}
             </DialogDescription>
           </DialogHeader>
@@ -294,94 +339,101 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
             <div className="py-4 text-center text-sm text-gray-500">Loading current score...</div>
           ) : indicatorScore ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 h-auto">
-                <TabsTrigger 
-                  value="edit" 
-                  className="flex items-center justify-center"
-                  disabled={isAccepted}
-                >
-                  Edit Score
-                </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center justify-center">
-                  <Clock className="w-4 h-4 mr-1.5" />
-                  History ({manualUpdateHistory.length})
-                </TabsTrigger>
-              </TabsList>
+              {!isAccepted && (
+                <TabsList className="grid w-full grid-cols-2 h-auto">
+                  <TabsTrigger 
+                    value="edit" 
+                    className="flex items-center justify-center"
+                  >
+                    Edit Score
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="flex items-center justify-center">
+                    <Clock className="w-4 h-4 mr-1.5" />
+                    History ({manualUpdateHistory.length})
+                  </TabsTrigger>
+                </TabsList>
+              )}
+              {isAccepted && (
+                <TabsList className="grid w-full grid-cols-1 h-auto">
+                  <TabsTrigger value="history" className="flex items-center justify-center">
+                    <Clock className="w-4 h-4 mr-1.5" />
+                    History ({manualUpdateHistory.length})
+                  </TabsTrigger>
+                </TabsList>
+              )}
 
-              <TabsContent value="edit" className="mt-4">
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="current-score">System Generated Score</Label>
-                    <div className="flex items-center gap-2">
+              {!isAccepted && (
+                <TabsContent value="edit" className="mt-4">
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="current-score">System Generated Score</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="current-score"
+                          value={`${indicatorScore.score} / ${indicatorScore.maxScore}`}
+                          disabled
+                          className="bg-gray-50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="updated-score">Updated Score</Label>
                       <Input
-                        id="current-score"
-                        value={`${indicatorScore.score} / ${indicatorScore.maxScore}`}
-                        disabled
-                        className="bg-gray-50"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="updated-score">Updated Score</Label>
-                    <Input
-                      id="updated-score"
-                      type="number"
-                      min="0"
-                      max={indicatorScore.maxScore}
-                      step="0.01"
-                      value={updatedScore}
-                      onChange={(e) => {
-                        if (isAccepted) return; // Prevent editing when ACCEPTED
-                        const value = e.target.value;
-                        setUpdatedScore(value);
-                        setError("");
-                        
-                        // Real-time validation: Check if value exceeds max score
-                        const numValue = parseFloat(value);
-                        if (value && !isNaN(numValue) && numValue > indicatorScore.maxScore) {
-                          setError(`Updated score cannot exceed maximum score of ${indicatorScore.maxScore}`);
-                        } else if (value && !isNaN(numValue) && numValue < 0) {
-                          setError("Score cannot be negative");
-                        } else {
+                        id="updated-score"
+                        type="number"
+                        min="0"
+                        max={indicatorScore.maxScore}
+                        step="0.01"
+                        value={updatedScore}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setUpdatedScore(value);
                           setError("");
-                        }
-                      }}
-                      disabled={isAccepted}
-                      placeholder="Enter new score"
-                    />
-                    <p className="text-xs text-gray-500">
-                      Maximum score: {indicatorScore.maxScore}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="update-reason">Reason for Update <span className="text-red-500">*</span></Label>
-                    <Textarea
-                      id="update-reason"
-                      value={updateReason}
-                      onChange={(e) => {
-                        if (isAccepted) return; // Prevent editing when ACCEPTED
-                        setUpdateReason(e.target.value);
-                        setError("");
-                      }}
-                      disabled={isAccepted}
-                      placeholder="Enter the reason for updating this score..."
-                      rows={3}
-                      className="resize-none"
-                    />
-                    <p className="text-xs text-gray-500">
-                      Please provide a clear reason for updating the score
-                    </p>
-                  </div>
-
-                  {error && (
-                    <div className="rounded-md bg-red-50 border border-red-200 p-2">
-                      <p className="text-sm text-red-600">{error}</p>
+                          
+                          // Real-time validation: Check if value exceeds max score
+                          const numValue = parseFloat(value);
+                          if (value && !isNaN(numValue) && numValue > indicatorScore.maxScore) {
+                            setError(`Updated score cannot exceed maximum score of ${indicatorScore.maxScore}`);
+                          } else if (value && !isNaN(numValue) && numValue < 0) {
+                            setError("Score cannot be negative");
+                          } else {
+                            setError("");
+                          }
+                        }}
+                        placeholder="Enter new score"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Maximum score: {indicatorScore.maxScore}
+                      </p>
                     </div>
-                  )}
-                </div>
-              </TabsContent>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="update-reason">Reason for Update <span className="text-red-500">*</span></Label>
+                      <Textarea
+                        id="update-reason"
+                        value={updateReason}
+                        onChange={(e) => {
+                          setUpdateReason(e.target.value);
+                          setError("");
+                        }}
+                        placeholder="Enter the reason for updating this score..."
+                        rows={3}
+                        className="resize-none"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Please provide a clear reason for updating the score
+                      </p>
+                    </div>
+
+                    {error && (
+                      <div className="rounded-md bg-red-50 border border-red-200 p-2">
+                        <p className="text-sm text-red-600">{error}</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              )}
 
               <TabsContent value="history" className="mt-4">
                 <div className="py-4">
@@ -453,14 +505,12 @@ export const EditScoreButton: React.FC<EditScoreButtonProps> = ({
             >
               {isAccepted ? "Close" : "Cancel"}
             </Button>
-            {!isAccepted && (
-              <Button
-                onClick={handleSave}
-                disabled={loading || saving || !indicatorScore || activeTab !== "edit"}
-              >
-                {saving ? "Saving..." : "Save Score"}
-              </Button>
-            )}
+            <Button
+              onClick={handleSave}
+              disabled={isAccepted || loading || saving || !indicatorScore || activeTab !== "edit"}
+            >
+              {saving ? "Saving..." : "Save Score"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

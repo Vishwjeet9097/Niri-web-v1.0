@@ -2,6 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { apiService } from "@/services/api.service";
+import { 
+  getMinistryIndicatorScore, 
+  getLatestMinistryManualScoreUpdate 
+} from "@/services/ministry.service";
 import { EditScoreButton } from "./EditScoreButton";
 
 interface IndicatorScoreToggleProps {
@@ -14,6 +18,7 @@ interface IndicatorScoreToggleProps {
   size?: "default" | "sm" | "lg";
   variant?: "default" | "outline";
   mospiStatus?: string | null; // "ACCEPTED" | "REVERTED" | null
+  submissionType?: "state" | "ministry"; // Add submission type prop
 }
 
 interface IndicatorScore {
@@ -33,6 +38,7 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
   size = "sm",
   variant = "outline",
   mospiStatus,
+  submissionType = "state", // Default to "state" for backward compatibility
 }) => {
   const [internalToggleState, setInternalToggleState] = useState<"score" | "updatedScore">("score");
   const toggleState = controlledToggleState ?? internalToggleState;
@@ -62,8 +68,11 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
     const fetchScoreAndHistory = async () => {
       setLoading(true);
       try {
-        // Fetch current score
-        const score = await apiService.getIndicatorScore(submissionId, indicatorCode);
+        // Fetch current score - use ministry API if submissionType is 'ministry', otherwise use state API
+        const score = submissionType === "ministry"
+          ? await getMinistryIndicatorScore(submissionId, indicatorCode)
+          : await apiService.getIndicatorScore(submissionId, indicatorCode);
+        
         if (score) {
           setIndicatorScore(score);
           // Notify parent component about the score
@@ -79,7 +88,9 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
 
         // Check if there's a manual score update (indicating an updated score exists)
         try {
-          const latestManualUpdate = await apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
+          const latestManualUpdate = submissionType === "ministry"
+            ? await getLatestMinistryManualScoreUpdate(submissionId, indicatorCode)
+            : await apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
           // If manual update exists, allow toggling to "Updated Score"
           setHasUpdatedScore(!!latestManualUpdate);
         } catch (updateError) {
@@ -100,7 +111,7 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
     };
 
     fetchScoreAndHistory();
-  }, [submissionId, indicatorCode, isMospiApprover, onScoreChange, toggleState]);
+  }, [submissionId, indicatorCode, isMospiApprover, onScoreChange, toggleState, submissionType]);
 
   // Don't render if not MOSPI_APPROVER (role-specific only)
   if (!isMospiApprover) {
@@ -182,9 +193,14 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
             submissionId={submissionId}
             indicatorCode={indicatorCode}
             mospiStatus={mospiStatus}
+            submissionType={submissionType}
             onScoreUpdated={() => {
               // Refresh the manual score update status
-              apiService.getLatestManualScoreUpdate(submissionId, indicatorCode)
+              const refreshUpdate = submissionType === "ministry"
+                ? getLatestMinistryManualScoreUpdate(submissionId, indicatorCode)
+                : apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
+              
+              refreshUpdate
                 .then((update) => {
                   setHasUpdatedScore(!!update);
                 })
@@ -208,7 +224,8 @@ export const IndicatorScoreToggle: React.FC<IndicatorScoreToggleProps> = ({
 // Export a hook to get the current score for display
 export const useIndicatorScore = (
   submissionId: string,
-  indicatorCode: string
+  indicatorCode: string,
+  submissionType: "state" | "ministry" = "state"
 ): { score: IndicatorScore | null; loading: boolean } => {
   const [indicatorScore, setIndicatorScore] = useState<IndicatorScore | null>(null);
   const [loading, setLoading] = useState(false);
@@ -219,7 +236,9 @@ export const useIndicatorScore = (
     const fetchScore = async () => {
       setLoading(true);
       try {
-        const score = await apiService.getIndicatorScore(submissionId, indicatorCode);
+        const score = submissionType === "ministry"
+          ? await getMinistryIndicatorScore(submissionId, indicatorCode)
+          : await apiService.getIndicatorScore(submissionId, indicatorCode);
         setIndicatorScore(score || null);
       } catch (error) {
         console.error(`Error fetching score for indicator ${indicatorCode}:`, error);
@@ -230,7 +249,7 @@ export const useIndicatorScore = (
     };
 
     fetchScore();
-  }, [submissionId, indicatorCode]);
+  }, [submissionId, indicatorCode, submissionType]);
 
   return { score: indicatorScore, loading };
 };

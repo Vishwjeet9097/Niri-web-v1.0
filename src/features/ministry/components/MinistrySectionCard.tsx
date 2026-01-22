@@ -27,6 +27,7 @@ interface MinistrySectionCardProps {
   onCancel?: () => void; // Callback when Cancel button is clicked
   isSaving?: boolean; // Whether save/submit is in progress
   reviewModeActionButtons?: ReactNode; // Action buttons for review mode (role-based)
+  scoreDisplay?: ReactNode; // Score display component for MOSPI approver
 }
 
 export const MinistrySectionCard = ({
@@ -42,6 +43,7 @@ export const MinistrySectionCard = ({
   onCancel,
   isSaving = false,
   reviewModeActionButtons,
+  scoreDisplay,
 }: MinistrySectionCardProps) => {
   // Get status badge
   const getStatusBadge = () => {
@@ -210,7 +212,17 @@ export const MinistrySectionCard = ({
             : ""
         }
       >
-        {children}
+        <div className="flex gap-6 items-start justify-between">
+          <div className="flex-1">
+            {children}
+          </div>
+          {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
+          {scoreDisplay && (
+            <div className="flex-shrink-0 self-start ml-auto">
+              {scoreDisplay}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

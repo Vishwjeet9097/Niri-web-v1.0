@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useIndicatorScore } from "./IndicatorScoreToggle";
 import { apiService } from "@/services/api.service";
+import { getLatestMinistryManualScoreUpdate } from "@/services/ministry.service";
 
 interface IndicatorScoreDisplayProps {
   submissionId: string;
   indicatorCode: string;
   toggleState: "score" | "updatedScore";
+  submissionType?: "state" | "ministry"; // Add submission type prop
 }
 
 interface ManualScoreUpdate {
@@ -21,8 +23,9 @@ export const IndicatorScoreDisplay: React.FC<IndicatorScoreDisplayProps> = ({
   submissionId,
   indicatorCode,
   toggleState,
+  submissionType = "state", // Default to "state" for backward compatibility
 }) => {
-  const { score: indicatorScore } = useIndicatorScore(submissionId, indicatorCode);
+  const { score: indicatorScore } = useIndicatorScore(submissionId, indicatorCode, submissionType);
   const [latestManualUpdate, setLatestManualUpdate] = useState<ManualScoreUpdate | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +35,9 @@ export const IndicatorScoreDisplay: React.FC<IndicatorScoreDisplayProps> = ({
       const fetchLatestUpdate = async () => {
         setLoading(true);
         try {
-          const update = await apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
+          const update = submissionType === "ministry"
+            ? await getLatestMinistryManualScoreUpdate(submissionId, indicatorCode)
+            : await apiService.getLatestManualScoreUpdate(submissionId, indicatorCode);
           setLatestManualUpdate(update);
         } catch (error) {
           console.error(`Error fetching latest manual score update for indicator ${indicatorCode}:`, error);
@@ -46,24 +51,21 @@ export const IndicatorScoreDisplay: React.FC<IndicatorScoreDisplayProps> = ({
     } else {
       setLatestManualUpdate(null);
     }
-  }, [toggleState, submissionId, indicatorCode]);
+  }, [toggleState, submissionId, indicatorCode, submissionType]);
 
   // Show different colors and content based on toggle state
-  if (toggleState === "score" && indicatorScore) {
+  if (toggleState === "score") {
     // Show actual score when "Score" is selected - Green color scheme
+    const displayScore = indicatorScore 
+      ? (typeof indicatorScore.score === 'number' 
+          ? indicatorScore.score.toFixed(2) 
+          : parseFloat(indicatorScore.score || '0').toFixed(2))
+      : '0.00';
+    
     return (
       <div className="bg-green-100 border border-green-300 rounded-md px-3 py-1.5 flex-shrink-0">
         <span className="text-sm font-semibold text-green-900">
-          Score : {indicatorScore.score}
-        </span>
-      </div>
-    );
-  } else if (toggleState === "score" && !indicatorScore) {
-    // Show "Score" even if no score available - Green color scheme
-    return (
-      <div className="bg-green-100 border border-green-300 rounded-md px-3 py-1.5 flex-shrink-0">
-        <span className="text-sm font-semibold text-green-900">
-          Score : 0.00
+          Score : {displayScore}
         </span>
       </div>
     );
