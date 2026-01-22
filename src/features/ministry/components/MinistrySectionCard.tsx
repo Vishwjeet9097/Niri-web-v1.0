@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MinistryIndicatorTooltip } from "@/components/MinistryIndicatorTooltip";
 
 interface MinistrySectionCardProps {
   title: string | ReactNode;
@@ -166,16 +167,30 @@ export const MinistrySectionCard = ({
     <Card className={cn("mb-6", className)}>
       <CardHeader className="bg-muted/30">
         <CardTitle className="text-base font-semibold bg-[#E9EDFB] px-6 py-2 flex items-center justify-between">
-          <div className="flex-1">{title}</div>
+          <div className="flex-1 min-w-0">{title}</div>
           <div className="flex items-center gap-2">
             {reviewModeActionButtons ? (
               // Show review mode action buttons (role-based)
-              reviewModeActionButtons
+              <>
+                {reviewModeActionButtons}
+                {indicatorCode && (
+                  <MinistryIndicatorTooltip
+                    indicatorCode={indicatorCode}
+                    className="flex-shrink-0 ml-2"
+                  />
+                )}
+              </>
             ) : (
               // Show regular action buttons (for edit mode)
               <>
                 {getStatusBadge()}
                 {getActionButtons()}
+                {indicatorCode && (
+                  <MinistryIndicatorTooltip
+                    indicatorCode={indicatorCode}
+                    className="flex-shrink-0 ml-2"
+                  />
+                )}
               </>
             )}
           </div>
