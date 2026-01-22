@@ -39,6 +39,8 @@ import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
 import { TimelineModal } from "@/features/dataSubmission/components/modals/TimelineModal";
 import { workflowService } from "@/services/workflow.service";
+import { IndicatorScoreToggle } from "@/components/IndicatorScoreToggle";
+import { IndicatorScoreDisplay } from "@/components/IndicatorScoreDisplay";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -476,6 +478,11 @@ export function MinistrySubmissionReviewWrapper({
 
   // Default to first category and update when categories change
   const [activeCategory, setActiveCategory] = useState<string>("");
+
+  // State for indicator score toggle (per indicator) - for MOSPI approver
+  const [indicatorScoreToggleState, setIndicatorScoreToggleState] = useState<
+    Record<string, "score" | "updatedScore">
+  >({});
 
   // Update activeCategory when categories are loaded
   useEffect(() => {
@@ -1668,6 +1675,21 @@ export function MinistrySubmissionReviewWrapper({
                         onValidateField={validateFieldOnChange} // Enable validation in edit mode
                         onClearFieldError={clearFieldError} // Enable error clearing
                         onPendingDeletion={handlePendingDeletion} // Handle pending file deletions
+                        renderScoreDisplay={(indicatorCode) => {
+                          // Show score display only for MOSPI_APPROVER
+                          if (user?.role === "MOSPI_APPROVER" && submissionId) {
+                            const toggleState = indicatorScoreToggleState[indicatorCode] || "score";
+                            return (
+                              <IndicatorScoreDisplay
+                                submissionId={submissionId}
+                                indicatorCode={indicatorCode}
+                                toggleState={toggleState}
+                                submissionType="ministry"
+                              />
+                            );
+                          }
+                          return null;
+                        }}
                         renderSectionActionButtons={(
                           sectionId,
                           sectionName,
@@ -1951,35 +1973,58 @@ export function MinistrySubmissionReviewWrapper({
                             // If status doesn't clearly indicate MOSPI decision, originalMospiStatus remains undefined
                             // and component will use current status check as fallback
                             
+                            const toggleState = indicatorScoreToggleState[indicatorCode] || "score";
+                            
                             return (
-                              <MospiApproverActionButtons
-                                sectionId={sectionId}
-                                sectionTitle={sectionName || sectionId}
-                                status={sectionStatus || undefined}
-                                formStatus={formStatus}
-                                originalMospiStatus={originalMospiStatus}
-                                onAccept={() => {
-                                  // Handle accept action
-                                  if (sectionSubmissionIndicatorId) {
-                                    handleAcceptMospiApprover(
-                                      sectionSubmissionIndicatorId,
-                                      sectionId
-                                    );
-                                  } else {
-                                    toast({
-                                      title: "Error",
-                                      description: "Submission indicator ID not found",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                                onSendBack={() => {
-                                  handleSendBack(sectionId, sectionName);
-                                }}
-                                onTimeline={() => handleOpenTimeline(sectionId)}
-                                timelineCount={commentCounts[sectionId] || 0}
-                                isAccepted={isAccepted}
-                              />
+                              <div className="flex items-center gap-2">
+                                {/* Indicator Score Toggle for MOSPI_APPROVER */}
+                                {submissionId && (
+                                  <IndicatorScoreToggle
+                                    submissionId={submissionId}
+                                    indicatorCode={indicatorCode}
+                                    controlledToggleState={toggleState}
+                                    onToggleChange={(newState) => {
+                                      setIndicatorScoreToggleState((prev) => ({
+                                        ...prev,
+                                        [indicatorCode]: newState,
+                                      }));
+                                    }}
+                                    submissionType="ministry"
+                                    showLabel={false}
+                                    size="sm"
+                                    variant="outline"
+                                    mospiStatus={sectionStatus || undefined}
+                                  />
+                                )}
+                                <MospiApproverActionButtons
+                                  sectionId={sectionId}
+                                  sectionTitle={sectionName || sectionId}
+                                  status={sectionStatus || undefined}
+                                  formStatus={formStatus}
+                                  originalMospiStatus={originalMospiStatus}
+                                  onAccept={() => {
+                                    // Handle accept action
+                                    if (sectionSubmissionIndicatorId) {
+                                      handleAcceptMospiApprover(
+                                        sectionSubmissionIndicatorId,
+                                        sectionId
+                                      );
+                                    } else {
+                                      toast({
+                                        title: "Error",
+                                        description: "Submission indicator ID not found",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                  onSendBack={() => {
+                                    handleSendBack(sectionId, sectionName);
+                                  }}
+                                  onTimeline={() => handleOpenTimeline(sectionId)}
+                                  timelineCount={commentCounts[sectionId] || 0}
+                                  isAccepted={isAccepted}
+                                />
+                              </div>
                             );
                           }
                           if (user?.role === "NODAL_OFFICER") {

@@ -2773,3 +2773,154 @@ export async function calculateMinistryScore(submissionId: string): Promise<any>
         throw error;
     }
 }
+
+/**
+ * Get indicator score for a specific ministry indicator
+ * @param submissionId - The ministry submission ID
+ * @param indicatorCode - The indicator code (e.g., "1.1", "2.3")
+ * @returns Promise with the indicator score data
+ */
+export async function getMinistryIndicatorScore(
+    submissionId: string,
+    indicatorCode: string
+): Promise<any> {
+    try {
+        const url = getApiUrl(`/scoring/ministry/indicator-scores/${submissionId}/${indicatorCode}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        const scoreData = response.data?.data !== undefined ? response.data.data : response.data;
+        
+        // Log for debugging
+        console.log(`[Ministry Scoring] Fetched score for ${indicatorCode}:`, scoreData);
+        
+        // Ensure score values are numbers
+        if (scoreData) {
+            if (typeof scoreData.score === 'string') {
+                scoreData.score = parseFloat(scoreData.score);
+            }
+            if (typeof scoreData.maxScore === 'string') {
+                scoreData.maxScore = parseFloat(scoreData.maxScore);
+            }
+        }
+        
+        return scoreData;
+    } catch (error: any) {
+        console.error(`[Ministry Scoring] Error fetching score for ${indicatorCode}:`, error);
+        if (error.response?.status === 304) {
+            const cached = error.response?.data || {};
+            return cached?.data !== undefined ? cached.data : cached;
+        }
+        // Return null instead of throwing to allow UI to show 0.00
+        if (error.response?.status === 404) {
+            console.warn(`[Ministry Scoring] No score found for indicator ${indicatorCode}`);
+            return null;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Get all indicator scores for a ministry submission
+ * @param submissionId - The ministry submission ID
+ * @returns Promise with array of indicator scores
+ */
+export async function getMinistryIndicatorScores(submissionId: string): Promise<any> {
+    try {
+        const url = getApiUrl(`/scoring/ministry/indicator-scores/${submissionId}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+        if (error.response?.status === 304) {
+            const cached = error.response?.data || {};
+            return cached?.data !== undefined ? cached.data : cached;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Get latest manual score update for a ministry indicator
+ * @param submissionId - The ministry submission ID
+ * @param indicatorCode - The indicator code (e.g., "1.1", "2.3")
+ * @returns Promise with the manual score update data or null if not found
+ */
+export async function getLatestMinistryManualScoreUpdate(
+    submissionId: string,
+    indicatorCode: string
+): Promise<any> {
+    try {
+        const url = getApiUrl(`/scoring/ministry/manual-update/${submissionId}/${indicatorCode}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+        if (error.response?.status === 304) {
+            const cached = error.response?.data || {};
+            return cached?.data !== undefined ? cached.data : cached;
+        }
+        // Return null if no manual update exists (404 is expected)
+        if (error.response?.status === 404) {
+            return null;
+        }
+        return null;
+    }
+}
+
+/**
+ * Get manual score update history for a ministry indicator
+ * @param submissionId - The ministry submission ID
+ * @param indicatorCode - The indicator code (e.g., "1.1", "2.3")
+ * @returns Promise with array of manual score update history
+ */
+export async function getMinistryManualScoreUpdateHistory(
+    submissionId: string,
+    indicatorCode: string
+): Promise<any> {
+    try {
+        const url = getApiUrl(`/scoring/ministry/manual-update-history/${submissionId}/${indicatorCode}`);
+        const response = await apiService.get(url, { withCredentials: true });
+        return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+        if (error.response?.status === 304) {
+            const cached = error.response?.data || {};
+            return cached?.data !== undefined ? cached.data : cached;
+        }
+        throw error;
+    }
+}
+
+/**
+ * Save manual score update for a ministry indicator
+ * @param submissionId - The ministry submission ID
+ * @param indicatorCode - The indicator code (e.g., "1.1", "2.3")
+ * @param category - The category (e.g., "infraFinancing", "infraDevelopment")
+ * @param updatedScore - The manually updated score
+ * @param maxScore - The maximum score for this indicator
+ * @param updateReason - The reason for updating the score
+ * @returns Promise with the saved manual score update data
+ */
+export async function saveMinistryManualScoreUpdate(
+    submissionId: string,
+    indicatorCode: string,
+    category: string,
+    updatedScore: number,
+    maxScore: number,
+    updateReason: string
+): Promise<any> {
+    try {
+        const url = getApiUrl(`/scoring/ministry/manual-update`);
+        const response = await apiService.post(
+            url,
+            {
+                submissionId,
+                indicatorCode,
+                category,
+                updatedScore,
+                maxScore,
+                updateReason,
+            },
+            { withCredentials: true }
+        );
+        return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+        throw error;
+    }
+}
