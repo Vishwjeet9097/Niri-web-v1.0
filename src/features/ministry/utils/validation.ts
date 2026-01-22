@@ -96,7 +96,9 @@ export const validateField = (
   
   // Check if this is a calculated/percentage field
   const isPercentageField = field.label?.toLowerCase().includes('% capex utilization') ||
-                           field.label?.toLowerCase().includes('percentage') ||
+                           field.label?.toLowerCase().includes('percentage of ppp project') ||
+                           field.label?.toLowerCase().includes('% of ppp project') ||
+                           (field.label?.toLowerCase().includes('percentage') && field.label?.toLowerCase().includes('ppp')) ||
                            field.uiComponent === 'Auto-calculated field';
   
   // For calculated fields, if they have a value (including 0), skip required validation
@@ -172,7 +174,9 @@ export const validateField = (
       
       // Special validation for calculation fields (must be > 0)
       const isCalculationField = field.label?.toLowerCase().includes('capital expenditure allocation') ||
-                                 field.label?.toLowerCase().includes('capital expenditure actuals');
+                                 field.label?.toLowerCase().includes('capital expenditure actuals') ||
+                                 field.label?.toLowerCase().includes('total project cost of ppp') ||
+                                 field.label?.toLowerCase().includes('total project cost of all infra projects');
       if (isCalculationField && value !== null && value !== undefined && value !== '') {
         const numValue = Number(value);
         if (!isNaN(numValue) && numValue <= 0) {

@@ -195,5 +195,191 @@ export function useMinistryAutoCalculation({
     setFormData,
     setValidationErrors,
   ]);
+
+  // Auto-calculation for indicator 2.5: Percentage of PPP Project
+  // Formula: (Total Project Cost of PPP infra projects awarded / Total Project Cost of all infra projects of the Central ministry awarded) × 100
+  useEffect(() => {
+    const sectionKey = "section2_5";
+    const sectionData = formData[sectionKey];
+    
+    if (!sectionData || !assignedIndicators.length) {
+      console.log("🔍 Auto-calculation 2.5: No section2_5 data or assignedIndicators");
+      return;
+    }
+
+    // Find field IDs dynamically by searching through assignedIndicators
+    let PPP_PROJECT_COST_FIELD_ID: string | null = null;
+    let ALL_INFRA_PROJECT_COST_FIELD_ID: string | null = null;
+    let PPP_PERCENTAGE_FIELD_ID: string | null = null;
+
+    // Search for fields in the "Infra Development" indicator, section with sNo "2.5"
+    for (const indicatorObj of assignedIndicators) {
+      const indicatorName = Object.keys(indicatorObj)[0];
+      if (indicatorName === "Infra Development" || indicatorName.toLowerCase().includes("infra development")) {
+        const sections = indicatorObj[indicatorName];
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          // Check if this is indicator 2.5 by section number
+          if (section.sNo === "2.5") {
+            if (section.inputs && Array.isArray(section.inputs)) {
+              for (const input of section.inputs) {
+                const label = input.label?.toLowerCase() || "";
+                if (label.includes('total project cost of ppp') && 
+                    (label.includes('infra projects awarded') || label.includes('awarded'))) {
+                  PPP_PROJECT_COST_FIELD_ID = input.id;
+                } else if (label.includes('total project cost of all infra projects') && 
+                           (label.includes('central ministry') || label.includes('ministry awarded'))) {
+                  ALL_INFRA_PROJECT_COST_FIELD_ID = input.id;
+                } else if (label.includes('percentage of ppp project') || 
+                           label.includes('% of ppp project') ||
+                           (label.includes('percentage') && label.includes('ppp'))) {
+                  PPP_PERCENTAGE_FIELD_ID = input.id;
+                }
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    console.log("🔍 Auto-calculation 2.5: Found field IDs:", {
+      PPP_PROJECT_COST_FIELD_ID,
+      ALL_INFRA_PROJECT_COST_FIELD_ID,
+      PPP_PERCENTAGE_FIELD_ID,
+    });
+
+    if (!PPP_PROJECT_COST_FIELD_ID || !ALL_INFRA_PROJECT_COST_FIELD_ID || !PPP_PERCENTAGE_FIELD_ID) {
+      console.log("⚠️ Auto-calculation 2.5: Could not find all required field IDs");
+      console.log("🔍 Available fields in section2_5:", Object.keys(sectionData));
+      console.log("🔍 Available fields in assignedIndicators:", 
+        assignedIndicators.map(ind => {
+          const name = Object.keys(ind)[0];
+          const sections = ind[name];
+          return sections.map((sec: any) => {
+            const secName = Object.keys(sec)[0];
+            const secData = sec[secName];
+            return {
+              sectionName: secName,
+              sNo: secData.sNo,
+              fieldLabels: secData.inputs?.map((inp: any) => inp.label) || []
+            };
+          });
+        })
+      );
+      return;
+    }
+
+    const pppProjectCostValue = sectionData[PPP_PROJECT_COST_FIELD_ID];
+    const allInfraProjectCostValue = sectionData[ALL_INFRA_PROJECT_COST_FIELD_ID];
+    
+    console.log("🔍 Auto-calculation 2.5: Raw values:", {
+      pppProjectCost: pppProjectCostValue,
+      allInfraProjectCost: allInfraProjectCostValue,
+      pppProjectCostType: typeof pppProjectCostValue,
+      allInfraProjectCostType: typeof allInfraProjectCostValue,
+    });
+
+    const pppProjectCost = parseFloat(
+      (pppProjectCostValue || "").toString().replace(/[₹,]/g, "")
+    );
+    const allInfraProjectCost = parseFloat(
+      (allInfraProjectCostValue || "").toString().replace(/[₹,]/g, "")
+    );
+
+    console.log("🔍 Auto-calculation 2.5: Parsed values:", {
+      pppProjectCost,
+      allInfraProjectCost,
+      isValidPppCost: !isNaN(pppProjectCost) && pppProjectCost > 0,
+      isValidAllInfraCost: !isNaN(allInfraProjectCost) && allInfraProjectCost > 0,
+    });
+
+    let calculatedValue: string | number = "";
+    
+    const isValidPppCost = !isNaN(pppProjectCost) && pppProjectCost > 0;
+    const isValidAllInfraCost = !isNaN(allInfraProjectCost) && allInfraProjectCost > 0;
+    
+    if (isValidPppCost && isValidAllInfraCost) {
+      const percentage = (pppProjectCost / allInfraProjectCost) * 100;
+      if (percentage >= 0) {
+        calculatedValue = Math.round(percentage * 100) / 100;
+      } else {
+        calculatedValue = 0;
+      }
+      console.log("✅ Auto-calculation 2.5: Calculated value:", calculatedValue);
+    } else {
+      console.log("⚠️ Auto-calculation 2.5: Invalid values, cannot calculate");
+    }
+
+    const currentCalculatedValue = sectionData[PPP_PERCENTAGE_FIELD_ID];
+    console.log("🔍 Auto-calculation 2.5: Current vs Calculated:", {
+      current: currentCalculatedValue,
+      calculated: calculatedValue,
+      willUpdate: currentCalculatedValue !== calculatedValue,
+    });
+    
+    if (currentCalculatedValue !== calculatedValue) {
+      setFormData((prev) => {
+        const sectionData = prev[sectionKey] || {};
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...sectionData,
+            [PPP_PERCENTAGE_FIELD_ID]: calculatedValue,
+          },
+        };
+      });
+
+      if (calculatedValue !== "" && assignedIndicators.length > 0 && PPP_PERCENTAGE_FIELD_ID) {
+        let calculatedField: any = null;
+        for (const indicatorObj of assignedIndicators) {
+          const indicatorName = Object.keys(indicatorObj)[0];
+          if (indicatorName === "Infra Development" || indicatorName.toLowerCase().includes("infra development")) {
+            const sections = indicatorObj[indicatorName];
+            for (const sectionObj of sections) {
+              const sectionName = Object.keys(sectionObj)[0];
+              const section = sectionObj[sectionName];
+              if (section.sNo === "2.5") {
+                if (section.inputs && Array.isArray(section.inputs)) {
+                  calculatedField = section.inputs.find(
+                    (input: any) => input.id === PPP_PERCENTAGE_FIELD_ID
+                  );
+                  if (calculatedField) break;
+                }
+              }
+            }
+          }
+        }
+
+        if (calculatedField && calculatedValue !== "") {
+          const calculatedFieldPath = `${sectionKey}.${PPP_PERCENTAGE_FIELD_ID}`;
+          const error = validateField(calculatedField, calculatedValue, calculatedFieldPath);
+          
+          setValidationErrors((prev) => {
+            const newErrors = { ...prev };
+            if (error) {
+              newErrors[calculatedFieldPath] = error;
+            } else {
+              delete newErrors[calculatedFieldPath];
+            }
+            return newErrors;
+          });
+        } else if (calculatedValue === "") {
+          const calculatedFieldPath = `${sectionKey}.${PPP_PERCENTAGE_FIELD_ID}`;
+          setValidationErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors[calculatedFieldPath];
+            return newErrors;
+          });
+        }
+      }
+    }
+  }, [
+    formData,
+    assignedIndicators,
+    setFormData,
+    setValidationErrors,
+  ]);
 }
 

@@ -91,12 +91,16 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
       field.uiComponent === "Calculated" ||
       field.validationRules?.type === "calculated" ||
       field.label?.toLowerCase().includes("auto-calculated") ||
-      field.label?.toLowerCase().includes("% capex utilization");
+      field.label?.toLowerCase().includes("% capex utilization") ||
+      field.label?.toLowerCase().includes("percentage of ppp project") ||
+      field.label?.toLowerCase().includes("% of ppp project");
 
     // Check if this is a calculation input field (must be > 0)
     const isCalculationInputField =
       field.label?.toLowerCase().includes("capital expenditure allocation") ||
-      field.label?.toLowerCase().includes("capital expenditure actuals");
+      field.label?.toLowerCase().includes("capital expenditure actuals") ||
+      field.label?.toLowerCase().includes("total project cost of ppp") ||
+      field.label?.toLowerCase().includes("total project cost of all infra projects");
 
     // Render Yes/No fields as radio buttons FIRST (before dropdown check)
     // Yes/No fields are stored as one field in backend but displayed as radio buttons in UI
