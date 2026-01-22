@@ -130,6 +130,76 @@ class MinistryScoringService {
     
     return categoryCalculations.reduce((sum, calc) => sum + calc.score, 0);
   }
+
+  /**
+   * Get all ministry score rankings
+   */
+  async getRankings(): Promise<MinistryScoreRanking[]> {
+    try {
+      const { apiService } = await import('./api.service');
+      const response = await apiService.get('/scoring/ministry/rankings', { withCredentials: true });
+      const rankings = response.data?.data !== undefined ? response.data.data : response.data;
+      return Array.isArray(rankings) ? rankings : [];
+    } catch (error) {
+      console.error('Error fetching ministry score rankings:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get ministry score statistics
+   */
+  async getStatistics(): Promise<MinistryScoreStatistics> {
+    try {
+      const { apiService } = await import('./api.service');
+      const response = await apiService.get('/scoring/ministry/statistics', { withCredentials: true });
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error) {
+      console.error('Error fetching ministry score statistics:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Transform API data to match frontend format
+   */
+  transformRankingData(apiData: MinistryScoreRanking[], userMinistry?: string) {
+    return apiData.map((item, index) => ({
+      id: index + 1,
+      name: item.ministryName || item.ministryId || 'Unknown Ministry',
+      isUserMinistry: userMinistry ? (item.ministryName === userMinistry || item.ministryId === userMinistry) : false,
+      totalScore: item.totalScore,
+      financing: item.categoryScores?.infraFinancing?.score ?? Math.round((item.totalScore * 0.25)),
+      development: item.categoryScores?.infraDevelopment?.score ?? Math.round((item.totalScore * 0.25)),
+      ppp: item.categoryScores?.pppDevelopment?.score ?? Math.round((item.totalScore * 0.25)),
+      enablers: item.categoryScores?.infraEnablers?.score ?? Math.round((item.totalScore * 0.25)),
+      category: this.getCategoryFromScore(item.totalScore),
+      categoryRange: this.getCategoryRange(item.totalScore),
+      scorePercent: item.percentage,
+      rank: item.rank,
+      approvedAt: item.approvedAt || item.createdAt
+    }));
+  }
+
+  /**
+   * Get category based on score
+   */
+  private getCategoryFromScore(score: number): string {
+    if (score >= 600) return "Leaders";
+    if (score >= 400) return "Performers";
+    if (score >= 200) return "Challengers";
+    return "Strivers";
+  }
+
+  /**
+   * Get category range based on score
+   */
+  private getCategoryRange(score: number): string {
+    if (score >= 600) return ">600";
+    if (score >= 400) return "400-600 pts";
+    if (score >= 200) return "200-400 pts";
+    return "<200 pts";
+  }
 }
 
 export const ministryScoringService = new MinistryScoringService();

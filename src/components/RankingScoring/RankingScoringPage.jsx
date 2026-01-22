@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { scoringService } from "../../services/scoring.service";
+import { ministryScoringService } from "../../services/ministry-scoring.service";
 import StateRankingTable from "./StateRankingTable";
 import MinistryRankingTable from "./MinistryRankingTable";
 import Filters from "./Filters";
@@ -237,64 +238,62 @@ const RankingScoringPage = () => {
     }
   }, [user, activeTab]);
 
-  // Initialize mock ministry data for UI (will be replaced with real API later)
-  useEffect(() => {
-    if (activeTab === "ministry") {
-      // Set loading to false and hasData to false to show "no data" state
-      // When API is ready, replace this with actual API call
-      setMinistryLoading(false);
-      setMinistryHasData(false);
-      setApiMinistries([]);
-      
-      // Uncomment below to show mock data for UI testing:
-      // const mockMinistries = [
-      //   {
-      //     id: 1,
-      //     name: "Ministry of Road Transport and Highways",
-      //     totalScore: 750,
-      //     financing: 200,
-      //     development: 190,
-      //     ppp: 180,
-      //     enablers: 180,
-      //     category: "Leaders",
-      //     categoryRange: ">600",
-      //     rank: 1,
-      //     scorePercent: 75.0,
-      //     isUserMinistry: false,
-      //   },
-      //   {
-      //     id: 2,
-      //     name: "Ministry of Railways",
-      //     totalScore: 680,
-      //     financing: 180,
-      //     development: 170,
-      //     ppp: 170,
-      //     enablers: 160,
-      //     category: "Leaders",
-      //     categoryRange: ">600",
-      //     rank: 2,
-      //     scorePercent: 68.0,
-      //     isUserMinistry: false,
-      //   },
-      //   {
-      //     id: 3,
-      //     name: "Ministry of Power",
-      //     totalScore: 550,
-      //     financing: 150,
-      //     development: 140,
-      //     ppp: 130,
-      //     enablers: 130,
-      //     category: "Performers",
-      //     categoryRange: "400-600 pts",
-      //     rank: 3,
-      //     scorePercent: 55.0,
-      //     isUserMinistry: false,
-      //   },
-      // ];
-      // setApiMinistries(mockMinistries);
-      // setMinistryHasData(true);
+  // Function to load ministry scoring data
+  const loadMinistryScoringData = async () => {
+    // Only load ministry data when ministry tab is active
+    if (activeTab !== "ministry") {
+      return;
     }
-  }, [activeTab]);
+
+    try {
+      setMinistryLoading(true);
+      setMinistryError(null);
+      setMinistryHasData(false);
+
+      console.log("🔍 Ranking Page - Loading ministry data for user role:", user?.role);
+
+      // Load rankings and statistics in parallel
+      const [rankingsData, statisticsData] = await Promise.all([
+        ministryScoringService.getRankings(),
+        ministryScoringService.getStatistics()
+      ]);
+
+      console.log("🔍 Ranking Page - Received ministry rankings data:", rankingsData);
+      console.log("🔍 Ranking Page - Received ministry statistics data:", statisticsData);
+
+      // Check if we have valid data
+      if (rankingsData && rankingsData.length > 0) {
+        // Transform API data to match expected format using ministry scoring service
+        const userMinistry = user?.ministry || user?.ministryName || user?.ministryId;
+        const transformedMinistries = ministryScoringService.transformRankingData(rankingsData, userMinistry);
+        console.log("🔍 Ranking Page - Transformed ministries:", transformedMinistries);
+        
+        setApiMinistries(transformedMinistries);
+        setMinistryStatistics(statisticsData);
+        setMinistryHasData(true);
+      } else {
+        console.log("🔍 Ranking Page - No ministry ranking data available");
+        setApiMinistries([]);
+        setMinistryStatistics(null);
+        setMinistryHasData(false);
+      }
+    } catch (err) {
+      console.error("Error loading ministry scoring data:", err);
+      setMinistryError(err.message);
+      setApiMinistries([]);
+      setMinistryStatistics(null);
+      setMinistryHasData(false);
+    } finally {
+      setMinistryLoading(false);
+    }
+  };
+
+  // Load ministry data from API on component mount and when tab changes
+  useEffect(() => {
+    if (user && activeTab === "ministry") {
+      loadMinistryScoringData();
+    }
+  }, [user, activeTab]);
 
   // Listen for score update events (when MOSPI Approver approves a submission)
   useEffect(() => {
@@ -302,10 +301,15 @@ const RankingScoringPage = () => {
       console.log("🔄 Ranking Page - Score update event received:", event.detail);
       // Wait a moment for backend to finish calculating and saving the score
       await new Promise(resolve => setTimeout(resolve, 1000));
-      // Refresh the ranking data when a new score is calculated (only for state tab)
-      if (user && activeTab === "state") {
-        console.log("🔄 Ranking Page - Refreshing ranking data after score update...");
-        await loadScoringData();
+      // Refresh the ranking data when a new score is calculated
+      if (user) {
+        if (activeTab === "state") {
+          console.log("🔄 Ranking Page - Refreshing state ranking data after score update...");
+          await loadScoringData();
+        } else if (activeTab === "ministry") {
+          console.log("🔄 Ranking Page - Refreshing ministry ranking data after score update...");
+          await loadMinistryScoringData();
+        }
       }
     };
 
