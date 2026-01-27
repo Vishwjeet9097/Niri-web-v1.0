@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { useEditableSectionStore } from "@/utils/EditableSection";
 import { useAuth } from "@/features/auth/AuthProvider";
 import type { DynamicFormBuilderProps } from "./types";
+import { TotalNumberOfOfficersTrained } from "./CapacityBuilding/TotalNumberOfOfficersTrained";
+import { CapacityBuildingExcelUpload } from "./CapacityBuilding/CapacityBuildingExcelUpload";
 
 export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
   ({
@@ -310,8 +312,94 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                             .trim()
                         : null;
 
+                      // Check if this is indicator 4.5 (Capacity Building)
+                      const isIndicator4_5 = indicatorId === "4.5";
+                      const sectionData = formData[sectionKey] || {};
+                      
+                      // For capacityArray, check subsection name (usually "Add Capacity Building" or similar)
+                      const subsectionName = section.subsection?.[0] 
+                        ? Object.keys(section.subsection[0])[0] 
+                        : "capacityArray";
+                      const capacityArray = isIndicator4_5 
+                        ? (sectionData[subsectionName] || sectionData.capacityArray || [])
+                        : [];
+
                       return (
                         <>
+                          {/* Special handling for indicator 4.5 */}
+                          {isIndicator4_5 && (
+                            <div className="space-y-4 mb-6">
+                              {/* Total Number of Officers Trained Display */}
+                              <TotalNumberOfOfficersTrained
+                                capacityArray={capacityArray}
+                              />
+                              
+                              {/* Excel Upload Component */}
+                              <CapacityBuildingExcelUpload
+                                capacityArray={capacityArray}
+                                sectionStatus={sectionStatus}
+                                onUpdateCapacityArray={(entries) => {
+                                  console.log("🔄 [Excel Upload] Updating capacityArray with entries:", entries);
+                                  console.log("🔄 [Excel Upload] SectionKey:", sectionKey);
+                                  console.log("🔄 [Excel Upload] SubsectionName:", subsectionName);
+                                  console.log("🔄 [Excel Upload] Current capacityArray:", capacityArray);
+                                  console.log("🔄 [Excel Upload] Section:", section);
+                                  
+                                  // Get subsection field definitions to map Excel data to form field IDs
+                                  const subsectionObj = section.subsection?.[0];
+                                  const actualSubsectionName = subsectionObj ? Object.keys(subsectionObj)[0] : subsectionName;
+                                  const subsectionData = subsectionObj?.[actualSubsectionName];
+                                  const subsectionFields = subsectionData?.inputs || [];
+                                  
+                                  console.log("🔄 [Excel Upload] Subsection fields:", subsectionFields);
+                                  console.log("🔄 [Excel Upload] Actual subsection name:", actualSubsectionName);
+                                  
+                                  // Map Excel entries to form field structure
+                                  const mappedEntries = entries.map((excelEntry: any) => {
+                                    const mappedEntry: any = { id: excelEntry.id };
+                                    
+                                    // Map each Excel property to the corresponding form field ID
+                                    subsectionFields.forEach((field: any) => {
+                                      const fieldLabel = (field.label || "").toLowerCase();
+                                      
+                                      // Map based on field label patterns
+                                      if (fieldLabel.includes("officer") && fieldLabel.includes("name")) {
+                                        mappedEntry[field.id] = excelEntry.officerName || "";
+                                      } else if (fieldLabel.includes("designation")) {
+                                        mappedEntry[field.id] = excelEntry.designation || "";
+                                      } else if (fieldLabel.includes("training program") || (fieldLabel.includes("program") && fieldLabel.includes("name"))) {
+                                        mappedEntry[field.id] = excelEntry.programName || "";
+                                      } else if (fieldLabel.includes("organizer entity") || fieldLabel.includes("organiser entity") || 
+                                                 (fieldLabel.includes("organizer") || fieldLabel.includes("organiser"))) {
+                                        mappedEntry[field.id] = excelEntry.organiser || "";
+                                      } else if (fieldLabel.includes("mode") && fieldLabel.includes("training")) {
+                                        mappedEntry[field.id] = excelEntry.trainingType || "";
+                                      } else if ((fieldLabel.includes("training") && fieldLabel.includes("period")) || 
+                                                 fieldLabel.includes("mm/yy") || fieldLabel.includes("mm yy")) {
+                                        mappedEntry[field.id] = excelEntry.trainingPeriod || "";
+                                      }
+                                    });
+                                    
+                                    console.log("🔄 [Excel Upload] Excel entry:", excelEntry);
+                                    console.log("🔄 [Excel Upload] Mapped entry:", mappedEntry);
+                                    return mappedEntry;
+                                  });
+                                  
+                                  console.log("🔄 [Excel Upload] All mapped entries:", mappedEntries);
+                                  
+                                  // Update the capacityArray in formData
+                                  const updatePath = `${sectionKey}.${actualSubsectionName}`;
+                                  
+                                  console.log("🔄 [Excel Upload] Update path:", updatePath);
+                                  console.log("🔄 [Excel Upload] Calling onChange with mapped entries");
+                                  
+                                  onChange(updatePath, mappedEntries);
+                                }}
+                                disabled={isSectionDisabled}
+                              />
+                            </div>
+                          )}
+                          
                           {/* Render direct inputs */}
                           {section.inputs.length > 0 &&
                             (() => {
