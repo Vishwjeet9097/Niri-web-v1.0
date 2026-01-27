@@ -270,9 +270,10 @@ export function DashboardLayout() {
   }
   
   // First pass: filter by role and other conditions
-  let menus = getMenuConfig().filter((item) => {
+  const menuConfig = getMenuConfig();
+  const menus = (Array.isArray(menuConfig) ? menuConfig : []).filter((item) => {
     // Check if user role matches
-    if (!item.roles.includes(role)) {
+    if (!item?.roles || !Array.isArray(item.roles) || !item.roles.includes(role)) {
       return false;
     }
     
@@ -291,7 +292,7 @@ export function DashboardLayout() {
   });
   
   // Second pass: Special handling for NODAL_OFFICER "Data Submission" menu items
-  let filteredMenus = menus;
+  let filteredMenus = Array.isArray(menus) ? menus : [];
   if (role === "NODAL_OFFICER") {
     const dataSubmissionMenus = menus.filter(m => m.label === "Data Submission");
     
@@ -433,9 +434,9 @@ export function DashboardLayout() {
                 const active = isActive(Array.isArray(item.path) ? item.path : path);
 
                 // Dropdown logic
-                if (item.children && item.children.length > 0) {
+                if (item.children && Array.isArray(item.children) && item.children.length > 0) {
                   const matchesChild = item.children.some((c) =>
-                    location.pathname.startsWith(c.path)
+                    c?.path && location.pathname.startsWith(c.path)
                   );
                   const isOpen = openDropdown === uniqueKey || matchesChild;
 

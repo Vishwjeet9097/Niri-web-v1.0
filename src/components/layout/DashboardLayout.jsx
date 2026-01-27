@@ -98,7 +98,8 @@ export function DashboardLayout() {
     });
 
     // Disable if no remaining indicators available (all assigned to nodals)
-    const shouldDisable = remainingMinistryIndicators.availableIndicators.length === 0;
+    const availableIndicators = remainingMinistryIndicators?.availableIndicators;
+    const shouldDisable = !availableIndicators || !Array.isArray(availableIndicators) || availableIndicators.length === 0;
     
     console.log("🔍 [DashboardLayout.jsx] Should disable?", shouldDisable, "isEmpty:", isEmpty, "remainingIndicatorsLength:", Array.isArray(remainingMinistryIndicators) ? remainingMinistryIndicators.length : 'not array');
     return shouldDisable;
@@ -304,8 +305,9 @@ export function DashboardLayout() {
   }, [user?.role]); // ✅ Only depend on user?.role - refreshIndicators removed from deps (using ref instead)
 
 
-  const navigation = getMenuConfig().filter((item) =>
-    item.roles.includes(user?.role)
+  const menuConfig = getMenuConfig();
+  const navigation = (Array.isArray(menuConfig) ? menuConfig : []).filter((item) =>
+    item?.roles && Array.isArray(item.roles) && item.roles.includes(user?.role)
   ).map((item) => ({
     ...item, // keep label, path, children, roles
     icon: ICONS[item.icon] ?? LayoutDashboard, // icon as a component
@@ -322,9 +324,11 @@ export function DashboardLayout() {
   };
 
   const isActive = (path) => {
+    if (!path) return false;
+    
     // Handle array of paths (like ["/submissions", "/data-submission/review"])
     if (Array.isArray(path)) {
-      return path.some((p) => location.pathname.startsWith(p));
+      return path.some((p) => p && location.pathname.startsWith(p));
     }
 
     // Default single string path
@@ -332,7 +336,7 @@ export function DashboardLayout() {
       return location.pathname === "/";
     }
 
-    return location.pathname.startsWith(path);
+    return typeof path === 'string' && location.pathname.startsWith(path);
   };
 
   return (
@@ -411,16 +415,16 @@ export function DashboardLayout() {
               {navigation.map((item) => {
                 const Icon = item.icon;
                 // use item.path (not item.href). Also handle Dashboard special path
-                const path = Array.isArray(item.path)
-                  ? item.path[0]
-                  : item.path;
-                const active = isActive(item.path);
+                const path = item?.path 
+                  ? (Array.isArray(item.path) ? item.path[0] : item.path)
+                  : "/";
+                const active = item?.path ? isActive(item.path) : false;
 
                 // If item has children -> render dropdown
-                if (item.children && item.children.length > 0) {
+                if (item.children && Array.isArray(item.children) && item.children.length > 0) {
                   // auto-open if current path matches any child
                   const matchesChild = item.children.some((c) =>
-                    location.pathname.startsWith(c.path)
+                    c?.path && location.pathname.startsWith(c.path)
                   );
                   const isOpen = openDropdown === item.label || matchesChild;
 
@@ -452,11 +456,12 @@ export function DashboardLayout() {
                       {isOpen && (
                         <div className="ml-4 mt-1 flex flex-col space-y-1">
                           {item.children.map((child) => {
-                            const childActive = isActive(child.path);
+                            const childPath = child?.path || "/";
+                            const childActive = isActive(childPath);
                             const isCreateSubmission =
-                              child.path === "/submissions";
+                              childPath === "/submissions";
                             const isMinistryCreateSubmission =
-                              child.path === "/ministry/submission";
+                              childPath === "/ministry/submission";
 
                             // Use memoized disabled state - only disable if already disabled, don't add loading state
                             // This prevents flickering during refresh
@@ -475,7 +480,7 @@ export function DashboardLayout() {
                                 isMinistryCreateSubmissionDisabled,
                                 isDisabled,
                                 ministryDashboardData,
-                                childPath: child.path,
+                                childPath: childPath,
                                 userRole: user?.role,
                                 willBeDisabled: isDisabled,
                               });
@@ -501,7 +506,9 @@ export function DashboardLayout() {
                                     }
                                     return; // prevent navigation
                                   }
-                                  navigate(child.path);
+                                  if (childPath) {
+                                    navigate(childPath);
+                                  }
                                   setSidebarOpen(false);
                                   setOpenDropdown(null);
                                 }}

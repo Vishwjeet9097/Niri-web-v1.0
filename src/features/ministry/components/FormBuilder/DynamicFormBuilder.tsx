@@ -28,6 +28,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     onValidateField,
     onClearFieldError,
     renderSectionActionButtons,
+    renderScoreDisplay,
     onPendingDeletion,
   }) => {
     const { user } = useAuth();
@@ -247,6 +248,12 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                       )
                     : undefined;
 
+                // Get score display for this section if in review mode
+                const scoreDisplay =
+                  mode === "review" && renderScoreDisplay
+                    ? renderScoreDisplay(indicatorId)
+                    : undefined;
+
                 return (
                   <MinistrySectionCard
                     key={section.sNo}
@@ -260,6 +267,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                     indicatorStatus={sectionStatus}
                     isSaving={submittingIndicator === indicatorId}
                     reviewModeActionButtons={sectionActionButtons}
+                    scoreDisplay={scoreDisplay}
                   >
                     {/* Show general error message above all fields if validation failed */}
                     {hasIndicatorErrors &&

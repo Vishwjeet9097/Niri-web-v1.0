@@ -428,7 +428,6 @@ export function UnifiedSubmissionCard({
             // Show "Review Now" when STATE_APPROVER viewing NODAL_OFFICER submission with unaccepted indicators
             <Button
               size="sm"
-              // className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={onReview}
             >
               <FileText className="w-4 h-4 mr-1" />
@@ -440,7 +439,7 @@ export function UnifiedSubmissionCard({
             // Show "Review Now" for other review cases (not STATE_APPROVER viewing NODAL_OFFICER submissions)
             <Button
               size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              // className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={onReview}
             >
               <FileText className="w-4 h-4 mr-1" />
