@@ -267,12 +267,12 @@ const SubsectionTableRow: React.FC<{
                             : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {isYes ? 'Yes' : isNo ? 'No' : 'N/A'}
+                        {isYes ? 'Yes' : isNo ? 'No' : ''}
                       </span>
                     );
                   }
                   // Show regular field values (not disabled inputs)
-                  return fieldValue || <span className="text-muted-foreground">N/A</span>;
+                  return fieldValue || <span className="text-muted-foreground"></span>;
                 })()}
               </div>
             )}

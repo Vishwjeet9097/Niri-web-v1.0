@@ -74,8 +74,25 @@ export function MonthYearPicker({
   const selectedMonth = localMonth;
   const selectedYear = localYear;
 
-  // Generate month options (01-12)
-  const months = Array.from({ length: 12 }, (_, i) => {
+  // Convert selected year (YY format) to full year (YYYY)
+  // Handle both 2-digit years: assume 20XX for years 00-99
+  const getFullYear = (yy: string): number => {
+    const yearNum = parseInt(yy);
+    // If year is 0-99, assume 2000-2099
+    return 2000 + yearNum;
+  };
+
+  // Generate month options (01-12), but limit to current month if current year is selected
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11, so add 1
+  
+  const selectedYearFull = selectedYear ? getFullYear(selectedYear) : null;
+  
+  // If current year is selected, only show months up to current month
+  const maxMonth = selectedYearFull === currentYear ? currentMonth : 12;
+  
+  const months = Array.from({ length: maxMonth }, (_, i) => {
     const monthNum = String(i + 1).padStart(2, "0");
     const monthNames = [
       "January",
@@ -95,12 +112,28 @@ export function MonthYearPicker({
   });
 
   // Generate year options (current year - 10 to current year only, no future years)
-  const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 11 }, (_, i) => {
     const year = currentYear - 10 + i;
     const yearShort = String(year).slice(-2); // Last 2 digits
     return { value: yearShort, label: String(year) };
   });
+
+  // Clear month if it becomes invalid when year changes (e.g., future month in current year)
+  React.useEffect(() => {
+    if (selectedYear && selectedMonth) {
+      const selectedYearFull = getFullYear(selectedYear);
+      const selectedMonthNum = parseInt(selectedMonth);
+      
+      // If current year is selected and month is in the future, clear it
+      if (selectedYearFull === currentYear && selectedMonthNum > currentMonth) {
+        setLocalMonth("");
+        // Only clear if the current value is not already empty to prevent infinite loops
+        if (value) {
+          onChange?.(""); // Clear the value
+        }
+      }
+    }
+  }, [selectedYear, selectedMonth, currentYear, currentMonth, value, onChange]);
 
   const handleMonthChange = (month: string) => {
     setLocalMonth(month);
@@ -117,10 +150,21 @@ export function MonthYearPicker({
   const handleYearChange = (year: string) => {
     setLocalYear(year);
     setHasNewSelection(true); // Mark that user made a selection
+    
+    // Check if current month is valid for the selected year
     if (localMonth) {
-      // If month is already selected, update the value immediately
-      const newValue = `${localMonth}/${year}`;
-      onChange?.(newValue);
+      const selectedYearFull = getFullYear(year);
+      const selectedMonthNum = parseInt(localMonth);
+      
+      // If current year is selected and month is in the future, clear it
+      if (selectedYearFull === currentYear && selectedMonthNum > currentMonth) {
+        setLocalMonth("");
+        onChange?.(""); // Clear the value
+      } else {
+        // If month is valid, update the value immediately
+        const newValue = `${localMonth}/${year}`;
+        onChange?.(newValue);
+      }
     }
     // If month is not selected yet, just update local state
     // The value will be updated when month is selected

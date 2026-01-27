@@ -6,6 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails, submitMospiFormAction, getFormStatusStatistics } from '@/services/ministry.service';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +46,7 @@ export function MinistryFormReviewSubmissionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const { toast } = useToast();
   
   // Form status statistics for MOSPI Approver button logic
@@ -429,10 +440,21 @@ export function MinistryFormReviewSubmissionPage() {
     }
   };
 
-  // Handle MOSPI Approver action: Submit (Accept)
-  const handleSubmit = async () => {
+  // Handle MOSPI Approver action: Submit (Accept) - Show confirmation dialog
+  const handleSubmit = () => {
+    setShowAcceptDialog(true);
+  };
+
+  // Handle cancel accept dialog
+  const handleCancelAccept = () => {
+    setShowAcceptDialog(false);
+  };
+
+  // Handle confirm accept - actually perform the accept action
+  const handleConfirmAccept = async () => {
     try {
       setIsSubmitting(true);
+      setShowAcceptDialog(false);
       console.log("📤 Submitting (Accepting), formId:", formId);
       
       await submitMospiFormAction(formId, "accept");
@@ -700,7 +722,26 @@ export function MinistryFormReviewSubmissionPage() {
           <MinistryHistoryTab submission={submission} />
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Dialog for MOSPI Approver Accept */}
+      <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to accept this submission? This action will mark the submission as ACCEPTED and finalize the review. No further action can be taken after accept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAccept}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>
+              Confirm & Accept
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-

@@ -556,6 +556,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                 <Input
                   type="date"
                   value={formatDateForInput(value)}
+                  max={new Date().toISOString().split('T')[0]} // Disable future dates
                   onChange={(e) => {
                     const newValue = e.target.value;
                     onChange(newValue);

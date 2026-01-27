@@ -59,6 +59,43 @@ export const validateRequired = (value: any): boolean => {
 };
 
 /**
+ * Validates if a URL/website link is valid
+ * Accepts formats like:
+ * - http://example.com
+ * - https://example.com
+ * - www.example.com
+ * - example.com
+ * - example.in
+ * - example.ai
+ * - example.info
+ * - example.com/path
+ * - example.com/path?query=value
+ * Supports all valid top-level domains (TLD) like .com, .in, .ai, .info, .org, .net, etc.
+ */
+export const validateUrl = (value: any): boolean => {
+  if (!value || typeof value !== 'string') return true; // Empty values handled by required validation
+  const trimmed = value.trim();
+  if (trimmed === '') return true; // Empty handled by required
+  
+  // Comprehensive URL regex pattern that accepts:
+  // - http:// or https:// protocols (optional)
+  // - www. prefix (optional)
+  // - domain name with valid characters (letters, numbers, dots, hyphens)
+  // - top-level domain (any valid TLD - at least 2 characters, can be longer like .museum, .technology)
+  // - optional path, query params, fragments, etc.
+  // Pattern breakdown:
+  // (https?:\/\/)? - Optional http:// or https://
+  // (www\.)? - Optional www.
+  // [\da-z\.-]+ - Domain name (letters, numbers, dots, hyphens)
+  // \. - Required dot before TLD
+  // [a-z]{2,} - Top-level domain (at least 2 characters, supports all TLDs like .com, .in, .ai, .info, .museum, etc.)
+  // (\/[\w\-._~:/?#[\]@!$&'()*+,;=]*)? - Optional path/query/fragment
+  const urlPattern = /^(https?:\/\/)?(www\.)?[\da-z\.-]+\.[a-z]{2,}(\/[\w\-._~:/?#[\]@!$&'()*+,;=]*)?$/i;
+  
+  return urlPattern.test(trimmed);
+};
+
+/**
  * Validates a single field based on its type and rules
  * @param field - The field definition
  * @param value - The field value
@@ -145,11 +182,7 @@ export const validateField = (
   // Type-specific validation
   switch (field.dataType) {
     case 'string':
-      // Skip validation for Yes/No fields, Comment fields, URLs, Year fields, and Dropdown fields
-      const isYesNo = field.label?.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
-      const isComment = field.label?.toLowerCase().includes('comment') || 
-                       field.label?.toLowerCase().includes('objective') ||
-                       field.label?.toLowerCase().includes('description');
+      // Check if this is a URL/website link field
       const isUrl = field.label?.toLowerCase().includes('website') ||
                     field.label?.toLowerCase().includes('url') ||
                     field.label?.toLowerCase().includes('link');
@@ -157,13 +190,26 @@ export const validateField = (
                          field.label?.toLowerCase() === 'fy' ||
                          field.uiComponent === 'Year';
       
-      // If it's a dropdown field (even with string dataType), skip alphabet validation
-      if (isYesNo || isComment || isUrl || isYearField || isDropdownField) {
-        // These fields can have any string content (Year fields accept numbers, Dropdowns have predefined values)
+      // If it's a dropdown field (even with string dataType), skip alphabet validation (dropdowns are selected, not typed)
+      if (isYearField || isDropdownField) {
+        // Year fields accept numbers, Dropdowns have predefined values
         return undefined;
       }
       
-      // For other string fields, validate alphabets only
+      // Validate URL/website link fields
+      if (isUrl) {
+        // Skip validation if field is empty and not required
+        if (!isRequired && (value === null || value === undefined || value === '')) {
+          return undefined;
+        }
+        // Validate URL format
+        if (value && !validateUrl(value)) {
+          return `${field.label} must be a valid website link (e.g., https://example.com or www.example.com).`;
+        }
+        return undefined; // URL validation passed
+      }
+      
+      // For all other string fields, validate alphabets only
       if (value && !validateAlphabetsOnly(value)) {
         return `${field.label} should contain only text or alphabets.`;
       }

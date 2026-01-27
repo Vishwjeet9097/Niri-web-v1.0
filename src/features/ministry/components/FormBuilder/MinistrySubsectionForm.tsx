@@ -169,21 +169,25 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                 {!isEditable ? (
                   // In review mode (and disabled), show as colored badge matching state review component
                   <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        normalizedValue === "yes"
-                          ? "bg-green-100 text-green-800"
+                    {normalizedValue ? (
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          normalizedValue === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : normalizedValue === "no"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {normalizedValue === "yes"
+                          ? "Yes"
                           : normalizedValue === "no"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {normalizedValue === "yes"
-                        ? "Yes"
-                        : normalizedValue === "no"
-                        ? "No"
-                        : "N/A"}
-                    </span>
+                          ? "No"
+                          : ""}
+                      </span>
+                    ) : (
+                      <span></span>
+                    )}
                   </div>
                 ) : (
                   <RadioGroup
@@ -451,7 +455,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
               // Helper to format date for display in review mode
               const formatDateForDisplay = (dateValue: any): string => {
-                if (!dateValue) return "N/A";
+                if (!dateValue) return "";
                 if (typeof dateValue === "string") {
                   // If it's in YYYY-MM-DD format, format it nicely
                   if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
@@ -496,6 +500,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                       <Input
                         type="date"
                         value={formatDateForInput(fieldValue)}
+                        max={new Date().toISOString().split('T')[0]} // Disable future dates
                         onChange={(e) => {
                           const newValue = e.target.value;
                           onChange(index, field.id, newValue);
@@ -525,7 +530,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                       }
                       readOnly={true}
                       className="cursor-not-allowed"
-                      placeholder={fieldValue ? undefined : "N/A"}
+                      placeholder={fieldValue ? undefined : ""}
                     />
                   )}
                   {error && (
@@ -895,28 +900,32 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                             ) : isYesNo ? (
                               // Show Yes/No as colored badges when not editable
                               !isEditable ? (
-                                <span
-                                  className={`px-3 py-1 rounded-full text-sm ${
-                                    fieldValue === "yes"
-                                      ? "bg-green-100 text-green-800"
+                                fieldValue ? (
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-sm ${
+                                      fieldValue === "yes"
+                                        ? "bg-green-100 text-green-800"
+                                        : fieldValue === "no"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}
+                                  >
+                                    {fieldValue === "yes"
+                                      ? "Yes"
                                       : fieldValue === "no"
-                                      ? "bg-red-100 text-red-800"
-                                      : "bg-gray-100 text-gray-800"
-                                  }`}
-                                >
-                                  {fieldValue === "yes"
-                                    ? "Yes"
-                                    : fieldValue === "no"
-                                    ? "No"
-                                    : "N/A"}
-                                </span>
+                                      ? "No"
+                                      : ""}
+                                  </span>
+                                ) : (
+                                  <span></span>
+                                )
                               ) : (
                                 <span className="capitalize">
                                   {fieldValue === "yes"
                                     ? "Yes"
                                     : fieldValue === "no"
                                     ? "No"
-                                    : "N/A"}
+                                    : ""}
                                 </span>
                               )
                             ) : (
@@ -925,7 +934,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                                   fieldValue ? "" : "text-muted-foreground"
                                 }
                               >
-                                {fieldValue || "N/A"}
+                                {fieldValue || ""}
                               </span>
                             )}
                           </td>
