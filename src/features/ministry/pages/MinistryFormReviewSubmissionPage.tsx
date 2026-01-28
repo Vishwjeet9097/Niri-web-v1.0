@@ -587,25 +587,24 @@ export function MinistryFormReviewSubmissionPage() {
                     totalSubmitted,
                   });
                   
-                  // If totalSubmitted !== total, disable both buttons
+                  // If totalSubmitted !== total, disable Submit but still allow Send Back (MOSPI can send form back)
                   if (totalSubmitted !== total) {
-                    console.log("⚠️ Disabling both: totalSubmitted !== total");
+                    console.log("⚠️ totalSubmitted !== total: Submit disabled, Send Back allowed when form is with MOSPI");
                     isSubmitEnabled = false;
-                    isSendBackEnabled = false;
+                    isSendBackEnabled = true; // Allow Send Back so MOSPI can send the whole form back
                   } else {
                     // If totalSubmitted === total:
-                    // - Submit enabled when totalApproved === total
+                    // - Submit (Accept) enabled when totalApproved === total (all indicators accepted)
                     isSubmitEnabled = totalApproved === total;
-                    
-                    // - Send Back enabled when totalSentBack !== 0
-                    isSendBackEnabled = totalSentBack !== 0;
+                    // - Send Back always enabled when form is with MOSPI approver (they can send form back)
+                    isSendBackEnabled = true;
                     
                     console.log("✅ Button states:", {
                       isSubmitEnabled,
                       isSendBackEnabled,
                       reason: {
                         submit: totalApproved === total ? "All approved" : `${totalApproved}/${total} approved`,
-                        sendBack: totalSentBack !== 0 ? `Has ${totalSentBack} sent back` : "No sent back items",
+                        sendBack: "Form with MOSPI - Send Back allowed",
                       },
                     });
                   }
@@ -613,7 +612,11 @@ export function MinistryFormReviewSubmissionPage() {
                   if (!isCorrectStatus) {
                     console.log("⚠️ Buttons disabled: formStatus is not SUBMITTED_TO_MOSPI_APPROVER");
                   } else {
-                    console.log("⚠️ formStatusStats is null/undefined");
+                    console.log("⚠️ formStatusStats is null/undefined - enabling Send Back when form is with MOSPI");
+                    // When stats not loaded yet, allow Send Back so MOSPI is not blocked
+                    if (isCorrectStatus) {
+                      isSendBackEnabled = true;
+                    }
                   }
                 }
                 

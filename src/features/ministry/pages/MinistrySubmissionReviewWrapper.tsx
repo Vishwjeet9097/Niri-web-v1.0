@@ -16,6 +16,7 @@ import {
   getMinistrySubmissionDetailsForReview,
   getMinistrySubmissionDetailsConsolidated,
   getMinistryPreviewData,
+  getMinistryProgressBarData,
   updateMinistryIndicatorStatus,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
@@ -141,6 +142,8 @@ export function MinistrySubmissionReviewWrapper({
     submissionIndicatorId: string;
     sectionId: string;
   } | null>(null);
+  /** Form status from progress API when in preview (no submission). Used to freeze indicator status and progress until form is returned from MOSPI. */
+  const [formStatusFromProgress, setFormStatusFromProgress] = useState<string | null>(null);
 
   // Handler to execute after comment is saved for send back action (MOSPI Approver)
   const handleSendBackAfterComment = async () => {
@@ -383,6 +386,21 @@ export function MinistrySubmissionReviewWrapper({
             setSubmissionId(submission.id);
           }
         }
+        // Fetch consolidated form status (from progress API) so we can freeze indicator statuses
+        // when consolidated form is with MOSPI. This applies to both preview and individual submissions.
+        // For individual submissions, the consolidated form status tells us if we should freeze.
+        // Use targetUserId, or fallback to current user's ID for ministry submissions
+        const userIdForProgress = targetUserId || (user?.role === "MINISTRY_APPROVER" ? user?.id : null);
+        if (userIdForProgress) {
+          getMinistryProgressBarData(userIdForProgress)
+            .then((r: any) => {
+              const d = r?.data ?? r;
+              setFormStatusFromProgress(d?.formStatus ?? null);
+            })
+            .catch(() => {});
+        } else {
+          setFormStatusFromProgress(null);
+        }
       } else {
         console.warn("No indicators found for review");
         toast({
@@ -447,6 +465,19 @@ export function MinistrySubmissionReviewWrapper({
     return orderedCategories;
   }, [assignedIndicators]);
 
+  // When form is with MOSPI, freeze indicator status and progress only for MINISTRY_APPROVER (preview/review).
+  // Do NOT freeze for MOSPI_APPROVER / MOSPI_REVIEWER so their Accept and Send Back actions work with real statuses.
+  // For individual submissions, prioritize formStatusFromProgress (consolidated form status) over individual submission status
+  // so we freeze when consolidated form is with MOSPI, even if individual submission has a different status.
+  const formStatusForFreeze = formStatusFromProgress ?? submission?.status ?? submission?.formStatus;
+  const isFormWithMospiForFreeze =
+    user?.role === "MINISTRY_APPROVER" &&
+    [
+      "SUBMITTED_TO_MOSPI_REVIEWER",
+      "SUBMITTED_TO_MOSPI_APPROVER",
+      "ACCEPTED_BY_MOSPI",
+    ].includes((formStatusForFreeze || "").toUpperCase());
+
   // Calculate progress for each category
   const getCategoryProgress = (categoryIndicator: AssignedIndicator) => {
     const categoryName = Object.keys(categoryIndicator)[0];
@@ -456,9 +487,12 @@ export function MinistrySubmissionReviewWrapper({
       return { completed: 0, total: 0, progress: 0 };
     }
     
-    let completed = 0;
     const total = sections.length;
+    if (isFormWithMospiForFreeze) {
+      return { completed: total, total, progress: 100 };
+    }
     
+    let completed = 0;
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
@@ -893,8 +927,11 @@ export function MinistrySubmissionReviewWrapper({
     setPendingSaveSectionId(null);
   };
 
-  // Helper function to get section status from assignedIndicators
+  // Helper function to get section status from assignedIndicators. When form is with MOSPI, indicator status does not change until form is returned from MOSPI. Use "ACCEPTED" (not "ACCEPTED_BY_MOSPI") so Preview shows "Accepted" like the review submission form.
   const getSectionStatus = (sectionId: string): string | null => {
+    if (isFormWithMospiForFreeze) {
+      return "ACCEPTED";
+    }
     for (const categoryIndicator of assignedIndicators) {
       const categoryName = Object.keys(categoryIndicator)[0];
       const sections = categoryIndicator[categoryName];
@@ -1722,6 +1759,40 @@ export function MinistrySubmissionReviewWrapper({
 
                           // Render role-based action buttons for each section
                           if (user?.role === "MINISTRY_APPROVER") {
+                            const formStatus = submission?.status || submission?.formStatus || undefined;
+                            const upperFormStatus = (formStatus || "").toUpperCase();
+                            const isFormWithMospi = [
+                              "SUBMITTED_TO_MOSPI_REVIEWER",
+                              "SUBMITTED_TO_MOSPI_APPROVER",
+                            ].includes(upperFormStatus);
+
+                            // When form is with MOSPI, show Accepted + Timeline only. Actions on indicators
+                            // (Edit, Send Back, Accept) reflect only after the whole form is returned from MOSPI.
+                            if (isFormWithMospi) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Accepted
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOpenTimeline(sectionId)}
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline ({commentCounts[sectionId] || 0})
+                                  </Button>
+                                </div>
+                              );
+                            }
+
                             const isSectionEditing =
                               editingSections.has(sectionId);
                             const isSaving = savingSections.has(sectionId);
@@ -1866,9 +1937,7 @@ export function MinistrySubmissionReviewWrapper({
                               );
                             }
 
-                            // Get form/submission level status
-                            const formStatus = submission?.status || submission?.formStatus || undefined;
-                            
+                            // formStatus already defined at top of MINISTRY_APPROVER block
                             return (
                               <MinistryApproverActionButtons
                                 key={`${sectionId}-${

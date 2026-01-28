@@ -43,6 +43,10 @@ export function MinistryApprovedIndicatorsCard({
   const [isSubmittedToMospi, setIsSubmittedToMospi] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const isFetchingProgress = useRef(false);
+  /** When form is with MOSPI, progress bar does not change until form is returned from MOSPI. */
+  const lastProgressWhenAtMinistry = useRef<{ approved: number; total: number; percentage: number } | null>(null);
+
+  const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
 
   useEffect(() => {
     if (!user?.id || loading) {
@@ -95,16 +99,37 @@ export function MinistryApprovedIndicatorsCard({
 
         // Calculate percentage
         const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
+        const upperFormStatus = (formStatus || '').toUpperCase();
+        const isFormWithMospi = FORM_STATUS_WITH_MOSPI.includes(upperFormStatus);
 
         console.log('✅ [MinistryProgress] Extracted formStatus:', formStatus);
 
-        setMinistryProgress({
-          approved: accepted,
-          total: total,
-          percentage,
-          formId,
-          formStatus,
-        });
+        // When form is with MOSPI, do not change progress bar until form is returned from MOSPI.
+        if (isFormWithMospi && lastProgressWhenAtMinistry.current) {
+          setMinistryProgress({
+            approved: lastProgressWhenAtMinistry.current.approved,
+            total: lastProgressWhenAtMinistry.current.total,
+            percentage: lastProgressWhenAtMinistry.current.percentage,
+            formId,
+            formStatus,
+          });
+        } else if (isFormWithMospi) {
+          // First time we see "with MOSPI" and no cache: keep current display (don't overwrite)
+          setMinistryProgress((prev) =>
+            prev
+              ? { ...prev, formId: formId ?? prev.formId, formStatus: formStatus ?? prev.formStatus }
+              : { approved: accepted, total, percentage, formId, formStatus }
+          );
+        } else {
+          lastProgressWhenAtMinistry.current = { approved: accepted, total, percentage };
+          setMinistryProgress({
+            approved: accepted,
+            total,
+            percentage,
+            formId,
+            formStatus,
+          });
+        }
 
         // Reset submission state if not all indicators are accepted
         // This handles cases where indicators might have been returned/rejected
