@@ -32,27 +32,36 @@ interface CapacityBuildingExcelUploadProps {
   onUpdateCapacityArray: (entries: CapacityBuildingEntry[]) => void;
   disabled?: boolean;
   sectionStatus?: string | null;
+  isEditable?: boolean; // New prop to indicate if section is in edit mode
 }
 
 export const CapacityBuildingExcelUpload: React.FC<
   CapacityBuildingExcelUploadProps
-> = ({ capacityArray, onUpdateCapacityArray, disabled = false, sectionStatus }) => {
+> = ({ capacityArray, onUpdateCapacityArray, disabled = false, sectionStatus, isEditable = false }) => {
   // Check if Excel upload should be enabled based on status
   // Only allow when status is null, DRAFT, or RETURNED_FROM_MOSPI
+  // BUT: If component is editable (isEditable=true), enable buttons regardless of status
   const upperStatus = sectionStatus?.toUpperCase() || "";
-  const isExcelUploadAllowed = 
+  const isExcelUploadAllowedByStatus = 
     !sectionStatus || 
     upperStatus === "DRAFT" || 
     upperStatus === "RETURNED_FROM_MOSPI" ||
     upperStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
     upperStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT";
   
-  const isExcelDisabled = disabled || !isExcelUploadAllowed;
+  // Enable Excel buttons if: section is editable OR status allows it
+  // But still respect the disabled prop
+  const isExcelDisabled = disabled || (!isEditable && !isExcelUploadAllowedByStatus);
   const excelFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingExcel, setIsUploadingExcel] = useState(false);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
 
   const handleExcelUploadClick = () => {
+    // Reset input value before opening file dialog
+    // This ensures that selecting the same file again will trigger onChange
+    if (excelFileInputRef.current) {
+      excelFileInputRef.current.value = "";
+    }
     excelFileInputRef.current?.click();
   };
 
@@ -78,11 +87,9 @@ export const CapacityBuildingExcelUpload: React.FC<
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Reset input
-    if (excelFileInputRef.current) {
-      excelFileInputRef.current.value = "";
+    if (!file) {
+      // User cancelled file selection - input already reset in handleExcelUploadClick
+      return;
     }
 
     setIsUploadingExcel(true);
@@ -103,28 +110,26 @@ export const CapacityBuildingExcelUpload: React.FC<
         console.log("📊 Excel parsed data:", result.data);
         console.log("📊 Current capacityArray:", capacityArray);
         
-        // Merge with existing entries (avoid duplicates based on ID)
-        const existingIds = new Set(capacityArray.map((e: any) => e.id));
-        const newEntries = result.data.filter((e) => !existingIds.has(e.id));
+        // Add new entries from Excel to existing entries
+        // Excel parser generates new UUIDs each time, so all entries are considered new
+        // Merge: keep existing entries + add new Excel entries
+        // The mapping will happen in DynamicFormBuilder's onUpdateCapacityArray callback
+        const finalEntries = [...capacityArray, ...result.data];
 
-        if (newEntries.length === 0) {
-          toast({
-            title: "No New Entries",
-            description: "All entries from Excel already exist in the form.",
-            variant: "default",
-          });
-          return;
-        }
-
-        console.log("📊 New entries to add:", newEntries);
-        console.log("📊 Updated array:", [...capacityArray, ...newEntries]);
+        console.log("📊 Existing entries count:", capacityArray.length);
+        console.log("📊 New entries from Excel:", result.data.length);
+        console.log("📊 Final array (merged, before mapping):", finalEntries);
+        console.log("📊 Total entries after merge:", finalEntries.length);
+        console.log("📊 Sample Excel entry structure:", result.data[0]);
+        console.log("📊 Sample existing entry structure:", capacityArray[0]);
         
-        // Add new entries
-        onUpdateCapacityArray([...capacityArray, ...newEntries]);
+        // Add new entries to existing ones
+        // Note: onUpdateCapacityArray will map Excel entries to form field IDs
+        onUpdateCapacityArray(finalEntries);
 
         toast({
           title: "Upload Successful",
-          description: `Successfully imported ${newEntries.length} officer entry/entries from Excel.`,
+          description: `Successfully added ${result.data.length} new officer entry/entries from Excel. Total entries: ${finalEntries.length}.`,
         });
 
         // Show warnings if any
@@ -152,6 +157,11 @@ export const CapacityBuildingExcelUpload: React.FC<
       });
     } finally {
       setIsUploadingExcel(false);
+      // Reset input value after processing completes (success or error)
+      // This ensures the same file can be selected again
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
     }
   };
 

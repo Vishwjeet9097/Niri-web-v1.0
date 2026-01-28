@@ -338,6 +338,8 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                               <CapacityBuildingExcelUpload
                                 capacityArray={capacityArray}
                                 sectionStatus={sectionStatus}
+                                isEditable={isSectionInEditMode}
+                                disabled={isSectionDisabled}
                                 onUpdateCapacityArray={(entries) => {
                                   console.log("🔄 [Excel Upload] Updating capacityArray with entries:", entries);
                                   console.log("🔄 [Excel Upload] SectionKey:", sectionKey);
@@ -355,8 +357,25 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                   console.log("🔄 [Excel Upload] Actual subsection name:", actualSubsectionName);
                                   
                                   // Map Excel entries to form field structure
-                                  const mappedEntries = entries.map((excelEntry: any) => {
-                                    const mappedEntry: any = { id: excelEntry.id };
+                                  // Check if entry is already mapped (has field IDs) or needs mapping (has Excel properties)
+                                  const mappedEntries = entries.map((entry: any) => {
+                                    // Check if this entry is already mapped (has field IDs as keys)
+                                    // If it has Excel properties (officerName, designation, etc.), it needs mapping
+                                    const hasExcelProperties = entry.officerName !== undefined || 
+                                                               entry.designation !== undefined || 
+                                                               entry.programName !== undefined ||
+                                                               entry.organiser !== undefined ||
+                                                               entry.trainingType !== undefined ||
+                                                               entry.trainingPeriod !== undefined;
+                                    
+                                    // If entry is already mapped (no Excel properties), return as-is
+                                    if (!hasExcelProperties) {
+                                      console.log("🔄 [Excel Upload] Entry already mapped, keeping as-is:", entry);
+                                      return entry;
+                                    }
+                                    
+                                    // Entry needs mapping - map Excel properties to form field IDs
+                                    const mappedEntry: any = { id: entry.id };
                                     
                                     // Map each Excel property to the corresponding form field ID
                                     subsectionFields.forEach((field: any) => {
@@ -364,23 +383,23 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                       
                                       // Map based on field label patterns
                                       if (fieldLabel.includes("officer") && fieldLabel.includes("name")) {
-                                        mappedEntry[field.id] = excelEntry.officerName || "";
+                                        mappedEntry[field.id] = entry.officerName || "";
                                       } else if (fieldLabel.includes("designation")) {
-                                        mappedEntry[field.id] = excelEntry.designation || "";
+                                        mappedEntry[field.id] = entry.designation || "";
                                       } else if (fieldLabel.includes("training program") || (fieldLabel.includes("program") && fieldLabel.includes("name"))) {
-                                        mappedEntry[field.id] = excelEntry.programName || "";
+                                        mappedEntry[field.id] = entry.programName || "";
                                       } else if (fieldLabel.includes("organizer entity") || fieldLabel.includes("organiser entity") || 
                                                  (fieldLabel.includes("organizer") || fieldLabel.includes("organiser"))) {
-                                        mappedEntry[field.id] = excelEntry.organiser || "";
+                                        mappedEntry[field.id] = entry.organiser || "";
                                       } else if (fieldLabel.includes("mode") && fieldLabel.includes("training")) {
-                                        mappedEntry[field.id] = excelEntry.trainingType || "";
+                                        mappedEntry[field.id] = entry.trainingType || "";
                                       } else if ((fieldLabel.includes("training") && fieldLabel.includes("period")) || 
                                                  fieldLabel.includes("mm/yy") || fieldLabel.includes("mm yy")) {
-                                        mappedEntry[field.id] = excelEntry.trainingPeriod || "";
+                                        mappedEntry[field.id] = entry.trainingPeriod || "";
                                       }
                                     });
                                     
-                                    console.log("🔄 [Excel Upload] Excel entry:", excelEntry);
+                                    console.log("🔄 [Excel Upload] Excel entry (needs mapping):", entry);
                                     console.log("🔄 [Excel Upload] Mapped entry:", mappedEntry);
                                     return mappedEntry;
                                   });

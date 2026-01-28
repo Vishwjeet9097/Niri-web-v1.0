@@ -225,16 +225,27 @@ export function useMinistryAutoCalculation({
             if (section.inputs && Array.isArray(section.inputs)) {
               for (const input of section.inputs) {
                 const label = input.label?.toLowerCase() || "";
+                // Match PPP project cost field - more flexible matching
                 if (label.includes('total project cost of ppp') && 
-                    (label.includes('infra projects awarded') || label.includes('awarded'))) {
+                    (label.includes('infra projects awarded') || label.includes('awarded') || label.includes('ppp'))) {
                   PPP_PROJECT_COST_FIELD_ID = input.id;
-                } else if (label.includes('total project cost of all infra projects') && 
-                           (label.includes('central ministry') || label.includes('ministry awarded'))) {
+                  console.log("✅ Found PPP_PROJECT_COST_FIELD_ID:", input.id, "Label:", input.label);
+                } 
+                // Match all infra projects cost field - more flexible matching
+                else if ((label.includes('total project cost of all infra projects') || 
+                          label.includes('total project cost of all infra')) && 
+                         (label.includes('central ministry') || label.includes('ministry awarded') || 
+                          label.includes('ministry') || label.includes('awarded'))) {
                   ALL_INFRA_PROJECT_COST_FIELD_ID = input.id;
-                } else if (label.includes('percentage of ppp project') || 
-                           label.includes('% of ppp project') ||
-                           (label.includes('percentage') && label.includes('ppp'))) {
+                  console.log("✅ Found ALL_INFRA_PROJECT_COST_FIELD_ID:", input.id, "Label:", input.label);
+                } 
+                // Match percentage field
+                else if (label.includes('percentage of ppp project') || 
+                         label.includes('% of ppp project') ||
+                         label.includes('percentage of ppp') ||
+                         (label.includes('percentage') && label.includes('ppp'))) {
                   PPP_PERCENTAGE_FIELD_ID = input.id;
+                  console.log("✅ Found PPP_PERCENTAGE_FIELD_ID:", input.id, "Label:", input.label);
                 }
               }
             }
@@ -291,35 +302,58 @@ export function useMinistryAutoCalculation({
     console.log("🔍 Auto-calculation 2.5: Parsed values:", {
       pppProjectCost,
       allInfraProjectCost,
-      isValidPppCost: !isNaN(pppProjectCost) && pppProjectCost > 0,
+      isValidPppCost: !isNaN(pppProjectCost) && pppProjectCost >= 0,
       isValidAllInfraCost: !isNaN(allInfraProjectCost) && allInfraProjectCost > 0,
     });
 
     let calculatedValue: string | number = "";
     
-    const isValidPppCost = !isNaN(pppProjectCost) && pppProjectCost > 0;
+    // Allow calculation even if values are very small (like 5 / 1000000)
+    // Changed from > 0 to >= 0 to allow 0 as valid input
+    const isValidPppCost = !isNaN(pppProjectCost) && pppProjectCost >= 0;
     const isValidAllInfraCost = !isNaN(allInfraProjectCost) && allInfraProjectCost > 0;
     
     if (isValidPppCost && isValidAllInfraCost) {
       const percentage = (pppProjectCost / allInfraProjectCost) * 100;
       if (percentage >= 0) {
-        calculatedValue = Math.round(percentage * 100) / 100;
+        // Round to 4 decimal places to handle very small percentages (like 0.0005%)
+        calculatedValue = Math.round(percentage * 10000) / 10000;
       } else {
         calculatedValue = 0;
       }
-      console.log("✅ Auto-calculation 2.5: Calculated value:", calculatedValue);
+      console.log("✅ Auto-calculation 2.5: Calculated value:", calculatedValue, "from", pppProjectCost, "/", allInfraProjectCost, "* 100");
     } else {
-      console.log("⚠️ Auto-calculation 2.5: Invalid values, cannot calculate");
+      console.log("⚠️ Auto-calculation 2.5: Invalid values, cannot calculate", {
+        isValidPppCost,
+        isValidAllInfraCost,
+        pppProjectCost,
+        allInfraProjectCost
+      });
     }
 
     const currentCalculatedValue = sectionData[PPP_PERCENTAGE_FIELD_ID];
+    
+    // Convert both to numbers for comparison to handle string/number mismatches
+    const currentNum = typeof currentCalculatedValue === 'string' 
+      ? parseFloat(currentCalculatedValue) 
+      : currentCalculatedValue;
+    const calculatedNum = typeof calculatedValue === 'string' 
+      ? parseFloat(calculatedValue) 
+      : calculatedValue;
+    
+    const valuesMatch = !isNaN(currentNum) && !isNaN(calculatedNum) && currentNum === calculatedNum;
+    
     console.log("🔍 Auto-calculation 2.5: Current vs Calculated:", {
       current: currentCalculatedValue,
+      currentType: typeof currentCalculatedValue,
       calculated: calculatedValue,
-      willUpdate: currentCalculatedValue !== calculatedValue,
+      calculatedType: typeof calculatedValue,
+      currentNum,
+      calculatedNum,
+      willUpdate: !valuesMatch && calculatedValue !== "",
     });
     
-    if (currentCalculatedValue !== calculatedValue) {
+    if (!valuesMatch && calculatedValue !== "") {
       setFormData((prev) => {
         const sectionData = prev[sectionKey] || {};
         return {

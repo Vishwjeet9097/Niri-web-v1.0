@@ -138,6 +138,20 @@ export const validateField = (
                            (field.label?.toLowerCase().includes('percentage') && field.label?.toLowerCase().includes('ppp')) ||
                            field.uiComponent === 'Auto-calculated field';
   
+  // Check if this is Capex Utilization field (can exceed 100%)
+  const isCapexUtilizationField = field.label?.toLowerCase().includes('% capex utilization');
+  
+  // Check if this is Allocation to GSDP field (can exceed 100%)
+  // Match various label formats: "% Allocation to GSDP", "Allocation to GSDP", "% Allocation to GSDP", etc.
+  const allocationFieldLabelLower = field.label?.toLowerCase() || '';
+  const isAllocationToGSDPField = allocationFieldLabelLower.includes('% allocation to gsdp') ||
+                                  allocationFieldLabelLower.includes('allocation to gsdp') ||
+                                  (allocationFieldLabelLower.includes('allocation') && allocationFieldLabelLower.includes('gsdp')) ||
+                                  allocationFieldLabelLower === '% allocation to gsdp' ||
+                                  allocationFieldLabelLower === 'allocation to gsdp' ||
+                                  // Also check field path for section1_1 allocation fields
+                                  (fieldPath.includes('section1_1') && allocationFieldLabelLower.includes('allocation') && allocationFieldLabelLower.includes('gsdp'));
+  
   // Check if this is a calculated total field (not a percentage, so no 0-100 validation)
   const isCalculatedTotalField = field.label?.toLowerCase().includes('total of all tpc') ||
                                  (field.label?.toLowerCase().includes('total') && 
@@ -239,7 +253,8 @@ export const validateField = (
       // Special validation for percentage fields (must be between 0 and 100)
       // Note: isPercentageField is already defined at the top of the function
       // Note: isCalculatedTotalField is for totals, not percentages, so skip 0-100 validation
-      if (isPercentageField && !isCalculatedTotalField && value !== null && value !== undefined && value !== '') {
+      // Note: isCapexUtilizationField and isAllocationToGSDPField can exceed 100%, so skip 100% limit for them
+      if (isPercentageField && !isCalculatedTotalField && !isCapexUtilizationField && !isAllocationToGSDPField && value !== null && value !== undefined && value !== '') {
         const numValue = Number(value);
         if (!isNaN(numValue)) {
           if (numValue < 0) {
@@ -248,6 +263,37 @@ export const validateField = (
           if (numValue > 100) {
             return `${field.label} cannot exceed 100%.`;
           }
+        }
+      }
+      
+      // Validation for Capex Utilization field (can exceed 100%, but cannot be negative)
+      if (isCapexUtilizationField && value !== null && value !== undefined && value !== '') {
+        const numValue = Number(value);
+        if (!isNaN(numValue)) {
+          if (numValue < 0) {
+            return `${field.label} cannot be negative.`;
+          }
+          // No upper limit for Capex Utilization - can exceed 100%
+        }
+      }
+      
+      // Validation for Allocation to GSDP field (can exceed 100%, but cannot be negative)
+      if (isAllocationToGSDPField && value !== null && value !== undefined && value !== '') {
+        // Handle values that might include "%" symbol (e.g., "100.0%" or 100.0)
+        let numValue: number;
+        if (typeof value === 'string') {
+          // Remove "%" and any whitespace, then parse
+          const cleanedValue = value.toString().replace(/[%\s]/g, '').trim();
+          numValue = parseFloat(cleanedValue);
+        } else {
+          numValue = Number(value);
+        }
+        
+        if (!isNaN(numValue)) {
+          if (numValue < 0) {
+            return `${field.label} cannot be negative.`;
+          }
+          // No upper limit for Allocation to GSDP - can exceed 100%
         }
       }
       
