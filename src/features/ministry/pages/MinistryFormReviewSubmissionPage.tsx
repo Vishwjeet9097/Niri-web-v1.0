@@ -704,36 +704,37 @@ export function MinistryFormReviewSubmissionPage() {
                     totalSubmitted,
                   });
                   
-                  // If totalSubmitted !== total, disable Submit but still allow Send Back (MOSPI can send form back)
+                  // Submit (Accept): enabled only when all indicators are approved
+                  isSubmitEnabled = totalApproved === total;
+                  
+                  // Send Back (top): enabled only when at least one indicator is sent back AND
+                  // all indicators have had an action (accept or send back)
+                  const allIndicatorsActioned = totalApproved + totalSentBack === total;
+                  const atLeastOneSentBack = totalSentBack >= 1;
+                  isSendBackEnabled = atLeastOneSentBack && allIndicatorsActioned;
+                  
+                  // If not all submitted yet, disable Submit (form not ready for full accept)
                   if (totalSubmitted !== total) {
-                    console.log("⚠️ totalSubmitted !== total: Submit disabled, Send Back allowed when form is with MOSPI");
                     isSubmitEnabled = false;
-                    isSendBackEnabled = true; // Allow Send Back so MOSPI can send the whole form back
-                  } else {
-                    // If totalSubmitted === total:
-                    // - Submit (Accept) enabled when totalApproved === total (all indicators accepted)
-                    isSubmitEnabled = totalApproved === total;
-                    // - Send Back always enabled when form is with MOSPI approver (they can send form back)
-                    isSendBackEnabled = true;
-                    
-                    console.log("✅ Button states:", {
-                      isSubmitEnabled,
-                      isSendBackEnabled,
-                      reason: {
-                        submit: totalApproved === total ? "All approved" : `${totalApproved}/${total} approved`,
-                        sendBack: "Form with MOSPI - Send Back allowed",
-                      },
-                    });
                   }
+                  
+                  console.log("✅ Button states:", {
+                    isSubmitEnabled,
+                    isSendBackEnabled,
+                    atLeastOneSentBack,
+                    allIndicatorsActioned,
+                    reason: {
+                      submit: totalApproved === total && totalSubmitted === total ? "All approved" : `${totalApproved}/${total} approved`,
+                      sendBack: isSendBackEnabled ? "At least one sent back + all actioned" : `sentBack=${totalSentBack}, actioned=${totalApproved + totalSentBack}/${total}`,
+                    },
+                  });
                 } else {
                   if (!isCorrectStatus) {
                     console.log("⚠️ Buttons disabled: formStatus is not SUBMITTED_TO_MOSPI_APPROVER");
                   } else {
-                    console.log("⚠️ formStatusStats is null/undefined - enabling Send Back when form is with MOSPI");
-                    // When stats not loaded yet, allow Send Back so MOSPI is not blocked
-                    if (isCorrectStatus) {
-                      isSendBackEnabled = true;
-                    }
+                    console.log("⚠️ formStatusStats is null/undefined - Send Back disabled until stats load");
+                    // Send Back requires stats (at least one sent back + all actioned); keep disabled until loaded
+                    isSendBackEnabled = false;
                   }
                 }
                 
