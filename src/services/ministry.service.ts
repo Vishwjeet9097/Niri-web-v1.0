@@ -247,6 +247,28 @@ export async function getAllAssignedMinistryIds() {
   }
 }
 
+/**
+ * Get ministry approver user ID for a given ministryId (used when nodal officer views their submission
+ * to check if consolidated form is with MOSPI).
+ * @param ministryId - The ministry ID
+ * @returns Promise with ministry approver user ID or null
+ */
+export async function getMinistryApproverUserIdByMinistryId(ministryId: string): Promise<string | null> {
+  try {
+    const url = getApiUrl("/users");
+    const response = await apiService.get(url);
+    const data = response?.data;
+    const users = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+    const ministryApprover = users.find(
+      (u: { role?: string; ministryId?: string; id?: string }) =>
+        u.role === "MINISTRY_APPROVER" && String(u.ministryId || "") === String(ministryId)
+    );
+    return ministryApprover?.id ?? ministryApprover?._id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Fetch assigned ministry IDs filtered by role (to check if ministry is already assigned to a specific role)
 // For MOSPI_REVIEWER, ministryId can be comma-separated, so we need to split and return individual IDs
 export async function getAssignedMinistryIdsByRole(role: string, excludeUserId?: string) {

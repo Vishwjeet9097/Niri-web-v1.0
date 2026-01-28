@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails, submitMospiFormAction, getFormStatusStatistics } from '@/services/ministry.service';
+import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails, getMinistryApproverUserIdByMinistryId, getMinistryProgressBarData, submitMospiFormAction, getFormStatusStatistics } from '@/services/ministry.service';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Send, RotateCcw, CheckCircle } from 'lucide-react';
@@ -47,6 +47,7 @@ export function MinistryFormReviewSubmissionPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [consolidatedFormStatus, setConsolidatedFormStatus] = useState<string | null>(null); // Consolidated form status for freeze logic
   const { toast } = useToast();
   
   // Form status statistics for MOSPI Approver button logic
@@ -234,6 +235,13 @@ export function MinistryFormReviewSubmissionPage() {
         if (foundSubmission) {
           console.log("✅ Found consolidated submission from current user API:", foundSubmission);
           setSubmission(foundSubmission);
+          // For consolidated submissions, also check if it's with MOSPI for consistency
+          const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
+          if (FORM_STATUS_WITH_MOSPI.includes((foundSubmission.status || foundSubmission.formStatus || '').toUpperCase())) {
+            setConsolidatedFormStatus(foundSubmission.status || foundSubmission.formStatus);
+          } else {
+            setConsolidatedFormStatus(null);
+          }
         } else {
           // Fallback: Try MOSPI dashboard API if not found in current user API
           console.log("⚠️ Submission not found in current user API, trying MOSPI dashboard API...");
@@ -252,6 +260,23 @@ export function MinistryFormReviewSubmissionPage() {
             if (foundInMospi) {
               console.log("✅ Found submission from MOSPI dashboard API:", foundInMospi);
               setSubmission(foundInMospi);
+              // Check if consolidated form is with MOSPI
+              const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
+              if (FORM_STATUS_WITH_MOSPI.includes((foundInMospi.status || foundInMospi.formStatus || '').toUpperCase())) {
+                setConsolidatedFormStatus(foundInMospi.status || foundInMospi.formStatus);
+              } else {
+                setConsolidatedFormStatus(null);
+              }
+              // Also check other submissions in the list for consolidated form with MOSPI (for individual submissions)
+              const consolidatedWithMospi = mospiResponse.data.submissions.find(
+                (s: any) =>
+                  s.isConsolidated === true &&
+                  s.id !== id &&
+                  FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+              );
+              if (consolidatedWithMospi) {
+                setConsolidatedFormStatus(consolidatedWithMospi.status || consolidatedWithMospi.formStatus);
+              }
             } else {
               setError('Submission not found in consolidated data');
             }
@@ -275,8 +300,100 @@ export function MinistryFormReviewSubmissionPage() {
         const foundSubmission = submissionsData.find((sub) => sub.id === id);
         
         if (foundSubmission) {
-          console.log("✅ Found submission from regular API:", foundSubmission);
+          console.log("✅ [MinistryFormReview] Found submission from regular API:", {
+            submissionId: foundSubmission.id,
+            userId: foundSubmission.userId,
+            userFromSubmission: foundSubmission.user?.id,
+            currentUserRole: user?.role,
+            status: foundSubmission.status,
+            formStatus: (foundSubmission as any)?.formStatus,
+          });
           setSubmission(foundSubmission);
+          
+          // For individual submissions, check if there's a consolidated form with MOSPI status
+          // This is needed to freeze indicator statuses when consolidated form is with MOSPI
+          const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
+          
+          // First, check in current user's submissions (works when backend returns isConsolidated)
+          const consolidatedWithMospi = submissionsData.find(
+            (s) =>
+              s.isConsolidated === true &&
+              FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+          );
+          console.log("[MinistryFormReview] Consolidated-with-MOSPI check:", {
+            foundInList: !!consolidatedWithMospi,
+            submissionsCount: submissionsData.length,
+            firstFewIsConsolidated: submissionsData.slice(0, 3).map((s: any) => ({ id: s.id, isConsolidated: s.isConsolidated, status: s.status || s.formStatus })),
+          });
+          
+          if (consolidatedWithMospi) {
+            const statusToSet = consolidatedWithMospi.status || consolidatedWithMospi.formStatus;
+            console.log("[MinistryFormReview] Setting consolidatedFormStatus from list:", statusToSet);
+            setConsolidatedFormStatus(statusToSet);
+          } else {
+            // For individual submissions: consolidated form belongs to ministry approver.
+            // When MINISTRY_APPROVER views any submission (own or nodal), use current user id so we get consolidated form status.
+            // When NODAL_OFFICER views their submission, foundSubmission.userId is the ministry approver (form owner).
+            const formOwnerId =
+              user?.role === "MINISTRY_APPROVER"
+                ? user?.id
+                : (foundSubmission.userId || (foundSubmission as any)?.user?.id);
+            console.log("[MinistryFormReview] Individual submission – resolving consolidated form status:", {
+              formOwnerId,
+              currentUserRole: user?.role,
+              submissionUserId: foundSubmission.userId,
+              hasFormOwnerId: !!formOwnerId,
+            });
+            if (formOwnerId) {
+              try {
+                const progressRes = await getMinistryProgressBarData(formOwnerId);
+                const d = progressRes?.data ?? progressRes;
+                const formStatus = d?.formStatus ?? null;
+                const isWithMospi = formStatus && FORM_STATUS_WITH_MOSPI.includes(String(formStatus).toUpperCase());
+                console.log("[MinistryFormReview] Progress API response for form owner:", {
+                  formOwnerId,
+                  formStatus,
+                  isWithMospi,
+                  rawProgressKeys: d ? Object.keys(d) : [],
+                });
+                setConsolidatedFormStatus(isWithMospi ? formStatus : null);
+              } catch (err) {
+                console.warn("[MinistryFormReview] Progress API failed for form owner:", formOwnerId, err);
+                setConsolidatedFormStatus(null);
+              }
+            } else if (user?.role === "NODAL_OFFICER") {
+              console.log("[MinistryFormReview] NODAL_OFFICER branch – resolving ministry user");
+              const ministryUserId = (foundSubmission as any)?.ministryUserId ||
+                                     (foundSubmission as any)?.user?.ministryUserId ||
+                                     (user?.ministryId ? await getMinistryApproverUserIdByMinistryId(String(user.ministryId)) : null);
+              console.log("[MinistryFormReview] NODAL ministryUserId:", { ministryUserId, ministryId: user?.ministryId });
+              if (ministryUserId) {
+                try {
+                  const mospiResponse = await getMospiMinistrySubmissionDetails(ministryUserId);
+                  if (mospiResponse?.status && mospiResponse?.data?.submissions) {
+                    const consolidated = mospiResponse.data.submissions.find(
+                      (s: any) =>
+                        s.isConsolidated === true &&
+                        FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+                    );
+                    const statusToSet = consolidated ? (consolidated.status || consolidated.formStatus) : null;
+                    console.log("[MinistryFormReview] NODAL getMospiMinistrySubmissionDetails:", { foundConsolidated: !!consolidated, statusToSet });
+                    setConsolidatedFormStatus(statusToSet);
+                  } else {
+                    setConsolidatedFormStatus(null);
+                  }
+                } catch (err) {
+                  console.warn("[MinistryFormReview] NODAL getMospiMinistrySubmissionDetails failed:", err);
+                  setConsolidatedFormStatus(null);
+                }
+              } else {
+                setConsolidatedFormStatus(null);
+              }
+            } else {
+              console.log("[MinistryFormReview] No formOwnerId and not NODAL – setting consolidatedFormStatus to null");
+              setConsolidatedFormStatus(null);
+            }
+          }
         } else {
           setError('Submission not found');
         }
@@ -709,6 +826,7 @@ export function MinistryFormReviewSubmissionPage() {
             submission={submission}
             useConsolidatedApi={isConsolidated}
             submissionId={id}
+            consolidatedFormStatus={consolidatedFormStatus}
           />
         </TabsContent>
 
