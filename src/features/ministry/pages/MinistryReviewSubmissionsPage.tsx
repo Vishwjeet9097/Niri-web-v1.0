@@ -10,6 +10,13 @@ import { Loader2, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/features/auth/AuthProvider';
 
+/** When consolidated form has this status, individual forms show "Approved" and indicators are frozen. */
+const FORM_STATUS_WITH_MOSPI = [
+  'SUBMITTED_TO_MOSPI_REVIEWER',
+  'SUBMITTED_TO_MOSPI_APPROVER',
+  'ACCEPTED_BY_MOSPI',
+];
+
 export function MinistryReviewSubmissionsPage() {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -146,6 +153,24 @@ export function MinistryReviewSubmissionsPage() {
     return progress;
   };
 
+  // Check if consolidated form is with MOSPI - if so, individual forms should show "Approved" status
+  const hasConsolidatedWithMospi = useMemo(() => {
+    return submissions.some(
+      (s) =>
+        s.isConsolidated === true &&
+        FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+    );
+  }, [submissions]);
+
+  // Get display status for individual submissions: show "APPROVED" when consolidated form is with MOSPI
+  const getDisplayStatusForSubmission = (submission: any): string => {
+    const isIndividual = submission.isConsolidated !== true;
+    if (isIndividual && hasConsolidatedWithMospi) {
+      return 'APPROVED';
+    }
+    return submission.status || submission.formStatus || '';
+  };
+
   // Filter submissions based on search query
   const filteredSubmissions = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -274,12 +299,12 @@ export function MinistryReviewSubmissionsPage() {
                     : undefined
                 }
                 userEmail={submission.user?.email}
-                status={submission.status}
+                status={getDisplayStatusForSubmission(submission)}
                 updatedDate={submission.updatedAt}
                 progress={progress}
                 totalIndicators={submission.totalIndicators || 0}
                 submittedIndicators={submission.submittedIndicators || 0}
-                nextStep={getNextStep(submission.status)}
+                nextStep={getNextStep(getDisplayStatusForSubmission(submission))}
                 onViewDetails={() => handleViewDetails(submission)}
                 onReview={() => handleReview(submission)}
               />
