@@ -4,12 +4,14 @@ interface MinistryDataReviewTabProps {
   submission: any;
   useConsolidatedApi?: boolean; // If true, use consolidated API with submissionId
   submissionId?: string; // Submission ID for consolidated API
+  consolidatedFormStatus?: string | null; // Consolidated form status (for freeze logic when viewing individual submissions)
 }
 
 export function MinistryDataReviewTab({ 
   submission, 
   useConsolidatedApi = false,
-  submissionId 
+  submissionId,
+  consolidatedFormStatus
 }: MinistryDataReviewTabProps) {
   // For consolidated submissions, use the consolidated API endpoint
   // The submissionId should be the UUID (submission.id)
@@ -20,6 +22,8 @@ export function MinistryDataReviewTab({
     submissionId: consolidatedSubmissionId,
     submissionIdFromProp: submissionId,
     submissionIdFromSubmission: submission?.id,
+    consolidatedFormStatus,
+    submissionUserId: submission?.user?.id,
   });
   
   return (
@@ -29,6 +33,7 @@ export function MinistryDataReviewTab({
         userId={submission?.user?.id}
         useConsolidatedApi={useConsolidatedApi}
         submissionId={consolidatedSubmissionId}
+        consolidatedFormStatus={consolidatedFormStatus}
       />
     </div>
   );

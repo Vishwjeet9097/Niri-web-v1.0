@@ -16,6 +16,8 @@ import {
   getMinistrySubmissionDetailsForReview,
   getMinistrySubmissionDetailsConsolidated,
   getMinistryPreviewData,
+  getMinistryProgressBarData,
+  getMospiMinistrySubmissionDetails,
   updateMinistryIndicatorStatus,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
@@ -57,6 +59,7 @@ interface MinistrySubmissionReviewWrapperProps {
   userId?: string; // Optional: user ID to fetch data for
   useConsolidatedApi?: boolean; // If true, use consolidated API with submissionId instead of userId
   submissionId?: string; // Submission ID for consolidated API
+  consolidatedFormStatus?: string | null; // Consolidated form status (for freeze logic when viewing individual submissions)
 }
 
 export function MinistrySubmissionReviewWrapper({
@@ -64,6 +67,7 @@ export function MinistrySubmissionReviewWrapper({
   userId,
   useConsolidatedApi = false,
   submissionId: propSubmissionId,
+  consolidatedFormStatus: propConsolidatedFormStatus,
 }: MinistrySubmissionReviewWrapperProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -73,14 +77,14 @@ export function MinistrySubmissionReviewWrapper({
   >([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [submissionId, setSubmissionId] = useState<string | null>(
-    submission?.id || null
+    submission?.id || null,
   );
 
   // Edit mode state management
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
   const [editingSections, setEditingSections] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
     Record<string, any>
@@ -125,7 +129,7 @@ export function MinistrySubmissionReviewWrapper({
     Record<string, string>
   >({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
-    {}
+    {},
   );
   const [selectedSectionForComment, setSelectedSectionForComment] = useState<{
     submissionIndicatorId: string;
@@ -141,6 +145,10 @@ export function MinistrySubmissionReviewWrapper({
     submissionIndicatorId: string;
     sectionId: string;
   } | null>(null);
+  /** Form status from progress API when in preview (no submission). Used to freeze indicator status and progress until form is returned from MOSPI. */
+  const [formStatusFromProgress, setFormStatusFromProgress] = useState<
+    string | null
+  >(null);
 
   // Handler to execute after comment is saved for send back action (MOSPI Approver)
   const handleSendBackAfterComment = async () => {
@@ -158,7 +166,7 @@ export function MinistrySubmissionReviewWrapper({
 
       await updateMinistryIndicatorStatus(
         pendingSendBackAction.submissionIndicatorId,
-        "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
+        "RETURNED_FROM_MOSPI_APPROVER_DRAFT",
       );
 
       toast({
@@ -173,7 +181,7 @@ export function MinistrySubmissionReviewWrapper({
             sectionId: pendingSendBackAction.sectionId,
             status: "RETURNED_FROM_MOSPI_APPROVER_DRAFT",
           },
-        })
+        }),
       );
 
       // Reload data to reflect the change
@@ -212,9 +220,9 @@ export function MinistrySubmissionReviewWrapper({
   const loadSubmissionData = async () => {
     try {
       setLoading(true);
-      
+
       let response;
-      
+
       //This condition is added by Harsh to check if the useConsolidatedApi is true and if it is true then use the consolidated API
       // Used for mospi reviewer and approver to review the submission
       // Use consolidated API if coming from MOSPI dashboard
@@ -236,11 +244,11 @@ export function MinistrySubmissionReviewWrapper({
           ? rawSubmissionId
           : undefined;
       const targetUserId = userId || submission?.user?.id;
-        
+
       if (useConsolidatedApi && useConsolidatedApi === true) {
         if (!targetSubmissionId) {
           console.error(
-            "No valid UUID submission ID available for consolidated API"
+            "No valid UUID submission ID available for consolidated API",
           );
           toast({
             title: "Error",
@@ -254,15 +262,14 @@ export function MinistrySubmissionReviewWrapper({
 
         console.log(
           "📋 Loading consolidated submission data for review, submissionId:",
-          targetSubmissionId
+          targetSubmissionId,
         );
-        response = await getMinistrySubmissionDetailsConsolidated(
-          targetSubmissionId
-        );
+        response =
+          await getMinistrySubmissionDetailsConsolidated(targetSubmissionId);
       } else {
         // Use existing API with userId
         // Only pass submissionId if it's a valid UUID, otherwise use only userId
-        
+
         if (!targetSubmissionId && !targetUserId) {
           console.error("No submission ID or user ID available for review");
           toast({
@@ -280,7 +287,7 @@ export function MinistrySubmissionReviewWrapper({
         if (!targetSubmissionId && targetUserId) {
           console.log(
             "📋 Loading preview data using preview API, userId:",
-            targetUserId
+            targetUserId,
           );
           response = await getMinistryPreviewData(targetUserId);
         } else {
@@ -289,11 +296,11 @@ export function MinistrySubmissionReviewWrapper({
             "📋 Loading submission data for review, submissionId:",
             targetSubmissionId || "none (using userId)",
             "userId:",
-            targetUserId
+            targetUserId,
           );
           response = await getMinistrySubmissionDetailsForReview(
             targetSubmissionId || undefined,
-            targetUserId
+            targetUserId,
           );
         }
       }
@@ -306,17 +313,17 @@ export function MinistrySubmissionReviewWrapper({
       ) {
         console.log(
           "✅ Loaded submission indicators for review:",
-          response.data.length
+          response.data.length,
         );
         console.log(
           "📋 Assigned indicators structure:",
-          JSON.stringify(response.data, null, 2)
+          JSON.stringify(response.data, null, 2),
         );
         setAssignedIndicators(response.data);
-        
+
         const initialFormData = transformApiResponseToFormData(
           response.data,
-          {}
+          {},
         );
         console.log("📋 Transformed formData:", Object.keys(initialFormData));
         // Log subsection entries for debugging
@@ -327,7 +334,7 @@ export function MinistrySubmissionReviewWrapper({
               if (Array.isArray(sectionData[key])) {
                 console.log(
                   `📋 Section ${sectionKey}.${key}: ${sectionData[key].length} entries`,
-                  sectionData[key]
+                  sectionData[key],
                 );
               }
             });
@@ -355,11 +362,11 @@ export function MinistrySubmissionReviewWrapper({
           });
           console.log(
             "📋 Merged formData after reload. Section keys:",
-            Object.keys(mergedFormData)
+            Object.keys(mergedFormData),
           );
           return mergedFormData;
         });
-        
+
         // Extract submission ID - prioritize from response, then from submission object
         if (useConsolidatedApi) {
           // For consolidated API, use the submissionId from response or prop
@@ -370,18 +377,77 @@ export function MinistrySubmissionReviewWrapper({
           }
         } else {
           let extractedId = response.submissionId || targetSubmissionId;
-        if (!extractedId && targetUserId) {
+          if (!extractedId && targetUserId) {
             extractedId = await extractSubmissionId(
               response,
               targetUserId,
-              toast
+              toast,
             );
           }
-        if (extractedId) {
+          if (extractedId) {
             setSubmissionId(extractedId);
           } else if (submission?.id) {
             setSubmissionId(submission.id);
           }
+        }
+        // Fetch consolidated form status (from progress API) so we can freeze indicator statuses
+        // when consolidated form is with MOSPI. This applies to both preview and individual submissions.
+        // For individual submissions (especially from nodal officers), we need to find the ministry user
+        // who consolidated the form to check if it's with MOSPI.
+        // Consolidated form belongs to ministry approver. For progress/freeze we need ministry approver's form status.
+        // When MINISTRY_APPROVER views any submission (own or nodal), use current user id so we get consolidated form status.
+        // When NODAL_OFFICER views their submission, use submission.userId (form owner = ministry approver).
+        let userIdForProgress =
+          user?.role === "MINISTRY_APPROVER"
+            ? user?.id
+            : (targetUserId || (user?.role === "NODAL_OFFICER" && submission?.userId ? submission.userId : null));
+        
+        // Fallback for nodal: submission.userId is the form owner (ministry approver).
+        if (!userIdForProgress && user?.role === "NODAL_OFFICER" && submission?.userId) {
+          userIdForProgress = submission.userId;
+        }
+        // Fallback: try ministryUserId / user.ministryUserId from submission or response if present
+        if (!userIdForProgress && user?.role === "NODAL_OFFICER") {
+          userIdForProgress = (submission as any)?.ministryUserId ||
+                              (submission as any)?.user?.ministryUserId ||
+                              (response as any)?.ministryUserId ||
+                              (response as any)?.data?.ministryUserId ||
+                              (response as any)?.data?.user?.ministryUserId ||
+                              null;
+        }
+        
+        console.log("[MinistrySubmissionReviewWrapper] Freeze: userIdForProgress resolution:", {
+          targetUserId,
+          userRole: user?.role,
+          submissionUserId: submission?.userId,
+          submissionUserRole: submission?.user?.role,
+          userIdForProgress,
+          propConsolidatedFormStatus,
+        });
+        
+        if (userIdForProgress) {
+          getMinistryProgressBarData(userIdForProgress)
+            .then((r: any) => {
+              const d = r?.data ?? r;
+              const formStatus = d?.formStatus ?? null;
+              console.log("[MinistrySubmissionReviewWrapper] Progress API result:", { userIdForProgress, formStatus, rawKeys: d ? Object.keys(d) : [] });
+              setFormStatusFromProgress(formStatus);
+            })
+            .catch((err) => {
+              console.warn("[MinistrySubmissionReviewWrapper] Progress API failed:", userIdForProgress, err);
+            });
+        } else if (!userIdForProgress && user?.role === "NODAL_OFFICER" && user?.ministryId) {
+          // Fallback for nodal officer: If we have propConsolidatedFormStatus from parent, use it
+          // Otherwise, we can't get ministry user ID easily, so we can't check consolidated form status
+          // The parent component should have tried to find it, but if it couldn't, we'll rely on propConsolidatedFormStatus
+          if (propConsolidatedFormStatus) {
+            // Parent found consolidated form status, we'll use it in formStatusForFreeze
+            setFormStatusFromProgress(null); // Don't set it here, use propConsolidatedFormStatus directly
+          } else {
+            setFormStatusFromProgress(null);
+          }
+        } else {
+          setFormStatusFromProgress(null);
         }
       } else {
         console.warn("No indicators found for review");
@@ -407,20 +473,20 @@ export function MinistrySubmissionReviewWrapper({
   // Extract categories from assignedIndicators and sort them according to MINISTRY_SUBMISSION_STEPS order
   const categories = useMemo(() => {
     const categoryMap = new Map<string, AssignedIndicator>();
-    
+
     assignedIndicators.forEach((indicator) => {
       const categoryName = Object.keys(indicator)[0];
       if (!categoryMap.has(categoryName)) {
         categoryMap.set(categoryName, indicator);
       }
     });
-    
+
     // Sort categories according to the order defined in MINISTRY_SUBMISSION_STEPS
     // Filter out the review-submit step and get only category steps
     const categorySteps = MINISTRY_SUBMISSION_STEPS.filter(
-      (step) => step.key !== "review-submit"
+      (step) => step.key !== "review-submit",
     );
-    
+
     // Create ordered categories list based on MINISTRY_SUBMISSION_STEPS order
     const orderedCategories: AssignedIndicator[] = [];
     categorySteps.forEach((step) => {
@@ -429,41 +495,78 @@ export function MinistrySubmissionReviewWrapper({
         orderedCategories.push(categoryIndicator);
       }
     });
-    
+
     // Add any categories that exist in the data but not in MINISTRY_SUBMISSION_STEPS (fallback)
     categoryMap.forEach((indicator, categoryName) => {
       const exists = orderedCategories.some(
-        (cat) => Object.keys(cat)[0] === categoryName
+        (cat) => Object.keys(cat)[0] === categoryName,
       );
       if (!exists) {
         orderedCategories.push(indicator);
       }
     });
-    
+
     console.log(
       "📋 Extracted categories (ordered):",
-      orderedCategories.map((cat) => Object.keys(cat)[0])
+      orderedCategories.map((cat) => Object.keys(cat)[0]),
     );
     return orderedCategories;
   }, [assignedIndicators]);
+
+  // When form is with MOSPI, freeze indicator status and progress only for MINISTRY_APPROVER (preview/review).
+  // Do NOT freeze for MOSPI_APPROVER / MOSPI_REVIEWER so their Accept and Send Back actions work with real statuses.
+  // For individual submissions (especially from nodal officers), prioritize:
+  // 1) propConsolidatedFormStatus (from parent checking submissions list)
+  // 2) formStatusFromProgress (from progress API)
+  // 3) submission status
+  // This ensures we freeze when consolidated form is with MOSPI, even if individual submission has a different status.
+  const formStatusForFreeze =
+    propConsolidatedFormStatus ??
+    formStatusFromProgress ??
+    submission?.status ??
+    submission?.formStatus;
+  
+  // Freeze for both MINISTRY_APPROVER and NODAL_OFFICER when consolidated form is with MOSPI
+  const isFormWithMospiForFreeze =
+    (user?.role === "MINISTRY_APPROVER" || user?.role === "NODAL_OFFICER") &&
+    [
+      "SUBMITTED_TO_MOSPI_REVIEWER",
+      "SUBMITTED_TO_MOSPI_APPROVER",
+      "ACCEPTED_BY_MOSPI",
+    ].includes((formStatusForFreeze || "").toUpperCase());
+
+  // Debug: log freeze decision when any of the inputs change (helps trace why nodal forms don't freeze)
+  if (user?.role === "MINISTRY_APPROVER" || user?.role === "NODAL_OFFICER") {
+    console.log("[MinistrySubmissionReviewWrapper] Freeze decision:", {
+      userRole: user?.role,
+      propConsolidatedFormStatus,
+      formStatusFromProgress,
+      submissionStatus: submission?.status ?? submission?.formStatus,
+      formStatusForFreeze,
+      isFormWithMospiForFreeze,
+    });
+  }
 
   // Calculate progress for each category
   const getCategoryProgress = (categoryIndicator: AssignedIndicator) => {
     const categoryName = Object.keys(categoryIndicator)[0];
     const sections = categoryIndicator[categoryName];
-    
+
     if (!Array.isArray(sections)) {
       return { completed: 0, total: 0, progress: 0 };
     }
-    
-    let completed = 0;
+
     const total = sections.length;
-    
+    if (isFormWithMospiForFreeze) {
+      return { completed: total, total, progress: 100 };
+    }
+
+    let completed = 0;
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
       const sectionKey = `section${section.sNo.replace(".", "_")}`;
-      
+
       if (
         formData[sectionKey] &&
         Object.keys(formData[sectionKey]).length > 0
@@ -471,7 +574,7 @@ export function MinistrySubmissionReviewWrapper({
         completed++;
       }
     });
-    
+
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { completed, total, progress };
   };
@@ -510,7 +613,7 @@ export function MinistrySubmissionReviewWrapper({
   const handleEditStart = (sectionId: string) => {
     console.log(
       "[MinistrySubmissionReviewWrapper] Starting edit for section:",
-      sectionId
+      sectionId,
     );
 
     // Check if section is accepted - if so, prevent editing (unless NODAL_OFFICER editing sent back section)
@@ -551,18 +654,18 @@ export function MinistrySubmissionReviewWrapper({
       newSet.add(sectionId);
       console.log(
         "[MinistrySubmissionReviewWrapper] Updated editingSections:",
-        Array.from(newSet)
+        Array.from(newSet),
       );
       return newSet;
     });
 
     console.log(
       "[MinistrySubmissionReviewWrapper] Edit mode enabled for section:",
-      sectionId
+      sectionId,
     );
     console.log(
       "[MinistrySubmissionReviewWrapper] Current editingSections:",
-      Array.from(editingSections)
+      Array.from(editingSections),
     );
   };
 
@@ -570,7 +673,7 @@ export function MinistrySubmissionReviewWrapper({
   const handleEditCancel = (sectionId: string) => {
     console.log(
       "[MinistrySubmissionReviewWrapper] Cancelling edit for section:",
-      sectionId
+      sectionId,
     );
     const sectionKey = `section${sectionId.replace(".", "_")}`;
 
@@ -605,7 +708,7 @@ export function MinistrySubmissionReviewWrapper({
     submissionIndicatorId: string,
     currentSection: any,
     sectionData: any,
-    sectionKey: string
+    sectionKey: string,
   ) => {
     // Set saving state
     setSavingSections((prev) => new Set(prev).add(sectionId));
@@ -623,7 +726,7 @@ export function MinistrySubmissionReviewWrapper({
         statusToSet = "RESUBMITTED";
         console.log(
           "[MinistrySubmissionReviewWrapper] NODAL_OFFICER resubmitting sent back section:",
-          sectionId
+          sectionId,
         );
       }
 
@@ -631,18 +734,18 @@ export function MinistrySubmissionReviewWrapper({
       // This ensures all deletions made during editing are executed when Save is clicked
       if (pendingFileDeletions.length > 0) {
         console.log(
-          `[MinistrySubmissionReviewWrapper] Executing ${pendingFileDeletions.length} pending file deletions before save`
+          `[MinistrySubmissionReviewWrapper] Executing ${pendingFileDeletions.length} pending file deletions before save`,
         );
         // Execute all pending deletions
         const deletionPromises = pendingFileDeletions.map((deletion) =>
           deleteMinistrySubmissionFile(deletion).catch((error) => {
             console.error(
               "[MinistrySubmissionReviewWrapper] Error deleting file:",
-              error
+              error,
             );
             // Continue with other deletions even if one fails
             return null;
-          })
+          }),
         );
         await Promise.all(deletionPromises);
         // Clear all pending deletions after execution
@@ -655,27 +758,27 @@ export function MinistrySubmissionReviewWrapper({
         sectionData,
         currentSection,
         submissionId || undefined,
-        statusToSet
+        statusToSet,
       );
 
       console.log(
         "[MinistrySubmissionReviewWrapper] Update response:",
-        updateResponse
+        updateResponse,
       );
 
       // If status is RESUBMITTED, also update the indicator status explicitly
       if (statusToSet === "RESUBMITTED") {
         console.log(
-          "[MinistrySubmissionReviewWrapper] Updating indicator status to RESUBMITTED"
+          "[MinistrySubmissionReviewWrapper] Updating indicator status to RESUBMITTED",
         );
         await updateSubmissionIndicatorStatus(
           submissionIndicatorId,
-          "RESUBMITTED"
+          "RESUBMITTED",
         );
-        
+
         // Reload submission data to reflect the updated RESUBMITTED status
         console.log(
-          "[MinistrySubmissionReviewWrapper] Reloading data after resubmission"
+          "[MinistrySubmissionReviewWrapper] Reloading data after resubmission",
         );
         await loadSubmissionData();
       }
@@ -713,9 +816,10 @@ export function MinistrySubmissionReviewWrapper({
 
       toast({
         title: "Success",
-        description: statusToSet === "RESUBMITTED" 
-          ? `Section ${sectionId} resubmitted successfully`
-          : `Section ${sectionId} updated successfully`,
+        description:
+          statusToSet === "RESUBMITTED"
+            ? `Section ${sectionId} resubmitted successfully`
+            : `Section ${sectionId} updated successfully`,
       });
     } catch (error: any) {
       console.error("Error saving section:", error);
@@ -793,7 +897,7 @@ export function MinistrySubmissionReviewWrapper({
       // Scroll to first error field
       const firstErrorPath = Object.keys(sectionErrors)[0];
       const errorElement = document.querySelector(
-        `[data-field-path="${firstErrorPath}"]`
+        `[data-field-path="${firstErrorPath}"]`,
       );
       if (errorElement) {
         errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -824,7 +928,7 @@ export function MinistrySubmissionReviewWrapper({
       submissionIndicatorId,
       currentSection,
       sectionData,
-      sectionKey
+      sectionKey,
     );
   };
 
@@ -883,7 +987,7 @@ export function MinistrySubmissionReviewWrapper({
       submissionIndicatorId,
       currentSection,
       sectionData,
-      sectionKey
+      sectionKey,
     );
   };
 
@@ -893,8 +997,12 @@ export function MinistrySubmissionReviewWrapper({
     setPendingSaveSectionId(null);
   };
 
-  // Helper function to get section status from assignedIndicators
+  // Helper function to get section status from assignedIndicators. When form is with MOSPI, indicator status does not change until form is returned from MOSPI. Use "ACCEPTED" (not "ACCEPTED_BY_MOSPI") so Preview shows "Accepted" like the review submission form.
   const getSectionStatus = (sectionId: string): string | null => {
+    if (isFormWithMospiForFreeze) {
+      console.log("[MinistrySubmissionReviewWrapper] getSectionStatus: returning ACCEPTED (frozen) for", sectionId);
+      return "ACCEPTED";
+    }
     for (const categoryIndicator of assignedIndicators) {
       const categoryName = Object.keys(categoryIndicator)[0];
       const sections = categoryIndicator[categoryName];
@@ -965,7 +1073,7 @@ export function MinistrySubmissionReviewWrapper({
       }
       return null;
     },
-    [assignedIndicators]
+    [assignedIndicators],
   );
 
   // Helper function to get section title from sectionId
@@ -999,7 +1107,7 @@ export function MinistrySubmissionReviewWrapper({
   // Helper function to format ministry comments for TimelineModal
   const formatCommentsForTimeline = (
     comments: any[],
-    sectionId: string
+    sectionId: string,
   ): any[] => {
     return comments.map((comment) => {
       const commentRole = comment.user?.role || "UNKNOWN";
@@ -1036,24 +1144,24 @@ export function MinistrySubmissionReviewWrapper({
     try {
       setLoadingComments(true);
       const response = await getMinistrySubmissionIndicatorComments(
-        submissionIndicatorId
+        submissionIndicatorId,
       );
 
       console.log(
         "[MinistrySubmissionReviewWrapper] Comments API response:",
-        response
+        response,
       );
       console.log(
         "[MinistrySubmissionReviewWrapper] Response status:",
-        response?.status
+        response?.status,
       );
       console.log(
         "[MinistrySubmissionReviewWrapper] Response data:",
-        response?.data
+        response?.data,
       );
       console.log(
         "[MinistrySubmissionReviewWrapper] Is data array?",
-        Array.isArray(response?.data)
+        Array.isArray(response?.data),
       );
 
       // Handle both response formats:
@@ -1075,22 +1183,22 @@ export function MinistrySubmissionReviewWrapper({
       if (commentsArray.length > 0) {
         const formattedComments = formatCommentsForTimeline(
           commentsArray,
-          sectionId
+          sectionId,
         );
         console.log(
           "[MinistrySubmissionReviewWrapper] Formatted comments:",
-          formattedComments
+          formattedComments,
         );
-        
+
         // Filter comments based on user role visibility
         const currentUserRole = user?.role as any;
         console.log(
           "[MinistrySubmissionReviewWrapper] Filtering comments. User role:",
           currentUserRole,
           "Total formatted comments:",
-          formattedComments.length
+          formattedComments.length,
         );
-        
+
         const visibleComments = formattedComments.filter((comment: any) => {
           try {
             // Create a comment object compatible with getCommentVisibility
@@ -1098,36 +1206,43 @@ export function MinistrySubmissionReviewWrapper({
               ...comment,
               userRole: comment.userRole || comment.role,
             };
-            const isVisible = workflowService.getCommentVisibility(reviewComment, currentUserRole);
+            const isVisible = workflowService.getCommentVisibility(
+              reviewComment,
+              currentUserRole,
+            );
             console.log(
               "[MinistrySubmissionReviewWrapper] Comment visibility check:",
               {
                 commentRole: reviewComment.userRole,
                 userRole: currentUserRole,
                 isVisible,
-              }
+              },
             );
             return isVisible;
           } catch (error) {
-            console.error("[MinistrySubmissionReviewWrapper] Error checking comment visibility:", error, comment);
+            console.error(
+              "[MinistrySubmissionReviewWrapper] Error checking comment visibility:",
+              error,
+              comment,
+            );
             // If there's an error, don't show the comment
             return false;
           }
         });
-        
+
         console.log(
           "[MinistrySubmissionReviewWrapper] Visible comments after filtering:",
           visibleComments.length,
           "out of",
           formattedComments.length,
           "User role:",
-          currentUserRole
+          currentUserRole,
         );
         setTimelineComments(visibleComments);
       } else {
         console.warn(
           "[MinistrySubmissionReviewWrapper] No comments found in response:",
-          response
+          response,
         );
         // Still set empty array so modal can show "No comments" message
         setTimelineComments([]);
@@ -1147,7 +1262,10 @@ export function MinistrySubmissionReviewWrapper({
 
   // Handle opening timeline
   const handleOpenTimeline = async (sectionId: string) => {
-    console.log("[MinistrySubmissionReviewWrapper] Opening timeline for section:", sectionId);
+    console.log(
+      "[MinistrySubmissionReviewWrapper] Opening timeline for section:",
+      sectionId,
+    );
     // Clear previous comments and set loading state
     setTimelineComments([]);
     setLoadingComments(true);
@@ -1157,7 +1275,10 @@ export function MinistrySubmissionReviewWrapper({
     try {
       await fetchCommentsForSection(sectionId);
     } catch (error) {
-      console.error("[MinistrySubmissionReviewWrapper] Error in handleOpenTimeline:", error);
+      console.error(
+        "[MinistrySubmissionReviewWrapper] Error in handleOpenTimeline:",
+        error,
+      );
       // Even if there's an error, keep the modal open with empty comments
       setTimelineComments([]);
       setLoadingComments(false);
@@ -1180,11 +1301,11 @@ export function MinistrySubmissionReviewWrapper({
     }) => {
       console.log(
         "[MinistrySubmissionReviewWrapper] Pending deletion added:",
-        deletionInfo
+        deletionInfo,
       );
       setPendingFileDeletions((prev) => [...prev, deletionInfo]);
     },
-    []
+    [],
   );
 
   // Get comment count for a section
@@ -1195,9 +1316,9 @@ export function MinistrySubmissionReviewWrapper({
 
       try {
         const response = await getMinistrySubmissionIndicatorComments(
-          submissionIndicatorId
+          submissionIndicatorId,
         );
-        
+
         // Handle both response formats:
         // 1. Direct array: [{...}, {...}]
         // 2. Wrapped format: { status: true, data: [{...}, {...}] }
@@ -1222,7 +1343,10 @@ export function MinistrySubmissionReviewWrapper({
               type: "comment",
               userId: comment.userId || "",
               sectionId: sectionId,
-              timestamp: comment.createdAt || comment.timestamp || new Date().toISOString(),
+              timestamp:
+                comment.createdAt ||
+                comment.timestamp ||
+                new Date().toISOString(),
             };
           });
 
@@ -1234,9 +1358,15 @@ export function MinistrySubmissionReviewWrapper({
                 ...comment,
                 userRole: comment.userRole || comment.role,
               };
-              return workflowService.getCommentVisibility(reviewComment, currentUserRole);
+              return workflowService.getCommentVisibility(
+                reviewComment,
+                currentUserRole,
+              );
             } catch (error) {
-              console.error("[MinistrySubmissionReviewWrapper] Error checking comment visibility in count:", error);
+              console.error(
+                "[MinistrySubmissionReviewWrapper] Error checking comment visibility in count:",
+                error,
+              );
               return false;
             }
           });
@@ -1245,7 +1375,7 @@ export function MinistrySubmissionReviewWrapper({
           setCommentCounts((prev) => ({ ...prev, [sectionId]: count }));
           return count;
         }
-        
+
         setCommentCounts((prev) => ({ ...prev, [sectionId]: 0 }));
         return 0;
       } catch (error) {
@@ -1254,7 +1384,7 @@ export function MinistrySubmissionReviewWrapper({
         return 0;
       }
     },
-    [getSubmissionIndicatorId, user?.role]
+    [getSubmissionIndicatorId, user?.role],
   );
 
   // Fetch comment counts for all sections when data loads
@@ -1278,7 +1408,7 @@ export function MinistrySubmissionReviewWrapper({
 
         // Fetch counts for all sections in parallel
         const countPromises = sectionIds.map((sectionId) =>
-          getCommentCount(sectionId).catch(() => 0)
+          getCommentCount(sectionId).catch(() => 0),
         );
         await Promise.all(countPromises);
       };
@@ -1291,7 +1421,7 @@ export function MinistrySubmissionReviewWrapper({
   const handleAccept = (sectionId: string) => {
     console.log(
       "[MinistrySubmissionReviewWrapper] Accept clicked for section:",
-      sectionId
+      sectionId,
     );
     setPendingAcceptSectionId(sectionId);
     setShowAcceptDialog(true);
@@ -1306,7 +1436,7 @@ export function MinistrySubmissionReviewWrapper({
     const sectionId = pendingAcceptSectionId;
     console.log(
       "[MinistrySubmissionReviewWrapper] Confirming accept for section:",
-      sectionId
+      sectionId,
     );
 
     // Find the indicator and section data to get submissionIndicatorId
@@ -1348,12 +1478,12 @@ export function MinistrySubmissionReviewWrapper({
       // Call API to update status to ACCEPTED_BY_MINISTRY
       const response = await updateSubmissionIndicatorStatus(
         submissionIndicatorId,
-        "ACCEPTED_BY_MINISTRY"
+        "ACCEPTED_BY_MINISTRY",
       );
 
       console.log(
         "[MinistrySubmissionReviewWrapper] Accept response:",
-        response
+        response,
       );
 
       toast({
@@ -1392,7 +1522,7 @@ export function MinistrySubmissionReviewWrapper({
   const handleSendBack = (sectionId: string, sectionName: string) => {
     console.log(
       "[MinistrySubmissionReviewWrapper] Send Back clicked for section:",
-      sectionId
+      sectionId,
     );
 
     // Find the submissionIndicatorId for this section
@@ -1445,7 +1575,7 @@ export function MinistrySubmissionReviewWrapper({
   // Handle accept for MOSPI Approver
   const handleAcceptMospiApprover = async (
     submissionIndicatorId: string,
-    sectionId: string
+    sectionId: string,
   ) => {
     try {
       setSubmittingIndicatorId(submissionIndicatorId);
@@ -1457,7 +1587,7 @@ export function MinistrySubmissionReviewWrapper({
 
       await updateMinistryIndicatorStatus(
         submissionIndicatorId,
-        "ACCEPTED_BY_MOSPI"
+        "ACCEPTED_BY_MOSPI",
       );
 
       toast({
@@ -1472,7 +1602,7 @@ export function MinistrySubmissionReviewWrapper({
             sectionId,
             status: "ACCEPTED_BY_MOSPI",
           },
-        })
+        }),
       );
 
       // Reload data to reflect the change
@@ -1511,18 +1641,18 @@ export function MinistrySubmissionReviewWrapper({
         {
           submissionIndicatorId,
           sectionId,
-        }
+        },
       );
 
       // Update status to RETURNED_FROM_MINISTRY
       const response = await updateSubmissionIndicatorStatus(
         submissionIndicatorId,
-        "RETURNED_FROM_MINISTRY"
+        "RETURNED_FROM_MINISTRY",
       );
 
       console.log(
         "[MinistrySubmissionReviewWrapper] Send back response:",
-        response
+        response,
       );
 
       toast({
@@ -1624,53 +1754,53 @@ export function MinistrySubmissionReviewWrapper({
             onValueChange={setActiveCategory}
             className="w-full"
           >
-          <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
+            <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
+              {categories.map((categoryIndicator) => {
+                const categoryName = Object.keys(categoryIndicator)[0];
+                return (
+                  <TabsTrigger
+                    key={categoryName}
+                    value={categoryName}
+                    className="!w-auto bg-white text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 hover:border-gray-400 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:hover:bg-primary/90 whitespace-nowrap h-8 flex-shrink-0"
+                  >
+                    {categoryName}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            {/* Category Content */}
             {categories.map((categoryIndicator) => {
               const categoryName = Object.keys(categoryIndicator)[0];
-              return (
-                <TabsTrigger 
-                  key={categoryName} 
-                  value={categoryName}
-                  className="!w-auto bg-white text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 hover:border-gray-400 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:hover:bg-primary/90 whitespace-nowrap h-8 flex-shrink-0"
-                >
-                  {categoryName}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+              const categoryProgress = getCategoryProgress(categoryIndicator);
 
-          {/* Category Content */}
-          {categories.map((categoryIndicator) => {
-            const categoryName = Object.keys(categoryIndicator)[0];
-            const categoryProgress = getCategoryProgress(categoryIndicator);
-            
-            return (
-              <TabsContent key={categoryName} value={categoryName}>
-                <div>
-                  {/* ProgressHeader for current category */}
-                  <ProgressHeader
-                    title={categoryName}
-                    description={categoryDescriptions[categoryName] || ""}
-                    points={250}
-                    completed={categoryProgress.completed}
-                    total={categoryProgress.total}
-                    progress={categoryProgress.progress}
-                  />
+              return (
+                <TabsContent key={categoryName} value={categoryName}>
+                  <div>
+                    {/* ProgressHeader for current category */}
+                    <ProgressHeader
+                      title={categoryName}
+                      description={categoryDescriptions[categoryName] || ""}
+                      points={250}
+                      completed={categoryProgress.completed}
+                      total={categoryProgress.total}
+                      progress={categoryProgress.progress}
+                    />
 
                     {/* DynamicFormBuilder for current category - REVIEW MODE with EDIT support */}
-                  <div className="mt-4 sm:mt-6">
-                    <DynamicFormBuilder
-                      indicators={[categoryIndicator]}
-                      formData={formData}
+                    <div className="mt-4 sm:mt-6">
+                      <DynamicFormBuilder
+                        indicators={[categoryIndicator]}
+                        formData={formData}
                         onChange={handleFormDataChange}
                         mode="review" // Keep in review mode, but allow section-specific editing
                         disabled={false} // Don't globally disable - let form builder handle per-section
-                      submissionId={submissionId || undefined}
+                        submissionId={submissionId || undefined}
                         getFieldError={getFieldErrorMemoized} // Use validation hook for field errors
-                      getDropdownOptions={getDropdownOptions}
-                      // No submit handlers needed in review mode
-                      isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
-                      submittingIndicator={null}
+                        getDropdownOptions={getDropdownOptions}
+                        // No submit handlers needed in review mode
+                        isIndicatorSubmitted={() => true} // All indicators shown as submitted in review
+                        submittingIndicator={null}
                         validationErrors={validationErrors} // Pass validation errors
                         onValidateField={validateFieldOnChange} // Enable validation in edit mode
                         onClearFieldError={clearFieldError} // Enable error clearing
@@ -1678,7 +1808,9 @@ export function MinistrySubmissionReviewWrapper({
                         renderScoreDisplay={(indicatorCode) => {
                           // Show score display only for MOSPI_APPROVER
                           if (user?.role === "MOSPI_APPROVER" && submissionId) {
-                            const toggleState = indicatorScoreToggleState[indicatorCode] || "score";
+                            const toggleState =
+                              indicatorScoreToggleState[indicatorCode] ||
+                              "score";
                             return (
                               <IndicatorScoreDisplay
                                 submissionId={submissionId}
@@ -1693,7 +1825,7 @@ export function MinistrySubmissionReviewWrapper({
                         renderSectionActionButtons={(
                           sectionId,
                           sectionName,
-                          indicatorCode
+                          indicatorCode,
                         ) => {
                           // Find the section object to get submissionIndicatorId
                           let sectionSubmissionIndicatorId: string | null =
@@ -1722,6 +1854,47 @@ export function MinistrySubmissionReviewWrapper({
 
                           // Render role-based action buttons for each section
                           if (user?.role === "MINISTRY_APPROVER") {
+                            const formStatus =
+                              submission?.status ||
+                              submission?.formStatus ||
+                              undefined;
+                            const upperFormStatus = (
+                              formStatus || ""
+                            ).toUpperCase();
+                            const isFormWithMospi = [
+                              "SUBMITTED_TO_MOSPI_REVIEWER",
+                              "SUBMITTED_TO_MOSPI_APPROVER",
+                            ].includes(upperFormStatus);
+
+                            // When form is with MOSPI, show Accepted + Timeline only. Actions on indicators
+                            // (Edit, Send Back, Accept) reflect only after the whole form is returned from MOSPI.
+                            if (isFormWithMospi) {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                                    disabled
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Accepted
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleOpenTimeline(sectionId)
+                                    }
+                                    className="flex items-center gap-1 h-7 px-2 text-xs"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                    Timeline ({commentCounts[sectionId] || 0})
+                                  </Button>
+                                </div>
+                              );
+                            }
+
                             const isSectionEditing =
                               editingSections.has(sectionId);
                             const isSaving = savingSections.has(sectionId);
@@ -1732,31 +1905,34 @@ export function MinistrySubmissionReviewWrapper({
                               "RETURNED_FROM_MINISTRY";
                             const isResubmitted =
                               sectionStatus?.toUpperCase() === "RESUBMITTED";
-                            
+
                             // Check if indicator was returned from MOSPI Approver
                             const isReturnedFromMospi =
                               sectionStatus?.toUpperCase() ===
                               "RETURNED_FROM_MOSPI_APPROVER";
-                            
+
                             // Check if indicator was accepted by MOSPI
                             const isAcceptedByMospi =
-                              sectionStatus?.toUpperCase() === "ACCEPTED_BY_MOSPI";
-                            
+                              sectionStatus?.toUpperCase() ===
+                              "ACCEPTED_BY_MOSPI";
+
                             // Get assignedTo for this section
-                            const sectionAssignedTo = getSectionAssignedTo(sectionId);
+                            const sectionAssignedTo =
+                              getSectionAssignedTo(sectionId);
                             const submissionUserId = submission?.user?.id;
-                            
+
                             // Check if indicator was originally assigned to Nodal Officer
                             // If assignedTo !== submission.userId, it means it was assigned to a Nodal Officer
                             const isAssignedToNodalOfficer =
                               sectionAssignedTo &&
                               submissionUserId &&
                               sectionAssignedTo !== submissionUserId;
-                            
+
                             // Show Send Back button if indicator was originally assigned to a Nodal Officer
                             // BUT NOT if it's already RESUBMITTED (Nodal already resubmitted after Ministry sent it back)
                             // (assignedTo !== submission.userId means it was assigned to a Nodal Officer)
-                            const shouldShowSendBackToNodal = isAssignedToNodalOfficer && !isResubmitted;
+                            const shouldShowSendBackToNodal =
+                              isAssignedToNodalOfficer && !isResubmitted;
 
                             console.log(
                               "[MinistrySubmissionReviewWrapper] Rendering action buttons for MINISTRY_APPROVER:",
@@ -1782,7 +1958,7 @@ export function MinistrySubmissionReviewWrapper({
                                 hasOnSave: isSectionEditing,
                                 hasOnCancel: isSectionEditing,
                                 hasOnEdit: !isSectionEditing,
-                              }
+                              },
                             );
 
                             // For RESUBMITTED status, show custom buttons with Resubmitted badge
@@ -1866,9 +2042,7 @@ export function MinistrySubmissionReviewWrapper({
                               );
                             }
 
-                            // Get form/submission level status
-                            const formStatus = submission?.status || submission?.formStatus || undefined;
-                            
+                            // formStatus already defined at top of MINISTRY_APPROVER block
                             return (
                               <MinistryApproverActionButtons
                                 key={`${sectionId}-${
@@ -1949,32 +2123,52 @@ export function MinistrySubmissionReviewWrapper({
                           }
                           if (user?.role === "MOSPI_APPROVER") {
                             const sectionStatus = getSectionStatus(sectionId);
-                            const isAccepted = sectionStatus === "ACCEPTED_BY_MOSPI";
+                            const isAccepted =
+                              sectionStatus === "ACCEPTED_BY_MOSPI";
                             // Get form/submission level status
-                            const formStatus = submission?.status || submission?.formStatus || undefined;
-                            
+                            const formStatus =
+                              submission?.status ||
+                              submission?.formStatus ||
+                              undefined;
+
                             // Determine original MOSPI status - preserve the status that indicates MOSPI Approver's decision
                             // This preserves the original state even if Ministry edits change the status
                             // If form is RETURNED_FROM_MOSPI_APPROVER, check if current status indicates it was sent back or accepted
-                            const upperSectionStatus = sectionStatus?.toUpperCase() || "";
-                            let originalMospiStatus: string | undefined = undefined;
-                            
+                            const upperSectionStatus =
+                              sectionStatus?.toUpperCase() || "";
+                            let originalMospiStatus: string | undefined =
+                              undefined;
+
                             // If current status indicates it was sent back or accepted, use that as original status
                             // This works as long as the status still contains the MOSPI decision information
                             // If status was completely changed by Ministry edits, we'll fall back to current status check
-                            if (upperSectionStatus.includes("RETURNED_FROM_MOSPI_APPROVER") || 
-                                upperSectionStatus.includes("RETURNED_FROM_MOSPI") ||
-                                upperSectionStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT") {
+                            if (
+                              upperSectionStatus.includes(
+                                "RETURNED_FROM_MOSPI_APPROVER",
+                              ) ||
+                              upperSectionStatus.includes(
+                                "RETURNED_FROM_MOSPI",
+                              ) ||
+                              upperSectionStatus ===
+                                "RETURNED_FROM_MOSPI_APPROVER_DRAFT"
+                            ) {
                               originalMospiStatus = sectionStatus; // Preserve the sent back status
-                            } else if (upperSectionStatus.includes("ACCEPTED_BY_MOSPI") ||
-                                      upperSectionStatus === "ACCEPTED_BY_MOSPI_APPROVER_DRAFT") {
+                            } else if (
+                              upperSectionStatus.includes(
+                                "ACCEPTED_BY_MOSPI",
+                              ) ||
+                              upperSectionStatus ===
+                                "ACCEPTED_BY_MOSPI_APPROVER_DRAFT"
+                            ) {
                               originalMospiStatus = sectionStatus; // Preserve the accepted status
                             }
                             // If status doesn't clearly indicate MOSPI decision, originalMospiStatus remains undefined
                             // and component will use current status check as fallback
-                            
-                            const toggleState = indicatorScoreToggleState[indicatorCode] || "score";
-                            
+
+                            const toggleState =
+                              indicatorScoreToggleState[indicatorCode] ||
+                              "score";
+
                             return (
                               <div className="flex items-center gap-2">
                                 {/* Indicator Score Toggle for MOSPI_APPROVER */}
@@ -2007,12 +2201,13 @@ export function MinistrySubmissionReviewWrapper({
                                     if (sectionSubmissionIndicatorId) {
                                       handleAcceptMospiApprover(
                                         sectionSubmissionIndicatorId,
-                                        sectionId
+                                        sectionId,
                                       );
                                     } else {
                                       toast({
                                         title: "Error",
-                                        description: "Submission indicator ID not found",
+                                        description:
+                                          "Submission indicator ID not found",
                                         variant: "destructive",
                                       });
                                     }
@@ -2020,7 +2215,9 @@ export function MinistrySubmissionReviewWrapper({
                                   onSendBack={() => {
                                     handleSendBack(sectionId, sectionName);
                                   }}
-                                  onTimeline={() => handleOpenTimeline(sectionId)}
+                                  onTimeline={() =>
+                                    handleOpenTimeline(sectionId)
+                                  }
                                   timelineCount={commentCounts[sectionId] || 0}
                                   isAccepted={isAccepted}
                                 />
@@ -2057,7 +2254,9 @@ export function MinistrySubmissionReviewWrapper({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleOpenTimeline(sectionId)}
+                                    onClick={() =>
+                                      handleOpenTimeline(sectionId)
+                                    }
                                     className="flex items-center gap-1 h-7 px-2 text-xs"
                                   >
                                     <Clock className="w-3 h-3" />
@@ -2165,12 +2364,12 @@ export function MinistrySubmissionReviewWrapper({
                           }
                           return null;
                         }}
-                    />
+                      />
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
-            );
-          })}
+                </TabsContent>
+              );
+            })}
           </Tabs>
         )}
 
@@ -2200,14 +2399,19 @@ export function MinistrySubmissionReviewWrapper({
             setTimeout(() => {
               handleSendBackAfterComment();
             }, 300);
-          } else if (!pendingSendBackAction && !selectedSectionForComment?.isSendBack) {
+          } else if (
+            !pendingSendBackAction &&
+            !selectedSectionForComment?.isSendBack
+          ) {
             // Regular comment (not send back)
             console.log("Comment added successfully");
             // Refresh comment count for the section (fire and forget)
             if (selectedSectionForComment?.sectionId) {
-              getCommentCount(selectedSectionForComment.sectionId).catch((error) => {
-                console.error("Error refreshing comment count:", error);
-              });
+              getCommentCount(selectedSectionForComment.sectionId).catch(
+                (error) => {
+                  console.error("Error refreshing comment count:", error);
+                },
+              );
             }
           }
         }}
@@ -2267,7 +2471,8 @@ export function MinistrySubmissionReviewWrapper({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.
+              Are you sure you want to accept this section? Now it is moved to
+              the Reviewer. No further action can be taken after accept.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

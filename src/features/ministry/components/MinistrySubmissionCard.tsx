@@ -35,6 +35,7 @@ const statusConfig: Record<string, { label: string; badgeClass: string; borderCl
     badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
     borderClass: "border-l-blue-500",
   },
+
   APPROVED: {
     label: "Approved",
     badgeClass: "bg-green-100 text-green-800 border-green-200",
@@ -50,6 +51,7 @@ const statusConfig: Record<string, { label: string; badgeClass: string; borderCl
     badgeClass: "bg-red-100 text-red-800 border-red-200",
     borderClass: "border-l-red-500",
   },
+ 
 };
 
 export function MinistrySubmissionCard({
