@@ -180,11 +180,15 @@ export const validateField = (
   // 2. uiComponent === 'Dropdown' or 'dropdown'
   // 3. Has validationRules.options (dropdown options)
   // 4. Field label matches known dropdown field patterns (sector, status, etc.)
+  // Note: "Type of Mechanism" and "Type of Investment Required" are NOT dropdowns - they are text inputs
   const fieldLabelLower = field.label?.toLowerCase() || '';
   const isKnownDropdownField = fieldLabelLower.includes('sector') ||
                               fieldLabelLower.includes('status') ||
-                              fieldLabelLower.includes('type') ||
-                              fieldLabelLower.includes('mode') ||
+                              (fieldLabelLower.includes('type') && 
+                               !fieldLabelLower.includes('type of mechanism') && 
+                               !fieldLabelLower.includes('type of investment')) ||
+                              (fieldLabelLower.includes('mode') && 
+                               !fieldLabelLower.includes('mode of training')) ||
                               fieldLabelLower.includes('scheme');
   
   const isDropdownField = field.dataType === 'dropdown' || 

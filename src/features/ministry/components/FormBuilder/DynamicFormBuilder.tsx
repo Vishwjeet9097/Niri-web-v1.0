@@ -521,6 +521,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                             indicatorName={sectionName}
                                             onValidate={onValidateField}
                                             onClearError={onClearFieldError}
+                                            sectionKey={sectionKey}
                                             submissionIndicatorId={
                                               (section as any)
                                                 .submissionIndicatorId
@@ -652,6 +653,7 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                                 )}
                                                 indicatorName={sectionName}
                                                 onValidate={onValidateField}
+                                                sectionKey={sectionKey}
                                                 submissionIndicatorId={
                                                   (section as any)
                                                     .submissionIndicatorId

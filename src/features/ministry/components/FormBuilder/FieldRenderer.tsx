@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
+import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import type { FileUpload } from "@/features/submission/types";
 import type { FieldRendererProps } from "./types";
 
@@ -278,6 +279,34 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
           field.label?.toLowerCase() === "fy" ||
           field.uiComponent === "Year";
 
+        // Check if this is indicator 1.1 (section1_1) and year field
+        const isIndicator1_1 = sectionKey === "section1_1" || field.sectionId === "section1_1";
+        const isYearFieldIn1_1 = isIndicator1_1 && isYearField;
+        
+        // Auto-fill year field for indicator 1.1 with current financial year
+        useEffect(() => {
+          if (isYearFieldIn1_1) {
+            const currentFY = getCurrentFinancialYear();
+            // Only set if value is empty or different from current FY
+            if (!value || value === "" || value !== currentFY) {
+              const fieldPath = `${field.sectionId}.${field.id}`;
+              console.log(`[FieldRenderer] Auto-filling year field for 1.1:`, {
+                sectionKey,
+                fieldSectionId: field.sectionId,
+                fieldId: field.id,
+                currentValue: value,
+                newValue: currentFY,
+                isYearFieldIn1_1
+              });
+              onChange(currentFY);
+              // Validate after setting value
+              if (onValidate && field) {
+                onValidate(fieldPath, currentFY, field);
+              }
+            }
+          }
+        }, [isYearFieldIn1_1, sectionKey, value, field.sectionId, field.id, onChange, onValidate]);
+
         // Regular string input or TextArea for comments
         const fieldPath = `${field.sectionId}.${field.id}`;
         return (
@@ -307,6 +336,10 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                   inputMode="numeric"
                   value={value || ""}
                   onChange={(e) => {
+                    // Disable editing for indicator 1.1 year field
+                    if (isYearFieldIn1_1) {
+                      return;
+                    }
                     const newValue = e.target.value;
                     // Only allow numeric characters (digits only, no decimals, no negative)
                     if (newValue === "" || /^\d+$/.test(newValue)) {
@@ -327,17 +360,47 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                       onValidate(fieldPath, value, field);
                     }
                   }}
-                  disabled={disabled}
+                  disabled={disabled || isYearFieldIn1_1}
                   className={error ? "border-destructive" : className}
-                  placeholder="Enter year (e.g., 2024)"
+                  placeholder={isYearFieldIn1_1 ? "Auto-filled" : "Enter year (e.g., 2024)"}
                   maxLength={4}
+                  readOnly={isYearFieldIn1_1}
                 />
               ) : (
                 <Input
                   value={value || ""}
                   onChange={(e) => {
                     const newValue = e.target.value;
-                    onChange(newValue);
+                    
+                    // Check if this is a string field that should only accept alphabets
+                    // Exclude: dropdowns, URLs, year fields, comments
+                    const isUrl = field.label?.toLowerCase().includes('website') ||
+                                 field.label?.toLowerCase().includes('url') ||
+                                 field.label?.toLowerCase().includes('link');
+                    const isYearField = field.label?.toLowerCase().includes('year') || 
+                                      field.label?.toLowerCase() === 'fy' ||
+                                      field.uiComponent === 'Year';
+                    const isCommentField = field.label?.toLowerCase().includes('comment') ||
+                                          field.uiComponent === 'Text Area' ||
+                                          field.uiComponent === 'TextArea';
+                    const isDropdownField = field.dataType === 'dropdown' ||
+                                           field.uiComponent === 'Dropdown' ||
+                                           field.uiComponent === 'dropdown' ||
+                                           (field.validationRules?.options && Array.isArray(field.validationRules.options) && field.validationRules.options.length > 0);
+                    
+                    // For string fields that are not URLs, years, comments, or dropdowns, restrict to alphabets only
+                    if (field.dataType === 'string' && !isUrl && !isYearField && !isCommentField && !isDropdownField) {
+                      // Only allow alphabets, spaces, hyphens, apostrophes, and common punctuation
+                      if (newValue === "" || /^[a-zA-Z\s\-'.,()]*$/.test(newValue)) {
+                        onChange(newValue);
+                      } else {
+                        // Don't update if invalid characters are entered
+                        return;
+                      }
+                    } else {
+                      // For other fields, allow any input
+                      onChange(newValue);
+                    }
 
                     const fieldPath = `${field.sectionId}.${field.id}`;
 
