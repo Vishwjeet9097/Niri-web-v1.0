@@ -31,31 +31,58 @@ export function useMinistryAutoCalculation({
     let CAPITAL_ACTUALS_FIELD_ID: string | null = null;
     let CAPEX_UTILIZATION_FIELD_ID: string | null = null;
 
-    // Search for fields in the "Infra Financing" indicator, section "Capital Utilization"
+    // Search for fields in indicator 1.1 - search through all indicators and sections
+    // Look for indicator with sNo "1.1" or sectionKey "section1_1"
     for (const indicatorObj of assignedIndicators) {
       const indicatorName = Object.keys(indicatorObj)[0];
-      if (indicatorName === "Infra Financing") {
-        const sections = indicatorObj[indicatorName];
-        for (const sectionObj of sections) {
-          const sectionName = Object.keys(sectionObj)[0];
-          if (sectionName === "Capital Utilization") {
-            const section = sectionObj[sectionName];
-            if (section.inputs && Array.isArray(section.inputs)) {
-              for (const input of section.inputs) {
-                const label = input.label?.toLowerCase() || "";
-                if (label.includes('capital expenditure allocation') && !label.includes('%')) {
-                  CAPITAL_ALLOCATION_FIELD_ID = input.id;
-                } else if (label.includes('capital expenditure actuals') || label.includes('capital expenditure actual')) {
-                  CAPITAL_ACTUALS_FIELD_ID = input.id;
-                } else if (label.includes('% capex utilization') || label.includes('capex utilization')) {
-                  CAPEX_UTILIZATION_FIELD_ID = input.id;
-                }
-              }
+      const sections = indicatorObj[indicatorName];
+      
+      // Search through all sections in this indicator
+      for (const sectionObj of sections) {
+        const sectionName = Object.keys(sectionObj)[0];
+        const section = sectionObj[sectionName];
+        
+        // Check if this is section 1.1 by checking sNo
+        const isSection1_1 = section.sNo === "1.1" || 
+                             sectionName?.toLowerCase().includes('capex') ||
+                             sectionName?.toLowerCase().includes('capital');
+        
+        if (isSection1_1 && section.inputs && Array.isArray(section.inputs)) {
+          console.log(`🔍 Auto-calculation: Checking section "${sectionName}" with ${section.inputs.length} inputs`);
+          console.log(`🔍 Auto-calculation: Section inputs:`, section.inputs.map((inp: any) => inp.label));
+          
+          for (const input of section.inputs) {
+            const label = input.label?.toLowerCase() || "";
+            console.log(`🔍 Auto-calculation: Checking field "${input.label}" (label: "${label}")`);
+            
+            // More flexible matching for Capital Allocation
+            if (!CAPITAL_ALLOCATION_FIELD_ID && 
+                (label.includes('capital allocation') || label.includes('capital expenditure allocation')) && 
+                !label.includes('%') && 
+                !label.includes('capex utilization')) {
+              CAPITAL_ALLOCATION_FIELD_ID = input.id;
+              console.log(`✅ Auto-calculation: Found CAPITAL_ALLOCATION_FIELD_ID: ${input.id} for "${input.label}"`);
+            } 
+            // More flexible matching for Capital Actuals
+            else if (!CAPITAL_ACTUALS_FIELD_ID && 
+                     (label.includes('capital expenditure actuals') || 
+                      label.includes('capital expenditure actual') ||
+                      label.includes('actual capital expenditure') ||
+                      (label.includes('actual') && label.includes('capital')))) {
+              CAPITAL_ACTUALS_FIELD_ID = input.id;
+              console.log(`✅ Auto-calculation: Found CAPITAL_ACTUALS_FIELD_ID: ${input.id} for "${input.label}"`);
+            } 
+            // More flexible matching for Capex Utilization
+            else if (!CAPEX_UTILIZATION_FIELD_ID && 
+                     (label.includes('% capex utilization') || 
+                      label.includes('capex utilization') ||
+                      label.includes('% of capex') ||
+                      (label.includes('capex') && label.includes('%')))) {
+              CAPEX_UTILIZATION_FIELD_ID = input.id;
+              console.log(`✅ Auto-calculation: Found CAPEX_UTILIZATION_FIELD_ID: ${input.id} for "${input.label}"`);
             }
-            break;
           }
         }
-        break;
       }
     }
 
