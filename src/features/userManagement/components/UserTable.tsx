@@ -233,13 +233,28 @@ function UserTableComponent({
                             typeof indicator === 'string' 
                               ? indicator 
                               : indicator?.code || indicator?.id || indicator?.value || String(indicator);
-                          console.log('[UserTable] Rendering indicator badge:', { indicator, indicatorCode, idx });
+                          
+                          // Get status for this indicator
+                          const status = officer.indicatorStatuses?.[indicatorCode];
+                          const statusUpper = status ? String(status).toUpperCase() : '';
+                          
+                          // Determine badge color based on status
+                          let badgeClassName = "text-xs";
+                          if (status && (statusUpper === "ACCEPTED" || statusUpper === "ACCEPTED_BY_MINISTRY" || statusUpper === "ACCEPTED_BY_MOSPI")) {
+                            // Green for accepted
+                            badgeClassName = "text-xs bg-green-100 text-green-800 border-green-300";
+                          } else {
+                            // Red for null status, no status, or other statuses (not accepted)
+                            badgeClassName = "text-xs bg-red-100 text-red-800 border-red-300";
+                          }
+                          
+                          console.log('[UserTable] Rendering indicator badge:', { indicator, indicatorCode, idx, status, badgeClassName });
                           return (
                             <Badge
                               key={idx}
                               variant="secondary"
-                              className="text-xs"
-                              title={indicatorCode}
+                              className={badgeClassName}
+                              title={status ? `${indicatorCode} - ${status}` : indicatorCode}
                             >
                               {indicatorCode}
                             </Badge>

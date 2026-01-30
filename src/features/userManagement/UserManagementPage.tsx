@@ -33,6 +33,7 @@ import {
   ALL_INDICATOR_CODES,
 } from "@/hooks/useIndicatorAccess";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
+import { IndicatorSummary } from "./components/IndicatorSummary";
 
 export function UserManagementPage() {
   const { user } = useAuth();
@@ -147,17 +148,23 @@ export function UserManagementPage() {
         }
  
         // Transform backend users to NodalOfficer format
-        let transformedOfficers: NodalOfficer[] = backendUsers.map(
-          (user: any) => {
+        let transformedOfficers: NodalOfficer[] = await Promise.all(
+          backendUsers.map(async (user: any) => {
             // Extract indicator codes from assignedIndicators array
             // Backend returns array of objects with {code, name} or array of strings
             let indicatorCodes: string[] = [];
+            let indicatorStatuses: Record<string, string> = {};
+            
             if (user.assignedIndicators && Array.isArray(user.assignedIndicators)) {
               console.log('[loadOfficers] User assignedIndicators raw data:', user.id, user.assignedIndicators);
               indicatorCodes = user.assignedIndicators.map((ind: any) => {
                 // If it's an object, extract the code property
                 if (typeof ind === 'object' && ind !== null) {
                   const code = ind.code || ind.id || ind.value || String(ind);
+                  // Extract status if available
+                  if (ind.status || ind.indicatorStatus) {
+                    indicatorStatuses[code] = ind.status || ind.indicatorStatus;
+                  }
                   console.log('[loadOfficers] Extracted code from object:', code, ind);
                   return code;
                 }
@@ -168,6 +175,44 @@ export function UserManagementPage() {
               console.log('[loadOfficers] Final indicator codes for user:', user.id, indicatorCodes);
             } else {
               console.log('[loadOfficers] No assignedIndicators or not an array for user:', user.id, user.assignedIndicators);
+            }
+
+            // For NODAL_OFFICER, fetch indicator statuses if not already available
+            if (user.role === "NODAL_OFFICER" && indicatorCodes.length > 0 && Object.keys(indicatorStatuses).length === 0) {
+              try {
+                const nodalIndicatorsResponse = await getRemainingMinistryIndicators(user.id);
+                let nodalIndicatorsData = nodalIndicatorsResponse;
+                if (nodalIndicatorsResponse && typeof nodalIndicatorsResponse === 'object' && 'data' in nodalIndicatorsResponse) {
+                  nodalIndicatorsData = nodalIndicatorsResponse.data;
+                }
+
+                // Flatten and extract statuses
+                let indicatorsFlat: any[] = [];
+                if (Array.isArray(nodalIndicatorsData)) {
+                  indicatorsFlat = nodalIndicatorsData;
+                } else if (nodalIndicatorsData && typeof nodalIndicatorsData === 'object') {
+                  Object.entries(nodalIndicatorsData).forEach(([category, arr]) => {
+                    if (Array.isArray(arr)) {
+                      arr.forEach((item) => {
+                        if (item && typeof item === 'object') {
+                          indicatorsFlat.push(item);
+                        }
+                      });
+                    }
+                  });
+                }
+
+                // Create status map
+                indicatorsFlat.forEach((item: any) => {
+                  const code = item.code || item.id || item.value;
+                  const status = item.indicatorStatus || item.status;
+                  if (code && status) {
+                    indicatorStatuses[String(code)] = String(status);
+                  }
+                });
+              } catch (error) {
+                console.error('[loadOfficers] Error fetching indicator statuses for user:', user.id, error);
+              }
             }
             
             return {
@@ -186,11 +231,12 @@ export function UserManagementPage() {
               stateId: user.stateId || "",
               assignedIndicator: user.assignedIndicator,
               assignedIndicators: indicatorCodes,
+              indicatorStatuses: Object.keys(indicatorStatuses).length > 0 ? indicatorStatuses : undefined,
               isActive: user.isActive,
               ministryId: user.ministryId,
               createdAt: new Date(user.createdAt).getTime(),
             };
-          }
+          })
         );
 
         // For MINISTRY_APPROVER: Filter to show only NODAL_OFFICER users assigned to their ministry
@@ -2014,6 +2060,7 @@ export function UserManagementPage() {
   
 
   return (
+    <>
     <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6 space-y-6">
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
@@ -2291,5 +2338,11 @@ export function UserManagementPage() {
         )}
       </ConfirmationModal>
     </div>
+
+    {/* Indicator Summary Section - Outside User Management Component */}
+    {user?.role === "MINISTRY_APPROVER" && user?.id && (
+      <IndicatorSummary userId={user.id} />
+    )}
+    </>
   );
 }

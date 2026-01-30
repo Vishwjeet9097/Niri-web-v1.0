@@ -2778,6 +2778,50 @@ export async function getMinistryScore(submissionId: string): Promise<any> {
 }
 
 /**
+ * Get ministry dashboard indicators for a specific user
+ * @param userId - The user ID (ministry approver ID)
+ * @returns Promise with the indicator dashboard data
+ */
+export async function getMinistryDashboardIndicators(userId: string): Promise<{
+    status: boolean;
+    data: {
+        accepted: Array<{ code: string; name: string; status: string }>;
+        underReview: Array<{ code: string; name: string; status: string }>;
+        pending: Array<{ code: string; name: string; status: string | null }>;
+    };
+    message: string;
+}> {
+    try {
+        const url = getApiUrl(`/ministry/dashboard/indicators/${userId}`);
+        console.log("[getMinistryDashboardIndicators] Calling API:", url);
+        const response = await apiService.get(url, { withCredentials: true });
+        console.log("[getMinistryDashboardIndicators] Response:", response.data);
+        
+        // Handle response.data.data pattern
+        const dashboardData = response.data?.data !== undefined ? response.data.data : response.data;
+        
+        return {
+            status: response.data?.status ?? true,
+            data: dashboardData || {
+                accepted: [],
+                underReview: [],
+                pending: []
+            },
+            message: response.data?.message || "Ministry user indicators dashboard retrieved successfully"
+        };
+    } catch (error: any) {
+        console.error("[getMinistryDashboardIndicators] API Error:", error);
+        console.error("[getMinistryDashboardIndicators] Error details:", {
+            message: error.message,
+            response: error.response,
+            data: error.response?.data,
+            status: error.response?.status,
+        });
+        throw error;
+    }
+}
+
+/**
  * Calculate score for a ministry submission
  * @param submissionId - The ministry submission ID
  * @returns Promise with the calculated ministry score data

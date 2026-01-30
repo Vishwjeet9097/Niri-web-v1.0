@@ -10,6 +10,7 @@ export interface NodalOfficer {
   stateId?: string; // Added for API compatibility
   assignedIndicator?: string;
   assignedIndicators?: string[]; // Added for multiple indicator assignment
+  indicatorStatuses?: Record<string, string>; // Map of indicator code to status (e.g., {"1.1": "ACCEPTED", "1.2": "PENDING"})
   isActive?: boolean; // Added for API compatibility
   createdAt: number;
   ministryId?: string; // Added for ministry association  
