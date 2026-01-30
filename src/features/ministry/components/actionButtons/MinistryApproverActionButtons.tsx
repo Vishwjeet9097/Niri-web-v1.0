@@ -25,6 +25,7 @@ interface MinistryApproverActionButtonsProps {
   isAcceptedByMospi?: boolean; // New prop to indicate if section was accepted by MOSPI
   formStatus?: string; // Form/submission level status
   disabled?: boolean;
+  acceptDisabled?: boolean; // Separate prop to disable only the Accept button
   isSaving?: boolean;
 }
 
@@ -44,6 +45,7 @@ export function MinistryApproverActionButtons({
   isAcceptedByMospi = false,
   formStatus,
   disabled = false,
+  acceptDisabled = false, // Separate prop to disable only the Accept button
   isSaving = false,
 }: MinistryApproverActionButtonsProps) {
   // Log component render and props for debugging
@@ -234,7 +236,7 @@ export function MinistryApproverActionButtons({
                 );
                 onAccept();
               }}
-              disabled={disabled}
+              disabled={disabled || acceptDisabled}
             >
               <CheckCircle className="w-4 h-4" />
               Accept

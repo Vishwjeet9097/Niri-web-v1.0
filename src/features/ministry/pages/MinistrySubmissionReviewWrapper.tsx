@@ -1041,6 +1041,186 @@ export function MinistrySubmissionReviewWrapper({
     return null;
   };
 
+  // Memoized check if indicator 3.3 can be accepted (linkedIndicatorData must match Total Budgeted capital allocation)
+  const canAcceptIndicator3_3 = useMemo((): boolean => {
+    // Only check for MINISTRY_APPROVER role
+    if (user?.role !== "MINISTRY_APPROVER") {
+      return true; // Allow for other roles
+    }
+
+    if (!formData || !assignedIndicators.length) {
+      return false; // Can't validate without data
+    }
+
+    const section3_3Data = formData.section3_3;
+    if (!section3_3Data) {
+      return false; // Can't validate if section doesn't exist
+    }
+
+    // Find indicator 3.3 section in assignedIndicators to get linkedIndicatorData
+    let linkedIndicatorDataValue: any = null;
+    let BUDGETED_CAPITAL_ALLOCATION_FIELD_ID: string | null = null;
+
+    for (const indicatorObj of assignedIndicators) {
+      const indicatorName = Object.keys(indicatorObj)[0];
+      if (
+        indicatorName === "PPP Development" ||
+        indicatorName.toLowerCase().includes("ppp development")
+      ) {
+        const sections = indicatorObj[indicatorName];
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          if (section.sNo === "3.3") {
+            // Get linkedIndicatorData from section
+            const linkedData = (section as any).linkedIndicatorData;
+            console.log(
+              "[MinistryValidation] Raw linkedIndicatorData for 3.3:",
+              linkedData,
+              "Type:",
+              typeof linkedData,
+              "Is object:",
+              typeof linkedData === 'object' && linkedData !== null
+            );
+            
+            if (linkedData !== undefined && linkedData !== null) {
+              // linkedIndicatorData might be an object with a 'data' property
+              if (typeof linkedData === 'object' && !Array.isArray(linkedData) && linkedData.data !== undefined) {
+                linkedIndicatorDataValue = linkedData.data;
+                console.log(
+                  "[MinistryValidation] Found linkedIndicatorData.data for 3.3:",
+                  linkedIndicatorDataValue,
+                  "Full linkedIndicatorData:",
+                  linkedData
+                );
+              } else {
+                // linkedIndicatorData might be a direct value
+                linkedIndicatorDataValue = linkedData;
+                console.log(
+                  "[MinistryValidation] Found linkedIndicatorData (direct value) for 3.3:",
+                  linkedIndicatorDataValue
+                );
+              }
+            } else {
+              console.warn(
+                "[MinistryValidation] linkedIndicatorData is null or undefined for 3.3"
+              );
+            }
+
+            // Find "Total Budgeted capital allocation" field ID
+            if (section.inputs && Array.isArray(section.inputs)) {
+              for (const input of section.inputs) {
+                const label = input.label?.toLowerCase() || "";
+                if (
+                  label.includes("total budgeted capital allocation") ||
+                  (label.includes("budgeted") &&
+                    label.includes("capital") &&
+                    label.includes("allocation")) ||
+                  (label.includes("total") &&
+                    label.includes("budgeted") &&
+                    label.includes("capital"))
+                ) {
+                  BUDGETED_CAPITAL_ALLOCATION_FIELD_ID = input.id;
+                  console.log(
+                    "[MinistryValidation] Found 3.3 Budgeted Capital Allocation field:",
+                    input.id,
+                    input.label
+                  );
+                  break;
+                }
+              }
+            }
+            break;
+          }
+        }
+        // Continue searching even if one is found, to ensure we get both
+        if (linkedIndicatorDataValue !== null && BUDGETED_CAPITAL_ALLOCATION_FIELD_ID) {
+          break;
+        }
+      }
+    }
+
+    // Check if we have both linkedIndicatorData and the field ID
+    if (linkedIndicatorDataValue === null) {
+      console.warn(
+        "[MinistryValidation] Indicator 3.3 accept check: linkedIndicatorData not found"
+      );
+      return false; // Disable accept if linkedIndicatorData is not found
+    }
+
+    if (!BUDGETED_CAPITAL_ALLOCATION_FIELD_ID) {
+      console.warn(
+        "[MinistryValidation] Indicator 3.3 accept check: Total Budgeted capital allocation field not found"
+      );
+      return false; // Disable accept if field is not found
+    }
+
+    // Get the value entered in the "Total Budgeted capital allocation" input field
+    const budgetedCapitalAllocationValue =
+      section3_3Data[BUDGETED_CAPITAL_ALLOCATION_FIELD_ID] || "";
+
+    console.log(
+      "[MinistryValidation] Indicator 3.3 accept check - Comparing values:",
+      {
+        linkedIndicatorDataValue,
+        BUDGETED_CAPITAL_ALLOCATION_FIELD_ID,
+        budgetedCapitalAllocationValue,
+      }
+    );
+
+    // If input field is empty, disable accept
+    if (!budgetedCapitalAllocationValue || String(budgetedCapitalAllocationValue).trim() === "") {
+      console.log(
+        "[MinistryValidation] Indicator 3.3 accept check: Total Budgeted capital allocation value is empty - DISABLING Accept"
+      );
+      return false; // Disable accept if input is empty
+    }
+
+    // Normalize both values by removing currency symbols and whitespace, then compare as numbers
+    const linkedValueStr = String(linkedIndicatorDataValue).trim().replace(/[₹,]/g, "");
+    const budgetedValueStr = String(budgetedCapitalAllocationValue).trim().replace(/[₹,]/g, "");
+
+    const linkedValueNum = parseFloat(linkedValueStr);
+    const budgetedValueNum = parseFloat(budgetedValueStr);
+
+    // Check if both are valid numbers
+    if (isNaN(linkedValueNum) || isNaN(budgetedValueNum)) {
+      console.log(
+        "[MinistryValidation] Indicator 3.3 accept check: Invalid numbers - DISABLING Accept",
+        {
+          linkedValueStr,
+          budgetedValueStr,
+          linkedValueNum,
+          budgetedValueNum,
+        }
+      );
+      return false; // Disable accept if values are not valid numbers
+    }
+
+    // Compare: if linkedIndicatorData equals input value → enable Accept, otherwise disable
+    // Use a small epsilon for floating point comparison to handle precision issues
+    const epsilon = 0.01;
+    const difference = Math.abs(linkedValueNum - budgetedValueNum);
+    const valuesMatch = difference < epsilon;
+    
+    console.log(
+      "[MinistryValidation] Indicator 3.3 accept check - Final comparison:",
+      {
+        linkedIndicatorDataValue: linkedIndicatorDataValue,
+        linkedValueNum: linkedValueNum,
+        budgetedCapitalAllocationValue: budgetedCapitalAllocationValue,
+        budgetedValueNum: budgetedValueNum,
+        difference: difference,
+        epsilon: epsilon,
+        valuesMatch: valuesMatch,
+        result: valuesMatch ? "✅ ENABLING Accept" : "❌ DISABLING Accept",
+      }
+    );
+
+    // Return true if values match (enable Accept), false if they don't match (disable Accept)
+    return valuesMatch;
+  }, [formData, assignedIndicators, user?.role]);
+
   // Helper function to check if section is accepted
   const isSectionAccepted = (sectionId: string): boolean => {
     const status = getSectionStatus(sectionId);
@@ -2022,6 +2202,9 @@ export function MinistrySubmissionReviewWrapper({
                                         size="sm"
                                         className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
                                         onClick={() => handleAccept(sectionId)}
+                                        disabled={
+                                          sectionId === "3.3" && !canAcceptIndicator3_3
+                                        }
                                       >
                                         <CheckCircle className="w-4 h-4" />
                                         Accept
@@ -2072,6 +2255,10 @@ export function MinistrySubmissionReviewWrapper({
                                   !isSentBack
                                     ? () => handleAccept(sectionId)
                                     : undefined
+                                }
+                                disabled={false}
+                                acceptDisabled={
+                                  sectionId === "3.3" && !canAcceptIndicator3_3
                                 }
                                 onSendBack={
                                   !isSectionEditing &&
