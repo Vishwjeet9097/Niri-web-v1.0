@@ -121,6 +121,12 @@ export function MinistrySubmissionReviewWrapper({
     string | null
   >(null);
 
+  // State for MOSPI_APPROVER dependency warning (indicators 1.1 and 3.3 are dependent)
+  const [showDependencyWarning, setShowDependencyWarning] = useState(false);
+  const [dependencyAction, setDependencyAction] = useState<"accept" | "sendBack" | null>(null);
+  const [dependencySectionId, setDependencySectionId] = useState<string | null>(null);
+  const [dependencySubmissionIndicatorId, setDependencySubmissionIndicatorId] = useState<string | null>(null);
+
   // Timeline state management
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [timelineComments, setTimelineComments] = useState<any[]>([]);
@@ -1752,6 +1758,221 @@ export function MinistrySubmissionReviewWrapper({
     setCommentDialogOpen(true);
   };
 
+  // Helper function to check if indicators 1.1 and 3.3 are dependent (for MOSPI_APPROVER)
+  const checkDependentIndicatorStatus = (sectionId: string): {
+    otherSectionId: string;
+    otherSubmissionIndicatorId: string | null;
+    needsWarning: boolean;
+  } => {
+    // Only check dependency for MOSPI_APPROVER and indicators 1.1 or 3.3
+    if (user?.role !== "MOSPI_APPROVER" || (sectionId !== "1.1" && sectionId !== "3.3")) {
+      return { otherSectionId: "", otherSubmissionIndicatorId: null, needsWarning: false };
+    }
+
+    // Determine the other dependent indicator
+    const otherSectionId = sectionId === "1.1" ? "3.3" : "1.1";
+    
+    // Check if the other indicator exists in assignedIndicators
+    let otherSubmissionIndicatorId: string | null = null;
+    let otherIndicatorExists = false;
+
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+      
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          
+          if (section.sNo === otherSectionId) {
+            otherIndicatorExists = true;
+            otherSubmissionIndicatorId = (section as any).submissionIndicatorId || null;
+            break;
+          }
+        }
+      }
+      
+      if (otherIndicatorExists) break;
+    }
+
+    return {
+      otherSectionId,
+      otherSubmissionIndicatorId,
+      needsWarning: otherIndicatorExists,
+    };
+  };
+
+  // Wrapper function for MOSPI_APPROVER Accept - checks dependency for 1.1 and 3.3
+  const handleAcceptMospiApproverWrapper = (
+    submissionIndicatorId: string,
+    sectionId: string,
+  ) => {
+    // Check if this is indicator 1.1 or 3.3 and if dependency exists
+    if (sectionId === "1.1" || sectionId === "3.3") {
+      const dependencyCheck = checkDependentIndicatorStatus(sectionId);
+      
+      if (dependencyCheck.needsWarning) {
+        console.log(
+          "[MinistrySubmissionReviewWrapper] MOSPI_APPROVER accepting indicator with dependency - showing warning dialog",
+          { sectionId, otherSectionId: dependencyCheck.otherSectionId }
+        );
+        setDependencySectionId(sectionId);
+        setDependencySubmissionIndicatorId(submissionIndicatorId);
+        setDependencyAction("accept");
+        setShowDependencyWarning(true);
+        return;
+      }
+    }
+
+    // No dependency or not 1.1/3.3, proceed directly
+    handleAcceptMospiApprover(submissionIndicatorId, sectionId);
+  };
+
+  // Wrapper function for MOSPI_APPROVER Send Back - checks dependency for 1.1 and 3.3
+  const handleSendBackMospiApproverWrapper = (
+    sectionId: string,
+    sectionName: string,
+  ) => {
+    // Check if this is indicator 1.1 or 3.3 and if dependency exists
+    if (sectionId === "1.1" || sectionId === "3.3") {
+      const dependencyCheck = checkDependentIndicatorStatus(sectionId);
+      
+      if (dependencyCheck.needsWarning) {
+        console.log(
+          "[MinistrySubmissionReviewWrapper] MOSPI_APPROVER sending back indicator with dependency - showing warning dialog",
+          { sectionId, otherSectionId: dependencyCheck.otherSectionId }
+        );
+        const submissionIndicatorId = getSubmissionIndicatorId(sectionId);
+        if (submissionIndicatorId) {
+          setDependencySectionId(sectionId);
+          setDependencySubmissionIndicatorId(submissionIndicatorId);
+          setDependencyAction("sendBack");
+          setShowDependencyWarning(true);
+          return;
+        }
+      }
+    }
+
+    // No dependency or not 1.1/3.3, proceed directly
+    handleSendBack(sectionId, sectionName);
+  };
+
+  // Handle accept both dependent indicators (1.1 and 3.3)
+  const handleAcceptBothIndicators = async () => {
+    if (!dependencySectionId || !dependencySubmissionIndicatorId) {
+      return;
+    }
+
+    const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+    if (!dependencyCheck.needsWarning || !dependencyCheck.otherSubmissionIndicatorId) {
+      setShowDependencyWarning(false);
+      setDependencyAction(null);
+      setDependencySectionId(null);
+      setDependencySubmissionIndicatorId(null);
+      return;
+    }
+
+    try {
+      // Accept both indicators sequentially
+      const indicatorsToAccept = [
+        { sectionId: dependencySectionId, submissionIndicatorId: dependencySubmissionIndicatorId },
+        { sectionId: dependencyCheck.otherSectionId, submissionIndicatorId: dependencyCheck.otherSubmissionIndicatorId },
+      ];
+
+      for (const indicator of indicatorsToAccept) {
+        await handleAcceptMospiApprover(indicator.submissionIndicatorId, indicator.sectionId);
+      }
+
+      toast({
+        title: "Success",
+        description: `Indicators ${dependencySectionId} and ${dependencyCheck.otherSectionId} accepted successfully`,
+      });
+    } catch (error: any) {
+      console.error("❌ Error accepting dependent indicators:", error);
+      toast({
+        title: "Error",
+        description: "Failed to accept dependent indicators",
+        variant: "destructive",
+      });
+    } finally {
+      setShowDependencyWarning(false);
+      setDependencyAction(null);
+      setDependencySectionId(null);
+      setDependencySubmissionIndicatorId(null);
+    }
+  };
+
+  // Handle send back both dependent indicators (1.1 and 3.3)
+  const handleSendBackBothIndicators = async () => {
+    if (!dependencySectionId) {
+      return;
+    }
+
+    const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+    if (!dependencyCheck.needsWarning) {
+      setShowDependencyWarning(false);
+      setDependencyAction(null);
+      setDependencySectionId(null);
+      setDependencySubmissionIndicatorId(null);
+      return;
+    }
+
+    // Get section names
+    let sectionName = dependencySectionId;
+    let otherSectionName = dependencyCheck.otherSectionId;
+    
+    for (const categoryIndicator of assignedIndicators) {
+      const categoryName = Object.keys(categoryIndicator)[0];
+      const sections = categoryIndicator[categoryName];
+      if (Array.isArray(sections)) {
+        for (const sectionObj of sections) {
+          const name = Object.keys(sectionObj)[0];
+          const section = sectionObj[name];
+          if (section.sNo === dependencySectionId) {
+            sectionName = name;
+          }
+          if (section.sNo === dependencyCheck.otherSectionId) {
+            otherSectionName = name;
+          }
+        }
+      }
+    }
+
+    try {
+      // Send back both indicators
+      await Promise.all([
+        handleSendBack(dependencySectionId, sectionName),
+        handleSendBack(dependencyCheck.otherSectionId, otherSectionName),
+      ]);
+
+      toast({
+        title: "Success",
+        description: `Indicators ${dependencySectionId} and ${dependencyCheck.otherSectionId} sent back successfully`,
+      });
+    } catch (error: any) {
+      console.error("❌ Error sending back dependent indicators:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send back dependent indicators",
+        variant: "destructive",
+      });
+    } finally {
+      setShowDependencyWarning(false);
+      setDependencyAction(null);
+      setDependencySectionId(null);
+      setDependencySubmissionIndicatorId(null);
+    }
+  };
+
+  // Handle cancel dependency warning
+  const handleCancelDependencyWarning = () => {
+    setShowDependencyWarning(false);
+    setDependencyAction(null);
+    setDependencySectionId(null);
+    setDependencySubmissionIndicatorId(null);
+  };
+
   // Handle accept for MOSPI Approver
   const handleAcceptMospiApprover = async (
     submissionIndicatorId: string,
@@ -2384,9 +2605,9 @@ export function MinistrySubmissionReviewWrapper({
                                   formStatus={formStatus}
                                   originalMospiStatus={originalMospiStatus}
                                   onAccept={() => {
-                                    // Handle accept action
+                                    // Handle accept action with dependency check for 1.1 and 3.3
                                     if (sectionSubmissionIndicatorId) {
-                                      handleAcceptMospiApprover(
+                                      handleAcceptMospiApproverWrapper(
                                         sectionSubmissionIndicatorId,
                                         sectionId,
                                       );
@@ -2400,7 +2621,10 @@ export function MinistrySubmissionReviewWrapper({
                                     }
                                   }}
                                   onSendBack={() => {
-                                    handleSendBack(sectionId, sectionName);
+                                    handleSendBackMospiApproverWrapper(
+                                      sectionId,
+                                      sectionName,
+                                    );
                                   }}
                                   onTimeline={() =>
                                     handleOpenTimeline(sectionId)
@@ -2669,6 +2893,59 @@ export function MinistrySubmissionReviewWrapper({
             <AlertDialogAction onClick={handleConfirmAccept}>
               Confirm & Accept
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dependency Warning Dialog for MOSPI_APPROVER - Indicators 1.1 and 3.3 */}
+      <AlertDialog
+        open={showDependencyWarning}
+        onOpenChange={setShowDependencyWarning}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dependent Indicators</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dependencySectionId && (() => {
+                const dependencyCheck = checkDependentIndicatorStatus(dependencySectionId);
+                
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm">
+                      Indicators <strong>1.1</strong> and <strong>3.3</strong> are dependent on each other.
+                    </p>
+                    <p className="text-sm font-medium">
+                      {dependencyAction === "accept"
+                        ? `If you accept indicator ${dependencySectionId}, you must also accept indicator ${dependencyCheck.otherSectionId}.`
+                        : `If you send back indicator ${dependencySectionId}, you must also send back indicator ${dependencyCheck.otherSectionId}.`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Please choose an action:
+                    </p>
+                  </div>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={handleCancelDependencyWarning}>
+              Cancel
+            </AlertDialogCancel>
+            {dependencyAction === "accept" ? (
+              <AlertDialogAction
+                onClick={handleAcceptBothIndicators}
+                className="bg-primary text-primary-foreground"
+              >
+                Accept All Indicators
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction
+                onClick={handleSendBackBothIndicators}
+                className="bg-destructive text-destructive-foreground"
+              >
+                Send Back All Indicators
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
