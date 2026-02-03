@@ -100,10 +100,27 @@ export function UserManagementPage() {
         lastRefreshTimeRef.current = now;
 
         // Try to load from backend API first
-        // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
-        let backendUsers;
+        // Use same API as Admin Dashboard (users/all/active-by-role) so ADMIN and all roles show in list
+        let backendUsers: any[];
         if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
-          backendUsers = await apiService.getAllUsers();
+          try {
+            const response = await apiService.get("users/all/active-by-role");
+            const roleMap =
+              response && typeof response === "object" && "data" in response
+                ? (response as { data: Record<string, any[]> }).data
+                : (response as Record<string, any[]>);
+            if (roleMap && typeof roleMap === "object") {
+              backendUsers = Object.values(roleMap).flat();
+            } else {
+              backendUsers = await apiService.getAllUsers();
+            }
+          } catch (e) {
+            console.warn(
+              "users/all/active-by-role failed, fallback to getAllUsers:",
+              e
+            );
+            backendUsers = await apiService.getAllUsers();
+          }
         } else {
           backendUsers = await apiService.getUsersByState(user?.state || "");
         }
@@ -120,25 +137,26 @@ export function UserManagementPage() {
           return;
         }
 
-        // Transform backend users to NodalOfficer format
+        // Transform backend users to NodalOfficer format (include ADMIN in role type so admins display and can be edited)
         const transformedOfficers: NodalOfficer[] = backendUsers.map(
-          (user: any) => ({
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            contactNumber: user.contactNumber || "",
-            email: user.email,
-            role: user.role as
+          (u: any) => ({
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            contactNumber: u.contactNumber || "",
+            email: u.email,
+            role: u.role as
               | "NODAL_OFFICER"
               | "STATE_APPROVER"
               | "MOSPI_REVIEWER"
-              | "MOSPI_APPROVER",
-            state: user.stateUt || user.state || "",
-            stateId: user.stateId || "",
-            assignedIndicator: user.assignedIndicator,
-            assignedIndicators: user.assignedIndicators || [],
-            isActive: user.isActive,
-            createdAt: new Date(user.createdAt).getTime(),
+              | "MOSPI_APPROVER"
+              | "ADMIN",
+            state: u.stateUt || u.state || "",
+            stateId: u.stateId || "",
+            assignedIndicator: u.assignedIndicator,
+            assignedIndicators: u.assignedIndicators || [],
+            isActive: u.isActive,
+            createdAt: new Date(u.createdAt || Date.now()).getTime(),
           })
         );
 
@@ -499,45 +517,18 @@ export function UserManagementPage() {
         let selectedState = "";
 
         if (user?.role === "ADMIN") {
-          // Admin can select any state - convert stateId to state name
-          if (officerData.stateId) {
-            // Temporarily disable validation to allow state selection
-            // if (officerData.stateId.includes('q') || officerData.stateId.length < 3 || /\d.*[a-zA-Z]/.test(officerData.stateId)) {
-            //   throw new Error(`Invalid state selected: "${officerData.stateId}". Please select a valid state.`);
-            // }
-
-            // Check if stateId is a number (like "9") and convert to state name
-            if (!isNaN(Number(officerData.stateId))) {
-              // This is a state ID, we need to get the state name from states array
-              const state = states.find((s) => s.id === officerData.stateId);
-              if (state) {
-                selectedState = state.name;
-                // Debug logging removed for performance
-              } else {
-                selectedState = officerData.stateId; // Fallback to ID if not found
-                console.warn(
-                  "⚠️ State not found in states array for update:",
-                  officerData.stateId
-                );
-              }
+          // Admin can select any state (optional when editing another admin)
+          if (officerData.stateId && String(officerData.stateId).trim()) {
+            const stateIdStr = String(officerData.stateId).trim();
+            if (!isNaN(Number(stateIdStr))) {
+              const state = states.find((s) => s.id === stateIdStr);
+              selectedState = state ? state.name : stateIdStr;
             } else {
-              // This is already a state name, find the ID
-              const state = states.find((s) => s.name === officerData.stateId);
-              if (state) {
-                selectedState = state.name;
-                // Debug logging removed for performance
-              } else {
-                selectedState = officerData.stateId; // Fallback
-                console.warn(
-                  "⚠️ State not found in states array for update:",
-                  officerData.stateId
-                );
-              }
+              const state = states.find((s) => s.name === stateIdStr);
+              selectedState = state ? state.name : stateIdStr;
             }
-            // Debug logging removed for performance
-          } else {
-            throw new Error("State selection is required for Admin");
           }
+          // else: selectedState remains "" for ADMIN with no state (valid)
         } else {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
           // For these roles, both stateId and stateUt should be the same (state name)
@@ -550,7 +541,7 @@ export function UserManagementPage() {
           //throw new Error("State is required but not provided");
         }
 
-        // Build the update payload conditionally
+        // Build the update payload conditionally (include ADMIN so admin details can be updated)
         const updatePayload: any = {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
@@ -559,7 +550,8 @@ export function UserManagementPage() {
             | "NODAL_OFFICER"
             | "STATE_APPROVER"
             | "MOSPI_REVIEWER"
-            | "MOSPI_APPROVER",
+            | "MOSPI_APPROVER"
+            | "ADMIN",
           indicatorCodes: officerData.assignedIndicators || [],
         };
 
@@ -946,9 +938,10 @@ export function UserManagementPage() {
 
   // ✅ getStateNameById function removed - using stateId directly as state name
 
-  // Filter and sort officers
+  // Filter and sort officers (Nodal Officers are hidden from User Management)
   const isStateApprover = user?.role === "STATE_APPROVER";
   const filteredOfficers = officers
+    .filter((officer) => officer.role !== "NODAL_OFFICER")
     .filter((officer) => {
       const lowerSearch = searchTerm.toLowerCase();
       const matchesSearch =
@@ -963,11 +956,8 @@ export function UserManagementPage() {
             (officer.stateId &&
               officer.stateId.toLowerCase().includes(lowerSearch))));
 
-      // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
-      const effectiveRoleFilter =
-        isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
       const matchesRole =
-        effectiveRoleFilter === "all" || officer.role === effectiveRoleFilter;
+        roleFilter === "all" || officer.role === roleFilter;
 
       return matchesSearch && matchesRole;
     })
@@ -1299,13 +1289,7 @@ export function UserManagementPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Select Roles</SelectItem>
-
-              {user?.role !== "ADMIN" && user?.role !== "MOSPI_APPROVER" && (
-                <SelectItem value="NODAL_OFFICER">
-                  {getRoleDisplayName("NODAL_OFFICER")}
-                </SelectItem>
-              )}
-              {user?.role !== "STATE_APPROVER" && (
+              {(user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") && (
                 <>
                   <SelectItem value="STATE_APPROVER">
                     {getRoleDisplayName("STATE_APPROVER")}
@@ -1316,12 +1300,12 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
+                  {user?.role === "ADMIN" && (
+                    <SelectItem value="ADMIN">
+                      {getRoleDisplayName("ADMIN")}
+                    </SelectItem>
+                  )}
                 </>
-              )}
-              {user?.role == "ADMIN" && (
-                <SelectItem value="ADMIN">
-                  {getRoleDisplayName("ADMIN")}
-                </SelectItem>
               )}
             </SelectContent>
           </Select>
