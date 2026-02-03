@@ -1133,161 +1133,150 @@ export const InfraFinancingReview = ({
     return null;
   };
 
-  // Check if indicator 1.1 is accepted in the CURRENT submission only
-  // IMPORTANT: We should NOT check other submissions because when MOSPI sends back a form,
-  // the status resets to "SUBMITTED_TO_STATE" and STATE_APPROVER must accept it again.
-  // The dependency check (1.2 depends on 1.1) should only look at the CURRENT submission.
+  // Fetch all submissions for the same state and check if indicator 1.1 is accepted in any of them
+  // (Matches niri/final: at state level / State Aggregate Review we need to see 1.1 accepted in any submission for the state)
   useEffect(() => {
-    console.group(
-      "🔄 [isIndicator1_1Accepted] useEffect triggered - Checking indicator 1.1 acceptance in CURRENT submission only"
-    );
-    console.log("📋 Dependencies:", {
-      hasSubmission: !!submission,
-      submissionId: submission?.id,
-      refreshIndicator1_1Check,
-      hasFormData: !!formData,
-    });
-
-    const checkIndicator1_1InCurrentSubmission = () => {
+    const checkIndicator1_1AcrossSubmissions = async () => {
       if (!submission) {
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      const currentStateUt =
+        (submission as any)?.stateUt || (submission as any)?.user?.stateUt;
+      if (!currentStateUt) {
         console.log(
-          "❌ [isIndicator1_1Accepted] No submission provided, setting to false"
+          "❌ [isIndicator1_1Accepted] No stateUt found in submission"
         );
         setIsIndicator1_1AcceptedState(false);
-        console.groupEnd();
         return;
       }
 
       console.log(
-        "🔍 [isIndicator1_1Accepted] Checking CURRENT submission only (not other submissions)",
-        {
-          submissionId: submission.id,
-          submissionStatus: submission.status,
-        }
+        "🔍 [isIndicator1_1Accepted] Checking across all submissions for state:",
+        currentStateUt
       );
 
-      // Check ONLY the current submission's formData
-      // This is critical: when MOSPI sends back the form, we need to check
-      // the CURRENT status in THIS submission - if section1_1 is not currently ACCEPTED,
-      // then section1_2 cannot be accepted, regardless of what other submissions have
-      const currentSubmissionSection1_1 = 
-        submission?.formData?.infraFinancing?.section1_1 ||
-        formData?.section1_1 ||
-        (formData as any)?.infraFinancing?.section1_1;
-      
-      console.log(
-        "🔍 [isIndicator1_1Accepted] Current submission section1_1 data:",
-        {
-          found: !!currentSubmissionSection1_1,
-          status: currentSubmissionSection1_1?.status,
-          mospi_status: currentSubmissionSection1_1?.mospi_status,
-          capitalAllocation: currentSubmissionSection1_1?.capitalAllocation,
-          fullData: currentSubmissionSection1_1,
+      try {
+        // Fetch all submissions
+        const submissionsData = await apiService.getSubmissions(1, 100);
+
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
+          submissionsArray = submissionsData.submissions;
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
+          submissionsArray = (submissionsData as any).data;
         }
-      );
-      
-      if (currentSubmissionSection1_1) {
-        const statusValue = currentSubmissionSection1_1.status
-          ? String(currentSubmissionSection1_1.status).trim().toUpperCase()
-          : null;
+
+        // Filter submissions for the same state/UT
+        const sameStateSubmissions = submissionsArray.filter((sub: any) => {
+          const subStateUt = sub.stateUt || sub.user?.stateUt;
+          return (
+            subStateUt &&
+            String(subStateUt).toUpperCase() ===
+              String(currentStateUt).toUpperCase()
+          );
+        });
 
         console.log(
-          "🔍 [isIndicator1_1Accepted] Checking current status value:",
-          {
-            originalStatus: currentSubmissionSection1_1.status,
-            normalizedStatus: statusValue,
-            isAccepted: statusValue === "ACCEPTED" || statusValue === "APPROVED",
-          }
+          "🔍 [isIndicator1_1Accepted] Found submissions for same state:",
+          sameStateSubmissions.length
         );
 
-        // Check if CURRENT status is ACCEPTED/APPROVED (not mospi_status)
-        // When MOSPI reverts, status becomes "SUBMITTED_TO_STATE", so we need to check
-        // if STATE_APPROVER has accepted it again in THIS submission
-        if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
-          console.log(
-            "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in CURRENT submission formData",
-            {
-              status: currentSubmissionSection1_1.status,
-              mospi_status: currentSubmissionSection1_1.mospi_status,
-              normalizedStatus: statusValue,
-              submissionId: submission.id,
-            }
-          );
-          
-          // Extract capitalAllocation value
+        // Check each submission for indicator 1.1 acceptance
+        for (const sub of sameStateSubmissions) {
+          let isAccepted = false;
           let capitalAllocationValue: number | null = null;
-          if (currentSubmissionSection1_1.capitalAllocation !== undefined) {
-            const capAllocStr = String(currentSubmissionSection1_1.capitalAllocation)
-              .replace(/[₹,Crores\s]/g, "")
-              .trim();
-            capitalAllocationValue = Number(capAllocStr);
-            if (!isNaN(capitalAllocationValue)) {
-              console.log(
-                "📊 [isIndicator1_1Accepted] Found capitalAllocation value from current submission:",
-                capitalAllocationValue
-              );
-            } else {
-              console.log(
-                "⚠️ [isIndicator1_1Accepted] capitalAllocation value is NaN:",
-                currentSubmissionSection1_1.capitalAllocation
-              );
-            }
-          } else {
-            console.log(
-              "⚠️ [isIndicator1_1Accepted] capitalAllocation is undefined in current submission"
-            );
-          }
-          
-          console.log(
-            "✅ [isIndicator1_1Accepted] Setting indicator 1.1 as ACCEPTED (from CURRENT submission only)",
-            {
-              isAccepted: true,
-              capitalAllocation: capitalAllocationValue,
-              submissionId: submission.id,
-            }
-          );
-          setIsIndicator1_1AcceptedState(true);
-          setIndicator1_1CapitalAllocation(capitalAllocationValue);
-          console.groupEnd();
-          return;
-        } else {
-          console.log(
-            "❌ [isIndicator1_1Accepted] Current submission section1_1 status is NOT ACCEPTED:",
-            {
-              status: currentSubmissionSection1_1.status,
-              normalizedStatus: statusValue,
-              mospi_status: currentSubmissionSection1_1.mospi_status,
-              submissionId: submission.id,
-              reason: "Status must be ACCEPTED or APPROVED in THIS submission for section1_2 to be accepted",
-            }
-          );
-          console.log(
-            "❌ [isIndicator1_1Accepted] Section 1.2 Accept button will be DISABLED until section1_1 is accepted in this submission"
-          );
-        }
-      } else {
-        console.log(
-          "❌ [isIndicator1_1Accepted] No section1_1 data found in current submission",
-          {
-            submissionId: submission.id,
-          }
-        );
-      }
 
-      // If we reach here, section1_1 is NOT accepted in the current submission
-      console.log(
-        "❌ [isIndicator1_1Accepted] Final result: Indicator 1.1 is NOT accepted in current submission",
-        {
-          submissionId: submission.id,
+          // Check section_status first
+          if (sub?.section_status && typeof sub.section_status === "object") {
+            const sectionStatus = (sub.section_status as any)["section1_1"];
+            if (sectionStatus === "ACCEPTED" || sectionStatus === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+          }
+
+          // Check completedIndicators
+          if (
+            sub?.section_status?.completedIndicators &&
+            Array.isArray(sub.section_status.completedIndicators)
+          ) {
+            if (sub.section_status.completedIndicators.includes("1.1")) {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 in completedIndicators for submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+          }
+
+          // Check formData
+          if (sub?.formData?.infraFinancing?.section1_1) {
+            const section1_1Data = sub.formData.infraFinancing.section1_1;
+            const statusValue = section1_1Data.status
+              ? String(section1_1Data.status).trim().toUpperCase()
+              : null;
+
+            if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in formData for submission:",
+                sub.id
+              );
+              isAccepted = true;
+            }
+
+            // Extract capitalAllocation value from accepted indicator 1.1
+            if (isAccepted && section1_1Data.capitalAllocation !== undefined) {
+              const capAllocStr = String(section1_1Data.capitalAllocation)
+                .replace(/[₹,Crores\s]/g, "")
+                .trim();
+              capitalAllocationValue = Number(capAllocStr);
+              if (!isNaN(capitalAllocationValue)) {
+                console.log(
+                  "📊 [isIndicator1_1Accepted] Found capitalAllocation value:",
+                  capitalAllocationValue
+                );
+              }
+            }
+          }
+
+          // If indicator 1.1 is accepted, set state and return
+          if (isAccepted) {
+            setIsIndicator1_1AcceptedState(true);
+            setIndicator1_1CapitalAllocation(capitalAllocationValue);
+            return;
+          }
         }
-      );
-      setIsIndicator1_1AcceptedState(false);
-      setIndicator1_1CapitalAllocation(null);
-      console.groupEnd();
+
+        console.log(
+          "❌ [isIndicator1_1Accepted] Indicator 1.1 not found as ACCEPTED in any submission for state:",
+          currentStateUt
+        );
+        setIsIndicator1_1AcceptedState(false);
+      } catch (error) {
+        console.error(
+          "❌ [isIndicator1_1Accepted] Error checking across submissions:",
+          error
+        );
+        setIsIndicator1_1AcceptedState(false);
+      }
     };
 
-    checkIndicator1_1InCurrentSubmission();
-  }, [submission, refreshIndicator1_1Check, formData]);
+    checkIndicator1_1AcrossSubmissions();
+  }, [submission, refreshIndicator1_1Check]);
 
   // Validate that Capital Allocation for FY in 1.2 matches Capital Allocation for FY in 1.1 (STATE_APPROVER only)
   useEffect(() => {
