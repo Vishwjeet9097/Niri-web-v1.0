@@ -195,6 +195,14 @@ export const validatePPPDevelopment = (
           errors[`section3_3.VGFArray.${index}.statusOfProject`] =
             "Status should contain only letters, spaces, hyphens, and apostrophes.";
         }
+        // Document required: either upload file or check "No Document Available"
+        const hasFile =
+          entry.file && (entry.file.fileName || (entry.file as FileUpload).file);
+        const noDocumentAvailable = entry.noDocumentAvailable === true;
+        if (!hasFile && !noDocumentAvailable) {
+          errors[`section3_3.VGFArray.${index}.file`] =
+            "Upload file is required.";
+        }
       });
     }
   }

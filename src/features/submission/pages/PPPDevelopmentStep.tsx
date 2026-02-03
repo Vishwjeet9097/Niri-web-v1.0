@@ -2603,8 +2603,11 @@ export const PPPDevelopmentStep = () => {
                             },
                           }));
                         }}
-                        // Note: Upload file is NON-mandatory in section 3.3, so no required prop
+                        required={true}
                       />
+                      {renderFieldError(
+                        `section3_3.VGFArray.${idx}.file`
+                      )}
                     </div>
                     <Button
                       type="button"
