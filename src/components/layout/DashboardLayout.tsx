@@ -14,6 +14,12 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 import { authService } from "@/services/auth.service";
 import { notificationService } from "@/services/notification.service";
@@ -98,19 +104,38 @@ export function DashboardLayout() {
 
           <div className="flex items-center gap-4">
             <NotificationCenter />
-            <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name || "Nodal Officer"}
-                </p>
-                <p className="text-xs text-gray-600">Maharashtra</p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
-                <span className="text-sm font-semibold text-primary">
-                  {user?.name?.[0] || "N"}
-                </span>
-              </div>
-            </div>
+            {/* Profile dropdown: name + avatar (desktop) or avatar only (mobile). Click to open menu with Sign Out. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 sm:gap-3 pl-4 border-l border-gray-200 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 rounded-lg py-1 pr-1 min-w-0"
+                  aria-label="Open profile menu"
+                >
+                  <div className="text-right hidden sm:block min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {user?.name || "User"}
+                    </p>
+                    <p className="text-xs text-gray-600">Maharashtra</p>
+                  </div>
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-semibold text-primary">
+                      {user?.name?.[0] || "U"}
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-gray-500 shrink-0 hidden sm:block" aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-56 z-[100]">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive cursor-pointer focus:bg-destructive/10"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -214,14 +239,15 @@ export function DashboardLayout() {
               })}
             </div>
 
-            <Button
+            {/* Sign Out moved to profile dropdown (top right) */}
+            {/* <Button
               variant="ghost"
-              className="justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 mt-2"
               onClick={handleLogout}
             >
               <LogOut className="h-5 w-5" />
               Sign Out
-            </Button>
+            </Button> */}
           </nav>
         </aside>
 

@@ -20,6 +20,12 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -223,27 +229,47 @@ export function DashboardLayout() {
 
           <div className="flex items-center gap-2">
             <NotificationCenter />
-            <div className="hidden sm:flex items-center gap-2 ml-4 pl-4 border-l border-primary-foreground/20">
-              <div className="text-left">
-                <p className="text-sm font-medium">
-                  {user?.firstName + " " + user?.lastName || "Nodal Officer"}
-                </p>
-                <p className="text-xs opacity-75">
-                  {getRoleDisplayName(user?.role) || "Nodal Officer"}
-
-                  {(user?.role === "NODAL_OFFICER" ||
-                    user?.role === "STATE_APPROVER") &&
-                    (" | " + user?.stateName || "")}
-                </p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center overflow-hidden">
-                <img
-                  src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRXpyVx-TONLYRr4sdABziFMNLrDqytASysNQ&s"
-                  alt="User Avatar"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 ml-4 pl-4 border-l border-primary-foreground/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary-foreground/30 focus:ring-offset-2 focus:ring-offset-primary rounded-lg py-1 pr-1 min-w-0"
+                  aria-label="Open profile menu"
+                >
+                  <div className="text-left hidden sm:block min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {user?.firstName + " " + user?.lastName || "User"}
+                    </p>
+                    <p className="text-xs opacity-75">
+                      {getRoleDisplayName(user?.role) || "User"}
+                      {(user?.role === "NODAL_OFFICER" ||
+                        user?.role === "STATE_APPROVER") &&
+                        (user?.stateName ? " | " + user?.stateName : "")}
+                    </p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center overflow-hidden shrink-0">
+                    <img
+                      src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRXpyVx-TONLYRr4sdABziFMNLrDqytASysNQ&s"
+                      alt="User Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <ChevronDown
+                    className="h-4 w-4 opacity-75 shrink-0 hidden sm:block"
+                    aria-hidden
+                  />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-56 z-[100]">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive cursor-pointer focus:bg-destructive/10"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -381,14 +407,15 @@ export function DashboardLayout() {
                 );
               })}
             </div>
-            <Button
+            {/* Sign Out moved to profile dropdown (top right) */}
+            {/* <Button
               variant="ghost"
               className="justify-start gap-3 text-destructive  hover:text-destructive hover:bg-destructive/10"
               onClick={handleLogout}
             >
               <LogOut className="h-5 w-5" />
               Sign Out
-            </Button>
+            </Button> */}
           </nav>
         </aside>
 
