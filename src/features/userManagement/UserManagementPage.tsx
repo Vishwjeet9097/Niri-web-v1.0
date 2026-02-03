@@ -938,10 +938,11 @@ export function UserManagementPage() {
 
   // ✅ getStateNameById function removed - using stateId directly as state name
 
-  // Filter and sort officers (Nodal Officers are hidden from User Management)
+  // Filter and sort officers (Nodal Officers hidden only for Admin; State Approver and MoSPI Approver still see them)
   const isStateApprover = user?.role === "STATE_APPROVER";
+  const hideNodalOfficers = user?.role === "ADMIN";
   const filteredOfficers = officers
-    .filter((officer) => officer.role !== "NODAL_OFFICER")
+    .filter((officer) => !hideNodalOfficers || officer.role !== "NODAL_OFFICER")
     .filter((officer) => {
       const lowerSearch = searchTerm.toLowerCase();
       const matchesSearch =
@@ -956,8 +957,11 @@ export function UserManagementPage() {
             (officer.stateId &&
               officer.stateId.toLowerCase().includes(lowerSearch))));
 
+      // If current user is STATE_APPROVER, "All" shows all (including Nodal Officers)
+      const effectiveRoleFilter =
+        isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
       const matchesRole =
-        roleFilter === "all" || officer.role === roleFilter;
+        effectiveRoleFilter === "all" || officer.role === effectiveRoleFilter;
 
       return matchesSearch && matchesRole;
     })
@@ -1289,6 +1293,12 @@ export function UserManagementPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Select Roles</SelectItem>
+              {/* Nodal Officer filter: show for State Approver and MoSPI Approver; hidden only for Admin */}
+              {(user?.role !== "ADMIN") && (
+                <SelectItem value="NODAL_OFFICER">
+                  {getRoleDisplayName("NODAL_OFFICER")}
+                </SelectItem>
+              )}
               {(user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") && (
                 <>
                   <SelectItem value="STATE_APPROVER">

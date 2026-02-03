@@ -1566,15 +1566,24 @@ class ApiService implements HttpClient {
           `🔎 sectionData[${sectionKey}] content:`,
           JSON.stringify(sectionData[sectionKey], null, 2)
         );
+        const section = sectionData[sectionKey];
+        const status = (section?.status || "").toUpperCase();
+        const isDraft =
+          status === "SAVE_AS_DRAFT" || status === "DRAFT";
         const hasMeaningfulData = this.hasMeaningfulSectionData(
           sectionKey,
-          sectionData[sectionKey]
+          section
         );
 
-        if (hasMeaningfulData) {
+        // Do not count draft indicators as completed (they are not submitted)
+        if (hasMeaningfulData && !isDraft) {
           completedIndicators.push(indicatorCode);
           console.log(
-            `✅ Indicator ${indicatorCode} (${sectionKey}) has meaningful data`
+            `✅ Indicator ${indicatorCode} (${sectionKey}) has meaningful data (submitted)`
+          );
+        } else if (hasMeaningfulData && isDraft) {
+          console.log(
+            `⏭️ Indicator ${indicatorCode} (${sectionKey}) has data but is draft - excluded from completedIndicators`
           );
         } else {
           console.log(
@@ -1820,11 +1829,7 @@ class ApiService implements HttpClient {
           existingSectionStatus
         );
 
-        // Get existing completed indicators array
-        const existingCompletedIndicators =
-          existingSectionStatus.completedIndicators || [];
-
-        // Check ALL categories in formData to find indicators with data
+        // Check ALL categories in formData (needed for draft check and indicatorsWithDataInDB)
         const existingFormData = existingSubmission?.formData || {};
         const allCategories = [
           "infraFinancing",
@@ -1839,6 +1844,25 @@ class ApiService implements HttpClient {
           infraEnablers: ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
         };
 
+        // Exclude draft indicators from existing completed list (DB may have been written before fix)
+        const isIndicatorDraftInFormData = (indicatorCode: string): boolean => {
+          const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+          for (const cat of allCategories) {
+            const catData = existingFormData[cat] || {};
+            const section = catData[sectionKey];
+            if (!section) continue;
+            const status = (section?.status || "").toUpperCase();
+            return status === "SAVE_AS_DRAFT" || status === "DRAFT";
+          }
+          return false;
+        };
+
+        const rawExistingCompleted =
+          existingSectionStatus?.completedIndicators || [];
+        const existingCompletedIndicators = rawExistingCompleted.filter(
+          (code: string) => !isIndicatorDraftInFormData(code)
+        );
+
         // Find all indicators that have data in DB (across all categories)
         // For NODAL_OFFICER: check against assigned indicators
         // For STATE_APPROVER: check against available indicators
@@ -1851,14 +1875,19 @@ class ApiService implements HttpClient {
             // Check if indicator is in user's assigned/available list
             if (userAssignedIndicators.includes(indicatorCode)) {
               const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+              const section = catData[sectionKey];
+              const status = (section?.status || "").toUpperCase();
+              const isDraft =
+                status === "SAVE_AS_DRAFT" || status === "DRAFT";
               const hasDataInDB =
-                catData[sectionKey] &&
-                this.hasMeaningfulSectionData(sectionKey, catData[sectionKey]);
+                section &&
+                this.hasMeaningfulSectionData(sectionKey, section);
 
-              if (hasDataInDB) {
+              // Only count as completed if it has data and is not draft (submitted)
+              if (hasDataInDB && !isDraft) {
                 indicatorsWithDataInDB.push(indicatorCode);
                 console.log(
-                  `✅ Found data in DB for indicator ${indicatorCode} (${cat})`
+                  `✅ Found data in DB for indicator ${indicatorCode} (${cat}) (submitted)`
                 );
               }
             }
