@@ -39,6 +39,7 @@ import { ulbService, ULB } from "@/services/ulb.service";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,7 +149,12 @@ export const InfraFinancingStep = () => {
   const [currentSubmissionId, setCurrentSubmissionId] = useState<string | null>(
     null
   );
-  const { getStepData, updateFormData, clearFormData } = useFormPersistence();
+  const {
+    getStepData,
+    updateFormData,
+    clearFormData,
+    formData: fullFormData,
+  } = useFormPersistence();
 
   const {
     currentStep,
@@ -456,6 +462,23 @@ export const InfraFinancingStep = () => {
       allowedIndicators: indicatorsToValidate,
     });
   }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
+
+  // For State Approver: merge API available indicators with submitted ones from current formData
+  const codesForVisibility = useMemo(() => {
+    if (isNodalOfficer) return assignedIndicators;
+    if (isStateApprover) {
+      const submitted = getSubmittedIndicatorCodesFromFormData(fullFormData);
+      const merged = [...(availableIndicators || []), ...submitted];
+      return merged.filter((c, i, a) => a.indexOf(c) === i);
+    }
+    return null;
+  }, [
+    isNodalOfficer,
+    isStateApprover,
+    assignedIndicators,
+    availableIndicators,
+    fullFormData,
+  ]);
 
   // Clear errors for fields that are now valid (when user fixes invalid fields)
   useEffect(() => {
@@ -1963,79 +1986,15 @@ export const InfraFinancingStep = () => {
     setPendingIndicator(null);
   };
 
-  if (indicatorLoading) {
-    return (
-      <div className="w-full -mx-6 lg:-mx-8">
-        <div className="px-6 lg:px-8">
-          <Stepper
-            steps={SUBMISSION_STEPS}
-            currentStep={currentStep}
-            onStepClick={goToStep}
-          />
-        </div>
-        <div className="px-6 lg:px-8 text-center py-12">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Loading indicator access...
-          </h3>
-          <p className="text-gray-600">
-            Fetching which indicators are available for you. Please wait a
-            moment.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Nodal access check (unchanged logic)
-  if (isNodalOfficer) {
-    const hasAccessToSection =
-      hasIndicatorAccess("1.1") ||
-      hasIndicatorAccess("1.2") ||
-      hasIndicatorAccess("1.3") ||
-      hasIndicatorAccess("1.4") ||
-      hasIndicatorAccess("1.5");
-    if (!hasAccessToSection) {
-      return (
-        <div className="w-full -mx-6 lg:-mx-8">
-          <div className="px-6 lg:px-8">
-            <Stepper
-              steps={SUBMISSION_STEPS}
-              currentStep={currentStep}
-              onStepClick={goToStep}
-            />
-          </div>
-          <div className="px-6 lg:px-8">
-            <ProgressHeader
-              title="Infrastructure Financing"
-              description="Data related to infrastructure financing and budget allocation"
-              points={250}
-              completed={0}
-              total={5}
-              progress={0}
-            />
-            <div className="text-center py-12">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No Data Required
-              </h3>
-              <p className="text-gray-600 mb-4">
-                This section is not applicable for your submission. No data
-                entry required here.
-              </p>
-              <Button onClick={goToNext} className="bg-primary text-white">
-                Continue to Next Step
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-  }
-
-  const codesForVisibility = isNodalOfficer
-    ? assignedIndicators
-    : isStateApprover
-    ? availableIndicators
-    : null;
+  // Compute once (no early return) so hook count is stable every render
+  const hasAccessToSection =
+    !isNodalOfficer ||
+    hasIndicatorAccess("1.1") ||
+    hasIndicatorAccess("1.2") ||
+    hasIndicatorAccess("1.3") ||
+    hasIndicatorAccess("1.4") ||
+    hasIndicatorAccess("1.5");
+  const showNodalNoData = isNodalOfficer && !hasAccessToSection;
 
   const showIndicator = (indicatorCode: string) => {
     if (codesForVisibility === null) return true;
@@ -2608,9 +2567,12 @@ export const InfraFinancingStep = () => {
             "infraFinancing",
             {
               assignedIndicators,
-              availableIndicators,
+              availableIndicators: isStateApprover
+                ? codesForVisibility ?? availableIndicators
+                : availableIndicators,
               isNodalOfficer,
               isStateApprover,
+              countCompletedByStatus: true,
             }
           );
           return (

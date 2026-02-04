@@ -44,6 +44,7 @@ import {
   type InfraEnablersValidationResult,
 } from "../validation/infraEnablersValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import {
   AlertDialog,
@@ -97,7 +98,12 @@ const defaultData: InfraEnablersData = {
 export const InfraEnablersStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isLastStep } =
     useStepNavigation(4);
-  const { getStepData, updateFormData, clearFormData } = useFormPersistence();
+  const {
+    getStepData,
+    updateFormData,
+    clearFormData,
+    formData: fullFormData,
+  } = useFormPersistence();
 
   // Detect edit mode to hide empty indicators
   const isEditMode =
@@ -405,6 +411,20 @@ export const InfraEnablersStep = () => {
     (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((i) =>
       sectionIndicators.includes(i)
     ) || [];
+
+  const visibleIndicators = useMemo(() => {
+    if (!isNodalOfficer && !isStateApprover) return null;
+    if (isNodalOfficer) return assignedIndicators;
+    const submitted = getSubmittedIndicatorCodesFromFormData(fullFormData);
+    const merged = [...(availableIndicators || []), ...submitted];
+    return merged.filter((c, i, a) => a.indexOf(c) === i);
+  }, [
+    isNodalOfficer,
+    isStateApprover,
+    assignedIndicators,
+    availableIndicators,
+    fullFormData,
+  ]);
 
   console.log("🟢 InfraEnablersStep: Allowed indicators", allowedIndicators);
 
@@ -1407,41 +1427,9 @@ export const InfraEnablersStep = () => {
     }
   };
 
-  if ((isNodalOfficer || isStateApprover) && allowedIndicators.length === 0) {
-    return (
-      <div className="w-full -mx-6 lg:-mx-8">
-        <div className="px-6 lg:px-8">
-          <Stepper
-            steps={SUBMISSION_STEPS}
-            currentStep={currentStep}
-            onStepClick={goToStep}
-          />
-        </div>
-        <div className="px-6 lg:px-8">
-          <ProgressHeader
-            title="Infrastructure Enablers"
-            description="Supporting infrastructure and policy enablers"
-            points={250}
-            completed={0}
-            total={6}
-            progress={0}
-          />
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Data Required
-            </h3>
-            <p className="text-gray-600 mb-4">
-              This section is not applicable for your submission. No data entry
-              required here.
-            </p>
-            <Button onClick={goToNext} className="bg-primary text-white">
-              Continue to Next Step
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Compute once (no early return) so hook count is stable every render
+  const showNoData =
+    (isNodalOfficer || isStateApprover) && allowedIndicators.length === 0;
 
   // Helper function to check if an indicator is submitted
   // Helper function to get indicator status
@@ -1937,644 +1925,2013 @@ export const InfraEnablersStep = () => {
         currentStep={currentStep}
         onStepClick={goToStep}
       />
-      {(() => {
-        const { completed, total, progress } = computeStepProgress(
-          { infraEnablers: formData } as any,
-          "infraEnablers",
-          {
-            assignedIndicators,
-            availableIndicators,
-            isNodalOfficer,
-            isStateApprover,
-          }
-        );
-        console.log("Infra Enablers Progress Debug:", {
-          isNodalOfficer,
-          isStateApprover,
-          assignedIndicators,
-          availableIndicators,
-          completed,
-          total,
-          progress,
-        });
-        return (
+      {showNoData ? (
+        <>
           <ProgressHeader
             title="Infrastructure Enablers"
             description="Regulatory and institutional frameworks supporting infrastructure"
             points={250}
-            completed={completed}
-            total={total}
-            progress={progress}
+            completed={0}
+            total={6}
+            progress={0}
           />
-        );
-      })()}
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              No Data Required
+            </h3>
+            <p className="text-gray-600 mb-4">
+              This section is not applicable for your submission. No data entry
+              required here.
+            </p>
+            <Button onClick={goToNext} className="bg-primary text-white">
+              Continue to Next Step
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          {(() => {
+            const { completed, total, progress } = computeStepProgress(
+              { infraEnablers: formData } as any,
+              "infraEnablers",
+              {
+                assignedIndicators,
+                availableIndicators:
+                  isStateApprover && visibleIndicators
+                    ? visibleIndicators
+                    : availableIndicators,
+                isNodalOfficer,
+                isStateApprover,
+                countCompletedByStatus: true,
+              }
+            );
+            console.log("Infra Enablers Progress Debug:", {
+              isNodalOfficer,
+              isStateApprover,
+              assignedIndicators,
+              availableIndicators,
+              completed,
+              total,
+              progress,
+            });
+            return (
+              <ProgressHeader
+                title="Infrastructure Enablers"
+                description="Regulatory and institutional frameworks supporting infrastructure"
+                points={250}
+                completed={completed}
+                total={total}
+                progress={progress}
+              />
+            );
+          })()}
 
-      {/* Section 4.1 */}
-      {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.1") ||
-        availableIndicators.includes("4.1")) && (
-        <SectionCard
-          title={
-            <div className="flex flex-col">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.1 - </span> Availability & Use
-                of State/UT PMG{" "}
-              </span>
-            </div>
-          }
-          subtitle=""
-          className="mb-6"
-          indicatorStatus={getIndicatorStatus("4.1")}
-          indicatorCode="4.1"
-          isEditable={editingIndicators.has("4.1")}
-          onEdit={() => handleEditIndicator("4.1")}
-          onSave={() => handleSaveIndicator("4.1")}
-          onCancel={() => handleCancelEdit("4.1")}
-          isSaving={savingIndicators.has("4.1")}
-        >
-          {renderSectionValidationMessage("4.1")}
-          <div className="flex flex-col gap-4 w-[70%]">
-            <div>
-              <Label>
-                Availability & Use of State/UT PMG{" "}
-                <span className="text-red-500">*</span>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="inline w-3 h-3 ml-1" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Is State/UT PMG available and used?
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="pmg-available"
-                    value="yes"
-                    checked={formData.section4_1.available === "yes"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.1")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_1: {
-                          ...prev.section4_1,
-                          available: "yes",
-                          comment: "",
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.1")}
-                  />
-                  Yes
-                </label>
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="pmg-available"
-                    value="no"
-                    checked={formData.section4_1.available === "no"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.1")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_1: {
-                          ...prev.section4_1,
-                          available: "no",
-                          file: null,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.1")}
-                  />
-                  No
-                </label>
-              </div>
-            </div>
-            {formData.section4_1.available === "yes" && (
-              <div className="flex flex-col gap-2">
-                {(() => {
-                  console.log(
-                    "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_1",
-                    {
-                      noDocumentAvailable:
-                        formData.section4_1.noDocumentAvailable,
-                      hasFile: !!formData.section4_1.file,
-                      available: formData.section4_1.available,
-                    }
-                  );
-                  return null;
-                })()}
-                <FileUploadSection
-                  label="Upload File"
-                  value={formData.section4_1.file}
-                  onChange={(file) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_1: {
-                        ...prev.section4_1,
-                        file,
-                        // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                        // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                        noDocumentAvailable: file
-                          ? false
-                          : prev.section4_1.noDocumentAvailable,
-                      },
-                    }));
-                  }}
-                  submissionId={submissionId}
-                  required
-                  disabled={isIndicatorSubmitted("4.1")}
-                  deferFileDeletion={editingIndicators.has("4.1")}
-                  showNoDocumentOption={true}
-                  noDocumentAvailable={
-                    formData.section4_1.noDocumentAvailable || false
-                  }
-                  onNoDocumentChange={(noDocument) => {
-                    console.log(
-                      "📝 InfraEnablersStep: section4_1 onNoDocumentChange called",
-                      {
-                        noDocument,
-                        currentValue: formData.section4_1.noDocumentAvailable,
-                      }
-                    );
-                    showErrorsIfNeeded();
-                    setFormData((prev) => {
-                      const newData = {
-                        ...prev,
-                        section4_1: {
-                          ...prev.section4_1,
-                          noDocumentAvailable: noDocument,
-                          file: noDocument ? null : prev.section4_1.file,
-                        },
-                      };
+          {/* Section 4.1 */}
+          {(visibleIndicators === null ||
+            visibleIndicators.includes("4.1")) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.1 - </span> Availability &
+                    Use of State/UT PMG{" "}
+                  </span>
+                </div>
+              }
+              subtitle=""
+              className="mb-6"
+              indicatorStatus={getIndicatorStatus("4.1")}
+              indicatorCode="4.1"
+              isEditable={editingIndicators.has("4.1")}
+              onEdit={() => handleEditIndicator("4.1")}
+              onSave={() => handleSaveIndicator("4.1")}
+              onCancel={() => handleCancelEdit("4.1")}
+              isSaving={savingIndicators.has("4.1")}
+            >
+              {renderSectionValidationMessage("4.1")}
+              <div className="flex flex-col gap-4 w-[70%]">
+                <div>
+                  <Label>
+                    Availability & Use of State/UT PMG{" "}
+                    <span className="text-red-500">*</span>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Is State/UT PMG available and used?
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+                  <div className="flex gap-6">
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="pmg-available"
+                        value="yes"
+                        checked={formData.section4_1.available === "yes"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.1")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_1: {
+                              ...prev.section4_1,
+                              available: "yes",
+                              comment: "",
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.1")}
+                      />
+                      Yes
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="pmg-available"
+                        value="no"
+                        checked={formData.section4_1.available === "no"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.1")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_1: {
+                              ...prev.section4_1,
+                              available: "no",
+                              file: null,
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.1")}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+                {formData.section4_1.available === "yes" && (
+                  <div className="flex flex-col gap-2">
+                    {(() => {
                       console.log(
-                        "📝 InfraEnablersStep: section4_1 state updated",
+                        "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_1",
                         {
-                          newValue: newData.section4_1.noDocumentAvailable,
-                          prevValue: prev.section4_1.noDocumentAvailable,
+                          noDocumentAvailable:
+                            formData.section4_1.noDocumentAvailable,
+                          hasFile: !!formData.section4_1.file,
+                          available: formData.section4_1.available,
                         }
                       );
-                      return newData;
-                    });
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">Description</p>
-              </div>
-            )}
-            {formData.section4_1.available === "no" && (
-              <div className="flex flex-col gap-2">
-                <Label>
-                  Comments (Reason) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Enter reason or comment"
-                  value={formData.section4_1.comment || ""}
-                  onChange={(e) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_1: {
-                        ...prev.section4_1,
-                        comment: e.target.value,
-                      },
-                    }));
-                  }}
-                  disabled={isIndicatorSubmitted("4.1")}
-                  className={cn(
-                    isIndicatorSubmitted("4.1") &&
-                      "bg-gray-50 cursor-not-allowed"
+                      return null;
+                    })()}
+                    <FileUploadSection
+                      label="Upload File"
+                      value={formData.section4_1.file}
+                      onChange={(file) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_1: {
+                            ...prev.section4_1,
+                            file,
+                            // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                            // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                            noDocumentAvailable: file
+                              ? false
+                              : prev.section4_1.noDocumentAvailable,
+                          },
+                        }));
+                      }}
+                      submissionId={submissionId}
+                      required
+                      disabled={isIndicatorSubmitted("4.1")}
+                      deferFileDeletion={editingIndicators.has("4.1")}
+                      showNoDocumentOption={true}
+                      noDocumentAvailable={
+                        formData.section4_1.noDocumentAvailable || false
+                      }
+                      onNoDocumentChange={(noDocument) => {
+                        console.log(
+                          "📝 InfraEnablersStep: section4_1 onNoDocumentChange called",
+                          {
+                            noDocument,
+                            currentValue:
+                              formData.section4_1.noDocumentAvailable,
+                          }
+                        );
+                        showErrorsIfNeeded();
+                        setFormData((prev) => {
+                          const newData = {
+                            ...prev,
+                            section4_1: {
+                              ...prev.section4_1,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section4_1.file,
+                            },
+                          };
+                          console.log(
+                            "📝 InfraEnablersStep: section4_1 state updated",
+                            {
+                              newValue: newData.section4_1.noDocumentAvailable,
+                              prevValue: prev.section4_1.noDocumentAvailable,
+                            }
+                          );
+                          return newData;
+                        });
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">Description</p>
+                  </div>
+                )}
+                {formData.section4_1.available === "no" && (
+                  <div className="flex flex-col gap-2">
+                    <Label>
+                      Comments (Reason){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section4_1.comment || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_1: {
+                            ...prev.section4_1,
+                            comment: e.target.value,
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("4.1")}
+                      className={cn(
+                        isIndicatorSubmitted("4.1") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                    />
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("4.1", "PM GatiShakti Master Plan")
+                    }
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("4.1")
+                    }
+                    size="sm"
+                  >
+                    {getSubmitButtonText("4.1", submittingIndicator)}
+                  </Button>
+                  {!isIndicatorSentBack("4.1") && (
+                    <Button
+                      onClick={() => handleSaveAsDraftIndicator("4.1")}
+                      disabled={
+                        savingDraftIndicators.has("4.1") ||
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("4.1")
+                      }
+                      variant="outline"
+                      size="sm"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingDraftIndicators.has("4.1")
+                        ? "Saving..."
+                        : "Save as Draft"}
+                    </Button>
                   )}
-                />
+                </div>
               </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <Button
-                onClick={() =>
-                  handleSubmitIndicator("4.1", "PM GatiShakti Master Plan")
-                }
-                disabled={
-                  submittingIndicator !== null || isIndicatorSubmitted("4.1")
-                }
-                size="sm"
-              >
-                {getSubmitButtonText("4.1", submittingIndicator)}
-              </Button>
-              {!isIndicatorSentBack("4.1") && (
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("4.1")}
-                  disabled={
-                    savingDraftIndicators.has("4.1") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("4.1")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("4.1")
-                    ? "Saving..."
-                    : "Save as Draft"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-      )}
+            </SectionCard>
+          )}
 
-      {/* Section 4.2 */}
-      {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.2") ||
-        availableIndicators.includes("4.2")) && (
-        <SectionCard
-          title={
-            <div className="flex flex-col">
-              <span className="text-base font-semibold">
-                <span className="text-primary">4.2 – </span> Adoption of PM
-                GatiShakti
-              </span>
-            </div>
-          }
-          className="mb-6"
-          indicatorStatus={getIndicatorStatus("4.2")}
-          indicatorCode="4.2"
-          isEditable={editingIndicators.has("4.2")}
-          onEdit={() => handleEditIndicator("4.2")}
-          onSave={() => handleSaveIndicator("4.2")}
-          onCancel={() => handleCancelEdit("4.2")}
-          isSaving={savingIndicators.has("4.2")}
-        >
-          {renderSectionValidationMessage("4.2")}
-          <div className="flex flex-col gap-4">
-            {/* --- Toggle --- */}
-            <div className="w-[60%]">
-              <Label>
-                Adoption of PM GatiShakti{" "}
-                <span className="text-destructive">*</span>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="inline w-3 h-3 ml-1" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Has the State/UT adopted PM GatiShakti?
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-              <div className="flex gap-6 mt-1">
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="pm-gatishakti"
-                    value="yes"
-                    checked={formData.section4_2.adopted === "yes"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.2")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_2: {
-                          ...prev.section4_2,
-                          adopted: "yes",
-                          comment: "",
-                          // Initialize with 1 entry if empty
-                          projects:
-                            prev.section4_2?.projects &&
-                            prev.section4_2.projects.length > 0
-                              ? prev.section4_2.projects
-                              : [
-                                  {
-                                    id: Date.now().toString(),
-                                    projectName: "",
-                                    sector: "",
-                                    statusOfProject: "",
-                                    file: null,
-                                    noDocumentAvailable: false,
-                                  },
-                                ],
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.2")}
-                  />
-                  Yes
-                </label>
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="pm-gatishakti"
-                    value="no"
-                    checked={formData.section4_2.adopted === "no"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.2")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_2: {
-                          ...prev.section4_2,
-                          adopted: "no",
-                          projects: [],
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.2")}
-                  />
-                  No
-                </label>
-              </div>
-            </div>
-
-            {/* --- If YES --- */}
-            {formData.section4_2.adopted === "yes" && (
+          {/* Section 4.2 */}
+          {(visibleIndicators === null ||
+            visibleIndicators.includes("4.2")) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold">
+                    <span className="text-primary">4.2 – </span> Adoption of PM
+                    GatiShakti
+                  </span>
+                </div>
+              }
+              className="mb-6"
+              indicatorStatus={getIndicatorStatus("4.2")}
+              indicatorCode="4.2"
+              isEditable={editingIndicators.has("4.2")}
+              onEdit={() => handleEditIndicator("4.2")}
+              onSave={() => handleSaveIndicator("4.2")}
+              onCancel={() => handleCancelEdit("4.2")}
+              isSaving={savingIndicators.has("4.2")}
+            >
+              {renderSectionValidationMessage("4.2")}
               <div className="flex flex-col gap-4">
-                {(formData.section4_2?.projects || []).map((entry, index) => (
-                  <div key={entry.id || `entry-${index}`} className="mb-2">
-                    {/* Fields row */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                      <div>
-                        <Label>
-                          Project Name{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter project name"
-                          value={entry.projectName}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            updateGatiProject(
-                              entry.id,
-                              "projectName",
-                              e.target.value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("4.2")}
-                          className={cn(
-                            getInputValidationClass(
-                              `section4_2.projects.${
-                                formData.section4_2?.projects?.findIndex(
-                                  (p) => p.id === entry.id
-                                ) ?? 0
-                              }.projectName`
-                            ),
-                            isIndicatorSubmitted("4.2") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section4_2.projects.${
-                            formData.section4_2?.projects?.findIndex(
-                              (p) => p.id === entry.id
-                            ) ?? 0
-                          }.projectName`
-                        )}
-                      </div>
+                {/* --- Toggle --- */}
+                <div className="w-[60%]">
+                  <Label>
+                    Adoption of PM GatiShakti{" "}
+                    <span className="text-destructive">*</span>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Has the State/UT adopted PM GatiShakti?
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+                  <div className="flex gap-6 mt-1">
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="pm-gatishakti"
+                        value="yes"
+                        checked={formData.section4_2.adopted === "yes"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.2")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_2: {
+                              ...prev.section4_2,
+                              adopted: "yes",
+                              comment: "",
+                              // Initialize with 1 entry if empty
+                              projects:
+                                prev.section4_2?.projects &&
+                                prev.section4_2.projects.length > 0
+                                  ? prev.section4_2.projects
+                                  : [
+                                      {
+                                        id: Date.now().toString(),
+                                        projectName: "",
+                                        sector: "",
+                                        statusOfProject: "",
+                                        file: null,
+                                        noDocumentAvailable: false,
+                                      },
+                                    ],
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.2")}
+                      />
+                      Yes
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="pm-gatishakti"
+                        value="no"
+                        checked={formData.section4_2.adopted === "no"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.2")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_2: {
+                              ...prev.section4_2,
+                              adopted: "no",
+                              projects: [],
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.2")}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
 
-                      <div>
-                        <Label>
-                          Sector <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={entry.sector}
-                          onValueChange={(v) => {
-                            showErrorsIfNeeded();
-                            updateGatiProject(entry.id, "sector", v);
-                          }}
-                          disabled={isIndicatorSubmitted("4.2")}
+                {/* --- If YES --- */}
+                {formData.section4_2.adopted === "yes" && (
+                  <div className="flex flex-col gap-4">
+                    {(formData.section4_2?.projects || []).map(
+                      (entry, index) => (
+                        <div
+                          key={entry.id || `entry-${index}`}
+                          className="mb-2"
                         >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
+                          {/* Fields row */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <div>
+                              <Label>
+                                Project Name{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter project name"
+                                value={entry.projectName}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updateGatiProject(
+                                    entry.id,
+                                    "projectName",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.2")}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_2.projects.${
+                                      formData.section4_2?.projects?.findIndex(
+                                        (p) => p.id === entry.id
+                                      ) ?? 0
+                                    }.projectName`
+                                  ),
+                                  isIndicatorSubmitted("4.2") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_2.projects.${
+                                  formData.section4_2?.projects?.findIndex(
+                                    (p) => p.id === entry.id
+                                  ) ?? 0
+                                }.projectName`
+                              )}
+                            </div>
+
+                            <div>
+                              <Label>
+                                Sector{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Select
+                                value={entry.sector}
+                                onValueChange={(v) => {
+                                  showErrorsIfNeeded();
+                                  updateGatiProject(entry.id, "sector", v);
+                                }}
+                                disabled={isIndicatorSubmitted("4.2")}
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    getInputValidationClass(
+                                      `section4_2.projects.${
+                                        formData.section4_2?.projects?.findIndex(
+                                          (p) => p.id === entry.id
+                                        ) ?? 0
+                                      }.sector`
+                                    )
+                                  )}
+                                >
+                                  <SelectValue placeholder="Select sector" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {SECTOR_OPTIONS.map((sector) => (
+                                    <SelectItem key={sector} value={sector}>
+                                      {sector}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {renderFieldError(
                                 `section4_2.projects.${
                                   formData.section4_2?.projects?.findIndex(
                                     (p) => p.id === entry.id
                                   ) ?? 0
                                 }.sector`
-                              )
+                              )}
+                            </div>
+
+                            <div>
+                              <Label>Status of Project</Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter project status"
+                                value={entry.statusOfProject || ""}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updateGatiProject(
+                                    entry.id,
+                                    "statusOfProject",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.2")}
+                                className={cn(
+                                  isIndicatorSubmitted("4.2") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeGatiProject(entry.id)}
+                                disabled={isIndicatorSubmitted("4.2")}
+                                aria-label="Remove"
+                                className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Upload file below */}
+                          <div className="mt-4">
+                            <FileUploadSection
+                              label="Upload File (PDF only)"
+                              accept=".pdf"
+                              value={entry.file || null}
+                              onChange={(file) => {
+                                showErrorsIfNeeded();
+                                updateGatiProject(entry.id, "file", file);
+                                // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                                // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section4_2: {
+                                    ...prev.section4_2,
+                                    projects: (
+                                      prev.section4_2?.projects || []
+                                    ).map((p) =>
+                                      p.id === entry.id
+                                        ? {
+                                            ...p,
+                                            file,
+                                            noDocumentAvailable: file
+                                              ? false
+                                              : p.noDocumentAvailable,
+                                          }
+                                        : p
+                                    ),
+                                  },
+                                }));
+                              }}
+                              submissionId={submissionId}
+                              required
+                              disabled={isIndicatorSubmitted("4.2")}
+                              deferFileDeletion={editingIndicators.has("4.2")}
+                              showNoDocumentOption={true}
+                              noDocumentAvailable={
+                                entry.noDocumentAvailable || false
+                              }
+                              onNoDocumentChange={(noDocument) => {
+                                console.log(
+                                  "📝 InfraEnablersStep: section4_2 onNoDocumentChange called",
+                                  {
+                                    noDocument,
+                                    entryId: entry.id,
+                                    currentValue: entry.noDocumentAvailable,
+                                  }
+                                );
+                                showErrorsIfNeeded();
+                                setFormData((prev) => {
+                                  const newData = {
+                                    ...prev,
+                                    section4_2: {
+                                      ...prev.section4_2,
+                                      projects: (
+                                        prev.section4_2?.projects || []
+                                      ).map((p) =>
+                                        p.id === entry.id
+                                          ? {
+                                              ...p,
+                                              noDocumentAvailable: noDocument,
+                                              file: noDocument ? null : p.file,
+                                            }
+                                          : p
+                                      ),
+                                    },
+                                  };
+                                  console.log(
+                                    "📝 InfraEnablersStep: section4_2 state updated",
+                                    {
+                                      entryId: entry.id,
+                                      newValue:
+                                        newData.section4_2.projects.find(
+                                          (p) => p.id === entry.id
+                                        )?.noDocumentAvailable,
+                                      prevValue: entry.noDocumentAvailable,
+                                    }
+                                  );
+                                  return newData;
+                                });
+                              }}
+                              className={getInputValidationClass(
+                                `section4_2.projects.${
+                                  formData.section4_2?.projects?.findIndex(
+                                    (p) => p.id === entry.id
+                                  ) ?? 0
+                                }.file`
+                              )}
+                            />
+                            {renderFieldError(
+                              `section4_2.projects.${
+                                formData.section4_2?.projects?.findIndex(
+                                  (p) => p.id === entry.id
+                                ) ?? 0
+                              }.file`
                             )}
-                          >
-                            <SelectValue placeholder="Select sector" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SECTOR_OPTIONS.map((sector) => (
-                              <SelectItem key={sector} value={sector}>
-                                {sector}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {renderFieldError(
-                          `section4_2.projects.${
-                            formData.section4_2?.projects?.findIndex(
-                              (p) => p.id === entry.id
-                            ) ?? 0
-                          }.sector`
-                        )}
-                      </div>
+                          </div>
+                        </div>
+                      )
+                    )}
 
-                      <div>
-                        <Label>Status of Project</Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter project status"
-                          value={entry.statusOfProject || ""}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            updateGatiProject(
-                              entry.id,
-                              "statusOfProject",
-                              e.target.value
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addGatiProject}
+                      disabled={isIndicatorSubmitted("4.2")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Project
+                    </Button>
+                  </div>
+                )}
+                {/* ✅ Table view for Section 4.2 – PM GatiShakti Projects */}
+                {formData.section4_2.adopted === "yes" && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Project Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Status of Project
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Size
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(formData.section4_2?.projects || []).map(
+                          (entry, index) => {
+                            const file = entry.file;
+                            if (!file) {
+                              return (
+                                <tr
+                                  key={entry.id || `entry-${index}`}
+                                  className="bg-white"
+                                >
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.projectName}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.sector}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.statusOfProject || "N/A"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    No file uploaded
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">N/A</td>
+                                  <td className="py-3 px-4">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeGatiProject(entry.id)
+                                      }
+                                      disabled={isIndicatorSubmitted("4.2")}
+                                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      aria-label="Delete"
+                                    >
+                                      <Trash2 className="w-5 h-5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            // Extract original name from UUID-prefixed fileName if originalName is not available
+                            const extractOriginalName = (
+                              fileName: string,
+                              originalName?: string
+                            ): string => {
+                              if (originalName && originalName.trim())
+                                return originalName;
+
+                              // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+                              const uuidPattern =
+                                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
+                              if (uuidPattern.test(fileName)) {
+                                const extracted = fileName.replace(
+                                  uuidPattern,
+                                  ""
+                                );
+                                if (extracted && extracted.trim().length > 0) {
+                                  return extracted;
+                                }
+                              }
+
+                              return fileName;
+                            };
+
+                            const displayName = extractOriginalName(
+                              file.fileName || "",
+                              (file as any)?.originalName
                             );
-                          }}
-                          disabled={isIndicatorSubmitted("4.2")}
-                          className={cn(
-                            isIndicatorSubmitted("4.2") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeGatiProject(entry.id)}
-                          disabled={isIndicatorSubmitted("4.2")}
-                          aria-label="Remove"
-                          className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                      </div>
-                    </div>
+                            return (
+                              <tr
+                                key={entry.id || `entry-${index}`}
+                                className="bg-white"
+                              >
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.statusOfProject || "N/A"}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {displayName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.file?.fileSize
+                                    ? `${(
+                                        entry.file.fileSize /
+                                        1024 /
+                                        1024
+                                      ).toFixed(1)} MB`
+                                    : "N/A"}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeGatiProject(entry.id)}
+                                    disabled={isIndicatorSubmitted("4.2")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-                    {/* Upload file below */}
-                    <div className="mt-4">
-                      <FileUploadSection
-                        label="Upload File (PDF only)"
-                        accept=".pdf"
-                        value={entry.file || null}
-                        onChange={(file) => {
+                {/* --- If NO --- (same style as Section 4.2) */}
+                {formData.section4_2.adopted === "no" && (
+                  <div className="flex flex-col gap-2 w-[60%]">
+                    <Label>
+                      Comments (Reason){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section4_2.comment || ""}
+                      disabled={isIndicatorSubmitted("4.2")}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_2: {
+                            ...prev.section4_2,
+                            comment: e.target.value,
+                          },
+                        }));
+                      }}
+                      className={cn(
+                        isIndicatorSubmitted("4.2") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                    />
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("4.2", "PM GatiShakti NMP Projects")
+                    }
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("4.2")
+                    }
+                    size="sm"
+                  >
+                    {getSubmitButtonText("4.2", submittingIndicator)}
+                  </Button>
+                  {!isIndicatorSentBack("4.2") && (
+                    <Button
+                      onClick={() => handleSaveAsDraftIndicator("4.2")}
+                      disabled={
+                        savingDraftIndicators.has("4.2") ||
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("4.2")
+                      }
+                      variant="outline"
+                      size="sm"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingDraftIndicators.has("4.2")
+                        ? "Saving..."
+                        : "Save as Draft"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Section 4.3 */}
+          {(visibleIndicators === null ||
+            visibleIndicators.includes("4.3")) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.3 – </span> Adoption of ADR
+                    {/* <span className="font-normal text-xs text-muted-foreground ml-1">
+                  (10 marks per practice)
+                </span> */}
+                  </span>
+                </div>
+              }
+              className="mb-6"
+              indicatorStatus={getIndicatorStatus("4.3")}
+              indicatorCode="4.3"
+              isEditable={editingIndicators.has("4.3")}
+              onEdit={() => handleEditIndicator("4.3")}
+              onSave={() => handleSaveIndicator("4.3")}
+              onCancel={() => handleCancelEdit("4.3")}
+              isSaving={savingIndicators.has("4.3")}
+            >
+              {renderSectionValidationMessage("4.3")}
+              <div className="flex flex-col gap-4 w-[70%]">
+                <div>
+                  <Label>
+                    Adoption of ADR <span className="text-red-500">*</span>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>Is ADR adopted?</TooltipContent>
+                    </Tooltip>
+                  </Label>
+
+                  <div className="flex gap-6 mt-1">
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="adr-adopted"
+                        value="yes"
+                        checked={formData.section4_3.adopted === "yes"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.3")) return;
                           showErrorsIfNeeded();
-                          updateGatiProject(entry.id, "file", file);
-                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
                           setFormData((prev) => ({
                             ...prev,
-                            section4_2: {
-                              ...prev.section4_2,
-                              projects: (prev.section4_2?.projects || []).map(
-                                (p) =>
-                                  p.id === entry.id
-                                    ? {
-                                        ...p,
-                                        file,
-                                        noDocumentAvailable: file
-                                          ? false
-                                          : p.noDocumentAvailable,
-                                      }
-                                    : p
-                              ),
+                            section4_3: {
+                              ...prev.section4_3,
+                              adopted: "yes",
+                              comment: "",
                             },
                           }));
                         }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("4.2")}
-                        deferFileDeletion={editingIndicators.has("4.2")}
-                        showNoDocumentOption={true}
-                        noDocumentAvailable={entry.noDocumentAvailable || false}
-                        onNoDocumentChange={(noDocument) => {
+                        disabled={isIndicatorSubmitted("4.3")}
+                      />
+                      Yes
+                    </label>
+
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="adr-adopted"
+                        value="no"
+                        checked={formData.section4_3.adopted === "no"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.3")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_3: {
+                              ...prev.section4_3,
+                              adopted: "no",
+                              file: null,
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.3")}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+
+                {/* ✅ If YES → show file upload */}
+                {formData.section4_3.adopted === "yes" && (
+                  <div className="flex flex-col gap-2">
+                    {(() => {
+                      console.log(
+                        "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_3",
+                        {
+                          noDocumentAvailable:
+                            formData.section4_3.noDocumentAvailable,
+                          hasFile: !!formData.section4_3.file,
+                          adopted: formData.section4_3.adopted,
+                        }
+                      );
+                      return null;
+                    })()}
+                    <FileUploadSection
+                      label="Upload File"
+                      value={formData.section4_3.file}
+                      onChange={(file) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_3: {
+                            ...prev.section4_3,
+                            file,
+                            // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                            // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                            noDocumentAvailable: file
+                              ? false
+                              : prev.section4_3.noDocumentAvailable,
+                          },
+                        }));
+                      }}
+                      submissionId={submissionId}
+                      required
+                      disabled={isIndicatorSubmitted("4.3")}
+                      deferFileDeletion={editingIndicators.has("4.3")}
+                      showNoDocumentOption={true}
+                      noDocumentAvailable={
+                        formData.section4_3.noDocumentAvailable || false
+                      }
+                      onNoDocumentChange={(noDocument) => {
+                        console.log(
+                          "📝 InfraEnablersStep: section4_3 onNoDocumentChange called",
+                          {
+                            noDocument,
+                            currentValue:
+                              formData.section4_3.noDocumentAvailable,
+                          }
+                        );
+                        showErrorsIfNeeded();
+                        setFormData((prev) => {
+                          const newData = {
+                            ...prev,
+                            section4_3: {
+                              ...prev.section4_3,
+                              noDocumentAvailable: noDocument,
+                              file: noDocument ? null : prev.section4_3.file,
+                            },
+                          };
                           console.log(
-                            "📝 InfraEnablersStep: section4_2 onNoDocumentChange called",
+                            "📝 InfraEnablersStep: section4_3 state updated",
                             {
-                              noDocument,
-                              entryId: entry.id,
-                              currentValue: entry.noDocumentAvailable,
+                              newValue: newData.section4_3.noDocumentAvailable,
+                              prevValue: prev.section4_3.noDocumentAvailable,
                             }
                           );
-                          showErrorsIfNeeded();
-                          setFormData((prev) => {
-                            const newData = {
-                              ...prev,
-                              section4_2: {
-                                ...prev.section4_2,
-                                projects: (prev.section4_2?.projects || []).map(
-                                  (p) =>
-                                    p.id === entry.id
-                                      ? {
-                                          ...p,
-                                          noDocumentAvailable: noDocument,
-                                          file: noDocument ? null : p.file,
-                                        }
-                                      : p
-                                ),
-                              },
-                            };
-                            console.log(
-                              "📝 InfraEnablersStep: section4_2 state updated",
-                              {
-                                entryId: entry.id,
-                                newValue: newData.section4_2.projects.find(
-                                  (p) => p.id === entry.id
-                                )?.noDocumentAvailable,
-                                prevValue: entry.noDocumentAvailable,
-                              }
-                            );
-                            return newData;
-                          });
-                        }}
-                        className={getInputValidationClass(
-                          `section4_2.projects.${
-                            formData.section4_2?.projects?.findIndex(
-                              (p) => p.id === entry.id
-                            ) ?? 0
-                          }.file`
-                        )}
-                      />
-                      {renderFieldError(
-                        `section4_2.projects.${
-                          formData.section4_2?.projects?.findIndex(
-                            (p) => p.id === entry.id
-                          ) ?? 0
-                        }.file`
+                          return newData;
+                        });
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Upload ADR orders
+                    </p>
+                  </div>
+                )}
+
+                {/* ✅ If NO → show comment box (same style as 4.1 & 4.2) */}
+                {formData.section4_3.adopted === "no" && (
+                  <div className="flex flex-col gap-2 w-[60%]">
+                    <Label>
+                      Comments (Reason){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section4_3.comment || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_3: {
+                            ...prev.section4_3,
+                            comment: e.target.value,
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("4.3")}
+                      className={cn(
+                        isIndicatorSubmitted("4.3") &&
+                          "bg-gray-50 cursor-not-allowed"
                       )}
+                    />
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("4.3", "Adoption of ADR")
+                    }
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("4.3")
+                    }
+                    size="sm"
+                  >
+                    {getSubmitButtonText("4.3", submittingIndicator)}
+                  </Button>
+                  {!isIndicatorSentBack("4.3") && (
+                    <Button
+                      onClick={() => handleSaveAsDraftIndicator("4.3")}
+                      disabled={
+                        savingDraftIndicators.has("4.3") ||
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("4.3")
+                      }
+                      variant="outline"
+                      size="sm"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingDraftIndicators.has("4.3")
+                        ? "Saving..."
+                        : "Save as Draft"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Section 4.4 */}
+          {(visibleIndicators === null ||
+            visibleIndicators.includes("4.4")) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold">
+                    <span className="text-primary">4.4 – </span> Innovative
+                    Practices
+                  </span>
+                </div>
+              }
+              className="mb-6"
+              indicatorStatus={getIndicatorStatus("4.4")}
+              indicatorCode="4.4"
+              isEditable={editingIndicators.has("4.4")}
+              onEdit={() => handleEditIndicator("4.4")}
+              onSave={() => handleSaveIndicator("4.4")}
+              onCancel={() => handleCancelEdit("4.4")}
+              isSaving={savingIndicators.has("4.4")}
+            >
+              {renderSectionValidationMessage("4.4")}
+              <div className="flex flex-col gap-4 w-[70%]">
+                {/* Toggle */}
+                <div>
+                  <Label>
+                    Innovative Practices{" "}
+                    <span className="text-destructive">*</span>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Has the State/UT implemented innovative practices?
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+
+                  <div className="flex gap-6 mt-1">
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="innovative-practices"
+                        value="yes"
+                        checked={formData.section4_4.implemented === "yes"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.4")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_4: {
+                              ...prev.section4_4,
+                              implemented: "yes",
+                              comment: "",
+                              // Initialize with 1 entry if empty
+                              practices:
+                                prev.section4_4?.practices &&
+                                prev.section4_4.practices.length > 0
+                                  ? prev.section4_4.practices
+                                  : [
+                                      {
+                                        id: Date.now().toString(),
+                                        practiceName: "",
+                                        impact: "",
+                                        file: null,
+                                        noDocumentAvailable: false,
+                                      },
+                                    ],
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.4")}
+                      />
+                      Yes
+                    </label>
+
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="innovative-practices"
+                        value="no"
+                        checked={formData.section4_4.implemented === "no"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.4")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_4: {
+                              ...prev.section4_4,
+                              implemented: "no",
+                              practices: [],
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.4")}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+
+                {/* ✅ If YES → show Practice list */}
+                {formData.section4_4.implemented === "yes" && (
+                  <div className="flex flex-col gap-4">
+                    {(formData.section4_4?.practices || []).map(
+                      (entry, index) => (
+                        <div
+                          key={entry.id || `entry-${index}`}
+                          className="mb-2"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div>
+                              <Label>
+                                Practice Name{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter practice name"
+                                value={entry.practiceName}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updatePractice(
+                                    entry.id,
+                                    "practiceName",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.4")}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_4.practices.${
+                                      formData.section4_4?.practices?.findIndex(
+                                        (p) => p.id === entry.id
+                                      ) ?? 0
+                                    }.practiceName`
+                                  ),
+                                  isIndicatorSubmitted("4.4") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_4.practices.${
+                                  formData.section4_4?.practices?.findIndex(
+                                    (p) => p.id === entry.id
+                                  ) ?? 0
+                                }.practiceName`
+                              )}
+                            </div>
+
+                            <div>
+                              <Label>
+                                Impact{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Select
+                                value={entry.impact}
+                                onValueChange={(v) => {
+                                  showErrorsIfNeeded();
+                                  updatePractice(entry.id, "impact", v);
+                                }}
+                                disabled={isIndicatorSubmitted("4.4")}
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    getInputValidationClass(
+                                      `section4_4.practices.${
+                                        formData.section4_4?.practices?.findIndex(
+                                          (p) => p.id === entry.id
+                                        ) ?? 0
+                                      }.impact`
+                                    )
+                                  )}
+                                >
+                                  <SelectValue placeholder="Select impact" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {IMPACT_OPTIONS.map((impact) => (
+                                    <SelectItem key={impact} value={impact}>
+                                      {impact}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {renderFieldError(
+                                `section4_4.practices.${
+                                  formData.section4_4?.practices?.findIndex(
+                                    (p) => p.id === entry.id
+                                  ) ?? 0
+                                }.impact`
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removePractice(entry.id)}
+                                disabled={isIndicatorSubmitted("4.4")}
+                                aria-label="Remove"
+                                className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Upload File Below */}
+                          <div className="mt-4">
+                            <FileUploadSection
+                              label="Upload Evidence"
+                              value={entry.file || null}
+                              accept=".pdf"
+                              onChange={(file) => {
+                                showErrorsIfNeeded();
+                                updatePractice(entry.id, "file", file);
+                                // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                                // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section4_4: {
+                                    ...prev.section4_4,
+                                    practices: (
+                                      prev.section4_4?.practices || []
+                                    ).map((p) =>
+                                      p.id === entry.id
+                                        ? {
+                                            ...p,
+                                            file,
+                                            noDocumentAvailable: file
+                                              ? false
+                                              : p.noDocumentAvailable,
+                                          }
+                                        : p
+                                    ),
+                                  },
+                                }));
+                              }}
+                              submissionId={submissionId}
+                              required
+                              disabled={isIndicatorSubmitted("4.4")}
+                              deferFileDeletion={editingIndicators.has("4.4")}
+                              showNoDocumentOption={true}
+                              noDocumentAvailable={
+                                entry.noDocumentAvailable || false
+                              }
+                              onNoDocumentChange={(noDocument) => {
+                                console.log(
+                                  "📝 InfraEnablersStep: section4_4 onNoDocumentChange called",
+                                  {
+                                    noDocument,
+                                    entryId: entry.id,
+                                    currentValue: entry.noDocumentAvailable,
+                                  }
+                                );
+                                showErrorsIfNeeded();
+                                setFormData((prev) => {
+                                  const newData = {
+                                    ...prev,
+                                    section4_4: {
+                                      ...prev.section4_4,
+                                      practices: (
+                                        prev.section4_4?.practices || []
+                                      ).map((p) =>
+                                        p.id === entry.id
+                                          ? {
+                                              ...p,
+                                              noDocumentAvailable: noDocument,
+                                              file: noDocument ? null : p.file,
+                                            }
+                                          : p
+                                      ),
+                                    },
+                                  };
+                                  console.log(
+                                    "📝 InfraEnablersStep: section4_4 state updated",
+                                    {
+                                      entryId: entry.id,
+                                      newValue:
+                                        newData.section4_4.practices.find(
+                                          (p) => p.id === entry.id
+                                        )?.noDocumentAvailable,
+                                      prevValue: entry.noDocumentAvailable,
+                                    }
+                                  );
+                                  return newData;
+                                });
+                              }}
+                              className={getInputValidationClass(
+                                `section4_4.practices.${
+                                  formData.section4_4?.practices?.findIndex(
+                                    (p) => p.id === entry.id
+                                  ) ?? 0
+                                }.file`
+                              )}
+                            />
+                            {renderFieldError(
+                              `section4_4.practices.${
+                                formData.section4_4?.practices?.findIndex(
+                                  (p) => p.id === entry.id
+                                ) ?? 0
+                              }.file`
+                            )}
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addPractice}
+                      disabled={isIndicatorSubmitted("4.4")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Practice
+                    </Button>
+                  </div>
+                )}
+
+                {/* ✅ If NO → show Comment Box (same as 4.1/4.2/4.3) */}
+                {formData.section4_4.implemented === "no" && (
+                  <div className="flex flex-col gap-2 w-[60%]">
+                    <Label>
+                      Comments (Reason){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section4_4.comment || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_4: {
+                            ...prev.section4_4,
+                            comment: e.target.value,
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("4.4")}
+                      className={cn(
+                        isIndicatorSubmitted("4.4") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                    />
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("4.4", "Innovative Practices")
+                    }
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("4.4")
+                    }
+                    size="sm"
+                  >
+                    {getSubmitButtonText("4.4", submittingIndicator)}
+                  </Button>
+                  {!isIndicatorSentBack("4.4") && (
+                    <Button
+                      onClick={() => handleSaveAsDraftIndicator("4.4")}
+                      disabled={
+                        savingDraftIndicators.has("4.4") ||
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("4.4")
+                      }
+                      variant="outline"
+                      size="sm"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingDraftIndicators.has("4.4")
+                        ? "Saving..."
+                        : "Save as Draft"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Section 4.5 */}
+          {(visibleIndicators === null ||
+            visibleIndicators.includes("4.5")) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.5 – </span> Capacity
+                    Building – Officer Participation
+                  </span>
+                </div>
+              }
+              className="mb-6"
+              indicatorStatus={getIndicatorStatus("4.5")}
+              indicatorCode="4.5"
+              isEditable={editingIndicators.has("4.5")}
+              onEdit={() => handleEditIndicator("4.5")}
+              onSave={() => handleSaveIndicator("4.5")}
+              onCancel={() => handleCancelEdit("4.5")}
+              isSaving={savingIndicators.has("4.5")}
+            >
+              {renderSectionValidationMessage("4.5")}
+              <div className="flex flex-col gap-4">
+                {/* --- FY Count Display --- */}
+                {formData.section4_5.participated === "yes" && (
+                  <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <Label className="text-base font-semibold text-gray-700 leading-none">
+                        Total Number of Officers Trained (FY{" "}
+                        {getCurrentFinancialYear()}):
+                      </Label>
+                      <span className="text-2xl font-bold text-blue-600 leading-none">
+                        {countOfficersTrainedInCurrentFY(
+                          formData.section4_5?.capacityArray || []
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Count based on training dates within the current financial
+                      year
+                    </p>
+                  </div>
+                )}
+
+                {/* --- Toggle --- */}
+                <div className="w-[60%]">
+                  <Label>
+                    Capacity Building – Officer Participation{" "}
+                    <span className="text-destructive">*</span>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Has there been officer participation in capacity
+                        building?
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+
+                  <div className="flex gap-6 mt-1">
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="capacity-building"
+                        value="yes"
+                        checked={formData.section4_5.participated === "yes"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.5")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_5: {
+                              ...prev.section4_5,
+                              participated: "yes",
+                              comment: "",
+                              // Initialize with 1 entry if empty
+                              capacityArray:
+                                prev.section4_5?.capacityArray &&
+                                prev.section4_5.capacityArray.length > 0
+                                  ? prev.section4_5.capacityArray
+                                  : [
+                                      {
+                                        id: Date.now().toString(),
+                                        officerName: "",
+                                        designation: "",
+                                        programName: "",
+                                        organiser: "",
+                                        trainingType: "",
+                                        trainingPeriod: "",
+                                      },
+                                    ],
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.5")}
+                      />
+                      Yes
+                    </label>
+
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="capacity-building"
+                        value="no"
+                        checked={formData.section4_5.participated === "no"}
+                        onChange={() => {
+                          if (isIndicatorSubmitted("4.5")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_5: {
+                              ...prev.section4_5,
+                              participated: "no",
+                              capacityArray: [],
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.5")}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+
+                {/* ✅ If YES → show officer entries */}
+                {formData.section4_5.participated === "yes" && (
+                  <div className="flex flex-col gap-4">
+                    {(formData.section4_5?.capacityArray || []).map(
+                      (entry, index) => (
+                        <div
+                          key={entry.id || `entry-${index}`}
+                          className="mb-2"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                            <div>
+                              <Label>
+                                Officer Name{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter officer name"
+                                value={entry.officerName}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updateTraining(
+                                    entry.id,
+                                    "officerName",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.5")}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_5.capacityArray.${
+                                      formData.section4_5?.capacityArray?.findIndex(
+                                        (e) => e.id === entry.id
+                                      ) ?? 0
+                                    }.officerName`
+                                  ),
+                                  isIndicatorSubmitted("4.5") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.officerName`
+                              )}
+                            </div>
+                            <div>
+                              <Label>
+                                Designation{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter designation"
+                                value={entry.designation}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updateTraining(
+                                    entry.id,
+                                    "designation",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.5")}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_5.capacityArray.${
+                                      formData.section4_5?.capacityArray?.findIndex(
+                                        (e) => e.id === entry.id
+                                      ) ?? 0
+                                    }.designation`
+                                  ),
+                                  isIndicatorSubmitted("4.5") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.designation`
+                              )}
+                            </div>
+                            <div>
+                              <Label>
+                                Program Name{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter program name"
+                                value={entry.programName}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updateTraining(
+                                    entry.id,
+                                    "programName",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.5")}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_5.capacityArray.${
+                                      formData.section4_5?.capacityArray?.findIndex(
+                                        (e) => e.id === entry.id
+                                      ) ?? 0
+                                    }.programName`
+                                  ),
+                                  isIndicatorSubmitted("4.5") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.programName`
+                              )}
+                            </div>
+                            <div>
+                              <Label>
+                                Organizer{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter organizer"
+                                value={entry.organiser}
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  updateTraining(
+                                    entry.id,
+                                    "organiser",
+                                    e.target.value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.5")}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_5.capacityArray.${
+                                      formData.section4_5?.capacityArray?.findIndex(
+                                        (e) => e.id === entry.id
+                                      ) ?? 0
+                                    }.organiser`
+                                  ),
+                                  isIndicatorSubmitted("4.5") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.organiser`
+                              )}
+                            </div>
+                            <div>
+                              <Label>
+                                Type <span className="text-destructive">*</span>
+                              </Label>
+                              <Select
+                                value={entry.trainingType}
+                                onValueChange={(v) => {
+                                  showErrorsIfNeeded();
+                                  updateTraining(entry.id, "trainingType", v);
+                                }}
+                                disabled={isIndicatorSubmitted("4.5")}
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    getInputValidationClass(
+                                      `section4_5.capacityArray.${
+                                        formData.section4_5?.capacityArray?.findIndex(
+                                          (e) => e.id === entry.id
+                                        ) ?? 0
+                                      }.trainingType`
+                                    )
+                                  )}
+                                >
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Online">Online</SelectItem>
+                                  <SelectItem value="Offline">
+                                    Offline
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {renderFieldError(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.trainingType`
+                              )}
+                            </div>
+                            <div>
+                              <Label>
+                                Conducted during (MM/YY){" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <MonthYearPicker
+                                value={
+                                  entry.trainingPeriod
+                                    ? entry.trainingPeriod.includes("/")
+                                      ? entry.trainingPeriod
+                                      : entry.trainingPeriod.length === 4
+                                      ? `${entry.trainingPeriod.slice(
+                                          0,
+                                          2
+                                        )}/${entry.trainingPeriod.slice(2)}`
+                                      : entry.trainingPeriod
+                                    : ""
+                                }
+                                onChange={(value) => {
+                                  showErrorsIfNeeded();
+                                  updateTraining(
+                                    entry.id,
+                                    "trainingPeriod",
+                                    value
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("4.5")}
+                                placeholder="Select month/year"
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_5.capacityArray.${
+                                      formData.section4_5?.capacityArray?.findIndex(
+                                        (e) => e.id === entry.id
+                                      ) ?? 0
+                                    }.trainingPeriod`
+                                  ),
+                                  isIndicatorSubmitted("4.5") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
+                              />
+                              {renderFieldError(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.trainingPeriod`
+                              )}
+                            </div>
+                            <div className="flex items-center justify-center w-12">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeTraining(entry.id)}
+                                disabled={isIndicatorSubmitted("4.5")}
+                                aria-label="Remove"
+                                className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    <div className="flex gap-2 flex-wrap items-center justify-between w-full">
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addTraining}
+                          disabled={isIndicatorSubmitted("4.5")}
+                          className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add More Officer
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleExcelUploadClick}
+                          disabled={
+                            isIndicatorSubmitted("4.5") || isUploadingExcel
+                          }
+                          className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {isUploadingExcel ? "Uploading..." : "Upload Excel"}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDownloadTemplate}
+                          disabled={isIndicatorSubmitted("4.5")}
+                          className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Template
+                        </Button>
+                      </div>
+
+                      {(formData.section4_5?.capacityArray || []).length >
+                        0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowClearAllDialog(true)}
+                          disabled={isIndicatorSubmitted("4.5")}
+                          className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <X className="w-4 h-4" />
+                          Clear All
+                        </Button>
+                      )}
+
+                      <input
+                        ref={excelFileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={handleExcelUpload}
+                        style={{ display: "none" }}
+                      />
                     </div>
                   </div>
-                ))}
+                )}
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addGatiProject}
-                  disabled={isIndicatorSubmitted("4.2")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                {/* Clear All Confirmation Dialog */}
+                <AlertDialog
+                  open={showClearAllDialog}
+                  onOpenChange={setShowClearAllDialog}
                 >
-                  <Plus className="w-4 h-4" />
-                  Add More Project
-                </Button>
-              </div>
-            )}
-            {/* ✅ Table view for Section 4.2 – PM GatiShakti Projects */}
-            {formData.section4_2.adopted === "yes" && (
-              <div className="overflow-x-auto rounded-xl mt-4">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Project Name
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Sector
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Status of Project
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Uploaded File
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        File Size
-                      </th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(formData.section4_2?.projects || []).map(
-                      (entry, index) => {
-                        const file = entry.file;
-                        if (!file) {
-                          return (
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to clear all officer entries? This
+                        action cannot be undone.
+                        {(formData.section4_5?.capacityArray || []).length >
+                          0 && (
+                          <span className="block mt-2 font-semibold text-destructive">
+                            This will remove{" "}
+                            {(formData.section4_5?.capacityArray || []).length}{" "}
+                            {formData.section4_5?.capacityArray?.length === 1
+                              ? "entry"
+                              : "entries"}
+                            .
+                          </span>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleClearAll}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Clear All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                {/* ✅ Table view for Section 4.5 – Officer Participation */}
+                {formData.section4_5.participated === "yes" && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Officer Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Designation
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Program Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Organizer
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Type
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Conducted during (MM/YY)
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(formData.section4_5?.capacityArray || []).map(
+                          (entry, index) => (
                             <tr
                               key={entry.id || `entry-${index}`}
                               className="bg-white"
                             >
                               <td className="py-3 px-4 text-sm">
-                                {entry.projectName}
+                                {entry.officerName}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.sector}
+                                {entry.designation}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.statusOfProject || "N/A"}
+                                {entry.programName}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                No file uploaded
+                                {entry.organiser}
                               </td>
-                              <td className="py-3 px-4 text-sm">N/A</td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.trainingType}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.trainingPeriod
+                                  ? entry.trainingPeriod.includes("/")
+                                    ? entry.trainingPeriod
+                                    : entry.trainingPeriod.length === 4
+                                    ? `${entry.trainingPeriod.slice(
+                                        0,
+                                        2
+                                      )}/${entry.trainingPeriod.slice(2)}`
+                                    : entry.trainingPeriod
+                                  : "-"}
+                              </td>
                               <td className="py-3 px-4">
                                 <button
                                   type="button"
-                                  onClick={() => removeGatiProject(entry.id)}
-                                  disabled={isIndicatorSubmitted("4.2")}
+                                  onClick={() => removeTraining(entry.id)}
+                                  disabled={isIndicatorSubmitted("4.5")}
                                   className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Delete"
                                 >
@@ -2582,1428 +3939,145 @@ export const InfraEnablersStep = () => {
                                 </button>
                               </td>
                             </tr>
-                          );
-                        }
-
-                        // Extract original name from UUID-prefixed fileName if originalName is not available
-                        const extractOriginalName = (
-                          fileName: string,
-                          originalName?: string
-                        ): string => {
-                          if (originalName && originalName.trim())
-                            return originalName;
-
-                          // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                          const uuidPattern =
-                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-
-                          if (uuidPattern.test(fileName)) {
-                            const extracted = fileName.replace(uuidPattern, "");
-                            if (extracted && extracted.trim().length > 0) {
-                              return extracted;
-                            }
-                          }
-
-                          return fileName;
-                        };
-
-                        const displayName = extractOriginalName(
-                          file.fileName || "",
-                          (file as any)?.originalName
-                        );
-
-                        return (
-                          <tr
-                            key={entry.id || `entry-${index}`}
-                            className="bg-white"
-                          >
-                            <td className="py-3 px-4 text-sm">
-                              {entry.projectName}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.statusOfProject || "N/A"}
-                            </td>
-                            <td className="py-3 px-4 text-sm">{displayName}</td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.file?.fileSize
-                                ? `${(
-                                    entry.file.fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() => removeGatiProject(entry.id)}
-                                disabled={isIndicatorSubmitted("4.2")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      }
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* --- If NO --- (same style as Section 4.2) */}
-            {formData.section4_2.adopted === "no" && (
-              <div className="flex flex-col gap-2 w-[60%]">
-                <Label>
-                  Comments (Reason) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Enter reason or comment"
-                  value={formData.section4_2.comment || ""}
-                  disabled={isIndicatorSubmitted("4.2")}
-                  onChange={(e) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_2: {
-                        ...prev.section4_2,
-                        comment: e.target.value,
-                      },
-                    }));
-                  }}
-                  className={cn(
-                    isIndicatorSubmitted("4.2") &&
-                      "bg-gray-50 cursor-not-allowed"
-                  )}
-                />
-              </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <Button
-                onClick={() =>
-                  handleSubmitIndicator("4.2", "PM GatiShakti NMP Projects")
-                }
-                disabled={
-                  submittingIndicator !== null || isIndicatorSubmitted("4.2")
-                }
-                size="sm"
-              >
-                {getSubmitButtonText("4.2", submittingIndicator)}
-              </Button>
-              {!isIndicatorSentBack("4.2") && (
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("4.2")}
-                  disabled={
-                    savingDraftIndicators.has("4.2") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("4.2")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("4.2")
-                    ? "Saving..."
-                    : "Save as Draft"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Section 4.3 */}
-      {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.3") ||
-        availableIndicators.includes("4.3")) && (
-        <SectionCard
-          title={
-            <div className="flex flex-col">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.3 – </span> Adoption of ADR
-                {/* <span className="font-normal text-xs text-muted-foreground ml-1">
-                  (10 marks per practice)
-                </span> */}
-              </span>
-            </div>
-          }
-          className="mb-6"
-          indicatorStatus={getIndicatorStatus("4.3")}
-          indicatorCode="4.3"
-          isEditable={editingIndicators.has("4.3")}
-          onEdit={() => handleEditIndicator("4.3")}
-          onSave={() => handleSaveIndicator("4.3")}
-          onCancel={() => handleCancelEdit("4.3")}
-          isSaving={savingIndicators.has("4.3")}
-        >
-          {renderSectionValidationMessage("4.3")}
-          <div className="flex flex-col gap-4 w-[70%]">
-            <div>
-              <Label>
-                Adoption of ADR <span className="text-red-500">*</span>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="inline w-3 h-3 ml-1" />
-                  </TooltipTrigger>
-                  <TooltipContent>Is ADR adopted?</TooltipContent>
-                </Tooltip>
-              </Label>
-
-              <div className="flex gap-6 mt-1">
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="adr-adopted"
-                    value="yes"
-                    checked={formData.section4_3.adopted === "yes"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.3")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_3: {
-                          ...prev.section4_3,
-                          adopted: "yes",
-                          comment: "",
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.3")}
-                  />
-                  Yes
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="adr-adopted"
-                    value="no"
-                    checked={formData.section4_3.adopted === "no"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.3")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_3: {
-                          ...prev.section4_3,
-                          adopted: "no",
-                          file: null,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.3")}
-                  />
-                  No
-                </label>
-              </div>
-            </div>
-
-            {/* ✅ If YES → show file upload */}
-            {formData.section4_3.adopted === "yes" && (
-              <div className="flex flex-col gap-2">
-                {(() => {
-                  console.log(
-                    "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_3",
-                    {
-                      noDocumentAvailable:
-                        formData.section4_3.noDocumentAvailable,
-                      hasFile: !!formData.section4_3.file,
-                      adopted: formData.section4_3.adopted,
-                    }
-                  );
-                  return null;
-                })()}
-                <FileUploadSection
-                  label="Upload File"
-                  value={formData.section4_3.file}
-                  onChange={(file) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_3: {
-                        ...prev.section4_3,
-                        file,
-                        // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                        // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                        noDocumentAvailable: file
-                          ? false
-                          : prev.section4_3.noDocumentAvailable,
-                      },
-                    }));
-                  }}
-                  submissionId={submissionId}
-                  required
-                  disabled={isIndicatorSubmitted("4.3")}
-                  deferFileDeletion={editingIndicators.has("4.3")}
-                  showNoDocumentOption={true}
-                  noDocumentAvailable={
-                    formData.section4_3.noDocumentAvailable || false
-                  }
-                  onNoDocumentChange={(noDocument) => {
-                    console.log(
-                      "📝 InfraEnablersStep: section4_3 onNoDocumentChange called",
-                      {
-                        noDocument,
-                        currentValue: formData.section4_3.noDocumentAvailable,
-                      }
-                    );
-                    showErrorsIfNeeded();
-                    setFormData((prev) => {
-                      const newData = {
-                        ...prev,
-                        section4_3: {
-                          ...prev.section4_3,
-                          noDocumentAvailable: noDocument,
-                          file: noDocument ? null : prev.section4_3.file,
-                        },
-                      };
-                      console.log(
-                        "📝 InfraEnablersStep: section4_3 state updated",
-                        {
-                          newValue: newData.section4_3.noDocumentAvailable,
-                          prevValue: prev.section4_3.noDocumentAvailable,
-                        }
-                      );
-                      return newData;
-                    });
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Upload ADR orders
-                </p>
-              </div>
-            )}
-
-            {/* ✅ If NO → show comment box (same style as 4.1 & 4.2) */}
-            {formData.section4_3.adopted === "no" && (
-              <div className="flex flex-col gap-2 w-[60%]">
-                <Label>
-                  Comments (Reason) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Enter reason or comment"
-                  value={formData.section4_3.comment || ""}
-                  onChange={(e) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_3: {
-                        ...prev.section4_3,
-                        comment: e.target.value,
-                      },
-                    }));
-                  }}
-                  disabled={isIndicatorSubmitted("4.3")}
-                  className={cn(
-                    isIndicatorSubmitted("4.3") &&
-                      "bg-gray-50 cursor-not-allowed"
-                  )}
-                />
-              </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <Button
-                onClick={() => handleSubmitIndicator("4.3", "Adoption of ADR")}
-                disabled={
-                  submittingIndicator !== null || isIndicatorSubmitted("4.3")
-                }
-                size="sm"
-              >
-                {getSubmitButtonText("4.3", submittingIndicator)}
-              </Button>
-              {!isIndicatorSentBack("4.3") && (
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("4.3")}
-                  disabled={
-                    savingDraftIndicators.has("4.3") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("4.3")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("4.3")
-                    ? "Saving..."
-                    : "Save as Draft"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Section 4.4 */}
-      {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.4") ||
-        availableIndicators.includes("4.4")) && (
-        <SectionCard
-          title={
-            <div className="flex flex-col">
-              <span className="text-base font-semibold">
-                <span className="text-primary">4.4 – </span> Innovative
-                Practices
-              </span>
-            </div>
-          }
-          className="mb-6"
-          indicatorStatus={getIndicatorStatus("4.4")}
-          indicatorCode="4.4"
-          isEditable={editingIndicators.has("4.4")}
-          onEdit={() => handleEditIndicator("4.4")}
-          onSave={() => handleSaveIndicator("4.4")}
-          onCancel={() => handleCancelEdit("4.4")}
-          isSaving={savingIndicators.has("4.4")}
-        >
-          {renderSectionValidationMessage("4.4")}
-          <div className="flex flex-col gap-4 w-[70%]">
-            {/* Toggle */}
-            <div>
-              <Label>
-                Innovative Practices <span className="text-destructive">*</span>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="inline w-3 h-3 ml-1" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Has the State/UT implemented innovative practices?
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-
-              <div className="flex gap-6 mt-1">
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="innovative-practices"
-                    value="yes"
-                    checked={formData.section4_4.implemented === "yes"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.4")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_4: {
-                          ...prev.section4_4,
-                          implemented: "yes",
-                          comment: "",
-                          // Initialize with 1 entry if empty
-                          practices:
-                            prev.section4_4?.practices &&
-                            prev.section4_4.practices.length > 0
-                              ? prev.section4_4.practices
-                              : [
-                                  {
-                                    id: Date.now().toString(),
-                                    practiceName: "",
-                                    impact: "",
-                                    file: null,
-                                    noDocumentAvailable: false,
-                                  },
-                                ],
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.4")}
-                  />
-                  Yes
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="innovative-practices"
-                    value="no"
-                    checked={formData.section4_4.implemented === "no"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.4")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_4: {
-                          ...prev.section4_4,
-                          implemented: "no",
-                          practices: [],
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.4")}
-                  />
-                  No
-                </label>
-              </div>
-            </div>
-
-            {/* ✅ If YES → show Practice list */}
-            {formData.section4_4.implemented === "yes" && (
-              <div className="flex flex-col gap-4">
-                {(formData.section4_4?.practices || []).map((entry, index) => (
-                  <div key={entry.id || `entry-${index}`} className="mb-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      <div>
-                        <Label>
-                          Practice Name{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter practice name"
-                          value={entry.practiceName}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            updatePractice(
-                              entry.id,
-                              "practiceName",
-                              e.target.value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("4.4")}
-                          className={cn(
-                            getInputValidationClass(
-                              `section4_4.practices.${
-                                formData.section4_4?.practices?.findIndex(
-                                  (p) => p.id === entry.id
-                                ) ?? 0
-                              }.practiceName`
-                            ),
-                            isIndicatorSubmitted("4.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section4_4.practices.${
-                            formData.section4_4?.practices?.findIndex(
-                              (p) => p.id === entry.id
-                            ) ?? 0
-                          }.practiceName`
+                          )
                         )}
-                      </div>
-
-                      <div>
-                        <Label>
-                          Impact <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={entry.impact}
-                          onValueChange={(v) => {
-                            showErrorsIfNeeded();
-                            updatePractice(entry.id, "impact", v);
-                          }}
-                          disabled={isIndicatorSubmitted("4.4")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section4_4.practices.${
-                                  formData.section4_4?.practices?.findIndex(
-                                    (p) => p.id === entry.id
-                                  ) ?? 0
-                                }.impact`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Select impact" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {IMPACT_OPTIONS.map((impact) => (
-                              <SelectItem key={impact} value={impact}>
-                                {impact}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {renderFieldError(
-                          `section4_4.practices.${
-                            formData.section4_4?.practices?.findIndex(
-                              (p) => p.id === entry.id
-                            ) ?? 0
-                          }.impact`
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removePractice(entry.id)}
-                          disabled={isIndicatorSubmitted("4.4")}
-                          aria-label="Remove"
-                          className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Upload File Below */}
-                    <div className="mt-4">
-                      <FileUploadSection
-                        label="Upload Evidence"
-                        value={entry.file || null}
-                        accept=".pdf"
-                        onChange={(file) => {
-                          showErrorsIfNeeded();
-                          updatePractice(entry.id, "file", file);
-                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                          setFormData((prev) => ({
-                            ...prev,
-                            section4_4: {
-                              ...prev.section4_4,
-                              practices: (prev.section4_4?.practices || []).map(
-                                (p) =>
-                                  p.id === entry.id
-                                    ? {
-                                        ...p,
-                                        file,
-                                        noDocumentAvailable: file
-                                          ? false
-                                          : p.noDocumentAvailable,
-                                      }
-                                    : p
-                              ),
-                            },
-                          }));
-                        }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("4.4")}
-                        deferFileDeletion={editingIndicators.has("4.4")}
-                        showNoDocumentOption={true}
-                        noDocumentAvailable={entry.noDocumentAvailable || false}
-                        onNoDocumentChange={(noDocument) => {
-                          console.log(
-                            "📝 InfraEnablersStep: section4_4 onNoDocumentChange called",
-                            {
-                              noDocument,
-                              entryId: entry.id,
-                              currentValue: entry.noDocumentAvailable,
-                            }
-                          );
-                          showErrorsIfNeeded();
-                          setFormData((prev) => {
-                            const newData = {
-                              ...prev,
-                              section4_4: {
-                                ...prev.section4_4,
-                                practices: (
-                                  prev.section4_4?.practices || []
-                                ).map((p) =>
-                                  p.id === entry.id
-                                    ? {
-                                        ...p,
-                                        noDocumentAvailable: noDocument,
-                                        file: noDocument ? null : p.file,
-                                      }
-                                    : p
-                                ),
-                              },
-                            };
-                            console.log(
-                              "📝 InfraEnablersStep: section4_4 state updated",
-                              {
-                                entryId: entry.id,
-                                newValue: newData.section4_4.practices.find(
-                                  (p) => p.id === entry.id
-                                )?.noDocumentAvailable,
-                                prevValue: entry.noDocumentAvailable,
-                              }
-                            );
-                            return newData;
-                          });
-                        }}
-                        className={getInputValidationClass(
-                          `section4_4.practices.${
-                            formData.section4_4?.practices?.findIndex(
-                              (p) => p.id === entry.id
-                            ) ?? 0
-                          }.file`
-                        )}
-                      />
-                      {renderFieldError(
-                        `section4_4.practices.${
-                          formData.section4_4?.practices?.findIndex(
-                            (p) => p.id === entry.id
-                          ) ?? 0
-                        }.file`
-                      )}
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
-                ))}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addPractice}
-                  disabled={isIndicatorSubmitted("4.4")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Practice
-                </Button>
-              </div>
-            )}
-
-            {/* ✅ If NO → show Comment Box (same as 4.1/4.2/4.3) */}
-            {formData.section4_4.implemented === "no" && (
-              <div className="flex flex-col gap-2 w-[60%]">
-                <Label>
-                  Comments (Reason) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Enter reason or comment"
-                  value={formData.section4_4.comment || ""}
-                  onChange={(e) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_4: {
-                        ...prev.section4_4,
-                        comment: e.target.value,
-                      },
-                    }));
-                  }}
-                  disabled={isIndicatorSubmitted("4.4")}
-                  className={cn(
-                    isIndicatorSubmitted("4.4") &&
-                      "bg-gray-50 cursor-not-allowed"
-                  )}
-                />
-              </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <Button
-                onClick={() =>
-                  handleSubmitIndicator("4.4", "Innovative Practices")
-                }
-                disabled={
-                  submittingIndicator !== null || isIndicatorSubmitted("4.4")
-                }
-                size="sm"
-              >
-                {getSubmitButtonText("4.4", submittingIndicator)}
-              </Button>
-              {!isIndicatorSentBack("4.4") && (
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("4.4")}
-                  disabled={
-                    savingDraftIndicators.has("4.4") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("4.4")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingDraftIndicators.has("4.4")
-                    ? "Saving..."
-                    : "Save as Draft"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Section 4.5 */}
-      {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.5") ||
-        availableIndicators.includes("4.5")) && (
-        <SectionCard
-          title={
-            <div className="flex flex-col">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.5 – </span> Capacity Building –
-                Officer Participation
-              </span>
-            </div>
-          }
-          className="mb-6"
-          indicatorStatus={getIndicatorStatus("4.5")}
-          indicatorCode="4.5"
-          isEditable={editingIndicators.has("4.5")}
-          onEdit={() => handleEditIndicator("4.5")}
-          onSave={() => handleSaveIndicator("4.5")}
-          onCancel={() => handleCancelEdit("4.5")}
-          isSaving={savingIndicators.has("4.5")}
-        >
-          {renderSectionValidationMessage("4.5")}
-          <div className="flex flex-col gap-4">
-            {/* --- FY Count Display --- */}
-            {formData.section4_5.participated === "yes" && (
-              <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <Label className="text-base font-semibold text-gray-700 leading-none">
-                    Total Number of Officers Trained (FY{" "}
-                    {getCurrentFinancialYear()}):
-                  </Label>
-                  <span className="text-2xl font-bold text-blue-600 leading-none">
-                    {countOfficersTrainedInCurrentFY(
-                      formData.section4_5?.capacityArray || []
-                    )}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  Count based on training dates within the current financial
-                  year
-                </p>
-              </div>
-            )}
-
-            {/* --- Toggle --- */}
-            <div className="w-[60%]">
-              <Label>
-                Capacity Building – Officer Participation{" "}
-                <span className="text-destructive">*</span>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="inline w-3 h-3 ml-1" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Has there been officer participation in capacity building?
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-
-              <div className="flex gap-6 mt-1">
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="capacity-building"
-                    value="yes"
-                    checked={formData.section4_5.participated === "yes"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.5")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_5: {
-                          ...prev.section4_5,
-                          participated: "yes",
-                          comment: "",
-                          // Initialize with 1 entry if empty
-                          capacityArray:
-                            prev.section4_5?.capacityArray &&
-                            prev.section4_5.capacityArray.length > 0
-                              ? prev.section4_5.capacityArray
-                              : [
-                                  {
-                                    id: Date.now().toString(),
-                                    officerName: "",
-                                    designation: "",
-                                    programName: "",
-                                    organiser: "",
-                                    trainingType: "",
-                                    trainingPeriod: "",
-                                  },
-                                ],
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.5")}
-                  />
-                  Yes
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <Input
-                    type="radio"
-                    name="capacity-building"
-                    value="no"
-                    checked={formData.section4_5.participated === "no"}
-                    onChange={() => {
-                      if (isIndicatorSubmitted("4.5")) return;
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_5: {
-                          ...prev.section4_5,
-                          participated: "no",
-                          capacityArray: [],
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("4.5")}
-                  />
-                  No
-                </label>
-              </div>
-            </div>
-
-            {/* ✅ If YES → show officer entries */}
-            {formData.section4_5.participated === "yes" && (
-              <div className="flex flex-col gap-4">
-                {(formData.section4_5?.capacityArray || []).map(
-                  (entry, index) => (
-                    <div key={entry.id || `entry-${index}`} className="mb-2">
-                      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 items-end">
-                        <div>
-                          <Label>
-                            Officer Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder="Enter officer name"
-                            value={entry.officerName}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateTraining(
-                                entry.id,
-                                "officerName",
-                                e.target.value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("4.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section4_5.capacityArray.${
-                                  formData.section4_5?.capacityArray?.findIndex(
-                                    (e) => e.id === entry.id
-                                  ) ?? 0
-                                }.officerName`
-                              ),
-                              isIndicatorSubmitted("4.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section4_5.capacityArray.${
-                              formData.section4_5?.capacityArray?.findIndex(
-                                (e) => e.id === entry.id
-                              ) ?? 0
-                            }.officerName`
-                          )}
-                        </div>
-                        <div>
-                          <Label>
-                            Designation{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder="Enter designation"
-                            value={entry.designation}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateTraining(
-                                entry.id,
-                                "designation",
-                                e.target.value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("4.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section4_5.capacityArray.${
-                                  formData.section4_5?.capacityArray?.findIndex(
-                                    (e) => e.id === entry.id
-                                  ) ?? 0
-                                }.designation`
-                              ),
-                              isIndicatorSubmitted("4.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section4_5.capacityArray.${
-                              formData.section4_5?.capacityArray?.findIndex(
-                                (e) => e.id === entry.id
-                              ) ?? 0
-                            }.designation`
-                          )}
-                        </div>
-                        <div>
-                          <Label>
-                            Program Name{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder="Enter program name"
-                            value={entry.programName}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateTraining(
-                                entry.id,
-                                "programName",
-                                e.target.value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("4.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section4_5.capacityArray.${
-                                  formData.section4_5?.capacityArray?.findIndex(
-                                    (e) => e.id === entry.id
-                                  ) ?? 0
-                                }.programName`
-                              ),
-                              isIndicatorSubmitted("4.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section4_5.capacityArray.${
-                              formData.section4_5?.capacityArray?.findIndex(
-                                (e) => e.id === entry.id
-                              ) ?? 0
-                            }.programName`
-                          )}
-                        </div>
-                        <div>
-                          <Label>
-                            Organizer{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="text"
-                            placeholder="Enter organizer"
-                            value={entry.organiser}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateTraining(
-                                entry.id,
-                                "organiser",
-                                e.target.value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("4.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section4_5.capacityArray.${
-                                  formData.section4_5?.capacityArray?.findIndex(
-                                    (e) => e.id === entry.id
-                                  ) ?? 0
-                                }.organiser`
-                              ),
-                              isIndicatorSubmitted("4.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section4_5.capacityArray.${
-                              formData.section4_5?.capacityArray?.findIndex(
-                                (e) => e.id === entry.id
-                              ) ?? 0
-                            }.organiser`
-                          )}
-                        </div>
-                        <div>
-                          <Label>
-                            Type <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={entry.trainingType}
-                            onValueChange={(v) => {
-                              showErrorsIfNeeded();
-                              updateTraining(entry.id, "trainingType", v);
-                            }}
-                            disabled={isIndicatorSubmitted("4.5")}
-                          >
-                            <SelectTrigger
-                              className={cn(
-                                getInputValidationClass(
-                                  `section4_5.capacityArray.${
-                                    formData.section4_5?.capacityArray?.findIndex(
-                                      (e) => e.id === entry.id
-                                    ) ?? 0
-                                  }.trainingType`
-                                )
-                              )}
-                            >
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Online">Online</SelectItem>
-                              <SelectItem value="Offline">Offline</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {renderFieldError(
-                            `section4_5.capacityArray.${
-                              formData.section4_5?.capacityArray?.findIndex(
-                                (e) => e.id === entry.id
-                              ) ?? 0
-                            }.trainingType`
-                          )}
-                        </div>
-                        <div>
-                          <Label>
-                            Conducted during (MM/YY){" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
-                          <MonthYearPicker
-                            value={
-                              entry.trainingPeriod
-                                ? entry.trainingPeriod.includes("/")
-                                  ? entry.trainingPeriod
-                                  : entry.trainingPeriod.length === 4
-                                  ? `${entry.trainingPeriod.slice(
-                                      0,
-                                      2
-                                    )}/${entry.trainingPeriod.slice(2)}`
-                                  : entry.trainingPeriod
-                                : ""
-                            }
-                            onChange={(value) => {
-                              showErrorsIfNeeded();
-                              updateTraining(entry.id, "trainingPeriod", value);
-                            }}
-                            disabled={isIndicatorSubmitted("4.5")}
-                            placeholder="Select month/year"
-                            className={cn(
-                              getInputValidationClass(
-                                `section4_5.capacityArray.${
-                                  formData.section4_5?.capacityArray?.findIndex(
-                                    (e) => e.id === entry.id
-                                  ) ?? 0
-                                }.trainingPeriod`
-                              ),
-                              isIndicatorSubmitted("4.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section4_5.capacityArray.${
-                              formData.section4_5?.capacityArray?.findIndex(
-                                (e) => e.id === entry.id
-                              ) ?? 0
-                            }.trainingPeriod`
-                          )}
-                        </div>
-                        <div className="flex items-center justify-center w-12">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeTraining(entry.id)}
-                            disabled={isIndicatorSubmitted("4.5")}
-                            aria-label="Remove"
-                            className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )
                 )}
 
-                <div className="flex gap-2 flex-wrap items-center justify-between w-full">
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addTraining}
+                {/* ✅ If NO → show comment box */}
+                {formData.section4_5.participated === "no" && (
+                  <div className="flex flex-col gap-2 w-[60%]">
+                    <Label>
+                      Comments (Reason){" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section4_5.comment || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_5: {
+                            ...prev.section4_5,
+                            comment: e.target.value,
+                          },
+                        }));
+                      }}
                       disabled={isIndicatorSubmitted("4.5")}
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add More Officer
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExcelUploadClick}
-                      disabled={isIndicatorSubmitted("4.5") || isUploadingExcel}
-                      className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Upload className="w-4 h-4" />
-                      {isUploadingExcel ? "Uploading..." : "Upload Excel"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDownloadTemplate}
-                      disabled={isIndicatorSubmitted("4.5")}
-                      className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download Template
-                    </Button>
+                      className={cn(
+                        isIndicatorSubmitted("4.5") &&
+                          "bg-gray-50 cursor-not-allowed"
+                      )}
+                    />
                   </div>
-
-                  {(formData.section4_5?.capacityArray || []).length > 0 && (
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("4.5", "Capacity Building")
+                    }
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("4.5")
+                    }
+                    size="sm"
+                  >
+                    {getSubmitButtonText("4.5", submittingIndicator)}
+                  </Button>
+                  {!isIndicatorSentBack("4.5") && (
                     <Button
-                      type="button"
+                      onClick={() => handleSaveAsDraftIndicator("4.5")}
+                      disabled={
+                        savingDraftIndicators.has("4.5") ||
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("4.5")
+                      }
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowClearAllDialog(true)}
-                      disabled={isIndicatorSubmitted("4.5")}
-                      className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <X className="w-4 h-4" />
-                      Clear All
+                      {savingDraftIndicators.has("4.5")
+                        ? "Saving..."
+                        : "Save as Draft"}
                     </Button>
                   )}
-
-                  <input
-                    ref={excelFileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleExcelUpload}
-                    style={{ display: "none" }}
-                  />
                 </div>
               </div>
-            )}
+            </SectionCard>
+          )}
 
-            {/* Clear All Confirmation Dialog */}
-            <AlertDialog
-              open={showClearAllDialog}
-              onOpenChange={setShowClearAllDialog}
-            >
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to clear all officer entries? This
-                    action cannot be undone.
-                    {(formData.section4_5?.capacityArray || []).length > 0 && (
-                      <span className="block mt-2 font-semibold text-destructive">
-                        This will remove{" "}
-                        {(formData.section4_5?.capacityArray || []).length}{" "}
-                        {formData.section4_5?.capacityArray?.length === 1
-                          ? "entry"
-                          : "entries"}
-                        .
-                      </span>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleClearAll}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    Clear All
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            {/* ✅ Table view for Section 4.5 – Officer Participation */}
-            {formData.section4_5.participated === "yes" && (
-              <div className="overflow-x-auto rounded-xl mt-4">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Officer Name
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Designation
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Program Name
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Organizer
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Type
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
-                        Conducted during (MM/YY)
-                      </th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(formData.section4_5?.capacityArray || []).map(
-                      (entry, index) => (
-                        <tr
-                          key={entry.id || `entry-${index}`}
-                          className="bg-white"
-                        >
-                          <td className="py-3 px-4 text-sm">
-                            {entry.officerName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.designation}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.programName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.organiser}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.trainingType}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.trainingPeriod
-                              ? entry.trainingPeriod.includes("/")
-                                ? entry.trainingPeriod
-                                : entry.trainingPeriod.length === 4
-                                ? `${entry.trainingPeriod.slice(
-                                    0,
-                                    2
-                                  )}/${entry.trainingPeriod.slice(2)}`
-                                : entry.trainingPeriod
-                              : "-"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() => removeTraining(entry.id)}
-                              disabled={isIndicatorSubmitted("4.5")}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          {/* Navigation Buttons */}
 
-            {/* ✅ If NO → show comment box */}
-            {formData.section4_5.participated === "no" && (
-              <div className="flex flex-col gap-2 w-[60%]">
-                <Label>
-                  Comments (Reason) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Enter reason or comment"
-                  value={formData.section4_5.comment || ""}
-                  onChange={(e) => {
-                    showErrorsIfNeeded();
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_5: {
-                        ...prev.section4_5,
-                        comment: e.target.value,
-                      },
-                    }));
-                  }}
-                  disabled={isIndicatorSubmitted("4.5")}
-                  className={cn(
-                    isIndicatorSubmitted("4.5") &&
-                      "bg-gray-50 cursor-not-allowed"
-                  )}
-                />
-              </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <Button
-                onClick={() =>
-                  handleSubmitIndicator("4.5", "Capacity Building")
-                }
-                disabled={
-                  submittingIndicator !== null || isIndicatorSubmitted("4.5")
-                }
-                size="sm"
-              >
-                {getSubmitButtonText("4.5", submittingIndicator)}
-              </Button>
-              {!isIndicatorSentBack("4.5") && (
-                <Button
-                  onClick={() => handleSaveAsDraftIndicator("4.5")}
-                  disabled={
-                    savingDraftIndicators.has("4.5") ||
-                    submittingIndicator !== null ||
-                    isIndicatorSubmitted("4.5")
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+          <FormActions
+            onPrevious={goToPrevious}
+            onNext={handleNext}
+            onSaveDraft={handleSaveDraft}
+            isFirstStep={false}
+            isLastStep={isLastStep}
+            nextLabel={isLastStep ? "Review & Submit" : "Next"}
+            showSaveDraft={true}
+            isNextDisabled={isNextDisabled}
+          />
+
+          {/* Confirmation Dialog for Submit */}
+          <AlertDialog
+            open={showSubmitDialog}
+            onOpenChange={setShowSubmitDialog}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Submit</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to submit indicator{" "}
+                  <strong>
+                    {pendingIndicator?.code} - {pendingIndicator?.title}
+                  </strong>
+                  ? This will send the data to the State Approver for review.
+                  Once submitted, you cannot modify this indicator.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={handleCancelSubmit}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmSubmit}
+                  disabled={submittingIndicator !== null}
                 >
-                  {savingDraftIndicators.has("4.5")
-                    ? "Saving..."
-                    : "Save as Draft"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
+                  {submittingIndicator !== null
+                    ? "Submitting..."
+                    : "Confirm & Submit"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Confirmation Dialog for NODAL_OFFICER Save */}
+          <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to save this indicator? This will
+                  resubmit it to the State Approver.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={handleCancelSave}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmSave}>
+                  Confirm & Save
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
       )}
-
-      {/* Navigation Buttons */}
-
-      <FormActions
-        onPrevious={goToPrevious}
-        onNext={handleNext}
-        onSaveDraft={handleSaveDraft}
-        isFirstStep={false}
-        isLastStep={isLastStep}
-        nextLabel={isLastStep ? "Review & Submit" : "Next"}
-        showSaveDraft={true}
-        isNextDisabled={isNextDisabled}
-      />
-
-      {/* Confirmation Dialog for Submit */}
-      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Submit</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to submit indicator{" "}
-              <strong>
-                {pendingIndicator?.code} - {pendingIndicator?.title}
-              </strong>
-              ? This will send the data to the State Approver for review. Once
-              submitted, you cannot modify this indicator.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSubmit}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmSubmit}
-              disabled={submittingIndicator !== null}
-            >
-              {submittingIndicator !== null
-                ? "Submitting..."
-                : "Confirm & Submit"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirmation Dialog for NODAL_OFFICER Save */}
-      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to save this indicator? This will resubmit
-              it to the State Approver.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSave}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>
-              Confirm & Save
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

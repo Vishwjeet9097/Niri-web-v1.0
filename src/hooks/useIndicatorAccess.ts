@@ -82,10 +82,11 @@ export function useIndicatorAccess() {
     [CACHE_KEY_ASSIGNED]
   );
 
+  // _v2: keep all state indicators visible on Create submission (submitted ones non-editable); old cache may have filtered list
   const CACHE_KEY_AVAILABLE = useMemo(
     () =>
       userId && stateUt
-        ? `niri_available_indicators_${userId}_${stateUt}`
+        ? `niri_available_indicators_${userId}_${stateUt}_v2`
         : null,
     [userId, stateUt]
   );
@@ -209,69 +210,11 @@ export function useIndicatorAccess() {
 
             if (useCache) {
               const parsed = JSON.parse(cached || "[]");
-              let cachedCodes = Array.isArray(parsed) ? parsed : [];
-              
-              // Even when using cache, filter out submitted indicators to ensure accuracy
-              try {
-                const submissionsResp = await apiService.getSubmissions(1, 100);
-                const submissionsArray = Array.isArray(submissionsResp)
-                  ? submissionsResp
-                  : submissionsResp?.submissions || submissionsResp?.data || [];
-                
-                const stateApproverSubmissions = submissionsArray.filter((sub: any) => {
-                  const isOwnSubmission =
-                    (sub.user?.id === userId || sub.submittedBy === userId) &&
-                    (sub.user?.role === "STATE_APPROVER" || sub.currentOwnerRole === "STATE_APPROVER");
-                  const isSameState =
-                    !stateUt ||
-                    (sub.stateUt || sub.user?.stateUt || "").toUpperCase() === stateUt.toUpperCase();
-                  return isOwnSubmission && isSameState;
-                });
-                
-                const submittedIndicatorCodes = new Set<string>();
-                stateApproverSubmissions.forEach((submission: any) => {
-                  const formData = submission.formData || {};
-                  const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
-                  
-                  categories.forEach((category) => {
-                    const categoryData = formData[category] || {};
-                    Object.keys(categoryData).forEach((sectionKey) => {
-                      if (sectionKey.startsWith("section")) {
-                        const sectionData = categoryData[sectionKey];
-                        const status = sectionData?.status?.toUpperCase() || "";
-                        
-                        // Only filter out indicators with SUBMITTED_TO_STATE status
-                        // SAVE_AS_DRAFT and DRAFT should still be visible on Create Submission page
-                        if (status === "SUBMITTED_TO_STATE") {
-                          const indicatorCode = sectionKey
-                            .replace("section", "")
-                            .replace("_", ".");
-                          if (ALL_INDICATOR_CODES.includes(indicatorCode)) {
-                            submittedIndicatorCodes.add(indicatorCode);
-                          }
-                        }
-                      }
-                    });
-                  });
-                });
-                
-                if (submittedIndicatorCodes.size > 0) {
-                  const beforeFilter = cachedCodes.length;
-                  cachedCodes = cachedCodes.filter((code: string) => !submittedIndicatorCodes.has(code));
-                  console.log(
-                    `useIndicatorAccess: Filtered ${beforeFilter - cachedCodes.length} submitted indicators from cache`
-                  );
-                }
-              } catch (filterErr) {
-                console.warn(
-                  "useIndicatorAccess: Failed to filter submitted indicators from cache, using cached data as-is:",
-                  filterErr
-                );
-              }
-              
+              const cachedCodes = Array.isArray(parsed) ? parsed : [];
+              // Keep all indicators from cache visible on Create submission; submitted ones are made non-editable in step pages (like Nodal Officer)
               setAvailableIndicators(cachedCodes);
               console.log(
-                "useIndicatorAccess: used available cache for stateUt (with submitted indicators filtered)",
+                "useIndicatorAccess: used available cache for stateUt",
                 stateUt,
                 cachedCodes
               );
@@ -283,79 +226,9 @@ export function useIndicatorAccess() {
               const resp = await apiService.getAvailableIndicatorsForApprover(
                 stateUt
               );
-              let codes = normalizeToCodes(resp);
-              
-              // Filter out indicators that have already been submitted by STATE_APPROVER
-              // This prevents submitted indicators from appearing in "create submission" and user management
-              try {
-                const submissionsResp = await apiService.getSubmissions(1, 100);
-                const submissionsArray = Array.isArray(submissionsResp)
-                  ? submissionsResp
-                  : submissionsResp?.submissions || submissionsResp?.data || [];
-                
-                // Find STATE_APPROVER's own submissions (DRAFT, IN_PROGRESS, or any status)
-                const stateApproverSubmissions = submissionsArray.filter((sub: any) => {
-                  const isOwnSubmission =
-                    (sub.user?.id === userId || sub.submittedBy === userId) &&
-                    (sub.user?.role === "STATE_APPROVER" || sub.currentOwnerRole === "STATE_APPROVER");
-                  const isSameState =
-                    !stateUt ||
-                    (sub.stateUt || sub.user?.stateUt || "").toUpperCase() === stateUt.toUpperCase();
-                  return isOwnSubmission && isSameState;
-                });
-                
-                // Extract submitted indicators from STATE_APPROVER's submissions
-                const submittedIndicatorCodes = new Set<string>();
-                stateApproverSubmissions.forEach((submission: any) => {
-                  const formData = submission.formData || {};
-                  const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
-                  
-                  categories.forEach((category) => {
-                    const categoryData = formData[category] || {};
-                    Object.keys(categoryData).forEach((sectionKey) => {
-                      if (sectionKey.startsWith("section")) {
-                        const sectionData = categoryData[sectionKey];
-                        const status = sectionData?.status?.toUpperCase() || "";
-                        
-                        // Only exclude indicators with SUBMITTED_TO_STATE status from available list
-                        // SAVE_AS_DRAFT and DRAFT indicators should still be visible on Create Submission page
-                        if (status === "SUBMITTED_TO_STATE") {
-                          // Extract indicator code from section key (e.g., "section4_5" -> "4.5")
-                          const indicatorCode = sectionKey
-                            .replace("section", "")
-                            .replace("_", ".");
-                          if (ALL_INDICATOR_CODES.includes(indicatorCode)) {
-                            submittedIndicatorCodes.add(indicatorCode);
-                            console.log(
-                              `useIndicatorAccess: Found submitted indicator ${indicatorCode} with status ${status}`
-                            );
-                          }
-                        }
-                      }
-                    });
-                  });
-                });
-                
-                // Filter out submitted indicators from available list
-                if (submittedIndicatorCodes.size > 0) {
-                  const beforeFilter = codes.length;
-                  codes = codes.filter((code: string) => !submittedIndicatorCodes.has(code));
-                  console.log(
-                    `useIndicatorAccess: Filtered out ${beforeFilter - codes.length} submitted indicators. Remaining: ${codes.length}`
-                  );
-                  console.log(
-                    `useIndicatorAccess: Submitted indicators excluded:`,
-                    Array.from(submittedIndicatorCodes)
-                  );
-                }
-              } catch (submissionErr) {
-                console.warn(
-                  "useIndicatorAccess: Failed to filter submitted indicators, using all available indicators:",
-                  submissionErr
-                );
-                // Continue with all available indicators if filtering fails
-              }
-              
+              const codes = normalizeToCodes(resp);
+              // Do not filter out submitted indicators: keep all state indicators visible on Create submission;
+              // submitted ones are shown as non-editable in step pages (same behavior as Nodal Officer).
               setAvailableIndicators(codes);
               // cache since we have a valid stateUt
               localStorage.setItem(cachedKey, JSON.stringify(codes));
@@ -398,25 +271,31 @@ export function useIndicatorAccess() {
   ]);
 
   // Track last load to prevent duplicate calls
-  const lastLoadRef = useRef<{ userId: string | undefined; stateUt: string | undefined; role: string | undefined } | null>(null);
-  
+  const lastLoadRef = useRef<{
+    userId: string | undefined;
+    stateUt: string | undefined;
+    role: string | undefined;
+  } | null>(null);
+
   // initial + re-run on userId/stateUt/role changes
   useEffect(() => {
     // Check if values actually changed
     const currentValues = { userId, stateUt, role: user?.role };
     const lastValues = lastLoadRef.current;
-    
+
     // Skip if values haven't changed - this is the main guard
-    if (lastValues && 
-        lastValues.userId === currentValues.userId &&
-        lastValues.stateUt === currentValues.stateUt &&
-        lastValues.role === currentValues.role) {
+    if (
+      lastValues &&
+      lastValues.userId === currentValues.userId &&
+      lastValues.stateUt === currentValues.stateUt &&
+      lastValues.role === currentValues.role
+    ) {
       return; // Values haven't changed, skip
     }
-    
+
     // Update tracking BEFORE calling
     lastLoadRef.current = currentValues;
-    
+
     loadIndicators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, stateUt, user?.role]); // Use primitive values instead of loadIndicators function
@@ -555,6 +434,21 @@ export function useIndicatorAccess() {
 
       // Determine if we should refresh based on event details
       let shouldRefresh = false;
+
+      // Do NOT refresh when STATE_APPROVER submits an indicator (indicator_submitted or submission_created).
+      // We keep all indicators visible on Create submission and show submitted ones as non-editable;
+      // refetching would reload availableIndicators from API (which may return only unsubmitted), causing indicators to disappear.
+      if (
+        isStateApprover &&
+        eventDetail.userId === userId &&
+        (eventDetail.action === "indicator_submitted" ||
+          eventDetail.action === "submission_created")
+      ) {
+        console.log(
+          "[useIndicatorAccess] STATE_APPROVER own submit: skipping refresh so submitted indicators stay visible (non-editable)"
+        );
+        return;
+      }
 
       // Check if userId matches (for the user whose indicators changed)
       if (eventDetail.userId && eventDetail.userId === userId) {

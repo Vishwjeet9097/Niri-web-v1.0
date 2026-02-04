@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { apiService } from "@/services/api.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { useFormPersistence } from "../hooks/useFormPersistence";
 import { SUBMISSION_STEPS } from "../constants/steps";
 import { computeAllStepsSummary } from "../utils/progress";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import { useNavigate } from "react-router-dom";
 import { debugFormData } from "@/utils/formDataTransformer";
 import { SectionCard } from "../components/SectionCard";
@@ -77,101 +78,102 @@ export const ReviewSubmitStep = () => {
     }
   }, [formData]); // Include formData dependency
 
+  // For State Approver: merge API available indicators with indicators already submitted in this submission
+  // so Submission Summary totals and Indicator Summary (under review / pending / accepted) counts are correct
+  const effectiveAvailableIndicators = useMemo(() => {
+    if (!isStateApprover) return availableIndicators ?? [];
+    const base = availableIndicators ?? [];
+    const raw = submission?.formData ?? formData;
+    const parsed =
+      typeof raw === "string"
+        ? (() => {
+            try {
+              return raw ? JSON.parse(raw) : {};
+            } catch {
+              return {};
+            }
+          })()
+        : raw ?? {};
+    const submitted = getSubmittedIndicatorCodesFromFormData(parsed);
+    const merged = [...base, ...submitted];
+    return merged.filter((c, i, a) => a.indexOf(c) === i);
+  }, [isStateApprover, availableIndicators, submission?.formData, formData]);
+
   const summary = computeAllStepsSummary(formData || {}, {
     assignedIndicators,
+    availableIndicators: effectiveAvailableIndicators,
     isNodalOfficer,
+    isStateApprover,
   });
-  const sections = [
-    {
-      title: "Infrastructure Financing",
-      icon: FileText,
-      completed: summary.infraFinancing.completed,
-      total: summary.infraFinancing.total,
-      color: "bg-[#D3DCF8] text-primary",
-    },
-    {
-      title: "Infrastructure Development",
-      icon: Building2,
-      completed: summary.infraDevelopment.completed,
-      total: summary.infraDevelopment.total,
-      color: "bg-[#D3DCF8] text-primary",
-    },
-    {
-      title: "PPP Development",
-      icon: Briefcase,
-      completed: summary.pppDevelopment.completed,
-      total: summary.pppDevelopment.total,
-      color: "bg-[#D3DCF8] text-primary",
-    },
-    {
-      title: "Infra Enablers",
-      icon: Settings,
-      completed: summary.infraEnablers.completed,
-      total: summary.infraEnablers.total,
-      color: "bg-[#D3DCF8] text-primary",
-    },
-  ];
 
-  // Calculate indicator summary
+  // Indicator summary is computed below; we need it to derive "completed by status" for the section cards.
+  // So we compute indicator summary first, then build sections with completed = count of submitted/accepted per step.
+  const stepIndicatorCodes: Record<string, string[]> = {
+    infraFinancing: ["1.1", "1.2", "1.3", "1.4", "1.5"],
+    infraDevelopment: ["2.1", "2.2", "2.3", "2.4", "2.5"],
+    pppDevelopment: ["3.1", "3.2", "3.3", "3.4"],
+    infraEnablers: ["4.1", "4.2", "4.3", "4.4", "4.5"],
+  };
+
+  // Calculate indicator summary (under review, pending, accepted) from submission or formData
   const getIndicatorSummary = () => {
-    if (!submission?.formData) {
+    const raw = submission?.formData ?? formData;
+    if (!raw) {
       return {
-        underReview: [],
-        pending: [],
-        accepted: [],
+        underReview: [] as string[],
+        pending: [] as string[],
+        accepted: [] as string[],
       };
     }
 
-    const allIndicators = isNodalOfficer
-      ? assignedIndicators
-      : availableIndicators;
-
-    // Parse formData if it's a string
-    let parsedFormData = submission.formData;
-    if (typeof submission.formData === "string") {
+    let parsedFormData: Record<string, any>;
+    if (typeof raw === "string") {
       try {
-        parsedFormData = JSON.parse(submission.formData);
+        parsedFormData = JSON.parse(raw);
       } catch (e) {
         console.error("Failed to parse formData:", e);
-        return {
-          underReview: [],
-          pending: [],
-          accepted: [],
-        };
+        return { underReview: [], pending: [], accepted: [] };
       }
+    } else {
+      parsedFormData = raw;
     }
 
-    const formData = parsedFormData;
+    const allIndicators = isNodalOfficer
+      ? assignedIndicators ?? []
+      : effectiveAvailableIndicators;
 
     const underReview: string[] = [];
     const pending: string[] = [];
     const accepted: string[] = [];
 
-    allIndicators.forEach((indicatorCode) => {
+    const categories = [
+      "infraFinancing",
+      "infraDevelopment",
+      "pppDevelopment",
+      "infraEnablers",
+    ] as const;
+
+    const getStatusForIndicator = (
+      indicatorCode: string
+    ): string | undefined => {
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
-      let status: string | undefined;
-
-      // Check in all categories
-      const categories = [
-        "infraFinancing",
-        "infraDevelopment",
-        "pppDevelopment",
-        "infraEnablers",
-      ];
       for (const category of categories) {
-        const categoryData = formData[category];
-        if (categoryData?.[sectionKey]) {
-          status = categoryData[sectionKey]?.status;
-          break;
-        }
+        const categoryData = parsedFormData[category];
+        if (!categoryData || typeof categoryData !== "object") continue;
+        const byCode = (categoryData as any).byIndicatorCode;
+        if (byCode && byCode[indicatorCode]?.status)
+          return byCode[indicatorCode].status as string;
+        const section = (categoryData as any)[sectionKey];
+        if (section?.status) return section.status as string;
       }
+      return undefined;
+    };
 
+    allIndicators.forEach((indicatorCode) => {
+      const status = getStatusForIndicator(indicatorCode);
       const upperStatus = status?.toUpperCase() || "";
 
-      // Exclude SAVE_AS_DRAFT indicators from review - they should not be shown
-      if (upperStatus === "SAVE_AS_DRAFT") {
-        return; // Skip this indicator - don't include it in any category
-      }
+      if (upperStatus === "SAVE_AS_DRAFT") return;
 
       if (upperStatus === "ACCEPTED" || upperStatus === "APPROVED") {
         accepted.push(indicatorCode);
@@ -189,6 +191,50 @@ export const ReviewSubmitStep = () => {
   };
 
   const indicatorSummary = getIndicatorSummary();
+
+  // Section cards: "completed" = count of indicators in this step that are submitted or accepted (matches Indicator Summary)
+  const submittedOrAcceptedSet = new Set([
+    ...indicatorSummary.underReview,
+    ...indicatorSummary.accepted,
+  ]);
+  const sections = [
+    {
+      title: "Infrastructure Financing",
+      icon: FileText,
+      completed: stepIndicatorCodes.infraFinancing.filter((c) =>
+        submittedOrAcceptedSet.has(c)
+      ).length,
+      total: summary.infraFinancing.total,
+      color: "bg-[#D3DCF8] text-primary",
+    },
+    {
+      title: "Infrastructure Development",
+      icon: Building2,
+      completed: stepIndicatorCodes.infraDevelopment.filter((c) =>
+        submittedOrAcceptedSet.has(c)
+      ).length,
+      total: summary.infraDevelopment.total,
+      color: "bg-[#D3DCF8] text-primary",
+    },
+    {
+      title: "PPP Development",
+      icon: Briefcase,
+      completed: stepIndicatorCodes.pppDevelopment.filter((c) =>
+        submittedOrAcceptedSet.has(c)
+      ).length,
+      total: summary.pppDevelopment.total,
+      color: "bg-[#D3DCF8] text-primary",
+    },
+    {
+      title: "Infra Enablers",
+      icon: Settings,
+      completed: stepIndicatorCodes.infraEnablers.filter((c) =>
+        submittedOrAcceptedSet.has(c)
+      ).length,
+      total: summary.infraEnablers.total,
+      color: "bg-[#D3DCF8] text-primary",
+    },
+  ];
 
   if (showReview) {
     // Use absolute path to avoid nested duplicate segments in edit mode

@@ -44,6 +44,7 @@ import {
   type PPPDevelopmentValidationResult,
 } from "../validation/pppDevelopmentValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -490,6 +491,20 @@ export const PPPDevelopmentStep = () => {
       ) || [],
     [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
   );
+
+  const visibleIndicators = useMemo(() => {
+    if (!isNodalOfficer && !isStateApprover) return null;
+    if (isNodalOfficer) return assignedIndicators;
+    const submitted = getSubmittedIndicatorCodesFromFormData(persistedFormData);
+    const merged = [...(availableIndicators || []), ...submitted];
+    return merged.filter((c, i, a) => a.indexOf(c) === i);
+  }, [
+    isNodalOfficer,
+    isStateApprover,
+    assignedIndicators,
+    availableIndicators,
+    persistedFormData,
+  ]);
 
   const validation: PPPDevelopmentValidationResult = useMemo(() => {
     const indicatorsToValidate =
@@ -1266,50 +1281,9 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
-  // Access control for NODAL_OFFICER
-  console.log("🔍 PPPDevelopmentStep: Allowed indicators", {
-    isNodalOfficer,
-    isStateApprover,
-    assignedIndicators,
-    availableIndicators,
-    allowedIndicators,
-  });
-
-  if ((isNodalOfficer || isStateApprover) && allowedIndicators.length === 0) {
-    return (
-      <div className="w-full -mx-6 lg:-mx-8">
-        <div className="px-6 lg:px-8">
-          <Stepper
-            steps={SUBMISSION_STEPS}
-            currentStep={currentStep}
-            onStepClick={goToStep}
-          />
-        </div>
-        <div className="px-6 lg:px-8">
-          <ProgressHeader
-            title="PPP Development"
-            description="Public-Private Partnership projects and initiatives"
-            points={250}
-            completed={0}
-            total={4}
-            progress={0}
-          />
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Data Required
-            </h3>
-            <p className="text-gray-600 mb-4">
-              This section is not applicable for your submission. No data entry
-              required here.
-            </p>
-            <Button onClick={goToNext} className="bg-primary text-white">
-              Continue to Next Step
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Compute once (no early return) so hook count is stable every render
+  const showNoData =
+    (isNodalOfficer || isStateApprover) && allowedIndicators.length === 0;
 
   // Helper function to check if an indicator is submitted
   // Helper function to get indicator status
@@ -1807,1523 +1781,1585 @@ export const PPPDevelopmentStep = () => {
           currentStep={currentStep}
           onStepClick={goToStep}
         />
-        {(() => {
-          const { completed, total, progress } = computeStepProgress(
-            { pppDevelopment: formData } as Record<string, unknown>,
-            "pppDevelopment",
-            {
-              assignedIndicators,
-              availableIndicators,
-              isNodalOfficer,
-              isStateApprover,
-            }
-          );
-          console.log("📊 PPP Development Progress Debug:", {
-            isNodalOfficer,
-            isStateApprover,
-            assignedIndicators,
-            availableIndicators,
-            completed,
-            total,
-            progress,
-          });
-          return (
+        {showNoData ? (
+          <>
             <ProgressHeader
               title="PPP Development"
               description="Public-Private Partnership projects and initiatives"
               points={250}
-              completed={completed}
-              total={total}
-              progress={progress}
+              completed={0}
+              total={4}
+              progress={0}
             />
-          );
-        })()}
-
-        {/* Section 3.1 */}
-        {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.1") ||
-          availableIndicators.includes("3.1")) && (
-          <SectionCard
-            title={
-              <div className="flex flex-col">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">3.1 - </span> Availability of
-                  PPP Act/Policy
-                </span>
-              </div>
-            }
-            subtitle=""
-            className="mb-6"
-            indicatorStatus={getIndicatorStatus("3.1")}
-            indicatorCode="3.1"
-            isEditable={editingIndicators.has("3.1")}
-            onEdit={() => handleEditIndicator("3.1")}
-            onSave={() => handleSaveIndicator("3.1")}
-            onCancel={() => handleCancelEdit("3.1")}
-            isSaving={savingIndicators.has("3.1")}
-          >
-            {renderSectionValidationMessage("3.1")}
-            <div className="flex flex-col gap-4">
-              <div>
-                <Label>
-                  PPP Act/Policy Available?{" "}
-                  <span className="text-red-500">*</span>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="inline w-3 h-3 ml-1" />
-                    </TooltipTrigger>
-                    <TooltipContent>Is there a PPP Act/Policy?</TooltipContent>
-                  </Tooltip>
-                </Label>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2">
-                    <Input
-                      type="radio"
-                      name="ppp-act-policy"
-                      value="yes"
-                      checked={formData.section3_1.available === "yes"}
-                      onChange={() => {
-                        if (isIndicatorSubmitted("3.1")) return;
-                        showErrorsIfNeeded();
-                        setFormData((prev) => ({
-                          ...prev,
-                          section3_1: {
-                            ...prev.section3_1,
-                            available: "yes",
-                            comment: "",
-                          },
-                        }));
-                      }}
-                      disabled={isIndicatorSubmitted("3.1")}
-                    />
-                    Yes
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <Input
-                      type="radio"
-                      name="ppp-act-policy"
-                      value="no"
-                      checked={formData.section3_1.available === "no"}
-                      onChange={() => {
-                        if (isIndicatorSubmitted("3.1")) return;
-                        showErrorsIfNeeded();
-                        setFormData((prev) => ({
-                          ...prev,
-                          section3_1: {
-                            ...prev.section3_1,
-                            available: "no",
-                            file: null,
-                          },
-                        }));
-                      }}
-                      disabled={isIndicatorSubmitted("3.1")}
-                    />
-                    No
-                  </label>
-                </div>
-                {renderFieldError("section3_1.available")}
-              </div>
-
-              {/* If Yes → show File Upload */}
-              {formData.section3_1.available === "yes" && (
-                <div className="flex flex-col gap-2">
-                  {(() => {
-                    console.log(
-                      "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_1",
-                      {
-                        noDocumentAvailable:
-                          formData.section3_1.noDocumentAvailable,
-                        hasFile: !!formData.section3_1.file,
-                        available: formData.section3_1.available,
-                      }
-                    );
-                    return null;
-                  })()}
-                  <FileUploadSection
-                    label="Upload File"
-                    value={formData.section3_1.file ?? null}
-                    onChange={(fileUpload) => {
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_1: {
-                          ...prev.section3_1,
-                          file: fileUpload,
-                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                          noDocumentAvailable: fileUpload
-                            ? false
-                            : prev.section3_1.noDocumentAvailable,
-                        },
-                      }));
-                    }}
-                    submissionId={submissionId}
-                    required
-                    disabled={isIndicatorSubmitted("3.1")}
-                    deferFileDeletion={editingIndicators.has("3.1")}
-                    showNoDocumentOption={true}
-                    noDocumentAvailable={
-                      formData.section3_1.noDocumentAvailable || false
-                    }
-                    onNoDocumentChange={(noDocument) => {
-                      console.log(
-                        "📝 PPPDevelopmentStep: section3_1 onNoDocumentChange called",
-                        {
-                          noDocument,
-                          currentValue: formData.section3_1.noDocumentAvailable,
-                        }
-                      );
-                      showErrorsIfNeeded();
-                      setFormData((prev) => {
-                        const newData = {
-                          ...prev,
-                          section3_1: {
-                            ...prev.section3_1,
-                            noDocumentAvailable: noDocument,
-                            file: noDocument ? null : prev.section3_1.file,
-                          },
-                        };
-                        console.log(
-                          "📝 PPPDevelopmentStep: section3_1 state updated",
-                          {
-                            newValue: newData.section3_1.noDocumentAvailable,
-                            prevValue: prev.section3_1.noDocumentAvailable,
-                          }
-                        );
-                        return newData;
-                      });
-                    }}
-                    className={getInputValidationClass("section3_1.file")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Upload copy of Act/Policy
-                  </p>
-                  {renderFieldError("section3_1.file")}
-                </div>
-              )}
-
-              {/* If No → show Comment */}
-              {formData.section3_1.available === "no" && (
-                <div className="flex flex-col gap-2">
-                  <Label>
-                    <span className="text-red-500">*</span>
-                    Comments (Reason)
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter reason or comment"
-                    value={formData.section3_1.comment || ""}
-                    onChange={(e) => {
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_1: {
-                          ...prev.section3_1,
-                          comment: e.target.value,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("3.1")}
-                    className={cn(
-                      getInputValidationClass("section3_1.comment"),
-                      isIndicatorSubmitted("3.1") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                  />
-                  {renderFieldError("section3_1.comment")}
-                </div>
-              )}
-              <div className="mt-4 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleSubmitIndicator(
-                      "3.1",
-                      "Availability of PPP Act/Policy"
-                    )
-                  }
-                  disabled={
-                    submittingIndicator !== null || isIndicatorSubmitted("3.1")
-                  }
-                  size="sm"
-                >
-                  {getSubmitButtonText("3.1", submittingIndicator)}
-                </Button>
-                {!isIndicatorSentBack("3.1") && (
-                  <Button
-                    onClick={() => handleSaveAsDraftIndicator("3.1")}
-                    disabled={
-                      savingDraftIndicators.has("3.1") ||
-                      submittingIndicator !== null ||
-                      isIndicatorSubmitted("3.1")
-                    }
-                    variant="outline"
-                    size="sm"
-                    className="disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingDraftIndicators.has("3.1")
-                      ? "Saving..."
-                      : "Save as Draft"}
-                  </Button>
-                )}
-              </div>
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Data Required
+              </h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data
+                entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
             </div>
-          </SectionCard>
-        )}
+          </>
+        ) : (
+          <>
+            {(() => {
+              const { completed, total, progress } = computeStepProgress(
+                { pppDevelopment: formData } as Record<string, unknown>,
+                "pppDevelopment",
+                {
+                  assignedIndicators,
+                  availableIndicators:
+                    isStateApprover && visibleIndicators
+                      ? visibleIndicators
+                      : availableIndicators,
+                  isNodalOfficer,
+                  isStateApprover,
+                  countCompletedByStatus: true,
+                }
+              );
+              console.log("📊 PPP Development Progress Debug:", {
+                isNodalOfficer,
+                isStateApprover,
+                assignedIndicators,
+                availableIndicators,
+                completed,
+                total,
+                progress,
+              });
+              return (
+                <ProgressHeader
+                  title="PPP Development"
+                  description="Public-Private Partnership projects and initiatives"
+                  points={250}
+                  completed={completed}
+                  total={total}
+                  progress={progress}
+                />
+              );
+            })()}
 
-        {/* Section 3.2 */}
-        {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.2") ||
-          availableIndicators.includes("3.2")) && (
-          <SectionCard
-            title={
-              <div className="flex flex-col">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">3.2 - </span> Functional PPP
-                  Cell/Unit
-                </span>
-              </div>
-            }
-            subtitle=""
-            className="mb-6"
-            indicatorStatus={getIndicatorStatus("3.2")}
-            indicatorCode="3.2"
-            isEditable={editingIndicators.has("3.2")}
-            onEdit={() => handleEditIndicator("3.2")}
-            onSave={() => handleSaveIndicator("3.2")}
-            onCancel={() => handleCancelEdit("3.2")}
-            isSaving={savingIndicators.has("3.2")}
-          >
-            {renderSectionValidationMessage("3.2")}
-            <div className="flex flex-col gap-4">
-              <div>
-                <Label>
-                  Functional State/UT PPP Cell/Unit{" "}
-                  <span className="text-red-500">*</span>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="inline w-3 h-3 ml-1" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Is there a functional PPP Cell/Unit?
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2">
-                    <Input
-                      type="radio"
-                      name="ppp-cell-unit"
-                      value="yes"
-                      checked={formData.section3_2.available === "yes"}
-                      onChange={() => {
-                        if (isIndicatorSubmitted("3.2")) return;
-                        showErrorsIfNeeded();
-                        setFormData((prev) => ({
-                          ...prev,
-                          section3_2: {
-                            ...prev.section3_2,
-                            available: "yes",
-                            comment: "",
-                          },
-                        }));
-                      }}
-                      disabled={isIndicatorSubmitted("3.2")}
-                    />
-                    Yes
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <Input
-                      type="radio"
-                      name="ppp-cell-unit"
-                      value="no"
-                      checked={formData.section3_2.available === "no"}
-                      onChange={() => {
-                        if (isIndicatorSubmitted("3.2")) return;
-                        showErrorsIfNeeded();
-                        setFormData((prev) => ({
-                          ...prev,
-                          section3_2: {
-                            ...prev.section3_2,
-                            available: "no",
-                            file: null,
-                          },
-                        }));
-                      }}
-                      disabled={isIndicatorSubmitted("3.2")}
-                    />
-                    No
-                  </label>
-                </div>
-                {renderFieldError("section3_2.available")}
-              </div>
-
-              {/* If Yes → show File Upload */}
-              {formData.section3_2.available === "yes" && (
-                <div className="flex flex-col gap-2">
-                  {(() => {
-                    console.log(
-                      "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_2",
-                      {
-                        noDocumentAvailable:
-                          formData.section3_2.noDocumentAvailable,
-                        hasFile: !!formData.section3_2.file,
-                        available: formData.section3_2.available,
-                      }
-                    );
-                    return null;
-                  })()}
-                  <FileUploadSection
-                    label="Upload File"
-                    value={formData.section3_2.file ?? null}
-                    onChange={(fileUpload) => {
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_2: {
-                          ...prev.section3_2,
-                          file: fileUpload,
-                          // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                          // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                          noDocumentAvailable: fileUpload
-                            ? false
-                            : prev.section3_2.noDocumentAvailable,
-                        },
-                      }));
-                    }}
-                    submissionId={submissionId}
-                    required
-                    disabled={isIndicatorSubmitted("3.2")}
-                    deferFileDeletion={editingIndicators.has("3.2")}
-                    showNoDocumentOption={true}
-                    noDocumentAvailable={
-                      formData.section3_2.noDocumentAvailable || false
-                    }
-                    onNoDocumentChange={(noDocument) => {
-                      console.log(
-                        "📝 PPPDevelopmentStep: section3_2 onNoDocumentChange called",
-                        {
-                          noDocument,
-                          currentValue: formData.section3_2.noDocumentAvailable,
-                        }
-                      );
-                      showErrorsIfNeeded();
-                      setFormData((prev) => {
-                        const newData = {
-                          ...prev,
-                          section3_2: {
-                            ...prev.section3_2,
-                            noDocumentAvailable: noDocument,
-                            file: noDocument ? null : prev.section3_2.file,
-                          },
-                        };
-                        console.log(
-                          "📝 PPPDevelopmentStep: section3_2 state updated",
-                          {
-                            newValue: newData.section3_2.noDocumentAvailable,
-                            prevValue: prev.section3_2.noDocumentAvailable,
-                          }
-                        );
-                        return newData;
-                      });
-                    }}
-                    className={getInputValidationClass("section3_2.file")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Upload notification or mandate
-                  </p>
-                  {renderFieldError("section3_2.file")}
-                </div>
-              )}
-
-              {/* If No → show Comment */}
-              {formData.section3_2.available === "no" && (
-                <div className="flex flex-col gap-2">
-                  <Label>
-                    Comments (Reason)
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter reason or comment"
-                    value={formData.section3_2.comment || ""}
-                    onChange={(e) => {
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_2: {
-                          ...prev.section3_2,
-                          comment: e.target.value,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("3.2")}
-                    className={cn(
-                      getInputValidationClass("section3_2.comment"),
-                      isIndicatorSubmitted("3.2") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                  />
-                  {renderFieldError("section3_2.comment")}
-                </div>
-              )}
-              <div className="mt-4 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleSubmitIndicator(
-                      "3.2",
-                      "Availability of PPP Cell/Unit"
-                    )
-                  }
-                  disabled={
-                    submittingIndicator !== null || isIndicatorSubmitted("3.2")
-                  }
-                  size="sm"
-                >
-                  {getSubmitButtonText("3.2", submittingIndicator)}
-                </Button>
-                {!isIndicatorSentBack("3.2") && (
-                  <Button
-                    onClick={() => handleSaveAsDraftIndicator("3.2")}
-                    disabled={
-                      savingDraftIndicators.has("3.2") ||
-                      submittingIndicator !== null ||
-                      isIndicatorSubmitted("3.2")
-                    }
-                    variant="outline"
-                    size="sm"
-                    className="disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingDraftIndicators.has("3.2")
-                      ? "Saving..."
-                      : "Save as Draft"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </SectionCard>
-        )}
-
-        {/* Section 3.3 */}
-        {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.3") ||
-          availableIndicators.includes("3.3")) && (
-          <SectionCard
-            title={
-              <div className="flex flex-col">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">3.3 - </span> Proposals
-                  Submitted under VGF/IIPDF{" "}
-                </span>
-              </div>
-            }
-            subtitle=""
-            className="mb-6"
-            indicatorStatus={getIndicatorStatus("3.3")}
-            indicatorCode="3.3"
-            isEditable={editingIndicators.has("3.3")}
-            onEdit={() => handleEditIndicator("3.3")}
-            onSave={() => handleSaveIndicator("3.3")}
-            onCancel={() => handleCancelEdit("3.3")}
-            isSaving={savingIndicators.has("3.3")}
-          >
-            {renderSectionValidationMessage("3.3")}
-            <div className="flex flex-col gap-4">
-              {(Array.isArray(formData.section3_3?.VGFArray)
-                ? formData.section3_3.VGFArray
-                : []
-              ).map((entry, idx) => (
-                <div key={entry.id} className="mb-2">
-                  {/* Row 1: Project Name, Sector, Scheme */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
-                    <div>
-                      <Label>
-                        Project Name
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter project name"
-                        value={entry.projectName}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          updateProject(
-                            entry.id,
-                            "projectName",
-                            e.target.value
-                          );
-                        }}
-                        disabled={isIndicatorSubmitted("3.3")}
-                        className={cn(
-                          getInputValidationClass(
-                            `section3_3.VGFArray.${idx}.projectName`
-                          ),
-                          isIndicatorSubmitted("3.3") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section3_3.VGFArray.${idx}.projectName`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Select Sector
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={entry.sector}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateProject(entry.id, "sector", value);
-                        }}
-                        disabled={isIndicatorSubmitted("3.3")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_3.VGFArray.${idx}.sector`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(`section3_3.VGFArray.${idx}.sector`)}
-                    </div>
-                    <div>
-                      <Label>
-                        Select Scheme
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={entry.scheme}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updateProject(entry.id, "scheme", value);
-                        }}
-                        disabled={isIndicatorSubmitted("3.3")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_3.VGFArray.${idx}.scheme`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select scheme" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="IIPDF">IIPDF</SelectItem>
-                          <SelectItem value="Central VGF">
-                            Central VGF
-                          </SelectItem>
-                          <SelectItem value="State VGF">State VGF</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(`section3_3.VGFArray.${idx}.scheme`)}
-                    </div>
+            {/* Section 3.1 */}
+            {((!isNodalOfficer && !isStateApprover) ||
+              visibleIndicators === null ||
+              visibleIndicators.includes("3.1")) && (
+              <SectionCard
+                title={
+                  <div className="flex flex-col">
+                    <span className="text-base font-semibold ">
+                      <span className="text-primary">3.1 - </span> Availability
+                      of PPP Act/Policy
+                    </span>
                   </div>
-                  {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
-                    <div>
-                      <Label>
-                        Total Project Cost (INR-CRORE)
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        placeholder="Enter project cost in crores"
-                        value={entry.totalProjectCost || ""}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          clearIndicatorValidationMessage("3.3");
-                          const value = e.target.value;
-                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                            updateProject(entry.id, "totalProjectCost", value);
-                          }
-                        }}
-                        disabled={isIndicatorSubmitted("3.3")}
-                        className={cn(
-                          getInputValidationClass(
-                            `section3_3.VGFArray.${idx}.totalProjectCost`
-                          ),
-                          isIndicatorSubmitted("3.3") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section3_3.VGFArray.${idx}.totalProjectCost`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Status of Project
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={entry.statusOfProject || ""}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          clearIndicatorValidationMessage("3.3");
-                          updateProject(entry.id, "statusOfProject", value);
-                        }}
-                        disabled={isIndicatorSubmitted("3.3")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_3.VGFArray.${idx}.statusOfProject`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PROJECT_STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(
-                        `section3_3.VGFArray.${idx}.statusOfProject`
-                      )}
-                    </div>
-                    <div>
-                      <Label>
-                        Submission Date
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        type="date"
-                        max={new Date().toISOString().split("T")[0]}
-                        value={
-                          entry.submissionDate
-                            ? (() => {
-                                // Convert ISO string to YYYY-MM-DD format for date input
-                                const d = new Date(entry.submissionDate);
-                                if (isNaN(d.getTime())) return "";
-                                const year = d.getFullYear();
-                                const month = String(d.getMonth() + 1).padStart(
-                                  2,
-                                  "0"
-                                );
-                                const day = String(d.getDate()).padStart(
-                                  2,
-                                  "0"
-                                );
-                                return `${year}-${month}-${day}`;
-                              })()
-                            : ""
-                        }
-                        onChange={(e) => {
-                          if (isIndicatorSubmitted("3.3")) return;
-                          showErrorsIfNeeded();
-                          updateProject(
-                            entry.id,
-                            "submissionDate",
-                            e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : ""
-                          );
-                        }}
-                        disabled={isIndicatorSubmitted("3.3")}
-                        className={cn(
-                          getInputValidationClass(
-                            `section3_3.VGFArray.${idx}.submissionDate`
-                          ),
-                          isIndicatorSubmitted("3.3") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section3_3.VGFArray.${idx}.submissionDate`
-                      )}
-                    </div>
-                  </div>
-                  {/* Row 3: File Upload with Delete button */}
-                  <div className="flex items-end gap-4">
-                    <div className="flex-1">
-                      <FileUploadSection
-                        label="Upload File"
-                        value={entry.file ?? null}
-                        onChange={(fileUpload) => {
-                          showErrorsIfNeeded();
-                          updateProject(entry.id, "file", fileUpload);
-                          // Clear noDocumentAvailable when file is uploaded
-                          if (fileUpload) {
+                }
+                subtitle=""
+                className="mb-6"
+                indicatorStatus={getIndicatorStatus("3.1")}
+                indicatorCode="3.1"
+                isEditable={editingIndicators.has("3.1")}
+                onEdit={() => handleEditIndicator("3.1")}
+                onSave={() => handleSaveIndicator("3.1")}
+                onCancel={() => handleCancelEdit("3.1")}
+                isSaving={savingIndicators.has("3.1")}
+              >
+                {renderSectionValidationMessage("3.1")}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <Label>
+                      PPP Act/Policy Available?{" "}
+                      <span className="text-red-500">*</span>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="inline w-3 h-3 ml-1" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Is there a PPP Act/Policy?
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2">
+                        <Input
+                          type="radio"
+                          name="ppp-act-policy"
+                          value="yes"
+                          checked={formData.section3_1.available === "yes"}
+                          onChange={() => {
+                            if (isIndicatorSubmitted("3.1")) return;
+                            showErrorsIfNeeded();
                             setFormData((prev) => ({
                               ...prev,
-                              section3_3: {
-                                ...prev.section3_3,
-                                VGFArray: prev.section3_3.VGFArray.map((e) =>
-                                  e.id === entry.id
-                                    ? {
-                                        ...e,
-                                        file: fileUpload,
-                                        noDocumentAvailable: false,
-                                      }
-                                    : e
-                                ),
+                              section3_1: {
+                                ...prev.section3_1,
+                                available: "yes",
+                                comment: "",
                               },
                             }));
+                          }}
+                          disabled={isIndicatorSubmitted("3.1")}
+                        />
+                        Yes
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <Input
+                          type="radio"
+                          name="ppp-act-policy"
+                          value="no"
+                          checked={formData.section3_1.available === "no"}
+                          onChange={() => {
+                            if (isIndicatorSubmitted("3.1")) return;
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_1: {
+                                ...prev.section3_1,
+                                available: "no",
+                                file: null,
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("3.1")}
+                        />
+                        No
+                      </label>
+                    </div>
+                    {renderFieldError("section3_1.available")}
+                  </div>
+
+                  {/* If Yes → show File Upload */}
+                  {formData.section3_1.available === "yes" && (
+                    <div className="flex flex-col gap-2">
+                      {(() => {
+                        console.log(
+                          "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_1",
+                          {
+                            noDocumentAvailable:
+                              formData.section3_1.noDocumentAvailable,
+                            hasFile: !!formData.section3_1.file,
+                            available: formData.section3_1.available,
                           }
-                        }}
-                        submissionId={submissionId}
-                        disabled={isIndicatorSubmitted("3.3")}
-                        deferFileDeletion={editingIndicators.has("3.3")}
-                        showNoDocumentOption={true}
-                        noDocumentAvailable={entry.noDocumentAvailable || false}
-                        onNoDocumentChange={(noDocument) => {
+                        );
+                        return null;
+                      })()}
+                      <FileUploadSection
+                        label="Upload File"
+                        value={formData.section3_1.file ?? null}
+                        onChange={(fileUpload) => {
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
-                            section3_3: {
-                              ...prev.section3_3,
-                              VGFArray: prev.section3_3.VGFArray.map((e) =>
-                                e.id === entry.id
-                                  ? {
-                                      ...e,
-                                      noDocumentAvailable: noDocument,
-                                      file: noDocument ? null : e.file,
-                                    }
-                                  : e
-                              ),
+                            section3_1: {
+                              ...prev.section3_1,
+                              file: fileUpload,
+                              // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                              // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                              noDocumentAvailable: fileUpload
+                                ? false
+                                : prev.section3_1.noDocumentAvailable,
                             },
                           }));
                         }}
-                        required={true}
-                      />
-                      {renderFieldError(
-                        `section3_3.VGFArray.${idx}.file`
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeProject(entry.id)}
-                      disabled={isIndicatorSubmitted("3.3")}
-                      aria-label="Remove"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-
-              {renderFieldError("section3_3.VGFArray")}
-
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addProject}
-                  disabled={isIndicatorSubmitted("3.3")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Project
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1"></p>
-              </div>
-              {/* ✅ Table view for VGF/IIPDF proposals (with File Size) */}
-              {formData.section3_3.VGFArray.length > 0 && (
-                <div className="overflow-x-auto rounded-xl mt-4">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead>
-                      <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                          Project Name
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          Sector
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          Scheme
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          Total Project Cost (INR-CRORE)
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          Status of Project
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
-                          Submission Date
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          File Uploaded
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          File Size
-                        </th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(Array.isArray(formData.section3_3?.VGFArray)
-                        ? formData.section3_3.VGFArray
-                        : []
-                      ).map((entry, index) => {
-                        const file = entry.file;
-                        if (!file) {
-                          return (
-                            <tr
-                              key={entry.id || `entry-${index}`}
-                              className="bg-white"
-                            >
-                              <td className="py-3 px-4 text-sm">
-                                {entry.projectName}
-                              </td>
-                              <td className="py-3 px-4 text-sm">
-                                {entry.sector}
-                              </td>
-                              <td className="py-3 px-4 text-sm">
-                                {entry.scheme}
-                              </td>
-                              <td className="py-3 px-4 text-sm">
-                                {entry.totalProjectCost || "-"}
-                              </td>
-                              <td className="py-3 px-4 text-sm">
-                                {entry.statusOfProject || "-"}
-                              </td>
-                              <td className="py-3 px-4 text-sm min-w-[180px]">
-                                {entry.submissionDate
-                                  ? format(
-                                      new Date(entry.submissionDate),
-                                      "dd-MM-yyyy"
-                                    )
-                                  : "-"}
-                              </td>
-                              <td className="py-3 px-4 text-sm">
-                                No file uploaded
-                              </td>
-                              <td className="py-3 px-4 text-sm">N/A</td>
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  onClick={() => removeProject(entry.id)}
-                                  disabled={isIndicatorSubmitted("3.3")}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
+                        submissionId={submissionId}
+                        required
+                        disabled={isIndicatorSubmitted("3.1")}
+                        deferFileDeletion={editingIndicators.has("3.1")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={
+                          formData.section3_1.noDocumentAvailable || false
                         }
-
-                        // Extract original name from UUID-prefixed fileName if originalName is not available
-                        const extractOriginalName = (
-                          fileName: string,
-                          originalName?: string
-                        ): string => {
-                          if (originalName && originalName.trim())
-                            return originalName;
-
-                          // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                          const uuidPattern =
-                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-
-                          if (uuidPattern.test(fileName)) {
-                            const extracted = fileName.replace(uuidPattern, "");
-                            if (extracted && extracted.trim().length > 0) {
-                              return extracted;
+                        onNoDocumentChange={(noDocument) => {
+                          console.log(
+                            "📝 PPPDevelopmentStep: section3_1 onNoDocumentChange called",
+                            {
+                              noDocument,
+                              currentValue:
+                                formData.section3_1.noDocumentAvailable,
                             }
-                          }
+                          );
+                          showErrorsIfNeeded();
+                          setFormData((prev) => {
+                            const newData = {
+                              ...prev,
+                              section3_1: {
+                                ...prev.section3_1,
+                                noDocumentAvailable: noDocument,
+                                file: noDocument ? null : prev.section3_1.file,
+                              },
+                            };
+                            console.log(
+                              "📝 PPPDevelopmentStep: section3_1 state updated",
+                              {
+                                newValue:
+                                  newData.section3_1.noDocumentAvailable,
+                                prevValue: prev.section3_1.noDocumentAvailable,
+                              }
+                            );
+                            return newData;
+                          });
+                        }}
+                        className={getInputValidationClass("section3_1.file")}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Upload copy of Act/Policy
+                      </p>
+                      {renderFieldError("section3_1.file")}
+                    </div>
+                  )}
 
-                          return fileName;
-                        };
-
-                        const displayName = extractOriginalName(
-                          file.fileName || "",
-                          (file as any)?.originalName
-                        );
-
-                        return (
-                          <tr
-                            key={entry.id || `entry-${index}`}
-                            className="bg-white"
-                          >
-                            <td className="py-3 px-4 text-sm">
-                              {entry.projectName}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.scheme}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.totalProjectCost || "-"}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.statusOfProject || "-"}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.submissionDate
-                                ? format(
-                                    new Date(entry.submissionDate),
-                                    "dd-MM-yyyy"
-                                  )
-                                : "-"}
-                            </td>
-                            <td className="py-3 px-4 text-sm">{displayName}</td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.file?.fileSize
-                                ? `${(
-                                    entry.file.fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() => removeProject(entry.id)}
-                                disabled={isIndicatorSubmitted("3.3")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <div className="mt-4 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleSubmitIndicator("3.3", "VGF Proposals Submitted")
-                  }
-                  disabled={
-                    submittingIndicator !== null || isIndicatorSubmitted("3.3")
-                  }
-                  size="sm"
-                >
-                  {getSubmitButtonText("3.3", submittingIndicator)}
-                </Button>
-                {!isIndicatorSentBack("3.3") && (
-                  <Button
-                    onClick={() => handleSaveAsDraftIndicator("3.3")}
-                    disabled={
-                      savingDraftIndicators.has("3.3") ||
-                      submittingIndicator !== null ||
-                      isIndicatorSubmitted("3.3")
-                    }
-                    variant="outline"
-                    size="sm"
-                    className="disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingDraftIndicators.has("3.3")
-                      ? "Saving..."
-                      : "Save as Draft"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </SectionCard>
-        )}
-
-        {/* Section 3.4 */}
-        {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.4") ||
-          availableIndicators.includes("3.4")) && (
-          <SectionCard
-            title={
-              <div className="flex flex-col">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">3.4 – </span> Proportion of TPC
-                  of PPP Projects
-                </span>
-              </div>
-            }
-            className="mb-6"
-            indicatorStatus={getIndicatorStatus("3.4")}
-            indicatorCode="3.4"
-            isEditable={editingIndicators.has("3.4")}
-            onEdit={() => handleEditIndicator("3.4")}
-            onSave={() => handleSaveIndicator("3.4")}
-            onCancel={() => handleCancelEdit("3.4")}
-            isSaving={savingIndicators.has("3.4")}
-          >
-            {renderSectionValidationMessage("3.4")}
-            <div className="flex flex-col gap-6">
-              {/* ✅ Single-instance summary fields */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="block min-h-[40px] leading-snug">
-                    Total Budgeted capital allocation (INR-CRORE)
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Enter total budgeted capital allocation"
-                    value={formData.section3_4.totalProjectsAwarded || ""}
-                    onChange={(e) => {
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_4: {
-                          ...prev.section3_4,
-                          totalProjectsAwarded: e.target.value,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("3.4")}
-                    className={cn(
-                      getInputValidationClass(
-                        "section3_4.totalProjectsAwarded"
-                      ),
-                      isIndicatorSubmitted("3.4") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                  />
-                  {renderFieldError("section3_4.totalProjectsAwarded")}
-                </div>
-                <div>
-                  <Label className="block min-h-[40px] leading-snug">
-                    Total of TPC of PPP Projects (INR-CRORE)
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Auto-calculated"
-                    value={calculatedTotalProjectCostAwarded || ""}
-                    readOnly
-                    disabled
-                    className={cn(
-                      "bg-gray-50 cursor-not-allowed",
-                      isIndicatorSubmitted("3.4") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                  />
-
-                  {renderFieldError("section3_4.totalProjectCostAwarded")}
-                  {/* <p className="text-xs text-muted-foreground mt-1">
-                    Automatically calculated from sum of all project costs
-                  </p> */}
-                </div>
-                <div>
-                  <Label className="block min-h-[40px] leading-snug">
-                    % of TPC of PPP Projects
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Auto-calculated"
-                    value={
-                      calculatedPercentage !== ""
-                        ? `${calculatedPercentage}%`
-                        : ""
-                    }
-                    readOnly
-                    disabled
-                    className={cn(
-                      "bg-gray-50 cursor-not-allowed",
-                      isIndicatorSubmitted("3.4") &&
-                        "bg-gray-50 cursor-not-allowed"
-                    )}
-                  />
-                  {/* <p className="text-xs text-muted-foreground mt-1">
-                    Auto-calculated: (Total of TPC × 100) / Total Budgeted
-                    capital allocation
-                  </p> */}
-                </div>
-              </div>
-
-              {/* Existing per-project list */}
-              {(formData.section3_4.projects || []).map((project, index) => (
-                <div key={project.id || `project-${index}`} className="mb-2">
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
-                    <div>
-                      <Label>Name of Awarded PPP Projects</Label>
+                  {/* If No → show Comment */}
+                  {formData.section3_1.available === "no" && (
+                    <div className="flex flex-col gap-2">
+                      <Label>
+                        <span className="text-red-500">*</span>
+                        Comments (Reason)
+                      </Label>
                       <Input
                         type="text"
-                        placeholder="Enter project name"
-                        value={project.nameOfProject}
+                        placeholder="Enter reason or comment"
+                        value={formData.section3_1.comment || ""}
                         onChange={(e) => {
                           showErrorsIfNeeded();
-                          clearIndicatorValidationMessage("3.4");
-                          updatePPPProject(
-                            project.id,
-                            "nameOfProject",
-                            e.target.value
-                          );
+                          setFormData((prev) => ({
+                            ...prev,
+                            section3_1: {
+                              ...prev.section3_1,
+                              comment: e.target.value,
+                            },
+                          }));
                         }}
-                        disabled={isIndicatorSubmitted("3.4")}
+                        disabled={isIndicatorSubmitted("3.1")}
                         className={cn(
-                          getInputValidationClass(
-                            `section3_4.projects.${formData.section3_4.projects.findIndex(
-                              (p) => p.id === project.id
-                            )}.nameOfProject`
-                          ),
-                          isIndicatorSubmitted("3.4") &&
+                          getInputValidationClass("section3_1.comment"),
+                          isIndicatorSubmitted("3.1") &&
                             "bg-gray-50 cursor-not-allowed"
                         )}
                       />
-                      {renderFieldError(
-                        `section3_4.projects.${formData.section3_4.projects.findIndex(
-                          (p) => p.id === project.id
-                        )}.nameOfProject`
-                      )}
+                      {renderFieldError("section3_1.comment")}
                     </div>
+                  )}
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      onClick={() =>
+                        handleSubmitIndicator(
+                          "3.1",
+                          "Availability of PPP Act/Policy"
+                        )
+                      }
+                      disabled={
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("3.1")
+                      }
+                      size="sm"
+                    >
+                      {getSubmitButtonText("3.1", submittingIndicator)}
+                    </Button>
+                    {!isIndicatorSentBack("3.1") && (
+                      <Button
+                        onClick={() => handleSaveAsDraftIndicator("3.1")}
+                        disabled={
+                          savingDraftIndicators.has("3.1") ||
+                          submittingIndicator !== null ||
+                          isIndicatorSubmitted("3.1")
+                        }
+                        variant="outline"
+                        size="sm"
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingDraftIndicators.has("3.1")
+                          ? "Saving..."
+                          : "Save as Draft"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </SectionCard>
+            )}
 
-                    <div>
+            {/* Section 3.2 */}
+            {((!isNodalOfficer && !isStateApprover) ||
+              visibleIndicators === null ||
+              visibleIndicators.includes("3.2")) && (
+              <SectionCard
+                title={
+                  <div className="flex flex-col">
+                    <span className="text-base font-semibold ">
+                      <span className="text-primary">3.2 - </span> Functional
+                      PPP Cell/Unit
+                    </span>
+                  </div>
+                }
+                subtitle=""
+                className="mb-6"
+                indicatorStatus={getIndicatorStatus("3.2")}
+                indicatorCode="3.2"
+                isEditable={editingIndicators.has("3.2")}
+                onEdit={() => handleEditIndicator("3.2")}
+                onSave={() => handleSaveIndicator("3.2")}
+                onCancel={() => handleCancelEdit("3.2")}
+                isSaving={savingIndicators.has("3.2")}
+              >
+                {renderSectionValidationMessage("3.2")}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <Label>
+                      Functional State/UT PPP Cell/Unit{" "}
+                      <span className="text-red-500">*</span>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="inline w-3 h-3 ml-1" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Is there a functional PPP Cell/Unit?
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2">
+                        <Input
+                          type="radio"
+                          name="ppp-cell-unit"
+                          value="yes"
+                          checked={formData.section3_2.available === "yes"}
+                          onChange={() => {
+                            if (isIndicatorSubmitted("3.2")) return;
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_2: {
+                                ...prev.section3_2,
+                                available: "yes",
+                                comment: "",
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("3.2")}
+                        />
+                        Yes
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <Input
+                          type="radio"
+                          name="ppp-cell-unit"
+                          value="no"
+                          checked={formData.section3_2.available === "no"}
+                          onChange={() => {
+                            if (isIndicatorSubmitted("3.2")) return;
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_2: {
+                                ...prev.section3_2,
+                                available: "no",
+                                file: null,
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("3.2")}
+                        />
+                        No
+                      </label>
+                    </div>
+                    {renderFieldError("section3_2.available")}
+                  </div>
+
+                  {/* If Yes → show File Upload */}
+                  {formData.section3_2.available === "yes" && (
+                    <div className="flex flex-col gap-2">
+                      {(() => {
+                        console.log(
+                          "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_2",
+                          {
+                            noDocumentAvailable:
+                              formData.section3_2.noDocumentAvailable,
+                            hasFile: !!formData.section3_2.file,
+                            available: formData.section3_2.available,
+                          }
+                        );
+                        return null;
+                      })()}
+                      <FileUploadSection
+                        label="Upload File"
+                        value={formData.section3_2.file ?? null}
+                        onChange={(fileUpload) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section3_2: {
+                              ...prev.section3_2,
+                              file: fileUpload,
+                              // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
+                              // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
+                              noDocumentAvailable: fileUpload
+                                ? false
+                                : prev.section3_2.noDocumentAvailable,
+                            },
+                          }));
+                        }}
+                        submissionId={submissionId}
+                        required
+                        disabled={isIndicatorSubmitted("3.2")}
+                        deferFileDeletion={editingIndicators.has("3.2")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={
+                          formData.section3_2.noDocumentAvailable || false
+                        }
+                        onNoDocumentChange={(noDocument) => {
+                          console.log(
+                            "📝 PPPDevelopmentStep: section3_2 onNoDocumentChange called",
+                            {
+                              noDocument,
+                              currentValue:
+                                formData.section3_2.noDocumentAvailable,
+                            }
+                          );
+                          showErrorsIfNeeded();
+                          setFormData((prev) => {
+                            const newData = {
+                              ...prev,
+                              section3_2: {
+                                ...prev.section3_2,
+                                noDocumentAvailable: noDocument,
+                                file: noDocument ? null : prev.section3_2.file,
+                              },
+                            };
+                            console.log(
+                              "📝 PPPDevelopmentStep: section3_2 state updated",
+                              {
+                                newValue:
+                                  newData.section3_2.noDocumentAvailable,
+                                prevValue: prev.section3_2.noDocumentAvailable,
+                              }
+                            );
+                            return newData;
+                          });
+                        }}
+                        className={getInputValidationClass("section3_2.file")}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Upload notification or mandate
+                      </p>
+                      {renderFieldError("section3_2.file")}
+                    </div>
+                  )}
+
+                  {/* If No → show Comment */}
+                  {formData.section3_2.available === "no" && (
+                    <div className="flex flex-col gap-2">
                       <Label>
-                        Infrastructure Sector{" "}
+                        Comments (Reason)
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter reason or comment"
+                        value={formData.section3_2.comment || ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section3_2: {
+                              ...prev.section3_2,
+                              comment: e.target.value,
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("3.2")}
+                        className={cn(
+                          getInputValidationClass("section3_2.comment"),
+                          isIndicatorSubmitted("3.2") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError("section3_2.comment")}
+                    </div>
+                  )}
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      onClick={() =>
+                        handleSubmitIndicator(
+                          "3.2",
+                          "Availability of PPP Cell/Unit"
+                        )
+                      }
+                      disabled={
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("3.2")
+                      }
+                      size="sm"
+                    >
+                      {getSubmitButtonText("3.2", submittingIndicator)}
+                    </Button>
+                    {!isIndicatorSentBack("3.2") && (
+                      <Button
+                        onClick={() => handleSaveAsDraftIndicator("3.2")}
+                        disabled={
+                          savingDraftIndicators.has("3.2") ||
+                          submittingIndicator !== null ||
+                          isIndicatorSubmitted("3.2")
+                        }
+                        variant="outline"
+                        size="sm"
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingDraftIndicators.has("3.2")
+                          ? "Saving..."
+                          : "Save as Draft"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* Section 3.3 */}
+            {((!isNodalOfficer && !isStateApprover) ||
+              visibleIndicators === null ||
+              visibleIndicators.includes("3.3")) && (
+              <SectionCard
+                title={
+                  <div className="flex flex-col">
+                    <span className="text-base font-semibold ">
+                      <span className="text-primary">3.3 - </span> Proposals
+                      Submitted under VGF/IIPDF{" "}
+                    </span>
+                  </div>
+                }
+                subtitle=""
+                className="mb-6"
+                indicatorStatus={getIndicatorStatus("3.3")}
+                indicatorCode="3.3"
+                isEditable={editingIndicators.has("3.3")}
+                onEdit={() => handleEditIndicator("3.3")}
+                onSave={() => handleSaveIndicator("3.3")}
+                onCancel={() => handleCancelEdit("3.3")}
+                isSaving={savingIndicators.has("3.3")}
+              >
+                {renderSectionValidationMessage("3.3")}
+                <div className="flex flex-col gap-4">
+                  {(Array.isArray(formData.section3_3?.VGFArray)
+                    ? formData.section3_3.VGFArray
+                    : []
+                  ).map((entry, idx) => (
+                    <div key={entry.id} className="mb-2">
+                      {/* Row 1: Project Name, Sector, Scheme */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                        <div>
+                          <Label>
+                            Project Name
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter project name"
+                            value={entry.projectName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateProject(
+                                entry.id,
+                                "projectName",
+                                e.target.value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.projectName`
+                              ),
+                              isIndicatorSubmitted("3.3") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.projectName`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Select Sector
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateProject(entry.id, "sector", value);
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_3.VGFArray.${idx}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.sector`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Select Scheme
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={entry.scheme}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateProject(entry.id, "scheme", value);
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_3.VGFArray.${idx}.scheme`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select scheme" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="IIPDF">IIPDF</SelectItem>
+                              <SelectItem value="Central VGF">
+                                Central VGF
+                              </SelectItem>
+                              <SelectItem value="State VGF">
+                                State VGF
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.scheme`
+                          )}
+                        </div>
+                      </div>
+                      {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                        <div>
+                          <Label>
+                            Total Project Cost (INR-CRORE)
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min="0"
+                            placeholder="Enter project cost in crores"
+                            value={entry.totalProjectCost || ""}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              clearIndicatorValidationMessage("3.3");
+                              const value = e.target.value;
+                              if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                updateProject(
+                                  entry.id,
+                                  "totalProjectCost",
+                                  value
+                                );
+                              }
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.totalProjectCost`
+                              ),
+                              isIndicatorSubmitted("3.3") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.totalProjectCost`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Status of Project
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={entry.statusOfProject || ""}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              clearIndicatorValidationMessage("3.3");
+                              updateProject(entry.id, "statusOfProject", value);
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_3.VGFArray.${idx}.statusOfProject`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROJECT_STATUS_OPTIONS.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.statusOfProject`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Submission Date
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            type="date"
+                            max={new Date().toISOString().split("T")[0]}
+                            value={
+                              entry.submissionDate
+                                ? (() => {
+                                    // Convert ISO string to YYYY-MM-DD format for date input
+                                    const d = new Date(entry.submissionDate);
+                                    if (isNaN(d.getTime())) return "";
+                                    const year = d.getFullYear();
+                                    const month = String(
+                                      d.getMonth() + 1
+                                    ).padStart(2, "0");
+                                    const day = String(d.getDate()).padStart(
+                                      2,
+                                      "0"
+                                    );
+                                    return `${year}-${month}-${day}`;
+                                  })()
+                                : ""
+                            }
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.3")) return;
+                              showErrorsIfNeeded();
+                              updateProject(
+                                entry.id,
+                                "submissionDate",
+                                e.target.value
+                                  ? new Date(e.target.value).toISOString()
+                                  : ""
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.submissionDate`
+                              ),
+                              isIndicatorSubmitted("3.3") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.submissionDate`
+                          )}
+                        </div>
+                      </div>
+                      {/* Row 3: File Upload with Delete button */}
+                      <div className="flex items-end gap-4">
+                        <div className="flex-1">
+                          <FileUploadSection
+                            label="Upload File"
+                            value={entry.file ?? null}
+                            onChange={(fileUpload) => {
+                              showErrorsIfNeeded();
+                              updateProject(entry.id, "file", fileUpload);
+                              // Clear noDocumentAvailable when file is uploaded
+                              if (fileUpload) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section3_3: {
+                                    ...prev.section3_3,
+                                    VGFArray: prev.section3_3.VGFArray.map(
+                                      (e) =>
+                                        e.id === entry.id
+                                          ? {
+                                              ...e,
+                                              file: fileUpload,
+                                              noDocumentAvailable: false,
+                                            }
+                                          : e
+                                    ),
+                                  },
+                                }));
+                              }
+                            }}
+                            submissionId={submissionId}
+                            disabled={isIndicatorSubmitted("3.3")}
+                            deferFileDeletion={editingIndicators.has("3.3")}
+                            showNoDocumentOption={true}
+                            noDocumentAvailable={
+                              entry.noDocumentAvailable || false
+                            }
+                            onNoDocumentChange={(noDocument) => {
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_3: {
+                                  ...prev.section3_3,
+                                  VGFArray: prev.section3_3.VGFArray.map((e) =>
+                                    e.id === entry.id
+                                      ? {
+                                          ...e,
+                                          noDocumentAvailable: noDocument,
+                                          file: noDocument ? null : e.file,
+                                        }
+                                      : e
+                                  ),
+                                },
+                              }));
+                            }}
+                            required={true}
+                          />
+                          {renderFieldError(`section3_3.VGFArray.${idx}.file`)}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeProject(entry.id)}
+                          disabled={isIndicatorSubmitted("3.3")}
+                          aria-label="Remove"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {renderFieldError("section3_3.VGFArray")}
+
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addProject}
+                      disabled={isIndicatorSubmitted("3.3")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Project
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1"></p>
+                  </div>
+                  {/* ✅ Table view for VGF/IIPDF proposals (with File Size) */}
+                  {formData.section3_3.VGFArray.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl mt-4">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Project Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Sector
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Scheme
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Total Project Cost (INR-CRORE)
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Status of Project
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
+                              Submission Date
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              File Uploaded
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              File Size
+                            </th>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(Array.isArray(formData.section3_3?.VGFArray)
+                            ? formData.section3_3.VGFArray
+                            : []
+                          ).map((entry, index) => {
+                            const file = entry.file;
+                            if (!file) {
+                              return (
+                                <tr
+                                  key={entry.id || `entry-${index}`}
+                                  className="bg-white"
+                                >
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.projectName}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.sector}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.scheme}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.totalProjectCost || "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.statusOfProject || "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm min-w-[180px]">
+                                    {entry.submissionDate
+                                      ? format(
+                                          new Date(entry.submissionDate),
+                                          "dd-MM-yyyy"
+                                        )
+                                      : "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    No file uploaded
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">N/A</td>
+                                  <td className="py-3 px-4">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeProject(entry.id)}
+                                      disabled={isIndicatorSubmitted("3.3")}
+                                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      aria-label="Delete"
+                                    >
+                                      <Trash2 className="w-5 h-5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            // Extract original name from UUID-prefixed fileName if originalName is not available
+                            const extractOriginalName = (
+                              fileName: string,
+                              originalName?: string
+                            ): string => {
+                              if (originalName && originalName.trim())
+                                return originalName;
+
+                              // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+                              const uuidPattern =
+                                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
+                              if (uuidPattern.test(fileName)) {
+                                const extracted = fileName.replace(
+                                  uuidPattern,
+                                  ""
+                                );
+                                if (extracted && extracted.trim().length > 0) {
+                                  return extracted;
+                                }
+                              }
+
+                              return fileName;
+                            };
+
+                            const displayName = extractOriginalName(
+                              file.fileName || "",
+                              (file as any)?.originalName
+                            );
+
+                            return (
+                              <tr
+                                key={entry.id || `entry-${index}`}
+                                className="bg-white"
+                              >
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.scheme}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.totalProjectCost || "-"}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.statusOfProject || "-"}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.submissionDate
+                                    ? format(
+                                        new Date(entry.submissionDate),
+                                        "dd-MM-yyyy"
+                                      )
+                                    : "-"}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {displayName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.file?.fileSize
+                                    ? `${(
+                                        entry.file.fileSize /
+                                        1024 /
+                                        1024
+                                      ).toFixed(1)} MB`
+                                    : "N/A"}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProject(entry.id)}
+                                    disabled={isIndicatorSubmitted("3.3")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      onClick={() =>
+                        handleSubmitIndicator("3.3", "VGF Proposals Submitted")
+                      }
+                      disabled={
+                        submittingIndicator !== null ||
+                        isIndicatorSubmitted("3.3")
+                      }
+                      size="sm"
+                    >
+                      {getSubmitButtonText("3.3", submittingIndicator)}
+                    </Button>
+                    {!isIndicatorSentBack("3.3") && (
+                      <Button
+                        onClick={() => handleSaveAsDraftIndicator("3.3")}
+                        disabled={
+                          savingDraftIndicators.has("3.3") ||
+                          submittingIndicator !== null ||
+                          isIndicatorSubmitted("3.3")
+                        }
+                        variant="outline"
+                        size="sm"
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingDraftIndicators.has("3.3")
+                          ? "Saving..."
+                          : "Save as Draft"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* Section 3.4 */}
+            {((!isNodalOfficer && !isStateApprover) ||
+              visibleIndicators === null ||
+              visibleIndicators.includes("3.4")) && (
+              <SectionCard
+                title={
+                  <div className="flex flex-col">
+                    <span className="text-base font-semibold ">
+                      <span className="text-primary">3.4 – </span> Proportion of
+                      TPC of PPP Projects
+                    </span>
+                  </div>
+                }
+                className="mb-6"
+                indicatorStatus={getIndicatorStatus("3.4")}
+                indicatorCode="3.4"
+                isEditable={editingIndicators.has("3.4")}
+                onEdit={() => handleEditIndicator("3.4")}
+                onSave={() => handleSaveIndicator("3.4")}
+                onCancel={() => handleCancelEdit("3.4")}
+                isSaving={savingIndicators.has("3.4")}
+              >
+                {renderSectionValidationMessage("3.4")}
+                <div className="flex flex-col gap-6">
+                  {/* ✅ Single-instance summary fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="block min-h-[40px] leading-snug">
+                        Total Budgeted capital allocation (INR-CRORE)
                         <span className="text-destructive">*</span>
                       </Label>
-                      <Select
-                        value={project.infrastructureSector}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          updatePPPProject(
-                            project.id,
-                            "infrastructureSector",
-                            value
-                          );
-                        }}
-                        disabled={isIndicatorSubmitted("3.4")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_4.projects.${formData.section3_4.projects.findIndex(
-                                (p) => p.id === project.id
-                              )}.infrastructureSector`
-                            ),
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        >
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(
-                        `section3_4.projects.${formData.section3_4.projects.findIndex(
-                          (p) => p.id === project.id
-                        )}.infrastructureSector`
-                      )}
-                    </div>
-
-                    <div>
-                      <Label>Date of Award (DD-MM-YYYY)</Label>
-                      <Input
-                        type="date"
-                        max={new Date().toISOString().split("T")[0]}
-                        value={
-                          project.dateOfAward
-                            ? (() => {
-                                // Convert ISO string to YYYY-MM-DD format for date input
-                                const d = new Date(project.dateOfAward);
-                                if (isNaN(d.getTime())) return "";
-                                const year = d.getFullYear();
-                                const month = String(d.getMonth() + 1).padStart(
-                                  2,
-                                  "0"
-                                );
-                                const day = String(d.getDate()).padStart(
-                                  2,
-                                  "0"
-                                );
-                                return `${year}-${month}-${day}`;
-                              })()
-                            : ""
-                        }
-                        onChange={(e) => {
-                          if (isIndicatorSubmitted("3.4")) return;
-                          showErrorsIfNeeded();
-                          updatePPPProject(
-                            project.id,
-                            "dateOfAward",
-                            e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : ""
-                          );
-                        }}
-                        disabled={isIndicatorSubmitted("3.4")}
-                        className={cn(
-                          getInputValidationClass(
-                            `section3_4.projects.${formData.section3_4.projects.findIndex(
-                              (p) => p.id === project.id
-                            )}.dateOfAward`
-                          ),
-                          isIndicatorSubmitted("3.4") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError(
-                        `section3_4.projects.${formData.section3_4.projects.findIndex(
-                          (p) => p.id === project.id
-                        )}.dateOfAward`
-                      )}
-                    </div>
-
-                    <div>
-                      <Label>Total Project Cost (INR-CRORE)</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="Enter cost in crore"
-                        value={project.totalProjectCost || ""}
+                        placeholder="Enter total budgeted capital allocation"
+                        value={formData.section3_4.totalProjectsAwarded || ""}
                         onChange={(e) => {
                           showErrorsIfNeeded();
-                          updatePPPProject(
-                            project.id,
-                            "totalProjectCost",
-                            e.target.value
-                          );
+                          setFormData((prev) => ({
+                            ...prev,
+                            section3_4: {
+                              ...prev.section3_4,
+                              totalProjectsAwarded: e.target.value,
+                            },
+                          }));
                         }}
                         disabled={isIndicatorSubmitted("3.4")}
                         className={cn(
                           getInputValidationClass(
-                            `section3_4.projects.${formData.section3_4.projects.findIndex(
-                              (p) => p.id === project.id
-                            )}.totalProjectCost`
+                            "section3_4.totalProjectsAwarded"
                           ),
                           isIndicatorSubmitted("3.4") &&
                             "bg-gray-50 cursor-not-allowed"
                         )}
                       />
-                      {renderFieldError(
-                        `section3_4.projects.${formData.section3_4.projects.findIndex(
-                          (p) => p.id === project.id
-                        )}.totalProjectCost`
-                      )}
+                      {renderFieldError("section3_4.totalProjectsAwarded")}
                     </div>
+                    <div>
+                      <Label className="block min-h-[40px] leading-snug">
+                        Total of TPC of PPP Projects (INR-CRORE)
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Auto-calculated"
+                        value={calculatedTotalProjectCostAwarded || ""}
+                        readOnly
+                        disabled
+                        className={cn(
+                          "bg-gray-50 cursor-not-allowed",
+                          isIndicatorSubmitted("3.4") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
 
-                    <div className="flex items-center justify-center w-12">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removePPPProject(project.id)}
-                        disabled={isIndicatorSubmitted("3.4")}
-                        aria-label="Remove"
-                        className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
+                      {renderFieldError("section3_4.totalProjectCostAwarded")}
+                      {/* <p className="text-xs text-muted-foreground mt-1">
+                    Automatically calculated from sum of all project costs
+                  </p> */}
+                    </div>
+                    <div>
+                      <Label className="block min-h-[40px] leading-snug">
+                        % of TPC of PPP Projects
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Auto-calculated"
+                        value={
+                          calculatedPercentage !== ""
+                            ? `${calculatedPercentage}%`
+                            : ""
+                        }
+                        readOnly
+                        disabled
+                        className={cn(
+                          "bg-gray-50 cursor-not-allowed",
+                          isIndicatorSubmitted("3.4") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {/* <p className="text-xs text-muted-foreground mt-1">
+                    Auto-calculated: (Total of TPC × 100) / Total Budgeted
+                    capital allocation
+                  </p> */}
+                    </div>
+                  </div>
+
+                  {/* Existing per-project list */}
+                  {(formData.section3_4.projects || []).map(
+                    (project, index) => (
+                      <div
+                        key={project.id || `project-${index}`}
+                        className="mb-2"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                          <div>
+                            <Label>Name of Awarded PPP Projects</Label>
+                            <Input
+                              type="text"
+                              placeholder="Enter project name"
+                              value={project.nameOfProject}
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                clearIndicatorValidationMessage("3.4");
+                                updatePPPProject(
+                                  project.id,
+                                  "nameOfProject",
+                                  e.target.value
+                                );
+                              }}
+                              disabled={isIndicatorSubmitted("3.4")}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                    (p) => p.id === project.id
+                                  )}.nameOfProject`
+                                ),
+                                isIndicatorSubmitted("3.4") &&
+                                  "bg-gray-50 cursor-not-allowed"
+                              )}
+                            />
+                            {renderFieldError(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.nameOfProject`
+                            )}
+                          </div>
 
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addPPPProject}
-                  disabled={isIndicatorSubmitted("3.4")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Project
-                </Button>
-                {/* ✅ Table view for PPP/Bankable projects */}
-                {formData.section3_4.projects.length > 0 && (
-                  <div className="overflow-x-auto rounded-xl mt-4">
-                    <table className="min-w-full border-separate border-spacing-0">
-                      <thead>
-                        <tr className="bg-[#DDE3F9]">
-                          <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
-                            Project Name
-                          </th>
-                          <th className="py-2 px-2 text-left text-sm font-normal">
-                            Infra Sector
-                          </th>
-                          <th className="py-2 px-2 text-left text-sm font-normal">
-                            Date of Award
-                          </th>
-                          <th className="py-2 px-2 text-left text-sm font-normal">
-                            Total Cost (INR-CRORE)
-                          </th>
-                          <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(Array.isArray(formData.section3_4?.projects)
-                          ? formData.section3_4.projects
-                          : []
-                        ).map((project, index) => (
-                          <tr
-                            key={project.id || `project-${index}`}
-                            className="bg-white"
-                          >
-                            <td className="py-2 px-2 text-sm">
-                              {project.nameOfProject}
-                            </td>
-                            <td className="py-2 px-2 text-sm">
-                              {project.infrastructureSector}
-                            </td>
-                            <td className="py-2 px-2 text-sm">
-                              {project.dateOfAward
-                                ? format(
-                                    new Date(project.dateOfAward),
-                                    "dd-MM-yyyy"
-                                  )
-                                : "-"}
-                            </td>
-                            <td className="py-2 px-2 text-sm">
-                              {project.totalProjectCost}
-                            </td>
-                            <td className="py-2 px-2 text-center w-12">
-                              <button
-                                type="button"
-                                onClick={() => removePPPProject(project.id)}
-                                disabled={isIndicatorSubmitted("3.4")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8 flex items-center justify-center"
-                                aria-label="Delete"
+                          <div>
+                            <Label>
+                              Infrastructure Sector{" "}
+                              <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={project.infrastructureSector}
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updatePPPProject(
+                                  project.id,
+                                  "infrastructureSector",
+                                  value
+                                );
+                              }}
+                              disabled={isIndicatorSubmitted("3.4")}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                      (p) => p.id === project.id
+                                    )}.infrastructureSector`
+                                  ),
+                                  isIndicatorSubmitted("3.4") &&
+                                    "bg-gray-50 cursor-not-allowed"
+                                )}
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    onClick={() =>
-                      handleSubmitIndicator(
-                        "3.4",
-                        "Proportion of TPC of PPP Projects"
-                      )
-                    }
-                    disabled={
-                      submittingIndicator !== null ||
-                      isIndicatorSubmitted("3.4")
-                    }
-                    className="disabled:opacity-50 disabled:cursor-not-allowed"
-                    size="sm"
-                  >
-                    {getSubmitButtonText("3.4", submittingIndicator)}
-                  </Button>
-                  {!isIndicatorSentBack("3.4") && (
+                                <SelectValue placeholder="Select sector" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SECTOR_OPTIONS.map((sector) => (
+                                  <SelectItem key={sector} value={sector}>
+                                    {sector}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {renderFieldError(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.infrastructureSector`
+                            )}
+                          </div>
+
+                          <div>
+                            <Label>Date of Award (DD-MM-YYYY)</Label>
+                            <Input
+                              type="date"
+                              max={new Date().toISOString().split("T")[0]}
+                              value={
+                                project.dateOfAward
+                                  ? (() => {
+                                      // Convert ISO string to YYYY-MM-DD format for date input
+                                      const d = new Date(project.dateOfAward);
+                                      if (isNaN(d.getTime())) return "";
+                                      const year = d.getFullYear();
+                                      const month = String(
+                                        d.getMonth() + 1
+                                      ).padStart(2, "0");
+                                      const day = String(d.getDate()).padStart(
+                                        2,
+                                        "0"
+                                      );
+                                      return `${year}-${month}-${day}`;
+                                    })()
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                if (isIndicatorSubmitted("3.4")) return;
+                                showErrorsIfNeeded();
+                                updatePPPProject(
+                                  project.id,
+                                  "dateOfAward",
+                                  e.target.value
+                                    ? new Date(e.target.value).toISOString()
+                                    : ""
+                                );
+                              }}
+                              disabled={isIndicatorSubmitted("3.4")}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                    (p) => p.id === project.id
+                                  )}.dateOfAward`
+                                ),
+                                isIndicatorSubmitted("3.4") &&
+                                  "bg-gray-50 cursor-not-allowed"
+                              )}
+                            />
+                            {renderFieldError(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.dateOfAward`
+                            )}
+                          </div>
+
+                          <div>
+                            <Label>Total Project Cost (INR-CRORE)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Enter cost in crore"
+                              value={project.totalProjectCost || ""}
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                updatePPPProject(
+                                  project.id,
+                                  "totalProjectCost",
+                                  e.target.value
+                                );
+                              }}
+                              disabled={isIndicatorSubmitted("3.4")}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                    (p) => p.id === project.id
+                                  )}.totalProjectCost`
+                                ),
+                                isIndicatorSubmitted("3.4") &&
+                                  "bg-gray-50 cursor-not-allowed"
+                              )}
+                            />
+                            {renderFieldError(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.totalProjectCost`
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-center w-12">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removePPPProject(project.id)}
+                              disabled={isIndicatorSubmitted("3.4")}
+                              aria-label="Remove"
+                              className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
+
+                  <div>
                     <Button
-                      onClick={() => handleSaveAsDraftIndicator("3.4")}
-                      disabled={
-                        savingDraftIndicators.has("3.4") ||
-                        submittingIndicator !== null ||
-                        isIndicatorSubmitted("3.4")
-                      }
+                      type="button"
                       variant="outline"
                       size="sm"
-                      className="disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={addPPPProject}
+                      disabled={isIndicatorSubmitted("3.4")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {savingDraftIndicators.has("3.4")
-                        ? "Saving..."
-                        : "Save as Draft"}
+                      <Plus className="w-4 h-4" />
+                      Add More Project
                     </Button>
-                  )}
+                    {/* ✅ Table view for PPP/Bankable projects */}
+                    {formData.section3_4.projects.length > 0 && (
+                      <div className="overflow-x-auto rounded-xl mt-4">
+                        <table className="min-w-full border-separate border-spacing-0">
+                          <thead>
+                            <tr className="bg-[#DDE3F9]">
+                              <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
+                                Project Name
+                              </th>
+                              <th className="py-2 px-2 text-left text-sm font-normal">
+                                Infra Sector
+                              </th>
+                              <th className="py-2 px-2 text-left text-sm font-normal">
+                                Date of Award
+                              </th>
+                              <th className="py-2 px-2 text-left text-sm font-normal">
+                                Total Cost (INR-CRORE)
+                              </th>
+                              <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(Array.isArray(formData.section3_4?.projects)
+                              ? formData.section3_4.projects
+                              : []
+                            ).map((project, index) => (
+                              <tr
+                                key={project.id || `project-${index}`}
+                                className="bg-white"
+                              >
+                                <td className="py-2 px-2 text-sm">
+                                  {project.nameOfProject}
+                                </td>
+                                <td className="py-2 px-2 text-sm">
+                                  {project.infrastructureSector}
+                                </td>
+                                <td className="py-2 px-2 text-sm">
+                                  {project.dateOfAward
+                                    ? format(
+                                        new Date(project.dateOfAward),
+                                        "dd-MM-yyyy"
+                                      )
+                                    : "-"}
+                                </td>
+                                <td className="py-2 px-2 text-sm">
+                                  {project.totalProjectCost}
+                                </td>
+                                <td className="py-2 px-2 text-center w-12">
+                                  <button
+                                    type="button"
+                                    onClick={() => removePPPProject(project.id)}
+                                    disabled={isIndicatorSubmitted("3.4")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8 flex items-center justify-center"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        onClick={() =>
+                          handleSubmitIndicator(
+                            "3.4",
+                            "Proportion of TPC of PPP Projects"
+                          )
+                        }
+                        disabled={
+                          submittingIndicator !== null ||
+                          isIndicatorSubmitted("3.4")
+                        }
+                        className="disabled:opacity-50 disabled:cursor-not-allowed"
+                        size="sm"
+                      >
+                        {getSubmitButtonText("3.4", submittingIndicator)}
+                      </Button>
+                      {!isIndicatorSentBack("3.4") && (
+                        <Button
+                          onClick={() => handleSaveAsDraftIndicator("3.4")}
+                          disabled={
+                            savingDraftIndicators.has("3.4") ||
+                            submittingIndicator !== null ||
+                            isIndicatorSubmitted("3.4")
+                          }
+                          variant="outline"
+                          size="sm"
+                          className="disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingDraftIndicators.has("3.4")
+                            ? "Saving..."
+                            : "Save as Draft"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </SectionCard>
-        )}
+              </SectionCard>
+            )}
 
-        {/* Navigation Buttons */}
+            {/* Navigation Buttons */}
 
-        <FormActions
-          onPrevious={goToPrevious}
-          onNext={handleNext}
-          onSaveDraft={handleSaveDraft}
-          isFirstStep={isFirstStep}
-          isLastStep={isLastStep}
-          nextLabel={isLastStep ? "Review & Submit" : "Next"}
-          showSaveDraft={true}
-          isNextDisabled={isNextDisabled}
-        />
-      </div>
+            <FormActions
+              onPrevious={goToPrevious}
+              onNext={handleNext}
+              onSaveDraft={handleSaveDraft}
+              isFirstStep={isFirstStep}
+              isLastStep={isLastStep}
+              nextLabel={isLastStep ? "Review & Submit" : "Next"}
+              showSaveDraft={true}
+              isNextDisabled={isNextDisabled}
+            />
 
-      {/* Confirmation Dialog for Submit */}
-      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Submit</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to submit indicator{" "}
-              <strong>
-                {pendingIndicator?.code} - {pendingIndicator?.title}
-              </strong>
-              ? This will send the data to the State Approver for review. Once
-              submitted, you cannot modify this indicator.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSubmit}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmSubmit}
-              disabled={submittingIndicator !== null}
+            {/* Confirmation Dialog for Submit */}
+            <AlertDialog
+              open={showSubmitDialog}
+              onOpenChange={setShowSubmitDialog}
             >
-              {submittingIndicator !== null
-                ? "Submitting..."
-                : "Confirm & Submit"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Submit</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to submit indicator{" "}
+                    <strong>
+                      {pendingIndicator?.code} - {pendingIndicator?.title}
+                    </strong>
+                    ? This will send the data to the State Approver for review.
+                    Once submitted, you cannot modify this indicator.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={handleCancelSubmit}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmSubmit}
+                    disabled={submittingIndicator !== null}
+                  >
+                    {submittingIndicator !== null
+                      ? "Submitting..."
+                      : "Confirm & Submit"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-      {/* Confirmation Dialog for NODAL_OFFICER Save */}
-      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to save this indicator? This will resubmit
-              it to the State Approver.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSave}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>
-              Confirm & Save
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            {/* Confirmation Dialog for NODAL_OFFICER Save */}
+            <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to save this indicator? This will
+                    resubmit it to the State Approver.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={handleCancelSave}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmSave}>
+                    Confirm & Save
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+      </div>
     </div>
   );
 };

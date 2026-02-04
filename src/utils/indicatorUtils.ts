@@ -65,6 +65,46 @@ export function getSectionByIndicator(
   return sectionId ? getSectionById(sectionId) : undefined;
 }
 
+/** Section-level statuses that mean the indicator has been submitted (used to keep it visible but non-editable for State Approver) */
+const SUBMITTED_SECTION_STATUSES = [
+  "SUBMITTED_TO_STATE",
+  "ACCEPTED",
+  "APPROVED",
+];
+
+/**
+ * Extract indicator codes that have a submitted/blocking status in the given formData.
+ * Used so State Approver Create submission can show these indicators (non-editable) even when
+ * the API returns only "available" (unsubmitted) indicators.
+ */
+export function getSubmittedIndicatorCodesFromFormData(
+  formData: Record<string, unknown> | null | undefined
+): string[] {
+  if (!formData || typeof formData !== "object") return [];
+  const codes = new Set<string>();
+  const categories = [
+    "infraFinancing",
+    "infraDevelopment",
+    "pppDevelopment",
+    "infraEnablers",
+  ];
+  for (const category of categories) {
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") continue;
+    for (const sectionKey of Object.keys(categoryData)) {
+      if (!sectionKey.startsWith("section")) continue;
+      const sectionData = (categoryData as Record<string, unknown>)[sectionKey];
+      if (!sectionData || typeof sectionData !== "object") continue;
+      const status = (sectionData as Record<string, unknown>).status;
+      const statusStr = typeof status === "string" ? status.toUpperCase() : "";
+      if (!SUBMITTED_SECTION_STATUSES.includes(statusStr)) continue;
+      const code = sectionKey.replace(/^section/, "").replace(/_/g, ".");
+      if (/^\d+\.\d+$/.test(code)) codes.add(code);
+    }
+  }
+  return Array.from(codes);
+}
+
 /**
  * Filter form data to only include assigned indicators
  */
@@ -297,7 +337,10 @@ export function filterSectionFormDataByIndicators(
   };
 
   // Map indicator codes to their section keys
-  const indicatorToSectionMap: Record<string, { category: string; sectionKey: string }> = {
+  const indicatorToSectionMap: Record<
+    string,
+    { category: string; sectionKey: string }
+  > = {
     "1.1": { category: "infraFinancing", sectionKey: "section1_1" },
     "1.2": { category: "infraFinancing", sectionKey: "section1_2" },
     "1.3": { category: "infraFinancing", sectionKey: "section1_3" },
@@ -330,12 +373,17 @@ export function filterSectionFormDataByIndicators(
       }
       // Include the section if it exists in formData, or include an empty object if assigned
       // This ensures assigned indicators always appear in preview/review
-      if (formData[mapping.category] && formData[mapping.category][mapping.sectionKey] !== undefined) {
-        filtered[mapping.category][mapping.sectionKey] = formData[mapping.category][mapping.sectionKey];
+      if (
+        formData[mapping.category] &&
+        formData[mapping.category][mapping.sectionKey] !== undefined
+      ) {
+        filtered[mapping.category][mapping.sectionKey] =
+          formData[mapping.category][mapping.sectionKey];
       } else {
         // Include assigned section even if undefined - use empty object to preserve structure
         // The review component will handle displaying empty/undefined sections appropriately
-        filtered[mapping.category][mapping.sectionKey] = formData[mapping.category]?.[mapping.sectionKey] ?? {};
+        filtered[mapping.category][mapping.sectionKey] =
+          formData[mapping.category]?.[mapping.sectionKey] ?? {};
       }
     }
   });

@@ -392,6 +392,14 @@ export function isSectionFilled(
   return hasMeaningfulValue(data);
 }
 
+/** Statuses that count as "completed" for the progress bar (submitted or accepted) */
+const COMPLETED_STATUSES = new Set([
+  "SUBMITTED_TO_STATE",
+  "RESUBMITTED",
+  "ACCEPTED",
+  "APPROVED",
+]);
+
 export function computeStepProgress(
   allFormData: Record<string, unknown>,
   stepKey: StepKey,
@@ -400,6 +408,8 @@ export function computeStepProgress(
     availableIndicators?: string[];
     isNodalOfficer?: boolean;
     isStateApprover?: boolean;
+    /** When true, completed = count of indicators with submitted/accepted status (matches Review & Indicator summary) */
+    countCompletedByStatus?: boolean;
   } = {}
 ) {
   const {
@@ -407,6 +417,7 @@ export function computeStepProgress(
     availableIndicators = [],
     isNodalOfficer = false,
     isStateApprover = false,
+    countCompletedByStatus = false,
   } = options;
 
   const sections = STEP_SECTIONS[stepKey];
@@ -423,9 +434,16 @@ export function computeStepProgress(
 
   const total = applicable.length;
 
-  const completed = applicable.filter((s) =>
-    isSectionFilled(stepData, s.sectionKey)
-  ).length;
+  const completed = countCompletedByStatus
+    ? applicable.filter((s) => {
+        const section = stepData?.[s.sectionKey] as
+          | Record<string, unknown>
+          | undefined;
+        const status = section?.status;
+        const upper = typeof status === "string" ? status.toUpperCase() : "";
+        return COMPLETED_STATUSES.has(upper);
+      }).length
+    : applicable.filter((s) => isSectionFilled(stepData, s.sectionKey)).length;
 
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
 
