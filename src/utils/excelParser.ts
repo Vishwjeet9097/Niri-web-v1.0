@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 export interface CapacityBuildingEntry {
   id: string;
@@ -287,6 +287,7 @@ export function parseCapacityBuildingExcel(
 
 /**
  * Generate a template Excel file for Capacity Building data
+ * Headers are bold and the table has an outline border
  */
 export function generateCapacityBuildingTemplate(): void {
   const headers = [
@@ -321,9 +322,33 @@ export function generateCapacityBuildingTemplate(): void {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Capacity Building");
 
-  // Auto-size columns
-  const maxWidth = 50;
-  worksheet["!cols"] = headers.map(() => ({ wch: maxWidth }));
+  // Apply bold headers and table outline
+  const thinBorder = { style: "thin" };
+  const tableBorder = {
+    top: thinBorder,
+    bottom: thinBorder,
+    left: thinBorder,
+    right: thinBorder,
+  };
+  const cols = ["A", "B", "C", "D", "E", "F"];
+  const numRows = 1 + exampleData.length;
+
+  for (let r = 1; r <= numRows; r++) {
+    for (let c = 0; c < cols.length; c++) {
+      const cellRef = cols[c] + r;
+      const cell = worksheet[cellRef];
+      if (cell) {
+        cell.s = {
+          border: tableBorder,
+          ...(r === 1 ? { font: { bold: true } } : {}),
+        };
+      }
+    }
+  }
+
+  // Column widths (narrower for a compact table)
+  const colWidths = [18, 14, 22, 18, 10, 25]; // Officer Name, Designation, Program Name, Organizer, Type, MM/YY
+  worksheet["!cols"] = colWidths.map((wch) => ({ wch }));
 
   XLSX.writeFile(workbook, "Capacity_Building_Template.xlsx");
 }
