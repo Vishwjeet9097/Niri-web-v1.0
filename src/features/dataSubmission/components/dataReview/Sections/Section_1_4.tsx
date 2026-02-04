@@ -48,7 +48,7 @@ export const Section_1_4 = ({
   const [ulbDropdownOptions, setUlbDropdownOptions] = useState([]);
   const [ulbLoading, setUlbLoading] = useState(false);
   const [ulbError, setUlbError] = useState("");
-  
+
   // Fetch ULBs for the logged-in user's state
   useEffect(() => {
     const fetchULBs = async () => {
@@ -171,17 +171,19 @@ export const Section_1_4 = ({
       let cityName = "";
       let ulbName = "";
       let ulbType = "";
-      
+
       if (selectedULB && selectedULB.label) {
         // Parse the label to extract ULB name, city name, and type
-        const match = selectedULB.label.match(/^([^-]+)(?:-\s([^()]+))?(?:\s\(([^)]+)\))?$/);
+        const match = selectedULB.label.match(
+          /^([^-]+)(?:-\s([^()]+))?(?:\s\(([^)]+)\))?$/
+        );
         if (match) {
           ulbName = match[1].trim();
           cityName = match[2] ? match[2].trim() : "";
           ulbType = match[3] ? match[3].trim() : "";
         }
       }
-      
+
       updatedBondList[index] = {
         ...updatedBondList[index],
         [field]: stringValue,
@@ -425,7 +427,9 @@ export const Section_1_4 = ({
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                 Bond Type
               </th>
-              <th className="py-3 px-4 text-left text-sm font-normal">ULB</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                ULB Name
+              </th>
               <th className="py-3 px-4 text-left text-sm font-normal">City</th>
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Issuing Authority
@@ -434,7 +438,7 @@ export const Section_1_4 = ({
                 Value (INR-CRORE)
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
-                Tenor of Bond (in months)
+                Tenure of Bond (in months)
               </th>
               {isEditable("1.4") && (
                 <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
@@ -497,7 +501,7 @@ export const Section_1_4 = ({
                               ? "Loading..."
                               : ulbError
                               ? "Failed to load ULBs"
-                              : "Select ULB"
+                              : "Select ULB Name"
                           }
                           isEditable={isEditable("1.4")}
                           isSearchable={true}
@@ -522,7 +526,7 @@ export const Section_1_4 = ({
                       (() => {
                         // Try to show best available name from item itself first
                         let label = "";
-                        
+
                         // First, check if we have the ULB ID and dropdown options are loaded
                         if (item.ulb) {
                           // Try to find in dropdown options (convert both to string for comparison)
@@ -534,22 +538,23 @@ export const Section_1_4 = ({
                               label = found.label;
                             }
                           }
-                          
+
                           // If not found in dropdown options, check if item has ULB name stored
                           if (!label && item.ulb_name) {
-                            const cityName = item.cityName || item.city_name || "";
+                            const cityName =
+                              item.cityName || item.city_name || "";
                             const ulbType = item.ulb_type || item.type || "";
                             label = item.ulb_name;
                             if (cityName) label += ` - ${cityName}`;
                             if (ulbType) label += ` (${ulbType})`;
                           }
-                          
+
                           // Last resort: if we have ULB ID but no name, show ID
                           if (!label) {
                             label = `ULB ID: ${item.ulb}`;
                           }
                         }
-                        
+
                         return label && label.trim() !== "" ? label : "N/A";
                       })()
                     )}
@@ -584,7 +589,11 @@ export const Section_1_4 = ({
                           type="text"
                           value={item.issuingAuthority || ""}
                           onChange={(e) =>
-                            handleBondChange(index, "issuingAuthority", e.target.value)
+                            handleBondChange(
+                              index,
+                              "issuingAuthority",
+                              e.target.value
+                            )
                           }
                           placeholder="Enter issuing authority"
                           maxLength={100}
@@ -664,7 +673,7 @@ export const Section_1_4 = ({
                               ? "w-full border-red-500"
                               : "w-full"
                           }
-                          placeholder="Enter tenor in years"
+                          placeholder="Enter tenure in years"
                         />
                         {getError(
                           `section1_4.bondList.${index}.tenorOfBond`
@@ -766,7 +775,7 @@ export const Section_1_4 = ({
               )}
             </div>
             <div>
-              <Label>ULB</Label>
+              <Label>ULB Name</Label>
               <Dropdown
                 options={ulbDropdownOptions.filter((option) => {
                   // Filter out ULBs already selected in existing rows
@@ -784,20 +793,22 @@ export const Section_1_4 = ({
                   let cityName = "";
                   let ulbName = "";
                   let ulbType = "";
-                  
+
                   if (selectedULB && selectedULB.label) {
                     // Parse the label to extract ULB name, city name, and type
-                    const match = selectedULB.label.match(/^([^-]+)(?:-\s([^()]+))?(?:\s\(([^)]+)\))?$/);
+                    const match = selectedULB.label.match(
+                      /^([^-]+)(?:-\s([^()]+))?(?:\s\(([^)]+)\))?$/
+                    );
                     if (match) {
                       ulbName = match[1].trim();
                       cityName = match[2] ? match[2].trim() : "";
                       ulbType = match[3] ? match[3].trim() : "";
                     }
                   }
-                  
-                  setNewBondEntry({ 
-                    ...newBondEntry, 
-                    ulb: value, 
+
+                  setNewBondEntry({
+                    ...newBondEntry,
+                    ulb: value,
                     cityName,
                     ulb_name: ulbName,
                     ulb_type: ulbType,
@@ -808,7 +819,7 @@ export const Section_1_4 = ({
                     ? "Loading..."
                     : ulbError
                     ? "Failed to load ULBs"
-                    : "Select ULB"
+                    : "Select ULB Name"
                 }
                 isEditable={!ulbLoading && !ulbError}
                 isSearchable={true}
@@ -846,7 +857,10 @@ export const Section_1_4 = ({
                 type="text"
                 value={newBondEntry.issuingAuthority}
                 onChange={(e) =>
-                  setNewBondEntry({ ...newBondEntry, issuingAuthority: e.target.value })
+                  setNewBondEntry({
+                    ...newBondEntry,
+                    issuingAuthority: e.target.value,
+                  })
                 }
                 placeholder="Enter issuing authority"
                 maxLength={100}
@@ -892,13 +906,14 @@ export const Section_1_4 = ({
             </div>
             <div>
               <Label>
-                Tenor of Bond (in months)<span className="text-red-500">*</span>
+                Tenure of Bond (in months)
+                <span className="text-red-500">*</span>
                 <Tooltip>
                   <TooltipTrigger>
                     <Info className="inline w-3 h-3 ml-1" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    Tenor – Maturity Period of Bond
+                    Tenure – Maturity Period of Bond
                   </TooltipContent>
                 </Tooltip>
               </Label>
@@ -920,7 +935,7 @@ export const Section_1_4 = ({
                     ? "bg-white border-red-500"
                     : "bg-white"
                 }
-                placeholder="Enter tenor in years"
+                placeholder="Enter tenure in years"
               />
               {getError("section1_4.bondList.new.tenorOfBond") && (
                 <p className="text-sm text-red-500 mt-1">

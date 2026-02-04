@@ -289,16 +289,16 @@ export const validateInfraFinancing = (
           }
           if (!bond.tenorOfBond || bond.tenorOfBond.trim() === "") {
             errors[`${basePath}.tenorOfBond`] =
-              "Tenor of Bond (in months) is required.";
+              "Tenure of Bond (in months) is required.";
           } else if (
             !isNonNegativeDecimal(bond.tenorOfBond) ||
             !hasMaxTwoDecimals(bond.tenorOfBond)
           ) {
             errors[`${basePath}.tenorOfBond`] =
-              "Enter a valid non-negative number with up to two decimal places for tenor of bond.";
+              "Enter a valid non-negative number with up to two decimal places for tenure of bond.";
           } else if (!isGreaterThanZero(bond.tenorOfBond)) {
             errors[`${basePath}.tenorOfBond`] =
-              "Tenor of Bond must be greater than zero.";
+              "Tenure of Bond must be greater than zero.";
           }
         });
       }

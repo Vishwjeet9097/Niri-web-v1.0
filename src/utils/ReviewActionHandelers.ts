@@ -27,14 +27,14 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
     });
 
     console.log(`[handleSaveSection] ✅ API call successful:`, result);
-    
-    // Check if indicator score is in response
+
+    // Check if indicator score is in response (indicator submitted for score)
     if (result?.indicatorScore) {
       const score = result.indicatorScore;
       const indicatorCode = score.indicatorCode || payload.section.replace('section', '').replace('_', '.');
-      notificationService.success(
-        `Section updated successfully. Score: ${score.score}/${score.maxScore} points`
-      );
+      // notificationService.success(
+      //   `Section updated successfully. Score: ${score.score}/${score.maxScore} points`
+      // );
       
       // Dispatch custom event with score information
       window.dispatchEvent(
@@ -49,7 +49,7 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
       );
     } else {
       notificationService.success("Section updated successfully");
-      
+
       // Dispatch custom event to notify components that submission was updated
       window.dispatchEvent(
         new CustomEvent("niri-submission-updated", {
@@ -61,7 +61,7 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
         })
       );
     }
-    
+
     return result;
   } catch (error: any) {
     console.error(`[handleSaveSection] ❌ API call failed:`, {
@@ -77,10 +77,11 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
     });
     // Don't show notification alert for validation errors - errors should be shown on UI
     // Check if this is a validation error from backend
-    const isValidationError = error?.response?.data?.message?.toLowerCase().includes("validation") ||
-                              error?.response?.data?.message?.toLowerCase().includes("required") ||
-                              error?.response?.data?.message?.toLowerCase().includes("mandatory") ||
-                              error?.isValidationError;
+    const isValidationError =
+      error?.response?.data?.message?.toLowerCase().includes("validation") ||
+      error?.response?.data?.message?.toLowerCase().includes("required") ||
+      error?.response?.data?.message?.toLowerCase().includes("mandatory") ||
+      error?.isValidationError;
     if (!isValidationError) {
       notificationService.error("Failed to save section");
     }

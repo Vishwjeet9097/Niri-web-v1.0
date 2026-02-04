@@ -3163,7 +3163,7 @@ export const InfraFinancingStep = () => {
                   >
                     <div className="col-span-4">
                       <Label>
-                        ULB<span className="text-red-500">*</span>
+                        ULB Name<span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <Select
@@ -3259,7 +3259,7 @@ export const InfraFinancingStep = () => {
                             )}
                             tabIndex={0}
                           >
-                            <SelectValue placeholder="Select ULB" />
+                            <SelectValue placeholder="Select ULB Name" />
                           </SelectTrigger>
                           <SelectContent>
                             <div className="px-2 py-1 transition-all duration-200 ease-in-out">
@@ -3427,7 +3427,8 @@ export const InfraFinancingStep = () => {
                     </div>
                     <div className="col-span-3">
                       <Label>
-                        Rating date<span className="text-red-500">*</span>
+                        Credit Rating Date
+                        <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         type="date"
@@ -3673,10 +3674,10 @@ export const InfraFinancingStep = () => {
                             City Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            ULB
+                            ULB Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Rating Date
+                            Credit Rating Date
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Rating
@@ -3959,7 +3960,7 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
-                        ULB<span className="text-red-500">*</span>
+                        ULB Name<span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <Select
@@ -4011,7 +4012,7 @@ export const InfraFinancingStep = () => {
                             )}
                             tabIndex={0}
                           >
-                            <SelectValue placeholder="Select ULB" />
+                            <SelectValue placeholder="Select ULB Name" />
                           </SelectTrigger>
                           <SelectContent>
                             <div className="px-2 py-1 transition-all duration-200 ease-in-out">
@@ -4232,14 +4233,14 @@ export const InfraFinancingStep = () => {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Label>
-                          Tenor of Bond (in months)
+                          Tenure of Bond (in months)
                           <span className="text-red-500">*</span>
                           <Tooltip>
                             <TooltipTrigger>
                               <Info className="inline w-3 h-3 ml-1" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              Tenor – Maturity Period of Bond
+                              Tenure – Maturity Period of Bond
                             </TooltipContent>
                           </Tooltip>
                         </Label>
@@ -4248,7 +4249,7 @@ export const InfraFinancingStep = () => {
                           inputMode="decimal"
                           step="0.01"
                           min="0"
-                          placeholder="Enter tenor in years"
+                          placeholder="Enter tenure in years"
                           value={bond.tenorOfBond}
                           onChange={(e) => {
                             showErrorsIfNeeded();
@@ -4330,7 +4331,7 @@ export const InfraFinancingStep = () => {
                             Bond Type
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            ULB
+                            ULB Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             City
@@ -4342,7 +4343,7 @@ export const InfraFinancingStep = () => {
                             Value (INR Cr)
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Tenor of Bond (in months)
+                            Tenure of Bond (in months)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action

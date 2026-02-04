@@ -416,7 +416,7 @@ export const EditableInfraFinancing = ({
                     />
                   </div>
                   <div>
-                    <Label>Rating Date*</Label>
+                    <Label>Credit Rating Date*</Label>
                     <Input
                       type="date"
                       max={new Date().toISOString().split("T")[0]}
@@ -568,13 +568,13 @@ export const EditableInfraFinancing = ({
                     />
                   </div>
                   <div>
-                    <Label>Tenor of Bond (in months)*</Label>
+                    <Label>Tenure of Bond (in months)*</Label>
                     <Input
                       type="number"
                       inputMode="decimal"
                       step="0.01"
                       min="0"
-                      placeholder="Enter tenor in years"
+                      placeholder="Enter tenure in years"
                       value={bond.tenorOfBond}
                       onChange={(e) => {
                         const value = e.target.value;

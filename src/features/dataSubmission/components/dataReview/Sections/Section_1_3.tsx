@@ -568,12 +568,14 @@ export const Section_1_3 = ({
         <table className="min-w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-[#DDE3F9]">
-              <th className="py-3 px-4 text-left text-sm font-normal">ULB</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                ULB Name
+              </th>
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                 City Name
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
-                Rating Date
+                Credit Rating Date
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Rating
@@ -911,7 +913,7 @@ export const Section_1_3 = ({
           <h4 className="font-medium mb-3">Add New ULB Entry</h4>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
-              <Label>ULB</Label>
+              <Label>ULB Name</Label>
               <Dropdown
                 options={ulbDropdownOptions.filter((option) => {
                   // Filter out ULBs already selected in existing rows
@@ -964,7 +966,7 @@ export const Section_1_3 = ({
                     ? "Loading..."
                     : ulbError
                     ? "Failed to load ULBs"
-                    : "Select ULB"
+                    : "Select ULB Name"
                 }
                 isEditable={!ulbLoading && !ulbError}
                 isSearchable={true}
@@ -1002,7 +1004,7 @@ export const Section_1_3 = ({
             </div>
 
             <div>
-              <Label>Rating Date</Label>
+              <Label>Credit Rating Date</Label>
               <Input
                 type="date"
                 max={new Date().toISOString().split("T")[0]}
