@@ -159,6 +159,8 @@ export function parseCapacityBuildingExcel(
 
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i];
+          // Ensure row is an array (sheet_to_json can return sparse or non-array in edge cases)
+          if (!Array.isArray(row)) continue;
 
           // Skip empty rows
           const isEmptyRow = row.every(
@@ -166,12 +168,29 @@ export function parseCapacityBuildingExcel(
           );
           if (isEmptyRow) continue;
 
-          const officerName = String(row[officerNameIndex] || "").trim();
-          const designation = String(row[designationIndex] || "").trim();
-          const programName = String(row[programNameIndex] || "").trim();
-          const organiser = String(row[organiserIndex] || "").trim();
-          const trainingType = String(row[trainingTypeIndex] || "").trim();
-          const trainingPeriod = String(row[trainingPeriodIndex] || "").trim();
+          const officerName = String(
+            (row[officerNameIndex] ?? "") || ""
+          ).trim();
+          const designation = String(
+            (row[designationIndex] ?? "") || ""
+          ).trim();
+          const programName = String(
+            (row[programNameIndex] ?? "") || ""
+          ).trim();
+          const organiser = String((row[organiserIndex] ?? "") || "").trim();
+          const trainingType = String(
+            (row[trainingTypeIndex] ?? "") || ""
+          ).trim();
+          const trainingPeriod = String(
+            (row[trainingPeriodIndex] ?? "") || ""
+          ).trim();
+
+          // Skip duplicate header row (e.g. file has two header rows)
+          const looksLikeHeader =
+            /^(officer\s*name|officer|name|officer_name)$/i.test(officerName) &&
+            /^(designation|position)$/i.test(designation) &&
+            /^(program\s*name|program|training\s*program)$/i.test(programName);
+          if (looksLikeHeader) continue;
 
           // Skip rows with missing required fields
           if (

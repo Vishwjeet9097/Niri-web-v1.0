@@ -872,21 +872,32 @@ export const InfraEnablersStep = () => {
         return;
       }
 
-      // Merge with existing entries (avoid duplicates based on ID)
+      // Merge with existing entries (avoid duplicates by ID; drop empty existing rows so they don't appear first)
       setFormData((prev) => {
-        const existingIds = new Set(
-          (prev.section4_5?.capacityArray || []).map((e) => e.id)
-        );
+        const existing = prev.section4_5?.capacityArray || [];
+        const isEntryEmpty = (e: {
+          officerName?: string;
+          designation?: string;
+          programName?: string;
+          organiser?: string;
+          trainingType?: string;
+          trainingPeriod?: string;
+        }) =>
+          !String(e.officerName ?? "").trim() &&
+          !String(e.designation ?? "").trim() &&
+          !String(e.programName ?? "").trim() &&
+          !String(e.organiser ?? "").trim() &&
+          !String(e.trainingType ?? "").trim() &&
+          !String(e.trainingPeriod ?? "").trim();
+        const nonEmptyExisting = existing.filter((e) => !isEntryEmpty(e));
+        const existingIds = new Set(nonEmptyExisting.map((e) => e.id));
         const newEntries = result.data!.filter((e) => !existingIds.has(e.id));
 
         return {
           ...prev,
           section4_5: {
             ...prev.section4_5,
-            capacityArray: [
-              ...(prev.section4_5?.capacityArray || []),
-              ...newEntries,
-            ],
+            capacityArray: [...nonEmptyExisting, ...newEntries],
           },
         };
       });
@@ -2373,7 +2384,11 @@ export const InfraEnablersStep = () => {
                           value={entry.statusOfProject || ""}
                           onChange={(e) => {
                             showErrorsIfNeeded();
-                            updateGatiProject(entry.id, "statusOfProject", e.target.value);
+                            updateGatiProject(
+                              entry.id,
+                              "statusOfProject",
+                              e.target.value
+                            );
                           }}
                           disabled={isIndicatorSubmitted("4.2")}
                           className={cn(

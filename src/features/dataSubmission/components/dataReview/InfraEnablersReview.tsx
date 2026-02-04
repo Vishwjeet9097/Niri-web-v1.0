@@ -3369,21 +3369,25 @@ export const InfraEnablersReview = ({
         return;
       }
 
-      // Merge with existing entries (avoid duplicates based on ID)
+      // Merge with existing entries (avoid duplicates by ID; drop empty existing rows so they don't appear first)
       setFormDataState((prev: any) => {
-        const existingIds = new Set(
-          (prev?.section4_5?.capacityArray || []).map((e: any) => e.id)
-        );
+        const existing = prev?.section4_5?.capacityArray || [];
+        const isEntryEmpty = (e: any) =>
+          !String(e?.officerName ?? "").trim() &&
+          !String(e?.designation ?? "").trim() &&
+          !String(e?.programName ?? "").trim() &&
+          !String(e?.organiser ?? "").trim() &&
+          !String(e?.trainingType ?? "").trim() &&
+          !String(e?.trainingPeriod ?? "").trim();
+        const nonEmptyExisting = existing.filter((e: any) => !isEntryEmpty(e));
+        const existingIds = new Set(nonEmptyExisting.map((e: any) => e.id));
         const newEntries = result.data!.filter((e) => !existingIds.has(e.id));
 
         return {
           ...prev,
           section4_5: {
             ...prev?.section4_5,
-            capacityArray: [
-              ...(prev?.section4_5?.capacityArray || []),
-              ...newEntries,
-            ],
+            capacityArray: [...nonEmptyExisting, ...newEntries],
           },
         };
       });
