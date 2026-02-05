@@ -93,16 +93,22 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       )
     );
   },
-  section1_4: (data: any) =>
-    Array.isArray(data?.bondList) &&
-    anyValid(
-      data.bondList,
-      (r) =>
-        hasMeaningfulValue(r.bondType) &&
-        hasMeaningfulValue(r.cityName) &&
-        hasMeaningfulValue(r.issuingAuthority) &&
-        hasMeaningfulValue(r.value)
-    ),
+  section1_4: (data: any) => {
+    const totalULBsPresent =
+      typeof data?.totalULBs === "number" && data.totalULBs >= 0;
+    if (totalULBsPresent) return true;
+    return (
+      Array.isArray(data?.bondList) &&
+      anyValid(
+        data.bondList,
+        (r) =>
+          hasMeaningfulValue(r.bondType) &&
+          hasMeaningfulValue(r.cityName) &&
+          hasMeaningfulValue(r.issuingAuthority) &&
+          hasMeaningfulValue(r.value)
+      )
+    );
+  },
   section1_5: (data: any) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.hasIntermediary)) return false;

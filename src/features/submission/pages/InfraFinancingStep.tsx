@@ -209,18 +209,8 @@ export const InfraFinancingStep = () => {
       // totalULBs omitted so field starts empty (mandatory – user must fill)
     },
     section1_4: {
-      totalULBs: 0,
-      bondList: [
-        {
-          id: Math.random().toString(36).substr(2, 9),
-          bondType: "",
-          ulb: "",
-          cityName: "",
-          issuingAuthority: "",
-          value: "",
-          tenorOfBond: "",
-        },
-      ],
+      bondList: [],
+      // totalULBs omitted so field starts empty (mandatory – user must fill)
     },
     section1_5: { ffiArray: [], hasIntermediary: "", comment: "" },
   };
@@ -263,13 +253,12 @@ export const InfraFinancingStep = () => {
       },
       section1_4: {
         ...(data.section1_4 || {}),
-        totalULBs:
-          data.section1_4?.totalULBs ?? defaultData.section1_4.totalULBs,
+        totalULBs: data.section1_4?.totalULBs ?? undefined,
         bondList:
           Array.isArray(data.section1_4?.bondList) &&
           data.section1_4.bondList.length > 0
             ? data.section1_4.bondList
-            : defaultData.section1_4.bondList,
+            : [],
         // Preserve status field
         status: (data.section1_4 as any)?.status,
       },
@@ -308,26 +297,13 @@ export const InfraFinancingStep = () => {
       };
     }
 
-    // Ensure bondList has at least 1 entry
-    if (
-      !Array.isArray(updatedData.section1_4.bondList) ||
-      updatedData.section1_4.bondList.length === 0
-    ) {
+    // Ensure section1_4.bondList is an array (can be empty – 0 bonds is valid until user adds via "Add More Bond")
+    if (!Array.isArray(updatedData.section1_4.bondList)) {
       updatedData = {
         ...updatedData,
         section1_4: {
           ...updatedData.section1_4,
-          bondList: [
-            {
-              id: Math.random().toString(36).substr(2, 9),
-              bondType: "",
-              ulb: "",
-              cityName: "",
-              issuingAuthority: "",
-              value: "",
-              tenorOfBond: "",
-            },
-          ],
+          bondList: [],
         },
       };
     }
@@ -3002,7 +2978,7 @@ export const InfraFinancingStep = () => {
                     <Input
                       type="number"
                       placeholder="Enter total number of ULBs"
-                      min="0"
+                      min="1"
                       value={formData.section1_3.totalULBs || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
@@ -3595,7 +3571,7 @@ export const InfraFinancingStep = () => {
                     className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="h-4 w-4" />
-                    Add More 
+                    Add More
                   </Button>
                 )}
                 {renderFieldError("section1_3.ulbList") && (
@@ -3750,15 +3726,23 @@ export const InfraFinancingStep = () => {
                     <Input
                       type="number"
                       placeholder="Enter total number of ULBs"
-                      min="0"
-                      value={formData.section1_4.totalULBs || ""}
+                      min="1"
+                      value={
+                        formData.section1_4.totalULBs === undefined ||
+                        formData.section1_4.totalULBs === null
+                          ? ""
+                          : formData.section1_4.totalULBs
+                      }
                       onChange={(e) => {
                         showErrorsIfNeeded();
                         clearIndicatorValidationMessage("1.4");
                         const { value } = e.target;
-                        const newTotalULBs = value
-                          ? Math.max(parseInt(value, 10), 0)
-                          : 0;
+                        const trimmed =
+                          typeof value === "string" ? value.trim() : value;
+                        const newTotalULBs =
+                          trimmed === "" || trimmed === undefined
+                            ? undefined
+                            : Math.max(parseInt(String(trimmed), 10), 0);
 
                         setFormData((prev) => {
                           const currentListLength =
@@ -3766,35 +3750,22 @@ export const InfraFinancingStep = () => {
 
                           let updatedList = [...prev.section1_4.bondList];
 
-                          // If new total is less than current rows, trim the list
-                          if (newTotalULBs < currentListLength) {
+                          if (
+                            newTotalULBs !== undefined &&
+                            newTotalULBs < currentListLength
+                          ) {
                             updatedList = prev.section1_4.bondList.slice(
                               0,
                               newTotalULBs
                             );
                           }
-                          // If new total is greater than 0 and list is empty, add at least one entry
-                          else if (
-                            newTotalULBs > 0 &&
-                            currentListLength === 0
-                          ) {
-                            updatedList = [
-                              {
-                                id: Date.now().toString(),
-                                bondType: "",
-                                ulb: "",
-                                cityName: "",
-                                issuingAuthority: "",
-                                value: "",
-                                tenorOfBond: "",
-                              },
-                            ];
-                          }
 
-                          // Clear validation error if totalULBs is now valid
                           setIndicatorValidationErrors((prevErrors) => {
                             const newErrors = { ...prevErrors };
-                            if (newTotalULBs >= updatedList.length) {
+                            if (
+                              newTotalULBs !== undefined &&
+                              newTotalULBs >= updatedList.length
+                            ) {
                               delete newErrors["section1_4.bondList"];
                             }
                             return newErrors;
@@ -3834,10 +3805,10 @@ export const InfraFinancingStep = () => {
                     <Input
                       type="text"
                       value={
-                        formData.section1_4.totalULBs > 0
+                        (formData.section1_4.totalULBs ?? 0) > 0
                           ? (
                               (formData.section1_4.bondList.length /
-                                formData.section1_4.totalULBs) *
+                                (formData.section1_4.totalULBs ?? 0)) *
                               100
                             ).toFixed(2) + "%"
                           : "0%"

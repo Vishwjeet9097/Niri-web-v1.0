@@ -209,10 +209,16 @@ export const hasInfraFinancingData = (formData: any): boolean => {
           !!hasSubmittedStatus
         );
       case "section1_4":
-        // Check for bondList array or totalULBs field
+        const hasTotalULBs1_4 =
+          typeof section?.totalULBs === "number" && section.totalULBs >= 0;
+        const hasSubmittedStatus1_4 =
+          section?.status &&
+          String(section.status).toUpperCase() !== "SAVE_AS_DRAFT";
         return (
           hasArrayData(section?.bondList) ||
-          hasMeaningfulValue(section?.totalULBs)
+          hasMeaningfulValue(section?.totalULBs) ||
+          hasTotalULBs1_4 ||
+          !!hasSubmittedStatus1_4
         );
       case "section1_5":
         // Check if hasIntermediary is set (yes or no)
@@ -755,10 +761,16 @@ const hasSectionData = (
             !!hasSubmittedStatusSection
           );
         case "section1_4":
-          // Check for bondList array or totalULBs field
+          const hasTotalULBsSection1_4 =
+            typeof section?.totalULBs === "number" && section.totalULBs >= 0;
+          const hasSubmittedStatusSection1_4 =
+            section?.status &&
+            String(section.status).toUpperCase() !== "SAVE_AS_DRAFT";
           return (
             hasArrayData(section?.bondList) ||
-            hasMeaningfulValue(section?.totalULBs)
+            hasMeaningfulValue(section?.totalULBs) ||
+            hasTotalULBsSection1_4 ||
+            !!hasSubmittedStatusSection1_4
           );
         case "section1_5":
           // Check if hasIntermediary is set (yes or no)

@@ -227,6 +227,9 @@ export const validateInfraFinancing = (
         errors["section1_3.totalULBs"] = "Total Number of ULBs is required.";
       } else if (!isValidInteger(Number(totalULBsVal))) {
         errors["section1_3.totalULBs"] = "Enter a valid non-negative integer.";
+      } else if (Number(totalULBsVal) === 0) {
+        errors["section1_3.totalULBs"] =
+          "Total Number of ULBs must be at least 1.";
       }
 
       if (section13.ulbList && Array.isArray(section13.ulbList)) {
@@ -257,14 +260,29 @@ export const validateInfraFinancing = (
     }
   }
 
-  // Section 1.4 validations
+  // Section 1.4 validations (same as 1.3: mandatory totalULBs, 0 bonds allowed)
   if (shouldValidateSection("1.4")) {
     const section14 = data.section1_4;
     if (!section14) {
       // Skip validation if section doesn't exist
     } else {
-      if (!isValidInteger(section14.totalULBs)) {
+      const totalULBsVal = section14.totalULBs as
+        | number
+        | string
+        | undefined
+        | null;
+      const isEmpty =
+        totalULBsVal === undefined ||
+        totalULBsVal === null ||
+        totalULBsVal === "" ||
+        (typeof totalULBsVal === "string" && totalULBsVal.trim() === "");
+      if (isEmpty) {
+        errors["section1_4.totalULBs"] = "Total Number of ULBs is required.";
+      } else if (!isValidInteger(Number(totalULBsVal))) {
         errors["section1_4.totalULBs"] = "Enter a valid non-negative integer.";
+      } else if (Number(totalULBsVal) === 0) {
+        errors["section1_4.totalULBs"] =
+          "Total Number of ULBs must be at least 1.";
       }
 
       if (section14.bondList && Array.isArray(section14.bondList)) {
@@ -306,17 +324,7 @@ export const validateInfraFinancing = (
         });
       }
 
-      // Require at least one bond entry when submitting
-      const bondList = section14.bondList || [];
-      if (bondList.length === 0) {
-        if (section14.totalULBs > 0) {
-          errors["section1_4.bondList"] =
-            "Add at least one bond entry when total number of ULBs is greater than zero.";
-        } else {
-          errors["section1_4.bondList"] =
-            "Add at least one bond entry before submitting this indicator.";
-        }
-      }
+      // Allow 0 bonds; no mandatory bond entry required for submission
     }
   }
 

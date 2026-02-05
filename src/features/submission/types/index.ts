@@ -59,7 +59,7 @@ export interface InfraFinancingData {
     }>;
   };
   section1_4: {
-    totalULBs: number;
+    totalULBs?: number; // optional so "empty" until user fills (mandatory field)
     bondList: Array<{
       id: string;
       bondType: string;

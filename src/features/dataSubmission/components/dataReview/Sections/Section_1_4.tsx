@@ -16,7 +16,10 @@ import { API_ENDPOINTS } from "@/config/endpoints";
 interface Section1_4Props {
   formData: any;
   isEditable: (sectionId: string) => boolean;
-  setSectionState?: (state: { totalULBs: number; bondList: any[] }) => void;
+  setSectionState?: (state: {
+    totalULBs: number | undefined;
+    bondList: any[];
+  }) => void;
   resetKey?: number;
   validationErrors?: { [key: string]: string };
   getFieldError?: (fieldPath: string) => string | undefined;
@@ -38,7 +41,7 @@ export const Section_1_4 = ({
     );
   };
   const bondList = formData?.section1_4?.bondList || [];
-  const totalULBs = formData?.section1_4?.totalULBs || 0;
+  const totalULBs = formData?.section1_4?.totalULBs; // can be undefined when field is empty (mandatory)
 
   // Get state name from formData or fallback to logged-in user
   const { user } = useAuth();
@@ -134,11 +137,12 @@ export const Section_1_4 = ({
 
   // Validate totalULBs vs bondList.length
   useEffect(() => {
-    if (totalULBs > 0 && bondList.length > totalULBs) {
+    const total = totalULBs ?? 0;
+    if (total > 0 && bondList.length > total) {
       // Set validation error
       setCountErrors((prev) => ({
         ...prev,
-        "section1_4.bondList": `Number of rows (${bondList.length}) cannot exceed Total Number of ULBs (${totalULBs}). Please remove excess rows or increase the Total Number of ULBs.`,
+        "section1_4.bondList": `Number of rows (${bondList.length}) cannot exceed Total Number of ULBs (${total}). Please remove excess rows or increase the Total Number of ULBs.`,
       }));
     } else {
       // Clear error if valid
@@ -200,34 +204,21 @@ export const Section_1_4 = ({
     }
   };
 
-  const handleTotalULBsChange = (value: number) => {
-    const newTotalULBs = value || 0;
+  const handleTotalULBsChange = (value: number | undefined) => {
+    const newTotalULBs = value;
     let updatedList = [...bondList];
 
-    // If new total is less than current rows, trim the list
-    if (newTotalULBs < bondList.length) {
+    if (
+      newTotalULBs !== undefined &&
+      newTotalULBs !== null &&
+      newTotalULBs < bondList.length
+    ) {
       updatedList = bondList.slice(0, newTotalULBs);
     }
-    // If new total is greater than 0 and list is empty, add at least one entry
-    else if (newTotalULBs > 0 && bondList.length === 0) {
-      updatedList = [
-        {
-          id: `bond-${Date.now()}`,
-          bondType: "",
-          ulb: "",
-          cityName: "",
-          issuingAuthority: "",
-          value: "",
-          tenorOfBond: "",
-        },
-      ];
-    }
 
-    // Clear validation error if totalULBs is now valid
     setCountErrors((prev) => {
       const newErrors: { [key: string]: string } = {};
       Object.keys(prev).forEach((key) => {
-        // Keep other errors, clear count-related errors
         if (
           !key.includes("Total Number") &&
           !key.includes("cannot exceed") &&
@@ -240,7 +231,10 @@ export const Section_1_4 = ({
     });
 
     if (setSectionState) {
-      setSectionState({ totalULBs: newTotalULBs, bondList: updatedList });
+      setSectionState({
+        totalULBs: newTotalULBs,
+        bondList: updatedList,
+      });
     }
   };
 
@@ -310,12 +304,11 @@ export const Section_1_4 = ({
 
   // Handle adding new bond entry
   const handleAddNewBondEntry = () => {
-    // Check if we can add more rows
-    if (bondList.length >= totalULBs) {
-      // Set validation error
+    const total = totalULBs ?? 0;
+    if (bondList.length >= total) {
       setCountErrors((prev) => ({
         ...prev,
-        "section1_4.bondList": `Cannot add more rows. Total Number of ULBs is ${totalULBs}, and you already have ${bondList.length} row(s). Please increase the Total Number of ULBs first.`,
+        "section1_4.bondList": `Cannot add more rows. Total Number of ULBs is ${total}, and you already have ${bondList.length} row(s). Please increase the Total Number of ULBs first.`,
       }));
       return;
     }
@@ -374,14 +367,15 @@ export const Section_1_4 = ({
             type="number"
             inputMode="numeric"
             min="0"
-            value={totalULBs}
+            value={
+              totalULBs === undefined || totalULBs === null ? "" : totalULBs
+            }
             readOnly={!isEditable("1.4")}
             className={isEditable("1.4") ? "bg-white" : "bg-gray-50"}
             onChange={(e) => {
               const value = e.target.value;
-              // Only allow non-negative integers
               if (value === "" || /^\d+$/.test(value)) {
-                handleTotalULBsChange(value === "" ? 0 : Number(value));
+                handleTotalULBsChange(value === "" ? undefined : Number(value));
               }
             }}
           />
@@ -400,8 +394,8 @@ export const Section_1_4 = ({
           <Input
             type="text"
             value={
-              totalULBs > 0
-                ? ((bondList.length / totalULBs) * 100).toFixed(2) + "%"
+              (totalULBs ?? 0) > 0
+                ? ((bondList.length / (totalULBs ?? 0)) * 100).toFixed(2) + "%"
                 : "0%"
             }
             readOnly
@@ -736,13 +730,13 @@ export const Section_1_4 = ({
       </div>
 
       {/* Add More Button - Only visible when in edit mode and totalULBs > 0 */}
-      {isEditable("1.4") && !showAddBondForm && totalULBs > 0 && (
+      {isEditable("1.4") && !showAddBondForm && (totalULBs ?? 0) > 0 && (
         <Button
           variant="outline"
           size="sm"
           className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setShowAddBondForm(true)}
-          disabled={bondList.length >= totalULBs}
+          disabled={bondList.length >= (totalULBs ?? 0)}
         >
           <Plus className="w-4 h-4" />
           Add More
