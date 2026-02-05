@@ -4036,7 +4036,9 @@ export const InfraEnablersStep = () => {
                   <strong>
                     {pendingIndicator?.code} - {pendingIndicator?.title}
                   </strong>
-                  ? This will send the data to the State Approver for review.
+                  ?
+                  {user?.role !== "STATE_APPROVER" &&
+                    " This will send the data to the State Approver for review."}{" "}
                   Once submitted, you cannot modify this indicator.
                 </AlertDialogDescription>
               </AlertDialogHeader>
