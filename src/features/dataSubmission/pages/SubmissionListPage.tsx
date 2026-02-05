@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Download,
@@ -606,6 +606,7 @@ const transformIndicatorsToFormData = (
 
 export const SubmissionListPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -1782,6 +1783,40 @@ export const SubmissionListPage = () => {
     user?.stateUt,
     user?.stateName,
     user?.state,
+  ]);
+
+  // When State Approver comes from Infra Enablers "Submit" (openFinalSubmit=1), open the final submit confirm modal
+  useEffect(() => {
+    const openFinalSubmit = searchParams.get("openFinalSubmit") === "1";
+    if (
+      !openFinalSubmit ||
+      user?.role !== "STATE_APPROVER" ||
+      progressLoading ||
+      !stateProgress
+    ) {
+      return;
+    }
+    if (
+      stateProgress.percentage === 100 &&
+      stateProgress.approved === stateProgress.total &&
+      !hasSubmittedToMospiReviewer
+    ) {
+      setShowConfirmModal(true);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("openFinalSubmit");
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [
+    searchParams,
+    user?.role,
+    progressLoading,
+    stateProgress,
+    hasSubmittedToMospiReviewer,
   ]);
 
   // Handle export

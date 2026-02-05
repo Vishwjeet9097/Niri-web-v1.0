@@ -50,6 +50,10 @@ interface DataReviewTabProps {
     }>;
   }>;
   onRefetch?: () => void; // Callback to refetch submission data from parent
+  /** When provided (e.g. for State Approver in preview), show Submit at end of last section and call this when clicked (same as Submit Now) */
+  onRequestFinalSubmit?: () => void;
+  /** When true, the Submit button (when on last section) is disabled until all indicators are accepted */
+  isFinalSubmitDisabled?: boolean;
 }
 
 const DEFAULT_SECTIONS = [
@@ -68,6 +72,8 @@ export const DataReviewTab = ({
   isNodalOfficer,
   sections,
   onRefetch,
+  onRequestFinalSubmit,
+  isFinalSubmitDisabled = false,
 }: DataReviewTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -490,18 +496,30 @@ export const DataReviewTab = ({
             <ChevronLeft className="w-4 h-4" />
             Previous
           </Button>
-          <Button
-            onClick={() =>
-              handleSectionChange(
-                Math.min(availableSections.length - 1, currentSection + 1)
-              )
-            }
-            disabled={currentSection === availableSections.length - 1}
-            className="gap-2"
-          >
-            Next
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+          {currentSection === availableSections.length - 1 &&
+          onRequestFinalSubmit ? (
+            <Button
+              onClick={onRequestFinalSubmit}
+              disabled={isFinalSubmitDisabled}
+              className="gap-2"
+            >
+              Submit
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() =>
+                handleSectionChange(
+                  Math.min(availableSections.length - 1, currentSection + 1)
+                )
+              }
+              disabled={currentSection === availableSections.length - 1}
+              className="gap-2"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       )}
     </div>

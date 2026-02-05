@@ -2240,6 +2240,21 @@ export const StateAggregateReviewPage = () => {
                     isNodalOfficer ? assignedIndicators : undefined
                   }
                   isNodalOfficer={isNodalOfficer}
+                  onRequestFinalSubmit={
+                    user?.role === "STATE_APPROVER"
+                      ? () => setShowConfirmModal(true)
+                      : undefined
+                  }
+                  isFinalSubmitDisabled={
+                    user?.role === "STATE_APPROVER"
+                      ? !stateProgress ||
+                        stateProgress.approved !== stateProgress.total ||
+                        stateProgress.percentage !== 100 ||
+                        hasSubmittedToMospiReviewer ||
+                        progressLoading ||
+                        submittingFinal
+                      : false
+                  }
                 />
               </TabsContent>
 
