@@ -69,7 +69,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = infraEnablers[sectionId];
     if (!section) return false;
-    
+
     // Exclude SAVE_AS_DRAFT indicators from review
     const status = section?.status?.toUpperCase();
     if (status === "SAVE_AS_DRAFT") {
@@ -145,9 +145,11 @@ export const hasInfraEnablersData = (formData: any): boolean => {
  * Excludes SAVE_AS_DRAFT indicators from review (they should not be visible to STATE_APPROVER)
  */
 export const hasInfraFinancingData = (formData: any): boolean => {
-  if (!formData?.infraFinancing) return false;
-
-  const { infraFinancing } = formData;
+  const infraFinancing =
+    formData?.infraFinancing ||
+    formData?.infra_financing ||
+    formData?.["Infrastructure Financing"];
+  if (!infraFinancing || typeof infraFinancing !== "object") return false;
 
   // Check each section
   const sections = [
@@ -161,7 +163,7 @@ export const hasInfraFinancingData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = infraFinancing[sectionId];
     if (!section) return false;
-    
+
     // Exclude SAVE_AS_DRAFT indicators from review
     const status = section?.status?.toUpperCase();
     if (status === "SAVE_AS_DRAFT") {
@@ -194,10 +196,17 @@ export const hasInfraFinancingData = (formData: any): boolean => {
         );
 
       case "section1_3":
-        // Check for ulbList array or totalULBs field
+        // Show when submitted (status) or when totalULBs is defined (including 0) or ulbList has entries
+        const hasTotalULBs =
+          typeof section?.totalULBs === "number" && section.totalULBs >= 0;
+        const hasSubmittedStatus =
+          section?.status &&
+          String(section.status).toUpperCase() !== "SAVE_AS_DRAFT";
         return (
           hasArrayData(section?.ulbList) ||
-          hasMeaningfulValue(section?.totalULBs)
+          hasMeaningfulValue(section?.totalULBs) ||
+          hasTotalULBs ||
+          !!hasSubmittedStatus
         );
       case "section1_4":
         // Check for bondList array or totalULBs field
@@ -248,7 +257,7 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = infraDevelopment[sectionId];
     if (!section) return false;
-    
+
     // Exclude SAVE_AS_DRAFT indicators from review
     const status = section?.status?.toUpperCase();
     if (status === "SAVE_AS_DRAFT") {
@@ -468,7 +477,7 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
   return sections.some((sectionId) => {
     const section = pppDevelopment[sectionId];
     if (!section) return false;
-    
+
     // Exclude SAVE_AS_DRAFT indicators from review
     const status = section?.status?.toUpperCase();
     if (status === "SAVE_AS_DRAFT") {
@@ -639,7 +648,7 @@ const hasSectionData = (
   category: string
 ): boolean => {
   if (!section) return false;
-  
+
   // Exclude SAVE_AS_DRAFT indicators from review
   const status = section?.status?.toUpperCase();
   if (status === "SAVE_AS_DRAFT") {
@@ -733,10 +742,17 @@ const hasSectionData = (
             hasMeaningfulValue(section.stateCapexUtilisation)
           );
         case "section1_3":
-          // Check for ulbList array or totalULBs field
+          // Show when submitted (status) or when totalULBs is defined (including 0) or ulbList has entries
+          const hasTotalULBsSection =
+            typeof section?.totalULBs === "number" && section.totalULBs >= 0;
+          const hasSubmittedStatusSection =
+            section?.status &&
+            String(section.status).toUpperCase() !== "SAVE_AS_DRAFT";
           return (
             hasArrayData(section?.ulbList) ||
-            hasMeaningfulValue(section?.totalULBs)
+            hasMeaningfulValue(section?.totalULBs) ||
+            hasTotalULBsSection ||
+            !!hasSubmittedStatusSection
           );
         case "section1_4":
           // Check for bondList array or totalULBs field

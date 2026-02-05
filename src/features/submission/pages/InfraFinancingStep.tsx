@@ -205,18 +205,8 @@ export const InfraFinancingStep = () => {
       capexActualsToGSDP: "",
     },
     section1_3: {
-      totalULBs: 0,
-      ulbList: [
-        {
-          id: Math.random().toString(36).substr(2, 9),
-          cityName: "",
-          ulb: "",
-          ratingDate: "",
-          rating: "",
-          file: null,
-          noDocumentAvailable: false,
-        },
-      ],
+      ulbList: [],
+      // totalULBs omitted so field starts empty (mandatory – user must fill)
     },
     section1_4: {
       totalULBs: 0,
@@ -267,7 +257,7 @@ export const InfraFinancingStep = () => {
                 file: ulb.file || null,
                 noDocumentAvailable: ulb.noDocumentAvailable || false,
               }))
-            : defaultData.section1_3.ulbList,
+            : [],
         // Preserve status field
         status: (data.section1_3 as any)?.status,
       },
@@ -303,28 +293,17 @@ export const InfraFinancingStep = () => {
   const initialData: InfraFinancingData =
     safeInfraFinancingFormData(loadedData);
 
-  // Ensure at least one row in ulbList and bondList for mandatory entries
+  // Ensure bondList has at least one row for mandatory entries. Section 1.3 ulbList stays empty by default (0 credit rated ULBs until user adds via "Add More ULB").
   const ensureMandatoryArrays = (data: InfraFinancingData) => {
     let updatedData = { ...data };
 
-    // Ensure ulbList has at least 1 entry
-    if (
-      !Array.isArray(updatedData.section1_3.ulbList) ||
-      updatedData.section1_3.ulbList.length === 0
-    ) {
+    // Ensure section1_3.ulbList is an array (can be empty - 0 credit rated ULBs is valid)
+    if (!Array.isArray(updatedData.section1_3.ulbList)) {
       updatedData = {
         ...updatedData,
         section1_3: {
           ...updatedData.section1_3,
-          ulbList: [
-            {
-              id: Math.random().toString(36).substr(2, 9),
-              ulb: "",
-              cityName: "",
-              rating: "",
-              ratingDate: "",
-            },
-          ],
+          ulbList: [],
         },
       };
     }
@@ -3028,9 +3007,13 @@ export const InfraFinancingStep = () => {
                       onChange={(e) => {
                         showErrorsIfNeeded();
                         const { value } = e.target;
-                        const newTotalULBs = value
-                          ? Math.max(parseInt(value, 10), 0)
-                          : 0;
+                        const trimmed =
+                          typeof value === "string" ? value.trim() : value;
+                        // When user clears the field, store undefined so validation shows "Total Number of ULBs is required"
+                        const newTotalULBs =
+                          trimmed === "" || trimmed === undefined
+                            ? undefined
+                            : Math.max(parseInt(String(trimmed), 10), 0);
 
                         setFormData((prev) => {
                           const currentListLength =
@@ -3038,33 +3021,26 @@ export const InfraFinancingStep = () => {
 
                           let updatedList = [...prev.section1_3.ulbList];
 
-                          // If new total is less than current rows, trim the list
-                          if (newTotalULBs < currentListLength) {
+                          // If new total is less than current rows, trim the list (only when we have a valid number)
+                          if (
+                            newTotalULBs !== undefined &&
+                            newTotalULBs < currentListLength
+                          ) {
                             updatedList = prev.section1_3.ulbList.slice(
                               0,
                               newTotalULBs
                             );
                           }
-                          // If new total is greater than 0 and list is empty, add at least one entry
-                          else if (
-                            newTotalULBs > 0 &&
-                            currentListLength === 0
-                          ) {
-                            updatedList = [
-                              {
-                                id: Date.now().toString(),
-                                cityName: "",
-                                ulb: "",
-                                ratingDate: "",
-                                rating: "",
-                              },
-                            ];
-                          }
+                          // Do not auto-add any row when user enters Total Number of ULBs.
+                          // Rows are added only when user clicks "Add More ULB"; Credit rated ULBs stays 0 until then.
 
                           // Clear validation error if totalULBs is now valid
                           setIndicatorValidationErrors((prevErrors) => {
                             const newErrors = { ...prevErrors };
-                            if (newTotalULBs >= updatedList.length) {
+                            if (
+                              newTotalULBs !== undefined &&
+                              newTotalULBs >= updatedList.length
+                            ) {
                               delete newErrors["section1_3.ulbList"];
                             }
                             return newErrors;
@@ -3619,7 +3595,7 @@ export const InfraFinancingStep = () => {
                     className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="h-4 w-4" />
-                    Add More ULB
+                    Add More 
                   </Button>
                 )}
                 {renderFieldError("section1_3.ulbList") && (

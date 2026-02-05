@@ -15,7 +15,10 @@ import { FileUploadSection } from "@/features/submission/components/FileUploadSe
 interface Section1_3Props {
   formData: any;
   isEditable: (sectionId: string) => boolean;
-  setSectionState?: (state: { totalULBs: number; ulbList: any[] }) => void;
+  setSectionState?: (state: {
+    totalULBs: number | undefined;
+    ulbList: any[];
+  }) => void;
   resetKey?: number;
   validationErrors?: { [key: string]: string };
   getFieldError?: (fieldPath: string) => string | undefined;
@@ -76,7 +79,7 @@ export const Section_1_3 = ({
   };
 
   const ulbList = formData?.section1_3?.ulbList || [];
-  const totalULBs = formData?.section1_3?.totalULBs || 0;
+  const totalULBs = formData?.section1_3?.totalULBs; // can be undefined when field is empty (mandatory)
   console.log("[Section_1_3] formData:", formData);
   console.log("[Section_1_3] ulbList:", ulbList);
   // Get state name from formData or fallback to logged-in user
@@ -157,11 +160,12 @@ export const Section_1_3 = ({
 
   // Validate totalULBs vs ulbList.length
   useEffect(() => {
-    if (totalULBs > 0 && ulbList.length > totalULBs) {
+    const total = totalULBs ?? 0;
+    if (total > 0 && ulbList.length > total) {
       // Set validation error
       setDuplicateErrors((prev) => ({
         ...prev,
-        "section1_3.ulbList": `Number of rows (${ulbList.length}) cannot exceed Total Number of ULBs (${totalULBs}). Please remove excess rows or increase the Total Number of ULBs.`,
+        "section1_3.ulbList": `Number of rows (${ulbList.length}) cannot exceed Total Number of ULBs (${total}). Please remove excess rows or increase the Total Number of ULBs.`,
       }));
     } else {
       // Clear error if valid (but keep duplicate errors)
@@ -312,28 +316,21 @@ export const Section_1_3 = ({
     }
   };
 
-  const handleTotalULBsChange = (value: number) => {
-    const newTotalULBs = value || 0;
+  const handleTotalULBsChange = (value: number | undefined) => {
+    // When user clears the field, store undefined so validation shows "Total Number of ULBs is required"
+    const newTotalULBs = value;
     let updatedList = [...ulbList];
 
-    // If new total is less than current rows, trim the list
-    if (newTotalULBs < ulbList.length) {
+    // If new total is a number and less than current rows, trim the list
+    if (
+      newTotalULBs !== undefined &&
+      newTotalULBs !== null &&
+      newTotalULBs < ulbList.length
+    ) {
       updatedList = ulbList.slice(0, newTotalULBs);
     }
-    // If new total is greater than 0 and list is empty, add at least one entry
-    else if (newTotalULBs > 0 && ulbList.length === 0) {
-      updatedList = [
-        {
-          id: `ulb-${Date.now()}`,
-          cityName: "",
-          ulb: "",
-          ratingDate: "",
-          rating: "",
-          file: null,
-          noDocumentAvailable: false,
-        },
-      ];
-    }
+    // Do not auto-add any row when user enters Total Number of ULBs.
+    // Rows are added only when user clicks "Add More"; Credit rated ULBs stays 0 until then.
 
     // Clear validation error if totalULBs is now valid
     setDuplicateErrors((prev) => {
@@ -352,7 +349,10 @@ export const Section_1_3 = ({
     });
 
     if (setSectionState) {
-      setSectionState({ totalULBs: newTotalULBs, ulbList: updatedList });
+      setSectionState({
+        totalULBs: newTotalULBs,
+        ulbList: updatedList,
+      });
     }
   };
 
@@ -452,12 +452,13 @@ export const Section_1_3 = ({
 
   // Handle adding new ULB entry
   const handleAddNewULBEntry = () => {
+    const total = totalULBs ?? 0;
     // Check if we can add more rows
-    if (ulbList.length >= totalULBs) {
+    if (ulbList.length >= total) {
       // Set validation error
       setDuplicateErrors((prev) => ({
         ...prev,
-        "section1_3.ulbList": `Cannot add more rows. Total Number of ULBs is ${totalULBs}, and you already have ${ulbList.length} row(s). Please increase the Total Number of ULBs first.`,
+        "section1_3.ulbList": `Cannot add more rows. Total Number of ULBs is ${total}, and you already have ${ulbList.length} row(s). Please increase the Total Number of ULBs first.`,
       }));
       return;
     }
@@ -518,12 +519,14 @@ export const Section_1_3 = ({
             type="number"
             inputMode="numeric"
             min="0"
-            value={totalULBs}
+            value={
+              totalULBs === undefined || totalULBs === null ? "" : totalULBs
+            }
             onChange={(e) => {
               const value = e.target.value;
-              // Only allow non-negative integers
+              // Only allow non-negative integers; empty = undefined so validation shows required error
               if (value === "" || /^\d+$/.test(value)) {
-                handleTotalULBsChange(value === "" ? 0 : Number(value));
+                handleTotalULBsChange(value === "" ? undefined : Number(value));
               }
             }}
             readOnly={!isEditable("1.3")}
@@ -544,8 +547,8 @@ export const Section_1_3 = ({
           <Input
             type="text"
             value={
-              totalULBs > 0
-                ? ((ulbList.length / totalULBs) * 100).toFixed(2) + "%"
+              (totalULBs ?? 0) > 0
+                ? ((ulbList.length / (totalULBs ?? 0)) * 100).toFixed(2) + "%"
                 : "0%"
             }
             readOnly
@@ -894,13 +897,13 @@ export const Section_1_3 = ({
       </div>
 
       {/* Add More Button - Only visible when in edit mode and totalULBs > 0 */}
-      {isEditable("1.3") && !showAddULBForm && totalULBs > 0 && (
+      {isEditable("1.3") && !showAddULBForm && (totalULBs ?? 0) > 0 && (
         <Button
           variant="outline"
           size="sm"
           className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setShowAddULBForm(true)}
-          disabled={ulbList.length >= totalULBs}
+          disabled={ulbList.length >= (totalULBs ?? 0)}
         >
           <Plus className="w-4 h-4" />
           Add More

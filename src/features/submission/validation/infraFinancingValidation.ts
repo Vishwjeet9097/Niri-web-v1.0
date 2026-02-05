@@ -212,7 +212,20 @@ export const validateInfraFinancing = (
     if (!section13) {
       // Skip validation if section doesn't exist
     } else {
-      if (!isValidInteger(section13.totalULBs)) {
+      // Total Number of ULBs is mandatory
+      const totalULBsVal = section13.totalULBs as
+        | number
+        | string
+        | undefined
+        | null;
+      const isEmpty =
+        totalULBsVal === undefined ||
+        totalULBsVal === null ||
+        totalULBsVal === "" ||
+        (typeof totalULBsVal === "string" && totalULBsVal.trim() === "");
+      if (isEmpty) {
+        errors["section1_3.totalULBs"] = "Total Number of ULBs is required.";
+      } else if (!isValidInteger(Number(totalULBsVal))) {
         errors["section1_3.totalULBs"] = "Enter a valid non-negative integer.";
       }
 
@@ -240,17 +253,7 @@ export const validateInfraFinancing = (
         });
       }
 
-      // Require at least one ULB entry when submitting
-      const ulbList = section13.ulbList || [];
-      if (ulbList.length === 0) {
-        if (section13.totalULBs > 0) {
-          errors["section1_3.ulbList"] =
-            "Add at least one ULB entry when total number of ULBs is greater than zero.";
-        } else {
-          errors["section1_3.ulbList"] =
-            "Add at least one ULB entry before submitting this indicator.";
-        }
-      }
+      // Allow 0 credit rated ULBs; no mandatory ULB entry required for submission
     }
   }
 

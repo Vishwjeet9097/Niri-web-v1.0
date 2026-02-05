@@ -46,7 +46,7 @@ export interface InfraFinancingData {
     marksObtained?: number;
   };
   section1_3: {
-    totalULBs: number; //  A₂
+    totalULBs?: number; //  A₂ – optional so "empty" until user fills (mandatory field)
     ulbList: Array<{
       // A₁
       id: string;
