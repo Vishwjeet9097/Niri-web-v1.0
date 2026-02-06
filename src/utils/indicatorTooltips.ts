@@ -13,25 +13,25 @@ export interface IndicatorTooltip {
 export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   "1.1": {
     code: "1.1",
-    fieldName: "Budgeted Capex & GSDP",
+    fieldName: "Budgeted Capex (Capital Expenditure) & GSDP (Gross State Domestic Product)",
     tooltip:
       "Data Requirement: Provide GSDP and Budgeted Capex allocation data.\n\nData Validation & Calculation: Percentage of Capex to GSDP is calculated as the ratio of Budgeted Capital Allocation by State in the financial year of assessment and the most recent verifiable GSDP data available. Details provided by State will be verified with the most recent data available on CGA website.\n\nScoring Methodology: 10 marks for every 1%.\n\nDocuments Required: NIL",
   },
   "1.2": {
     code: "1.2",
-    fieldName: "State Capex Utilization",
+    fieldName: "State Capex (Capital Expenditure) Utilization",
     tooltip:
       "Data Requirement: Provide Budgeted Capital Allocation and Actual Capital Expenditure data.\n\nData Validation & Calculation: Percentage of Capex Utilization is calculated as the ratio of actual Capital Expenditure and the Total Budgeted Capital Allocation by the State in the financial year of assessment. Details provided by State will be verified with the most recent data available on CGA website.\n\nScoring Methodology: 1 mark for every 2%.\n\nDocuments Required: NIL",
   },
   "1.3": {
     code: "1.3",
-    fieldName: "ULB Credit Rating Coverage",
+    fieldName: "ULB (Urban Local Body) Credit Rating Coverage",
     tooltip:
       "Data Requirement: Provide count of Total number of ULBs, list of credit rated ULBs with copy of credit rating certificates.\n\nData Validation & Calculation: Percentage of credit rated ULB is calculated as the ratio of the number of credit rated ULBs and Total number of ULBs with a population coverage of 50,000 and above, in the financial year of assessment.\n\nScoring Methodology: 1 mark for every 2%.\n\nDocuments Required: Copy of credit rating certificate for every credit rated ULB",
   },
   "1.4": {
     code: "1.4",
-    fieldName: "ULB Bond Issuance Details",
+    fieldName: "ULB (Urban Local Body) Bond Issuance Details",
     tooltip:
       "Data Requirement: Provide Details on number and type of bonds issuances in the financial year of assessment and name of issuing ULBs.\n\nData Validation & Calculation: Under issuance of Bonds by ULBs, issuance of Municipal Bonds, Green Bonds, or any capital market debt instrument in the financial year of assessment by ULBs which have a population coverage of 50,000 and above will be considered. Percentage of such ULBs issuing bonds is calculated as ratio of No. of ULBs issuing bonds and total no. of ULBs in the financial year of assessment.\n\nScoring Methodology: 2 marks for every 1%.\n\nDocuments Required: NIL",
   },
@@ -73,33 +73,33 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "3.1": {
     code: "3.1",
-    fieldName: "PPP Policy",
+    fieldName: "PPP (Public-Private Partnership) Policy",
     tooltip:
       "Data Requirement: Provide details of a standalone PPP Act/Policy or PPP-related provisions within an Infrastructure Act/Policy applicable across sectors.\n\nData Validation & Calculation: Policy document will be verified for explicit provisions promoting PPP projects.\n\nScoring Methodology: Yes/No. Full marks are awarded if a qualifying PPP Act or Policy exists.\n\nDocuments Required: Copy of PPP Act/Policy or relevant policy provisions.",
   },
   "3.2": {
     code: "3.2",
-    fieldName: "State PPP Cell / Unit",
+    fieldName: "State PPP (Public-Private Partnership) Cell / Unit",
     tooltip:
       "Data Requirement: Provide details of a functional State/UT PPP Cell or Unit established for promoting and undertaking PPP projects.\n\nData Validation & Calculation: Notification and mandate will be verified to confirm PPP-specific functions.\n\nScoring Methodology: Yes/No. Full marks are awarded if a functional PPP Cell/Unit exists.\n\nDocuments Required: Government Order / Notification establishing the PPP Cell/Unit and its mandate.",
   },
   "3.3": {
     code: "3.3",
-    fieldName: "VGF / IIPDF Proposals",
+    fieldName: "VGF (Viability Gap Funding) / IIPDF (India Infrastructure Project Development Fund) Proposals",
     tooltip:
       "Data Requirement: Provide count and list of PPP or infrastructure project proposals submitted under VGF or IIPDF during the assessment year.\n\nData Validation & Calculation: Submitted proposals will be verified against DEA records or State scheme documentation.\n\nScoring Methodology: 5 marks for each qualifying project, subject to a maximum of 50 marks.\n\nDocuments Required: List of VGF/IIPDF proposals and copies of submission documents.",
   },
   "3.4": {
     code: "3.4",
-    fieldName: "PPP Project Cost Ratio",
+    fieldName: "PPP (Public-Private Partnership) Project Cost Ratio; TPC = Total Project Cost",
     tooltip:
       "Data Requirement: Provide Total Project Cost (TPC) of awarded PPP projects and total budgeted capital allocation of the State for the assessment year.\n\nData Validation & Calculation: Percentage is calculated as the ratio of TPC of awarded PPP projects to total budgeted capital allocation.\n\nScoring Methodology: 2 marks for every 1%, subject to a maximum of 100 marks.\n\nDocuments Required: List of awarded PPP projects with TPC details and State budgeted capital allocation documents.",
   },
   "4.1": {
     code: "4.1",
-    fieldName: "State Project Monitoring System",
+    fieldName: "State Project Monitoring System (PMG = Project Monitoring Group)",
     tooltip:
-      "Data Requirement: Provide details of a State/UT Project Monitoring Portal for infrastructure projects on the lines of GoI PMG.\n\nData Validation & Calculation: Portal availability and usage will be verified through portal access and official notifications.\n\nScoring Methodology: Yes/No. Full marks are awarded if the portal is available and in use.\n\nDocuments Required: Government Order / Notification and official portal link.",
+      "Data Requirement: Provide details of a State/UT Project Monitoring Portal for infrastructure projects on the lines of GoI PMG (Project Monitoring Group).\n\nData Validation & Calculation: Portal availability and usage will be verified through portal access and official notifications.\n\nScoring Methodology: Yes/No. Full marks are awarded if the portal is available and in use.\n\nDocuments Required: Government Order / Notification and official portal link.",
   },
   "4.2": {
     code: "4.2",
@@ -109,7 +109,7 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "4.3": {
     code: "4.3",
-    fieldName: "ADR Mechanism",
+    fieldName: "ADR (Alternative Dispute Resolution) Mechanism",
     tooltip:
       "Data Requirement: Provide details of a notified ADR mechanism applicable to infrastructure or PPP projects.\n\nData Validation & Calculation: Notification will be verified for infrastructure-specific applicability.\n\nScoring Methodology: Yes/No. Full marks are awarded if an ADR mechanism exists.\n\nDocuments Required: Government Order / Notification establishing the ADR mechanism.",
   },

@@ -30,6 +30,7 @@ import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
 import { useFieldValidation } from "../hooks/useFieldValidation";
 import { SUBMISSION_STEPS } from "../constants/steps";
+import { withFullForm } from "../constants/abbreviations";
 import type { InfraFinancingData } from "../types";
 import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -575,7 +576,7 @@ export const InfraFinancingStep = () => {
           if (i > 0) {
             // Mark all except the first as duplicates
             newErrors[`section1_3.ulbList.${idx}.ulb`] =
-              "This ULB has already been selected in another row. Please choose a different ULB.";
+              "This ULB (Urban Local Body) has already been selected in another row. Please choose a different ULB.";
           }
         });
       });
@@ -2549,7 +2550,7 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
+                    <span className="text-primary">1.1 -</span> % {withFullForm("Capex")} to {withFullForm("GSDP")}{" "}
                   </span>
                 </div>
               }
@@ -2627,7 +2628,7 @@ export const InfraFinancingStep = () => {
                     sectionKey="section1_1"
                     fieldName="gsdpForFY"
                   >
-                    GSDP for FY (INR-CRORE)
+                    {withFullForm("GSDP")} for FY (INR-CRORE)
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </MandatoryFieldLabel>
                   <Input
@@ -2750,7 +2751,7 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.2 -</span> % Capex
+                    <span className="text-primary">1.2 -</span> % {withFullForm("Capex")} Utilization
                     Utilization{" "}
                     {/* <span className="font-normal text-xs text-muted-foreground">
                       (10 marks per 1%)
@@ -2953,8 +2954,8 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold">
-                    <span className="text-primary">1.3 -</span> % of Credit
-                    Rated ULBs{" "}
+                    <span className="text-primary">1.3 -</span> % of Credit Rated {withFullForm("ULBs")}{" "}
+
                   </span>
                 </div>
               }
@@ -2972,7 +2973,7 @@ export const InfraFinancingStep = () => {
                 <div className="flex gap-4">
                   <div className="w-1/3">
                     <Label>
-                      Total Number of ULBs{" "}
+                      Total Number of {withFullForm("ULBs")}{" "}
                       <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -3043,7 +3044,7 @@ export const InfraFinancingStep = () => {
                     {renderFieldError("section1_3.totalULBs")}
                   </div>
                   <div className="w-1/3">
-                    <Label>Credit rated ULBs</Label>
+                    <Label>Credit rated {withFullForm("ULBs")}</Label>
                     <Input
                       type="number"
                       value={formData.section1_3.ulbList.length || 0}
@@ -3052,7 +3053,7 @@ export const InfraFinancingStep = () => {
                     />
                   </div>
                   <div className="w-1/3">
-                    <Label>% of Credit Rated ULBs</Label>
+                    <Label>% of Credit Rated {withFullForm("ULBs")}</Label>
                     <Input
                       type="text"
                       value={
@@ -3077,7 +3078,7 @@ export const InfraFinancingStep = () => {
                   >
                     <div className="col-span-4">
                       <Label>
-                        ULB Name<span className="text-red-500">*</span>
+                        {withFullForm("ULB")} Name<span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <Select
@@ -3100,7 +3101,7 @@ export const InfraFinancingStep = () => {
                               setIndicatorValidationErrors((prev) => ({
                                 ...prev,
                                 [`section1_3.ulbList.${index}.ulb`]:
-                                  "This ULB has already been selected in another row. Please choose a different ULB.",
+                                  "This ULB (Urban Local Body) has already been selected in another row. Please choose a different ULB.",
                               }));
                               return; // Don't update form data
                             }
@@ -3173,12 +3174,12 @@ export const InfraFinancingStep = () => {
                             )}
                             tabIndex={0}
                           >
-                            <SelectValue placeholder="Select ULB Name" />
+                            <SelectValue placeholder={`Select ${withFullForm("ULB")} Name`} />
                           </SelectTrigger>
                           <SelectContent>
                             <div className="px-2 py-1 transition-all duration-200 ease-in-out">
                               <Input
-                                placeholder="Search by ULB name, city, or type..."
+                                placeholder="Search by ULB (Urban Local Body) name, city, or type..."
                                 value={ulbSearchMap[ulb.id] || ""}
                                 onChange={(e) => {
                                   const value = e.target.value;
@@ -3571,7 +3572,7 @@ export const InfraFinancingStep = () => {
                     className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="h-4 w-4" />
-                    Add More
+                    Add More {withFullForm("ULB")}
                   </Button>
                 )}
                 {renderFieldError("section1_3.ulbList") && (
@@ -3588,7 +3589,7 @@ export const InfraFinancingStep = () => {
                             City Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            ULB Name
+                            {withFullForm("ULB")} Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Credit Rating Date
@@ -3662,7 +3663,7 @@ export const InfraFinancingStep = () => {
                 <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
-                      handleSubmitIndicator("1.3", "% of Credit Rated ULBs")
+                      handleSubmitIndicator("1.3", "% of Credit Rated ULBs (Urban Local Bodies)")
                     }
                     disabled={
                       submittingIndicator !== null ||
@@ -3701,7 +3702,7 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.4 -</span> % of ULBs
+                    <span className="text-primary">1.4 -</span> % of {withFullForm("ULBs")}{" "}
                     issuing Bonds{" "}
                   </span>
                 </div>
@@ -3720,7 +3721,7 @@ export const InfraFinancingStep = () => {
                 <div className="flex gap-4">
                   <div className="w-1/3">
                     <Label>
-                      Total Number of ULBs{" "}
+                      Total Number of {withFullForm("ULBs")}{" "}
                       <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -3792,7 +3793,7 @@ export const InfraFinancingStep = () => {
                     {renderFieldError("section1_4.totalULBs")}
                   </div>
                   <div className="w-1/3">
-                    <Label>ULB issuing bond</Label>
+                    <Label>{withFullForm("ULB")} issuing bond</Label>
                     <Input
                       type="number"
                       value={formData.section1_4.bondList.length || 0}
@@ -3801,7 +3802,7 @@ export const InfraFinancingStep = () => {
                     />
                   </div>
                   <div className="w-1/3">
-                    <Label>% of ULBs Issuing Bonds</Label>
+                    <Label>% of {withFullForm("ULBs")} Issuing Bonds</Label>
                     <Input
                       type="text"
                       value={
@@ -3869,7 +3870,7 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
-                        ULB Name<span className="text-red-500">*</span>
+                        {withFullForm("ULB")} Name<span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <Select
@@ -3921,12 +3922,12 @@ export const InfraFinancingStep = () => {
                             )}
                             tabIndex={0}
                           >
-                            <SelectValue placeholder="Select ULB Name" />
+                            <SelectValue placeholder={`Select ${withFullForm("ULB")} Name`} />
                           </SelectTrigger>
                           <SelectContent>
                             <div className="px-2 py-1 transition-all duration-200 ease-in-out">
                               <Input
-                                placeholder="Search by ULB name, city, or type..."
+                                placeholder="Search by ULB (Urban Local Body) name, city, or type..."
                                 value={ulbSearchMap[bond.id] || ""}
                                 onChange={(e) => {
                                   const value = e.target.value;
@@ -4064,7 +4065,7 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
-                        Issuing Authority
+                                  Issuing Authority
                         <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -4240,13 +4241,13 @@ export const InfraFinancingStep = () => {
                             Bond Type
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            ULB Name
+                            {withFullForm("ULB")} Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             City
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Issuing Authority
+                                  Issuing Authority
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Value (INR Cr)
@@ -4349,8 +4350,7 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.5 -</span> Functional
-                    Financial Intermediary{" "}
+                    <span className="text-primary">1.5 -</span> Functional {withFullForm("FI")}{" "}
                   </span>
                 </div>
               }
@@ -4367,7 +4367,7 @@ export const InfraFinancingStep = () => {
               <div className="space-y-6">
                 <div>
                   <Label>
-                    Functional Financial Intermediary Available?{" "}
+                    Functional Financial Intermediary (FFI) Available?{" "}
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
@@ -4701,7 +4701,7 @@ export const InfraFinancingStep = () => {
                         className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Plus className="h-4 w-4" />
-                        Add More Financial Intermediary
+                        Add More Financial Intermediary (FFI)
                       </Button>
                     </div>
                     {formData.section1_5.hasIntermediary === "yes" &&

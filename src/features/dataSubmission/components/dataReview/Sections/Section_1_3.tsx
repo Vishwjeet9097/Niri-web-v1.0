@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/config/endpoints";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 
 interface Section1_3Props {
   formData: any;
@@ -543,7 +544,7 @@ export const Section_1_3 = ({
           />
         </div>
         <div className="max-w-xs">
-          <Label>% of Credit Rated ULBs</Label>
+          <Label>% of Credit Rated {withFullForm("ULBs")}</Label>
           <Input
             type="text"
             value={

@@ -26,7 +26,7 @@ export const SUBMISSION_STEPS: SubmissionStep[] = [
     id: 3,
     key: "ppp-development",
     title: "PPP Development",
-    description: "Public-Private Partnership projects and initiatives",
+    description: "PPP (Public-Private Partnership) projects and initiatives",
     points: 250,
     completed: false,
     totalSections: 4,

@@ -31,6 +31,7 @@ import {
   PROJECT_STATUS_OPTIONS,
   SUBMISSION_STEPS,
 } from "../constants/steps";
+import { withFullForm } from "../constants/abbreviations";
 import type { PPPDevelopmentData, FileUpload } from "../types";
 import { FileUploadSection } from "../components/FileUploadSection";
 import { draftService } from "@/services/draft.service";
@@ -567,7 +568,7 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
-  // Auto-calculate Total of TPC of PPP Projects as sum of all project costs
+  // Auto-calculate Total of {withFullForm("TPC")} of {withFullForm("PPP")} Projects as sum of all project costs
   const calculatedTotalTPC = useMemo(() => {
     const projects = formData.section3_4?.projects || [];
     const sum = projects.reduce((total: number, project: any) => {
@@ -624,7 +625,7 @@ export const PPPDevelopmentStep = () => {
     };
   }, [formData.section3_4.projects]);
 
-  // Auto-calculate Total of TPC of PPP Projects as sum of all project costs
+  // Auto-calculate Total of {withFullForm("TPC")} of {withFullForm("PPP")} Projects as sum of all project costs
   const calculatedTotalProjectCostAwarded = useMemo(() => {
     const projects = formData.section3_4?.projects || [];
     const sum = projects.reduce((total: number, project: any) => {
@@ -636,7 +637,7 @@ export const PPPDevelopmentStep = () => {
     return sum > 0 ? sum.toFixed(2) : "";
   }, [formData.section3_4?.projects]);
 
-  // Auto-calculate percentage: % = (Total of TPC of PPP Projects * 100) / Total Budgeted capital allocation
+  // Auto-calculate percentage: % = (Total of {withFullForm("TPC")} of {withFullForm("PPP")} Projects * 100) / Total Budgeted capital allocation
   const calculatedPercentage = useMemo(() => {
     const totalTPC = parseFloat(calculatedTotalProjectCostAwarded || "0");
     const totalBudgetedCapital = parseFloat(
@@ -1851,7 +1852,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="flex flex-col">
                     <span className="text-base font-semibold ">
                       <span className="text-primary">3.1 - </span> Availability
-                      of PPP Act/Policy
+                      of {withFullForm("PPP")} Act/Policy
                     </span>
                   </div>
                 }
@@ -1869,14 +1870,14 @@ export const PPPDevelopmentStep = () => {
                 <div className="flex flex-col gap-4">
                   <div>
                     <Label>
-                      PPP Act/Policy Available?{" "}
+                      {withFullForm("PPP")} Act/Policy Available?{" "}
                       <span className="text-red-500">*</span>
                       <Tooltip>
                         <TooltipTrigger>
                           <Info className="inline w-3 h-3 ml-1" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          Is there a PPP Act/Policy?
+                          Is there a PPP (Public-Private Partnership) Act/Policy?
                         </TooltipContent>
                       </Tooltip>
                     </Label>
@@ -2045,7 +2046,7 @@ export const PPPDevelopmentStep = () => {
                       onClick={() =>
                         handleSubmitIndicator(
                           "3.1",
-                          "Availability of PPP Act/Policy"
+                          `Availability of ${withFullForm("PPP")} Act/Policy`
                         )
                       }
                       disabled={
@@ -2105,14 +2106,14 @@ export const PPPDevelopmentStep = () => {
                 <div className="flex flex-col gap-4">
                   <div>
                     <Label>
-                      Functional State/UT PPP Cell/Unit{" "}
+                      Functional State/UT {withFullForm("PPP")} Cell/Unit{" "}
                       <span className="text-red-500">*</span>
                       <Tooltip>
                         <TooltipTrigger>
                           <Info className="inline w-3 h-3 ml-1" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          Is there a functional PPP Cell/Unit?
+                          Is there a functional PPP (Public-Private Partnership) Cell/Unit?
                         </TooltipContent>
                       </Tooltip>
                     </Label>
@@ -2281,7 +2282,7 @@ export const PPPDevelopmentStep = () => {
                       onClick={() =>
                         handleSubmitIndicator(
                           "3.2",
-                          "Availability of PPP Cell/Unit"
+                          `Availability of ${withFullForm("PPP")} Cell/Unit`
                         )
                       }
                       disabled={
@@ -2323,7 +2324,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="flex flex-col">
                     <span className="text-base font-semibold ">
                       <span className="text-primary">3.3 - </span> Proposals
-                      Submitted under VGF/IIPDF{" "}
+                      Submitted under {withFullForm("VGF")}/{withFullForm("IIPDF")}{" "}
                     </span>
                   </div>
                 }
@@ -2433,12 +2434,12 @@ export const PPPDevelopmentStep = () => {
                               <SelectValue placeholder="Select scheme" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="IIPDF">IIPDF</SelectItem>
+                              <SelectItem value="IIPDF">{withFullForm("IIPDF")}</SelectItem>
                               <SelectItem value="Central VGF">
-                                Central VGF
+                                Central {withFullForm("VGF")}
                               </SelectItem>
                               <SelectItem value="State VGF">
-                                State VGF
+                                State {withFullForm("VGF")}
                               </SelectItem>
                             </SelectContent>
                           </Select>
@@ -2841,7 +2842,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="mt-4 flex gap-2">
                     <Button
                       onClick={() =>
-                        handleSubmitIndicator("3.3", "VGF Proposals Submitted")
+                        handleSubmitIndicator("3.3", "VGF (Viability Gap Funding) Proposals Submitted")
                       }
                       disabled={
                         submittingIndicator !== null ||
@@ -2882,7 +2883,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="flex flex-col">
                     <span className="text-base font-semibold ">
                       <span className="text-primary">3.4 – </span> Proportion of
-                      TPC of PPP Projects
+                      {withFullForm("TPC")} of {withFullForm("PPP")} Projects
                     </span>
                   </div>
                 }
@@ -2933,7 +2934,7 @@ export const PPPDevelopmentStep = () => {
                     </div>
                     <div>
                       <Label className="block min-h-[40px] leading-snug">
-                        Total of TPC of PPP Projects (INR-CRORE)
+                        Total of {withFullForm("TPC")} of {withFullForm("PPP")} Projects (INR-CRORE)
                         <span className="text-destructive">*</span>
                       </Label>
                       <Input
@@ -2958,7 +2959,7 @@ export const PPPDevelopmentStep = () => {
                     </div>
                     <div>
                       <Label className="block min-h-[40px] leading-snug">
-                        % of TPC of PPP Projects
+                        % of {withFullForm("TPC")} of {withFullForm("PPP")} Projects
                       </Label>
                       <Input
                         type="text"
@@ -2977,7 +2978,7 @@ export const PPPDevelopmentStep = () => {
                         )}
                       />
                       {/* <p className="text-xs text-muted-foreground mt-1">
-                    Auto-calculated: (Total of TPC × 100) / Total Budgeted
+                    Auto-calculated: (Total of TPC (Total Project Cost) × 100) / Total Budgeted
                     capital allocation
                   </p> */}
                     </div>
@@ -3256,7 +3257,7 @@ export const PPPDevelopmentStep = () => {
                         onClick={() =>
                           handleSubmitIndicator(
                             "3.4",
-                            "Proportion of TPC of PPP Projects"
+                            `Proportion of ${withFullForm("TPC")} of ${withFullForm("PPP")} Projects`
                           )
                         }
                         disabled={

@@ -30,6 +30,7 @@ import {
   SECTOR_OPTIONS,
   OWNERSHIP_OPTIONS,
 } from "../constants/steps";
+import { withFullForm } from "../constants/abbreviations";
 import type { InfraEnablersData, FileUpload } from "../types";
 import { FileUploadSection } from "../components/FileUploadSection";
 import { draftService } from "@/services/draft.service";
@@ -1994,7 +1995,7 @@ export const InfraEnablersStep = () => {
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.1 - </span> Availability &
-                    Use of State/UT PMG{" "}
+                    Use of State/UT {withFullForm("PMG")}{" "}
                   </span>
                 </div>
               }
@@ -2012,14 +2013,14 @@ export const InfraEnablersStep = () => {
               <div className="flex flex-col gap-4 w-[70%]">
                 <div>
                   <Label>
-                    Availability & Use of State/UT PMG{" "}
+                    Availability & Use of State/UT {withFullForm("PMG")}{" "}
                     <span className="text-red-500">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Is State/UT PMG available and used?
+                        Is State/UT PMG (Project Monitoring Group) available and used?
                       </TooltipContent>
                     </Tooltip>
                   </Label>
@@ -2213,7 +2214,7 @@ export const InfraEnablersStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold">
-                    <span className="text-primary">4.2 – </span> Adoption of PM
+                    <span className="text-primary">4.2 – </span> Adoption of {withFullForm("PM")}{" "}
                     GatiShakti
                   </span>
                 </div>
@@ -2763,7 +2764,7 @@ export const InfraEnablersStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.3 – </span> Adoption of ADR
+                    <span className="text-primary">4.3 – </span> Adoption of {withFullForm("ADR")}
                     {/* <span className="font-normal text-xs text-muted-foreground ml-1">
                   (10 marks per practice)
                 </span> */}
@@ -2783,12 +2784,12 @@ export const InfraEnablersStep = () => {
               <div className="flex flex-col gap-4 w-[70%]">
                 <div>
                   <Label>
-                    Adoption of ADR <span className="text-red-500">*</span>
+                    Adoption of {withFullForm("ADR")}{" "} <span className="text-red-500">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
                       </TooltipTrigger>
-                      <TooltipContent>Is ADR adopted?</TooltipContent>
+                      <TooltipContent>Is ADR (Alternative Dispute Resolution) adopted?</TooltipContent>
                     </Tooltip>
                   </Label>
 
@@ -2913,7 +2914,7 @@ export const InfraEnablersStep = () => {
                       }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Upload ADR orders
+                      Upload ADR (Alternative Dispute Resolution) orders
                     </p>
                   </div>
                 )}
@@ -2950,7 +2951,7 @@ export const InfraEnablersStep = () => {
                 <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
-                      handleSubmitIndicator("4.3", "Adoption of ADR")
+                      handleSubmitIndicator("4.3", "Adoption of ADR (Alternative Dispute Resolution)")
                     }
                     disabled={
                       submittingIndicator !== null ||
