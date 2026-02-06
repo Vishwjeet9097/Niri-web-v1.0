@@ -285,36 +285,27 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
           field.label?.toLowerCase() === "fy" ||
           field.uiComponent === "Year";
 
-        // Check if this is indicator 1.1 (section1_1) and year field (for auto-fill only)
-        const isIndicator1_1 = sectionKey === "section1_1" || field.sectionId === "section1_1";
-        const isYearFieldIn1_1 = isIndicator1_1 && isYearField;
-
-        // At Ministry: year fields show as financial year (e.g. 2025-26) and are disabled
+        // At Ministry: year fields show as financial year (e.g. 2025-26), are disabled, and default to current FY
         const yearDisplayValue = isYearField ? formatYearAsFinancialYear(value) : (value || "");
-        
-        // Auto-fill year field for indicator 1.1 with current financial year
+
+        // Auto-fill every year field with current financial year when empty (all year fields are disabled)
         useEffect(() => {
-          if (isYearFieldIn1_1) {
+          if (isYearField) {
             const currentFY = getCurrentFinancialYear();
-            // Only set if value is empty or different from current FY
-            if (!value || value === "" || value !== currentFY) {
+            const isEmpty =
+              value === null ||
+              value === undefined ||
+              value === "" ||
+              (typeof value === "string" && value.trim() === "");
+            if (isEmpty) {
               const fieldPath = `${field.sectionId}.${field.id}`;
-              console.log(`[FieldRenderer] Auto-filling year field for 1.1:`, {
-                sectionKey,
-                fieldSectionId: field.sectionId,
-                fieldId: field.id,
-                currentValue: value,
-                newValue: currentFY,
-                isYearFieldIn1_1
-              });
               onChange(currentFY);
-              // Validate after setting value
               if (onValidate && field) {
                 onValidate(fieldPath, currentFY, field);
               }
             }
           }
-        }, [isYearFieldIn1_1, sectionKey, value, field.sectionId, field.id, onChange, onValidate]);
+        }, [isYearField, value, field.sectionId, field.id, onChange, onValidate]);
 
         // Regular string input or TextArea for comments
         const fieldPath = `${field.sectionId}.${field.id}`;

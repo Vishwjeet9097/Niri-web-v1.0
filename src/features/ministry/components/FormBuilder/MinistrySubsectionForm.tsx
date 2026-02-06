@@ -125,6 +125,26 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
         );
       }, []);
 
+      // Default empty year fields to current financial year (year fields are disabled)
+      useEffect(() => {
+        const inputs = subsectionData.inputs || [];
+        const yearFields = inputs.filter((f: any) => isYearField(f));
+        if (yearFields.length === 0) return;
+        items.forEach((item: any, index: number) => {
+          yearFields.forEach((field: any) => {
+            const val = item?.[field.id];
+            const isEmpty =
+              val === null ||
+              val === undefined ||
+              val === "" ||
+              (typeof val === "string" && val.trim() === "");
+            if (isEmpty) {
+              onChange(index, field.id, getCurrentFinancialYear());
+            }
+          });
+        });
+      }, [items, subsectionData.inputs, onChange, isYearField]);
+
       // Sort and filter fields by sequence and Yes/No value
       // In review mode, always show all fields regardless of Yes/No value
       // Exclude "No Document Available" field as it's handled by MinistryFileUploadSection
