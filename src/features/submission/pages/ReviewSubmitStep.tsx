@@ -12,6 +12,7 @@ import { computeAllStepsSummary } from "../utils/progress";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { debugFormData } from "@/utils/formDataTransformer";
 import { SectionCard } from "../components/SectionCard";
 import {
@@ -29,6 +30,7 @@ import {
 export const ReviewSubmitStep = () => {
   const { currentStep, goToStep, goToPrevious } = useStepNavigation(5);
   const { formData } = useFormPersistence();
+  const { user } = useAuth();
   const {
     assignedIndicators,
     availableIndicators,
@@ -40,18 +42,38 @@ export const ReviewSubmitStep = () => {
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch current submission to get indicator statuses
+  const userId = user?.id ?? user?._id;
+  const userStateUt = (user?.stateUt || user?.stateName || user?.state || "")
+    .trim()
+    .toUpperCase();
+
+  // Fetch current submission to get indicator statuses.
+  // For State Approver: filter by stateUt so Indicator Summary counts match this state's submission.
+  // For all: filter by submittedBy/userId so we load the current user's submission (consistent with other steps).
   useEffect(() => {
     const fetchSubmission = async () => {
       try {
         setLoading(true);
         const submissionsResp = await apiService.getSubmissions(1, 100);
         const userSubmission = submissionsResp.submissions.find(
-          (sub: any) =>
-            sub.status === "DRAFT" ||
-            sub.status === "IN_PROGRESS" ||
-            sub.status === "RETURNED_FROM_STATE" ||
-            sub.status === "PENDING_STATE_APPROVAL"
+          (sub: any) => {
+            const statusMatch =
+              sub.status === "DRAFT" ||
+              sub.status === "IN_PROGRESS" ||
+              sub.status === "RETURNED_FROM_STATE" ||
+              sub.status === "PENDING_STATE_APPROVAL";
+            if (!statusMatch) return false;
+            const subStateUt = (sub.stateUt || sub.state_ut || "")
+              .trim()
+              .toUpperCase();
+            const userMatch =
+              userId &&
+              (sub.submittedBy === userId || sub.user?.id === userId);
+            if (isStateApprover && userStateUt) {
+              return userMatch && subStateUt === userStateUt;
+            }
+            return !!userMatch;
+          }
         );
 
         if (userSubmission?.id) {
@@ -59,6 +81,8 @@ export const ReviewSubmitStep = () => {
             userSubmission.id
           );
           setSubmission(fullSubmission);
+        } else {
+          setSubmission(null);
         }
       } catch (error) {
         console.error("Failed to fetch submission:", error);
@@ -68,7 +92,7 @@ export const ReviewSubmitStep = () => {
     };
 
     fetchSubmission();
-  }, []);
+  }, [userId, userStateUt, isStateApprover]);
 
   // Debug form data on component mount only
   useEffect(() => {
