@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
-import { getCurrentFinancialYear } from "@/utils/dateUtils";
+import { getCurrentFinancialYear, formatYearAsFinancialYear } from "@/utils/dateUtils";
 import type { FileUpload } from "@/features/submission/types";
 import type { FieldRendererProps } from "./types";
 
@@ -279,9 +279,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
           field.label?.toLowerCase() === "fy" ||
           field.uiComponent === "Year";
 
-        // Check if this is indicator 1.1 (section1_1) and year field
+        // Check if this is indicator 1.1 (section1_1) and year field (for auto-fill only)
         const isIndicator1_1 = sectionKey === "section1_1" || field.sectionId === "section1_1";
         const isYearFieldIn1_1 = isIndicator1_1 && isYearField;
+
+        // At Ministry: year fields show as financial year (e.g. 2025-26) and are disabled
+        const yearDisplayValue = isYearField ? formatYearAsFinancialYear(value) : (value || "");
         
         // Auto-fill year field for indicator 1.1 with current financial year
         useEffect(() => {
@@ -334,37 +337,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                 <Input
                   type="text"
                   inputMode="numeric"
-                  value={value || ""}
-                  onChange={(e) => {
-                    // Disable editing for indicator 1.1 year field
-                    if (isYearFieldIn1_1) {
-                      return;
-                    }
-                    const newValue = e.target.value;
-                    // Only allow numeric characters (digits only, no decimals, no negative)
-                    if (newValue === "" || /^\d+$/.test(newValue)) {
-                      onChange(newValue);
-
-                      const fieldPath = `${field.sectionId}.${field.id}`;
-
-                      // Always validate on change - this will clear errors if field is valid
-                      if (onValidate && field) {
-                        onValidate(fieldPath, newValue, field);
-                      }
-                    }
-                  }}
-                  onBlur={() => {
-                    // Validate on blur as well
-                    if (onValidate && field && value) {
-                      const fieldPath = `${field.sectionId}.${field.id}`;
-                      onValidate(fieldPath, value, field);
-                    }
-                  }}
-                  disabled={disabled || isYearFieldIn1_1}
-                  className={error ? "border-destructive" : className}
-                  placeholder={isYearFieldIn1_1 ? "Auto-filled" : "Enter year (e.g., 2024)"}
-                  maxLength={4}
-                  readOnly={isYearFieldIn1_1}
+                  value={yearDisplayValue}
+                  onChange={() => {}}
+                  disabled={true}
+                  readOnly={true}
+                  className={cn("bg-muted cursor-not-allowed", error ? "border-destructive" : className)}
+                  placeholder={`${getCurrentFinancialYear()}`}
                 />
               ) : (
                 <Input
@@ -435,7 +413,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
             ) : (
               <Input
                 type={isYearField ? "text" : undefined}
-                value={value || ""}
+                value={isYearField ? formatYearAsFinancialYear(value) : (value || "")}
                 readOnly={true}
                 className={cn("cursor-not-allowed", className)}
                 placeholder={value ? undefined : "N/A"}
@@ -447,6 +425,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
 
       case "number":
         const numberFieldPath = `${field.sectionId}.${field.id}`;
+        const isNumberYearField =
+          field.label?.toLowerCase().includes("year") ||
+          field.label?.toLowerCase() === "fy" ||
+          field.uiComponent === "Year";
+        const numberYearDisplayValue = isNumberYearField
+          ? formatYearAsFinancialYear(value)
+          : (value ?? "");
         return (
           <div className="space-y-2" data-field-path={numberFieldPath}>
             <Label>
@@ -454,6 +439,20 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
               {isRequired && <span className="text-destructive">*</span>}
             </Label>
             {isEditable ? (
+              isNumberYearField ? (
+                <Input
+                  type="text"
+                  value={numberYearDisplayValue}
+                  disabled={true}
+                  readOnly={true}
+                  className={cn(
+                    "bg-muted cursor-not-allowed",
+                    error ? "border-destructive" : "",
+                    className
+                  )}
+                  placeholder={`${getCurrentFinancialYear()}`}
+                />
+              ) : (
               <Input
                 type="number"
                 value={value || ""}
@@ -521,10 +520,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                     : undefined
                 }
               />
+              )
             ) : (
               <Input
-                type="number"
-                value={value ?? ""}
+                type={isNumberYearField ? "text" : "number"}
+                value={isNumberYearField ? numberYearDisplayValue : (value ?? "")}
                 readOnly={true}
                 className={cn("cursor-not-allowed", className)}
                 placeholder={

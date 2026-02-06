@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
+import { formatYearAsFinancialYear, getCurrentFinancialYear } from "@/utils/dateUtils";
 import type { SubsectionRendererProps } from "./types";
 
 interface MinistrySubsectionFormProps extends SubsectionRendererProps {}
@@ -112,6 +113,15 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
         return (
           field.label?.toLowerCase().includes("no document available") ||
           field.label?.toLowerCase() === "no document available"
+        );
+      }, []);
+
+      // Helper to check if a field is a Year field (show as FY and disabled at Ministry)
+      const isYearField = useCallback((field: any) => {
+        return (
+          field.label?.toLowerCase().includes("year") ||
+          field.label?.toLowerCase() === "fy" ||
+          field.uiComponent === "Year"
         );
       }, []);
 
@@ -350,6 +360,29 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
 
           switch (field.dataType) {
             case "string":
+              if (isYearField(field)) {
+                return (
+                  <div className="space-y-2" data-field-path={fieldPath}>
+                    <Label>
+                      {field.label}{" "}
+                      {isRequired && <span className="text-destructive">*</span>}
+                    </Label>
+                    <Input
+                      value={formatYearAsFinancialYear(fieldValue)}
+                      disabled={true}
+                      readOnly={true}
+                      className={cn(
+                        "bg-muted cursor-not-allowed",
+                        error ? "border-destructive" : ""
+                      )}
+                      placeholder={`${getCurrentFinancialYear()}`}
+                    />
+                    {error && (
+                      <p className="text-sm text-destructive mt-1">{error}</p>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <div className="space-y-2" data-field-path={fieldPath}>
                   <Label>
@@ -386,6 +419,30 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
               );
 
             case "number":
+              if (isYearField(field)) {
+                return (
+                  <div className="space-y-2" data-field-path={fieldPath}>
+                    <Label>
+                      {field.label}{" "}
+                      {isRequired && <span className="text-destructive">*</span>}
+                    </Label>
+                    <Input
+                      type="text"
+                      value={formatYearAsFinancialYear(fieldValue)}
+                      disabled={true}
+                      readOnly={true}
+                      className={cn(
+                        "bg-muted cursor-not-allowed",
+                        error ? "border-destructive" : ""
+                      )}
+                      placeholder={`${getCurrentFinancialYear()}`}
+                    />
+                    {error && (
+                      <p className="text-sm text-destructive mt-1">{error}</p>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <div className="space-y-2" data-field-path={fieldPath}>
                   <Label>
@@ -947,7 +1004,9 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                                   fieldValue ? "" : "text-muted-foreground"
                                 }
                               >
-                                {fieldValue || ""}
+                                {isYearField(field)
+                                  ? formatYearAsFinancialYear(fieldValue)
+                                  : (fieldValue || "")}
                               </span>
                             )}
                           </td>

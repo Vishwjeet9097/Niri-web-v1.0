@@ -75,6 +75,25 @@ const calculateFYFromMonthYear = (month: number, yearShort: string): string => {
 };
 
 /**
+ * Format a year value as Financial Year (e.g. 2025 -> "2025-26").
+ * If already in FY format (YYYY-YY), return as is.
+ */
+export const formatYearAsFinancialYear = (
+  value: string | number | null | undefined
+): string => {
+  if (value === null || value === undefined) return "";
+  const str = String(value).trim();
+  if (!str) return "";
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+  const num = parseInt(str, 10);
+  if (!isNaN(num) && /^\d{4}$/.test(str)) {
+    const nextYearShort = (num + 1).toString().slice(-2);
+    return `${num}-${nextYearShort}`;
+  }
+  return str;
+};
+
+/**
  * Check if a date (MM/YY format) falls within a given Financial Year
  * @param mmYy - Date in MM/YY format
  * @param fy - Financial Year in format "YYYY-YY" (e.g., "2024-25")
