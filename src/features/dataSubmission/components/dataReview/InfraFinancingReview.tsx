@@ -839,10 +839,17 @@ export const InfraFinancingReview = ({
       // For sections 1.3, 1.4, and 1.5, only include if they have meaningful data
       // OR if they are currently in edit mode (to allow adding entries after deletion)
       // Don't include them just because they exist in formData
+      // 1.3/1.4: "Total Number of ULBs" alone counts as having data (number >= 0 or non-empty string)
+      const hasTotalULBsValue = (s: any) =>
+        (typeof s?.totalULBs === "number" && s.totalULBs >= 0) ||
+        (typeof s?.totalULBs === "string" && String(s.totalULBs).trim() !== "");
+
       const section1_3 = infraPayload.section1_3;
       if (section1_3 && typeof section1_3 === "object") {
         const hasSection1_3Data =
-          Array.isArray(section1_3.ulbList) && section1_3.ulbList.length > 0;
+          (Array.isArray(section1_3.ulbList) &&
+            section1_3.ulbList.length > 0) ||
+          hasTotalULBsValue(section1_3);
         const isSection1_3Editable = isEditable("1.3");
         if (
           (hasSection1_3Data || isSection1_3Editable) &&
@@ -855,7 +862,9 @@ export const InfraFinancingReview = ({
       const section1_4 = infraPayload.section1_4;
       if (section1_4 && typeof section1_4 === "object") {
         const hasSection1_4Data =
-          Array.isArray(section1_4.bondList) && section1_4.bondList.length > 0;
+          (Array.isArray(section1_4.bondList) &&
+            section1_4.bondList.length > 0) ||
+          hasTotalULBsValue(section1_4);
         const isSection1_4Editable = isEditable("1.4");
         if (
           (hasSection1_4Data || isSection1_4Editable) &&
@@ -982,8 +991,14 @@ export const InfraFinancingReview = ({
           // Check if it's in edit mode even if section doesn't exist
           return isEditable("1.3");
         }
+        const hasTotalULBs =
+          (typeof section?.totalULBs === "number" &&
+            section.totalULBs >= 0) ||
+          (typeof section?.totalULBs === "string" &&
+            String(section.totalULBs).trim() !== "");
         const hasData =
-          Array.isArray(section?.ulbList) && section.ulbList.length > 0;
+          (Array.isArray(section?.ulbList) && section.ulbList.length > 0) ||
+          hasTotalULBs;
         const isSectionEditable = isEditable("1.3");
         return hasData || isSectionEditable;
       }
@@ -993,8 +1008,14 @@ export const InfraFinancingReview = ({
           // Check if it's in edit mode even if section doesn't exist
           return isEditable("1.4");
         }
+        const hasTotalULBs =
+          (typeof section?.totalULBs === "number" &&
+            section.totalULBs >= 0) ||
+          (typeof section?.totalULBs === "string" &&
+            String(section.totalULBs).trim() !== "");
         const hasData =
-          Array.isArray(section?.bondList) && section.bondList.length > 0;
+          (Array.isArray(section?.bondList) && section.bondList.length > 0) ||
+          hasTotalULBs;
         const isSectionEditable = isEditable("1.4");
         return hasData || isSectionEditable;
       }
