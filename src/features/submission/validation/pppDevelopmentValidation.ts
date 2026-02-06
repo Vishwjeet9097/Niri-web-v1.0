@@ -153,11 +153,22 @@ export const validatePPPDevelopment = (
     }
   }
 
-  // Section 3.3 - Proposals under VGF/IIPDF
+  // Section 3.3 - Proposals under VGF/IIPDF (Yes/No: Yes = proposals; No = comment)
   if (shouldValidateSection("3.3")) {
     const section33 = data.section3_3;
     if (!section33) {
       // Skip validation if section doesn't exist
+    } else if (
+      section33.available !== "yes" &&
+      section33.available !== "no"
+    ) {
+      errors["section3_3.available"] =
+        "Please select Yes or No (proposals submitted under VGF/IIPDF).";
+    } else if (section33.available === "no") {
+      if (!section33.comment || section33.comment.trim() === "") {
+        errors["section3_3.comment"] =
+          "Comment (reason) is required when there are no proposals.";
+      }
     } else if (!section33.VGFArray || section33.VGFArray.length === 0) {
       errors["section3_3.VGFArray"] = "At least one proposal is required.";
     } else {

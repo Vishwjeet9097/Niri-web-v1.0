@@ -213,21 +213,26 @@ export function transformFormDataToNiriSubmission(
 
     // 3.3 - VGF/IIPDF Proposals
     if (formData.pppDevelopment.section3_3) {
-      const vgfArray = formData.pppDevelopment.section3_3.VGFArray || [];
-      const vgfProposals = vgfArray.length;
+      const section33 = formData.pppDevelopment.section3_3;
+      const available = section33.available;
+      const vgfArray = section33.VGFArray || [];
+      const vgfProposals = available === "no" ? 0 : vgfArray.length;
 
       submissionData.PPP_Development.push({
         indicator_id: "3.3",
         indicator_name: "Proposals submitted under VGF/IIPDF",
         user_fill_value_a1: vgfProposals,
-        user_fill_value_a2: null,
+        user_fill_value_a2: available === "no" ? section33.comment ?? null : null,
         details: {
-          projects_submitted: vgfArray.map((proposal) => ({
-            project_name: proposal.projectName,
-            fund_type: proposal.scheme,
-            total_project_cost: proposal.totalProjectCost,
-            status_of_project: proposal.statusOfProject,
-          })),
+          projects_submitted:
+            available === "yes" || available === undefined || available === ""
+              ? vgfArray.map((proposal: any) => ({
+                  project_name: proposal.projectName,
+                  fund_type: proposal.scheme,
+                  total_project_cost: proposal.totalProjectCost,
+                  status_of_project: proposal.statusOfProject,
+                }))
+              : [],
         },
       });
     }

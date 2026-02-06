@@ -114,6 +114,10 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section3_2.comment": "Comment (reason) is required.",
 
   // Section 3.3
+  "section3_3.available":
+    "Please select Yes or No (proposals submitted under VGF/IIPDF).",
+  "section3_3.comment":
+    "Comment (reason) is required when there are no proposals.",
   "section3_3.VGFArray": "At least one proposal is required.",
   "section3_3.VGFArray.projectName": "Project name is required.",
   "section3_3.VGFArray.sector": "Sector is required.",

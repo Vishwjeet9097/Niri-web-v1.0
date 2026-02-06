@@ -241,24 +241,32 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return false;
   },
-  section3_3: (data: any) =>
-    anyValid(
-      data?.VGFArray,
-      (r) => {
-        const row = r as Record<string, unknown>;
-        const hasFile = hasMeaningfulValue(row?.file);
-        const noDoc = row?.noDocumentAvailable === true;
-        return (
-          hasMeaningfulValue(row.projectName) &&
-          hasMeaningfulValue(row.sector) &&
-          hasMeaningfulValue(row.scheme) &&
-          hasMeaningfulValue(row.totalProjectCost) &&
-          hasMeaningfulValue(row.statusOfProject) &&
-          hasMeaningfulValue(row.submissionDate) &&
-          (hasFile || noDoc)
-        );
-      }
-    ),
+  section3_3: (data: any) => {
+    const available = (data?.available ?? "").toString().toLowerCase();
+    if (available === "no") {
+      return hasMeaningfulValue(data?.comment);
+    }
+    if (available === "yes") {
+      return anyValid(
+        data?.VGFArray,
+        (r) => {
+          const row = r as Record<string, unknown>;
+          const hasFile = hasMeaningfulValue(row?.file);
+          const noDoc = row?.noDocumentAvailable === true;
+          return (
+            hasMeaningfulValue(row.projectName) &&
+            hasMeaningfulValue(row.sector) &&
+            hasMeaningfulValue(row.scheme) &&
+            hasMeaningfulValue(row.totalProjectCost) &&
+            hasMeaningfulValue(row.statusOfProject) &&
+            hasMeaningfulValue(row.submissionDate) &&
+            (hasFile || noDoc)
+          );
+        }
+      );
+    }
+    return false;
+  },
   section3_4: (data) => {
     const d = data as
       | {

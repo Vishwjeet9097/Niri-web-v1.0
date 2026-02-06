@@ -507,7 +507,11 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
         );
 
       case "section3_3":
-        return hasArrayData(section?.VGFArray) || hasArrayData(section);
+        return (
+          (section?.available === "no" && hasMeaningfulValue(section.comment)) ||
+          hasArrayData(section?.VGFArray) ||
+          hasArrayData(section)
+        );
 
       case "section3_4":
         return (
@@ -1001,7 +1005,12 @@ const hasSectionData = (
             hasMeaningfulValue(section.comment)
           );
         case "section3_3":
-          return hasArrayData(section?.VGFArray) || hasArrayData(section);
+          return (
+            (section?.available === "no" &&
+              hasMeaningfulValue(section.comment)) ||
+            hasArrayData(section?.VGFArray) ||
+            hasArrayData(section)
+          );
         case "section3_4":
           return (
             // Check mandatory fields first

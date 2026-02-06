@@ -144,6 +144,8 @@ export const PPPDevelopmentReview = ({
 
       normalized.section3_3 = {
         ...(section && !Array.isArray(section) ? section : {}),
+        available: section?.available ?? undefined,
+        comment: section?.comment ?? undefined,
         VGFArray: items,
         ...(status !== undefined ? { status } : {}),
       };
@@ -1058,7 +1060,11 @@ export const PPPDevelopmentReview = ({
         `${sectionPrefix}.comment`
       );
     } else if (sectionId === "3.3") {
-      allSectionFields.push(`${sectionPrefix}.VGFArray`);
+      allSectionFields.push(
+        `${sectionPrefix}.available`,
+        `${sectionPrefix}.comment`,
+        `${sectionPrefix}.VGFArray`
+      );
       if (
         sectionData &&
         typeof sectionData === "object" &&
@@ -1597,6 +1603,9 @@ export const PPPDevelopmentReview = ({
         );
       }
       case "section3_3": {
+        if (section?.available === "no" && section?.comment?.trim()) {
+          return true;
+        }
         const items = Array.isArray(section?.VGFArray) ? section.VGFArray : [];
         return (
           items.length > 0 &&
@@ -2645,6 +2654,8 @@ export const PPPDevelopmentReview = ({
         case "3.3":
           fields = [
             {
+              available: state?.section3_3?.available ?? null,
+              comment: state?.section3_3?.comment ?? null,
               VGFArray: (state?.section3_3?.VGFArray || []).map(
                 (item: any) => ({
                   projectName: item?.projectName ?? null,
@@ -4842,26 +4853,120 @@ export const PPPDevelopmentReview = ({
             {renderMOSPIReviewerComments("3.3")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("3.3")}
-            {/* <CardHeader className="bg-muted/30">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                3.3 - Proposals Submitted under VGF/IIPDF
-              </CardTitle>
-              {!isPreview && (
-                <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => handleOpenModal("3.3")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
-              )}
-            </div>
-          </CardHeader> */}
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
+                {/* Yes/No - same pattern as 3.2 / 2.2 */}
+                <div>
+                  <Label className="mb-3 block">
+                    Are there any proposals submitted under VGF/IIPDF?*
+                  </Label>
+                  {shouldBeEditable("3.3") ? (
+                    <RadioGroup
+                      value={state?.section3_3?.available || ""}
+                      onValueChange={(value: "yes" | "no") => {
+                        setFormDataState((prev: any) => ({
+                          ...prev,
+                          section3_3: {
+                            ...(prev?.section3_3 || {}),
+                            available: value,
+                            comment: value === "no" ? (prev?.section3_3?.comment ?? "") : "",
+                            VGFArray:
+                              value === "no"
+                                ? []
+                                : Array.isArray(prev?.section3_3?.VGFArray) &&
+                                    prev.section3_3.VGFArray.length > 0
+                                  ? prev.section3_3.VGFArray
+                                  : [
+                                      {
+                                        projectName: "",
+                                        sector: "",
+                                        scheme: "",
+                                        submissionDate: "",
+                                        totalProjectCost: "",
+                                        statusOfProject: "",
+                                        file: null,
+                                        noDocumentAvailable: false,
+                                      },
+                                    ],
+                          },
+                        }));
+                        if (value === "no") setShowAddVGFForm(false);
+                        if (getFieldError("section3_3.available")) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated["section3_3.available"];
+                            return updated;
+                          });
+                        }
+                      }}
+                      className="flex flex-row gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="3.3-yes" />
+                        <Label htmlFor="3.3-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="3.3-no" />
+                        <Label htmlFor="3.3-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          state?.section3_3?.available === "yes"
+                            ? "bg-green-100 text-green-800"
+                            : state?.section3_3?.available === "no"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {state?.section3_3?.available === "yes"
+                          ? "Yes"
+                          : state?.section3_3?.available === "no"
+                            ? "No"
+                            : "Not specified"}
+                      </span>
+                    </div>
+                  )}
+                  {renderFieldError("section3_3.available")}
+                </div>
+
+                {/* When No: Comment block - same as 3.2 / 2.2 */}
+                {state?.section3_3?.available === "no" && (
+                  <div>
+                    <Label className="mb-2 block">Comment</Label>
+                    {shouldBeEditable("3.3") ? (
+                      <Textarea
+                        value={state?.section3_3?.comment ?? ""}
+                        onChange={(e) =>
+                          setFormDataState((prev: any) => ({
+                            ...prev,
+                            section3_3: {
+                              ...(prev?.section3_3 || {}),
+                              comment: e.target.value,
+                            },
+                          }))
+                        }
+                        placeholder="Please provide a comment..."
+                        className={
+                          getFieldError("section3_3.comment")
+                            ? "min-h-[100px] border-red-500"
+                            : "min-h-[100px]"
+                        }
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {state?.section3_3?.comment || "No comment provided"}
+                      </div>
+                    )}
+                    {renderFieldError("section3_3.comment")}
+                  </div>
+                )}
+
+                {/* When Yes: proposals table and Add More */}
+                {state?.section3_3?.available === "yes" && (
+                <>
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0 ">
                     <thead>
@@ -5768,7 +5873,8 @@ export const PPPDevelopmentReview = ({
                     </div>
                   </div>
                 )}
-
+                </>
+                )}
                 {/* <p className="text-xs text-muted-foreground">
                 Annex 7: Provide VGF/IIPDF details
               </p> */}

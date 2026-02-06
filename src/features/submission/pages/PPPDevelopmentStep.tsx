@@ -69,6 +69,8 @@ const defaultData: PPPDevelopmentData = {
     noDocumentAvailable: false,
   },
   section3_3: {
+    available: "",
+    comment: "",
     VGFArray: [
       {
         id: Math.random().toString(36).substr(2, 9),
@@ -181,7 +183,10 @@ export const PPPDevelopmentStep = () => {
         status: (data.section3_2 as any)?.status,
       },
       section3_3: {
+        ...defaultData.section3_3,
         ...(data.section3_3 || {}),
+        available: (data.section3_3 as any)?.available ?? defaultData.section3_3.available,
+        comment: (data.section3_3 as any)?.comment ?? defaultData.section3_3.comment,
         VGFArray:
           Array.isArray((data.section3_3 as any)?.VGFArray) &&
           (data.section3_3 as any).VGFArray.length > 0
@@ -2340,7 +2345,95 @@ export const PPPDevelopmentStep = () => {
               >
                 {renderSectionValidationMessage("3.3")}
                 <div className="flex flex-col gap-4">
-                  {(Array.isArray(formData.section3_3?.VGFArray)
+                  {/* Yes/No: Proposals submitted under VGF/IIPDF? */}
+                  <div>
+                    <Label>
+                      Are there any proposals submitted under {withFullForm("VGF")}/{withFullForm("IIPDF")}?{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="flex gap-6 mt-2">
+                      <label className="flex items-center gap-2">
+                        <Input
+                          type="radio"
+                          name="section3_3-available"
+                          value="yes"
+                          checked={formData.section3_3.available === "yes"}
+                          onChange={() => {
+                            if (isIndicatorSubmitted("3.3")) return;
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("3.3");
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_3: {
+                                ...prev.section3_3,
+                                available: "yes",
+                                comment: "",
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("3.3")}
+                        />
+                        Yes
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <Input
+                          type="radio"
+                          name="section3_3-available"
+                          value="no"
+                          checked={formData.section3_3.available === "no"}
+                          onChange={() => {
+                            if (isIndicatorSubmitted("3.3")) return;
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("3.3");
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_3: {
+                                ...prev.section3_3,
+                                available: "no",
+                                VGFArray: defaultData.section3_3.VGFArray,
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("3.3")}
+                        />
+                        No
+                      </label>
+                    </div>
+                    {renderFieldError("section3_3.available")}
+                  </div>
+
+                  {/* When No: show comment only */}
+                  {formData.section3_3.available === "no" && (
+                    <div>
+                      <Label>
+                        Comment (reason) <span className="text-red-500">*</span>
+                      </Label>
+                      <textarea
+                        className={cn(
+                          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                          getInputValidationClass("section3_3.comment"),
+                          isIndicatorSubmitted("3.3") && "bg-gray-50 cursor-not-allowed"
+                        )}
+                        placeholder="Enter reason for no proposals"
+                        value={formData.section3_3.comment ?? ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section3_3: {
+                              ...prev.section3_3,
+                              comment: e.target.value,
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("3.3")}
+                      />
+                      {renderFieldError("section3_3.comment")}
+                    </div>
+                  )}
+
+                  {/* When Yes: show all proposal fields */}
+                  {formData.section3_3.available === "yes" && (Array.isArray(formData.section3_3?.VGFArray)
                     ? formData.section3_3.VGFArray
                     : []
                   ).map((entry, idx) => (
@@ -2646,6 +2739,8 @@ export const PPPDevelopmentStep = () => {
                     </div>
                   ))}
 
+                  {formData.section3_3.available === "yes" && (
+                    <>
                   {renderFieldError("section3_3.VGFArray")}
 
                   <div>
@@ -2839,6 +2934,9 @@ export const PPPDevelopmentStep = () => {
                       </table>
                     </div>
                   )}
+                    </>
+                  )}
+                  {/* Submit and Save as Draft - always visible (same as 3.1 / 3.2) */}
                   <div className="mt-4 flex gap-2">
                     <Button
                       onClick={() =>

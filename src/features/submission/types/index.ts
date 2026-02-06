@@ -157,6 +157,9 @@ export interface PPPDevelopmentData {
     noDocumentAvailable?: boolean;
   };
   section3_3: {
+    /** Yes = proposals submitted under VGF/IIPDF; No = no proposals (comment required) */
+    available?: "" | "yes" | "no";
+    comment?: string;
     VGFArray: Array<{
       id?: string;
       projectName?: string;
