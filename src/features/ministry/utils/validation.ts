@@ -138,6 +138,17 @@ export const validateField = (
                            (field.label?.toLowerCase().includes('percentage') && field.label?.toLowerCase().includes('ppp')) ||
                            field.uiComponent === 'Auto-calculated field';
   
+  // Check if this is Allocation to GSDP field (indicator 1.1 - can exceed 100%)
+  const allocationFieldLabelLower = field.label?.toLowerCase() || '';
+  const isAllocationToGSDPField =
+    allocationFieldLabelLower.includes('% allocation to gsdp') ||
+    allocationFieldLabelLower.includes('allocation to gsdp') ||
+    (allocationFieldLabelLower.includes('allocation') && allocationFieldLabelLower.includes('gsdp')) ||
+    (fieldPath.includes('section1_1') && allocationFieldLabelLower.includes('allocation') && allocationFieldLabelLower.includes('gsdp'));
+
+  // Check if this is % Capex Utilization field (indicator 1.2 - can exceed 100%)
+  const isCapexUtilizationField = field.label?.toLowerCase().includes('% capex utilization');
+
   // Check if this is a calculated total field (not a percentage, so no 0-100 validation)
   const isCalculatedTotalField = field.label?.toLowerCase().includes('total of all tpc') ||
                                  (field.label?.toLowerCase().includes('total') && 
@@ -200,9 +211,16 @@ export const validateField = (
         return undefined;
       }
 
-      // Percentage fields stored as string (e.g. "105%" or "105") - enforce 0-100 when applicable
+      // Percentage fields stored as string - 1.1 Allocation to GSDP and 1.2 % Capex Utilization can exceed 100%
+      const isAllocationToGSDPString =
+        allocationFieldLabelLower.includes('% allocation to gsdp') ||
+        allocationFieldLabelLower.includes('allocation to gsdp') ||
+        (allocationFieldLabelLower.includes('allocation') && allocationFieldLabelLower.includes('gsdp'));
+      const isCapexUtilizationString = field.label?.toLowerCase().includes('% capex utilization');
       const isPercentageStringField =
-        field.label?.toLowerCase().includes('%') || field.label?.toLowerCase().includes('percentage');
+        (field.label?.toLowerCase().includes('%') || field.label?.toLowerCase().includes('percentage')) &&
+        !isAllocationToGSDPString &&
+        !isCapexUtilizationString;
       if (isPercentageStringField && value !== null && value !== undefined && value !== '') {
         const cleaned = String(value).replace(/[%\s]/g, '').trim();
         const numValue = parseFloat(cleaned);
@@ -259,12 +277,14 @@ export const validateField = (
         }
       }
       
-      // Special validation for percentage fields (must be between 0 and 100)
+      // Special validation for percentage fields (must be between 0 and 100); 1.1 and 1.2 can exceed 100%
       const isPercentageRangeField =
         (field.label?.toLowerCase().includes('%') ||
           field.label?.toLowerCase().includes('percentage') ||
           isPercentageField) &&
-        !isCalculatedTotalField;
+        !isCalculatedTotalField &&
+        !isAllocationToGSDPField &&
+        !isCapexUtilizationField;
 
       if (isPercentageRangeField && value !== null && value !== undefined && value !== '') {
         let numValue: number;
@@ -283,7 +303,29 @@ export const validateField = (
           }
         }
       }
-      
+
+      // Allocation to GSDP (1.1) - can exceed 100%, only validate non-negative
+      if (isAllocationToGSDPField && value !== null && value !== undefined && value !== '') {
+        let numValue: number;
+        if (typeof value === 'string') {
+          const cleanedValue = value.toString().replace(/[%\s]/g, '').trim();
+          numValue = parseFloat(cleanedValue);
+        } else {
+          numValue = Number(value);
+        }
+        if (!isNaN(numValue) && numValue < 0) {
+          return `${field.label} cannot be negative.`;
+        }
+      }
+
+      // % Capex Utilization (1.2) - can exceed 100%, only validate non-negative
+      if (isCapexUtilizationField && value !== null && value !== undefined && value !== '') {
+        const numValue = Number(typeof value === 'string' ? value.toString().replace(/[%\s]/g, '').trim() : value);
+        if (!isNaN(numValue) && numValue < 0) {
+          return `${field.label} cannot be negative.`;
+        }
+      }
+
       // For calculated total fields, only check that they're not negative
       if (isCalculatedTotalField && value !== null && value !== undefined && value !== '') {
         const numValue = Number(value);
@@ -459,7 +501,9 @@ export const validateSection = (
         // Always validate percentage fields (0-100) even when not required, so submit is blocked if > 100%
         const labelLower = field.label?.toLowerCase() || '';
         const isPercentageFieldToCap =
-          labelLower.includes('%') || labelLower.includes('percentage');
+          (labelLower.includes('%') || labelLower.includes('percentage')) &&
+          !(labelLower.includes('allocation') && labelLower.includes('gsdp')) &&
+          !labelLower.includes('% capex utilization');
         if (isPercentageFieldToCap && fieldValue !== null && fieldValue !== undefined && fieldValue !== '') {
           const fieldWithRequired = { ...field, validationRules: { ...field.validationRules, required: false } };
           const error = validateField(fieldWithRequired, fieldValue, fieldPath, yesNoValue);
@@ -577,7 +621,9 @@ export const validateSection = (
                 // Always validate percentage fields (0-100) in subsections so submit is blocked if > 100%
                 const subLabelLower = field.label?.toLowerCase() || '';
                 const isSubPercentageToCap =
-                  subLabelLower.includes('%') || subLabelLower.includes('percentage');
+                  (subLabelLower.includes('%') || subLabelLower.includes('percentage')) &&
+                  !(subLabelLower.includes('allocation') && subLabelLower.includes('gsdp')) &&
+                  !subLabelLower.includes('% capex utilization');
                 if (isSubPercentageToCap && fieldValue !== null && fieldValue !== undefined && fieldValue !== '') {
                   const fieldWithRequired = { ...field, validationRules: { ...field.validationRules, required: false } };
                   const error = validateField(fieldWithRequired, fieldValue, fieldPath, yesNoValue);
