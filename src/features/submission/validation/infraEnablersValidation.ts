@@ -1,4 +1,5 @@
 import type { InfraEnablersData, FileUpload } from "../types";
+import { hasInitialsCapital } from "@/utils/textValidation";
 
 export interface InfraEnablersValidationErrors {
   [fieldPath: string]: string;
@@ -119,6 +120,9 @@ export const validateInfraEnablers = (
           if (!project.projectName || project.projectName.trim() === "") {
             errors[`section4_2.projects.${index}.projectName`] =
               "Project name is required.";
+          } else if (!hasInitialsCapital(project.projectName)) {
+            errors[`section4_2.projects.${index}.projectName`] =
+              "Initial letter of each word must be capital.";
           }
           if (!project.sector || project.sector.trim() === "") {
             errors[`section4_2.projects.${index}.sector`] =
@@ -196,6 +200,9 @@ export const validateInfraEnablers = (
           } else if (!isAlphabetsOnly(practice.practiceName)) {
             errors[`section4_4.practices.${index}.practiceName`] =
               "Practice name should contain only letters, spaces, hyphens, and apostrophes.";
+          } else if (!hasInitialsCapital(practice.practiceName)) {
+            errors[`section4_4.practices.${index}.practiceName`] =
+              "Initial letter of each word must be capital.";
           }
           if (!practice.impact || practice.impact.trim() === "") {
             errors[`section4_4.practices.${index}.impact`] =
@@ -240,6 +247,9 @@ export const validateInfraEnablers = (
           } else if (!isAlphabetsOnly(entry.officerName)) {
             errors[`section4_5.capacityArray.${index}.officerName`] =
               "Officer name should contain only letters, spaces, hyphens, and apostrophes.";
+          } else if (!hasInitialsCapital(entry.officerName)) {
+            errors[`section4_5.capacityArray.${index}.officerName`] =
+              "Initial letter of each word must be capital.";
           }
           if (!entry.designation || entry.designation.trim() === "") {
             errors[`section4_5.capacityArray.${index}.designation`] =
@@ -247,6 +257,9 @@ export const validateInfraEnablers = (
           } else if (!isAlphabetsOnly(entry.designation)) {
             errors[`section4_5.capacityArray.${index}.designation`] =
               "Designation should contain only letters, spaces, hyphens, and apostrophes.";
+          } else if (!hasInitialsCapital(entry.designation)) {
+            errors[`section4_5.capacityArray.${index}.designation`] =
+              "Initial letter of each word must be capital.";
           }
           if (!entry.programName || entry.programName.trim() === "") {
             errors[`section4_5.capacityArray.${index}.programName`] =
@@ -254,6 +267,9 @@ export const validateInfraEnablers = (
           } else if (!isAlphabetsOnly(entry.programName)) {
             errors[`section4_5.capacityArray.${index}.programName`] =
               "Program name should contain only letters, spaces, hyphens, and apostrophes.";
+          } else if (!hasInitialsCapital(entry.programName)) {
+            errors[`section4_5.capacityArray.${index}.programName`] =
+              "Initial letter of each word must be capital.";
           }
           if (!entry.organiser || entry.organiser.trim() === "") {
             errors[`section4_5.capacityArray.${index}.organiser`] =
@@ -261,6 +277,9 @@ export const validateInfraEnablers = (
           } else if (!isAlphabetsOnly(entry.organiser)) {
             errors[`section4_5.capacityArray.${index}.organiser`] =
               "Organizer should contain only letters, spaces, hyphens, and apostrophes.";
+          } else if (!hasInitialsCapital(entry.organiser)) {
+            errors[`section4_5.capacityArray.${index}.organiser`] =
+              "Initial letter of each word must be capital.";
           }
           if (!entry.trainingType || entry.trainingType.trim() === "") {
             errors[`section4_5.capacityArray.${index}.trainingType`] =
@@ -268,6 +287,9 @@ export const validateInfraEnablers = (
           } else if (!isAlphabetsOnly(entry.trainingType)) {
             errors[`section4_5.capacityArray.${index}.trainingType`] =
               "Training type should contain only letters, spaces, hyphens, and apostrophes.";
+          } else if (!hasInitialsCapital(entry.trainingType)) {
+            errors[`section4_5.capacityArray.${index}.trainingType`] =
+              "Initial letter of each word must be capital.";
           }
           if (!entry.trainingPeriod || entry.trainingPeriod.trim() === "") {
             errors[`section4_5.capacityArray.${index}.trainingPeriod`] =

@@ -1,4 +1,5 @@
 import type { PPPDevelopmentData, FileUpload } from "../types";
+import { hasInitialsCapital } from "@/utils/textValidation";
 
 export interface PPPDevelopmentValidationErrors {
   [fieldPath: string]: string;
@@ -164,6 +165,9 @@ export const validatePPPDevelopment = (
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section3_3.VGFArray.${index}.projectName`] =
             "Project name is required.";
+        } else if (!hasInitialsCapital(entry.projectName)) {
+          errors[`section3_3.VGFArray.${index}.projectName`] =
+            "Initial letter of each word must be capital.";
         }
         if (!entry.sector || entry.sector.trim() === "") {
           errors[`section3_3.VGFArray.${index}.sector`] = "Sector is required.";
@@ -173,6 +177,9 @@ export const validatePPPDevelopment = (
         } else if (!isAlphabetsOnly(entry.scheme)) {
           errors[`section3_3.VGFArray.${index}.scheme`] =
             "Scheme should contain only letters, spaces, hyphens, and apostrophes.";
+        } else if (!hasInitialsCapital(entry.scheme)) {
+          errors[`section3_3.VGFArray.${index}.scheme`] =
+            "Initial letter of each word must be capital.";
         }
         if (!entry.submissionDate || !isValidDate(entry.submissionDate)) {
           errors[`section3_3.VGFArray.${index}.submissionDate`] =
@@ -194,6 +201,9 @@ export const validatePPPDevelopment = (
         } else if (!isAlphabetsOnly(entry.statusOfProject)) {
           errors[`section3_3.VGFArray.${index}.statusOfProject`] =
             "Status should contain only letters, spaces, hyphens, and apostrophes.";
+        } else if (!hasInitialsCapital(entry.statusOfProject)) {
+          errors[`section3_3.VGFArray.${index}.statusOfProject`] =
+            "Initial letter of each word must be capital.";
         }
         // Document required: either upload file or check "No Document Available"
         const hasFile =
@@ -235,8 +245,14 @@ export const validatePPPDevelopment = (
       // but if projects are added, they should be validated for completeness
       if (section34.projects && section34.projects.length > 0) {
         section34.projects.forEach((project, index) => {
-          // Validate project name if it has a value
-          // Project name validation removed - no alphabet-only restriction
+          if (
+            project.nameOfProject &&
+            project.nameOfProject.trim() !== "" &&
+            !hasInitialsCapital(project.nameOfProject)
+          ) {
+            errors[`section3_4.projects.${index}.nameOfProject`] =
+              "Initial letter of each word must be capital.";
+          }
           // Validate infrastructureSector (required)
           if (
             !project.infrastructureSector ||

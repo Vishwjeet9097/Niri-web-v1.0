@@ -1,4 +1,5 @@
 import type { InfraFinancingData } from "../types";
+import { hasInitialsCapital } from "@/utils/textValidation";
 
 export interface InfraFinancingValidationErrors {
   [fieldPath: string]: string;
@@ -237,6 +238,9 @@ export const validateInfraFinancing = (
           const basePath = `section1_3.ulbList.${index}`;
           if (!ulb.cityName) {
             errors[`${basePath}.cityName`] = "City name is required.";
+          } else if (!hasInitialsCapital(ulb.cityName)) {
+            errors[`${basePath}.cityName`] =
+              "Initial letter of each word must be capital.";
           }
           if (!ulb.ulb) {
             errors[`${basePath}.ulb`] = "ULB is required.";
@@ -293,10 +297,16 @@ export const validateInfraFinancing = (
           }
           if (!bond.cityName) {
             errors[`${basePath}.cityName`] = "City name is required.";
+          } else if (!hasInitialsCapital(bond.cityName)) {
+            errors[`${basePath}.cityName`] =
+              "Initial letter of each word must be capital.";
           }
           if (!bond.issuingAuthority) {
             errors[`${basePath}.issuingAuthority`] =
               "Issuing authority is required.";
+          } else if (!hasInitialsCapital(bond.issuingAuthority)) {
+            errors[`${basePath}.issuingAuthority`] =
+              "Initial letter of each word must be capital.";
           } else if (bond.issuingAuthority.length > 100) {
             errors[`${basePath}.issuingAuthority`] =
               "Issuing authority must be 100 characters or fewer.";
@@ -353,6 +363,9 @@ export const validateInfraFinancing = (
             } else if (!isAlphabetsOnly(intermediary.organisationName)) {
               errors[`section1_5.ffiArray.${index}.organisationName`] =
                 "Organisation name should contain only letters, spaces, hyphens, and apostrophes.";
+            } else if (!hasInitialsCapital(intermediary.organisationName)) {
+              errors[`section1_5.ffiArray.${index}.organisationName`] =
+                "Initial letter of each word must be capital.";
             }
             if (!intermediary.organisationType) {
               errors[`section1_5.ffiArray.${index}.organisationType`] =
