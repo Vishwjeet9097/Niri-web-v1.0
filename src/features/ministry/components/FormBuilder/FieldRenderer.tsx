@@ -96,9 +96,15 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
       field.label?.toLowerCase().includes("percentage of ppp project") ||
       field.label?.toLowerCase().includes("% of ppp project") ||
       field.label?.toLowerCase().includes("total of all tpc") ||
-      (field.label?.toLowerCase().includes("total") && 
-       field.label?.toLowerCase().includes("tpc") && 
-       field.label?.toLowerCase().includes("ppp"));
+      (field.label?.toLowerCase().includes("total") &&
+        field.label?.toLowerCase().includes("tpc") &&
+        field.label?.toLowerCase().includes("ppp"));
+
+    // Calculated fields that are percentages should display with "%" suffix
+    const isPercentageCalculatedField =
+      isCalculatedField &&
+      (field.label?.toLowerCase().includes("%") ||
+        field.label?.toLowerCase().includes("percentage"));
 
     // Check if this is a calculation input field (must be > 0)
     const isCalculationInputField =
@@ -432,6 +438,13 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
         const numberYearDisplayValue = isNumberYearField
           ? formatYearAsFinancialYear(value)
           : (value ?? "");
+        // For percentage calculated fields, show value with "%" suffix (avoid double %)
+        const numberDisplayValue =
+          isPercentageCalculatedField && value != null && value !== ""
+            ? typeof value === "string" && value.endsWith("%")
+              ? value
+              : `${Number(value)}%`
+            : value ?? "";
         return (
           <div className="space-y-2" data-field-path={numberFieldPath}>
             <Label>
@@ -454,10 +467,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                 />
               ) : (
               <Input
-                type="number"
-                value={value || ""}
-                min={isCalculationInputField ? "0.01" : undefined}
-                step="0.01"
+                type={isPercentageCalculatedField ? "text" : "number"}
+                value={
+                  isPercentageCalculatedField ? numberDisplayValue : (value || "")
+                }
+                min={isPercentageCalculatedField ? undefined : (isCalculationInputField ? "0.01" : undefined)}
+                step={isPercentageCalculatedField ? undefined : "0.01"}
                 onChange={(e) => {
                   // Don't allow changes to calculated fields
                   if (isCalculatedField) return;
@@ -523,8 +538,18 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
               )
             ) : (
               <Input
-                type={isNumberYearField ? "text" : "number"}
-                value={isNumberYearField ? numberYearDisplayValue : (value ?? "")}
+                type={
+                  isNumberYearField || isPercentageCalculatedField
+                    ? "text"
+                    : "number"
+                }
+                value={
+                  isNumberYearField
+                    ? numberYearDisplayValue
+                    : isPercentageCalculatedField
+                      ? numberDisplayValue
+                      : (value ?? "")
+                }
                 readOnly={true}
                 className={cn("cursor-not-allowed", className)}
                 placeholder={
