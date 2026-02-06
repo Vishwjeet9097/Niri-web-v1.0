@@ -112,6 +112,26 @@ export const getStatusInfo = (status: string): StatusInfo => {
 };
 
 /**
+ * Get "with whom" label for indicators under review (for Indicator Summary card).
+ * Returns the reviewer/role the indicator is with, e.g. "State Approver", "MoSPI Reviewer".
+ */
+export const getUnderReviewReviewerLabel = (status: string): string => {
+  const upper = (status || "").toUpperCase();
+  switch (upper) {
+    case "SUBMITTED_TO_STATE":
+      return "State Approver";
+    case "SUBMITTED_TO_MOSPI_REVIEWER":
+      return "MoSPI Reviewer";
+    case "SUBMITTED_TO_MOSPI_APPROVER":
+      return "MoSPI Approver";
+    case "RESUBMITTED":
+      return "State Approver";
+    default:
+      return "";
+  }
+};
+
+/**
  * Get role-specific status information
  * This helps avoid confusion for STATE_APPROVER when viewing SUBMITTED_TO_MOSPI_APPROVER status
  * @param status - Submission status

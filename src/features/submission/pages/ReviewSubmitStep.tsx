@@ -11,6 +11,7 @@ import { SUBMISSION_STEPS } from "../constants/steps";
 import { computeAllStepsSummary } from "../utils/progress";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
+import { getUnderReviewReviewerLabel } from "@/utils/statusUtils";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { debugFormData } from "@/utils/formDataTransformer";
@@ -139,12 +140,12 @@ export const ReviewSubmitStep = () => {
     infraEnablers: ["4.1", "4.2", "4.3", "4.4", "4.5"],
   };
 
-  // Calculate indicator summary (under review, pending, accepted) from submission or formData
+  // Calculate indicator summary (under review with status, pending, accepted) from submission or formData
   const getIndicatorSummary = () => {
     const raw = submission?.formData ?? formData;
     if (!raw) {
       return {
-        underReview: [] as string[],
+        underReview: [] as { code: string; status: string }[],
         pending: [] as string[],
         accepted: [] as string[],
       };
@@ -166,7 +167,7 @@ export const ReviewSubmitStep = () => {
       ? assignedIndicators ?? []
       : effectiveAvailableIndicators;
 
-    const underReview: string[] = [];
+    const underReview: { code: string; status: string }[] = [];
     const pending: string[] = [];
     const accepted: string[] = [];
 
@@ -176,6 +177,13 @@ export const ReviewSubmitStep = () => {
       "pppDevelopment",
       "infraEnablers",
     ] as const;
+
+    const UNDER_REVIEW_STATUSES = new Set([
+      "SUBMITTED_TO_STATE",
+      "SUBMITTED_TO_MOSPI_REVIEWER",
+      "SUBMITTED_TO_MOSPI_APPROVER",
+      "RESUBMITTED",
+    ]);
 
     const getStatusForIndicator = (
       indicatorCode: string
@@ -201,11 +209,8 @@ export const ReviewSubmitStep = () => {
 
       if (upperStatus === "ACCEPTED" || upperStatus === "APPROVED") {
         accepted.push(indicatorCode);
-      } else if (
-        upperStatus === "SUBMITTED_TO_STATE" ||
-        upperStatus === "RESUBMITTED"
-      ) {
-        underReview.push(indicatorCode);
+      } else if (UNDER_REVIEW_STATUSES.has(upperStatus)) {
+        underReview.push({ code: indicatorCode, status: upperStatus });
       } else {
         pending.push(indicatorCode);
       }
@@ -215,10 +220,11 @@ export const ReviewSubmitStep = () => {
   };
 
   const indicatorSummary = getIndicatorSummary();
+  const underReviewCodes = indicatorSummary.underReview.map((x) => x.code);
 
   // Section cards: "completed" = count of indicators in this step that are submitted or accepted (matches Indicator Summary)
   const submittedOrAcceptedSet = new Set([
-    ...indicatorSummary.underReview,
+    ...underReviewCodes,
     ...indicatorSummary.accepted,
   ]);
   const sections = [
@@ -374,15 +380,37 @@ export const ReviewSubmitStep = () => {
                         {indicatorSummary.underReview.length} indicator
                         {indicatorSummary.underReview.length !== 1 ? "s" : ""}
                       </p>
+                      {indicatorSummary.underReview.length > 0 &&
+                        (() => {
+                          const reviewerLabels = [
+                            ...new Set(
+                              indicatorSummary.underReview
+                                .map(({ status }) =>
+                                  getUnderReviewReviewerLabel(status)
+                                )
+                                .filter(Boolean)
+                            ),
+                          ];
+                          return reviewerLabels.length > 0 ? (
+                            <p className="text-xs text-yellow-600 mt-1">
+                              With {reviewerLabels.join(", ")}
+                            </p>
+                          ) : null;
+                        })()}
                     </div>
                   </div>
                   {indicatorSummary.underReview.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {indicatorSummary.underReview.map((code) => (
+                      {indicatorSummary.underReview.map(({ code, status }) => (
                         <Badge
                           key={code}
                           variant="outline"
                           className="bg-yellow-100 text-yellow-800 border-yellow-300"
+                          title={
+                            getUnderReviewReviewerLabel(status)
+                              ? `Under review with ${getUnderReviewReviewerLabel(status)}`
+                              : undefined
+                          }
                         >
                           {code}
                         </Badge>
