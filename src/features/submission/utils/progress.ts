@@ -80,16 +80,23 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     const totalULBsPresent =
       typeof data?.totalULBs === "number" && data.totalULBs >= 0;
     if (totalULBsPresent) return true;
-    // Otherwise require at least one valid ULB row
+    // Otherwise require at least one valid ULB row (file or noDocumentAvailable required per row)
     return (
       Array.isArray(data?.ulbList) &&
       anyValid(
         data.ulbList,
-        (r) =>
-          hasMeaningfulValue(r.cityName) &&
-          hasMeaningfulValue(r.ulb) &&
-          hasMeaningfulValue(r.ratingDate) &&
-          hasMeaningfulValue(r.rating)
+        (r) => {
+          const row = r as Record<string, unknown>;
+          const hasFile = hasMeaningfulValue(row?.file);
+          const noDoc = row?.noDocumentAvailable === true;
+          return (
+            hasMeaningfulValue(row.cityName) &&
+            hasMeaningfulValue(row.ulb) &&
+            hasMeaningfulValue(row.ratingDate) &&
+            hasMeaningfulValue(row.rating) &&
+            (hasFile || noDoc)
+          );
+        }
       )
     );
   },
@@ -129,11 +136,13 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     return true;
   },
 
-  // 2.x Infra Development (updated to handle new nested array structure)
+  // 2.x Infra Development (updated to handle new nested array structure; noDocumentAvailable counts as filled)
   section2_1: (data: any) =>
     anyValid(
       data?.infraActArray,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
+      (r) =>
+        hasMeaningfulValue(r.sector) &&
+        (hasMeaningfulValue(r.files) || r.noDocumentAvailable === true)
     ),
 
   section2_2: (data: any) => {
@@ -141,7 +150,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     if (!hasMeaningfulValue(d?.hasSpecializedEntity)) return false;
     if (d?.hasSpecializedEntity === "yes") {
       return anyValid(data?.specializedEntityArray, (r) =>
-        hasMeaningfulValue(r.files)
+        hasMeaningfulValue(r.files) || (r as Record<string, unknown>).noDocumentAvailable === true
       );
     }
     // If "no", comment is required
@@ -157,7 +166,9 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     if (d?.hasInfraDevelopmentPlan === "yes") {
       return anyValid(
         data?.infraDevelopmentArray,
-        (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
+        (r) =>
+          hasMeaningfulValue(r.sector) &&
+          (hasMeaningfulValue(r.files) || (r as Record<string, unknown>).noDocumentAvailable === true)
       );
     }
     // If "no", comment is required
@@ -205,11 +216,13 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     return false;
   },
 
-  // 3.x PPP
+  // 3.x PPP (noDocumentAvailable counts as filled when file would be required)
   section3_1: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
-    if (d?.available === "yes") return hasMeaningfulValue(d?.file);
+    if (d?.available === "yes") {
+      return hasMeaningfulValue(d?.file) || d?.noDocumentAvailable === true;
+    }
     // If "no", comment is required
     if (d?.available === "no") {
       return hasMeaningfulValue(d?.comment);
@@ -219,7 +232,9 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
   section3_2: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
-    if (d?.available === "yes") return hasMeaningfulValue(d?.file);
+    if (d?.available === "yes") {
+      return hasMeaningfulValue(d?.file) || d?.noDocumentAvailable === true;
+    }
     // If "no", comment is required
     if (d?.available === "no") {
       return hasMeaningfulValue(d?.comment);
@@ -229,13 +244,20 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
   section3_3: (data: any) =>
     anyValid(
       data?.VGFArray,
-      (r) =>
-        hasMeaningfulValue(r.projectName) &&
-        hasMeaningfulValue(r.sector) &&
-        hasMeaningfulValue(r.scheme) &&
-        hasMeaningfulValue(r.totalProjectCost) &&
-        hasMeaningfulValue(r.statusOfProject) &&
-        hasMeaningfulValue(r.submissionDate)
+      (r) => {
+        const row = r as Record<string, unknown>;
+        const hasFile = hasMeaningfulValue(row?.file);
+        const noDoc = row?.noDocumentAvailable === true;
+        return (
+          hasMeaningfulValue(row.projectName) &&
+          hasMeaningfulValue(row.sector) &&
+          hasMeaningfulValue(row.scheme) &&
+          hasMeaningfulValue(row.totalProjectCost) &&
+          hasMeaningfulValue(row.statusOfProject) &&
+          hasMeaningfulValue(row.submissionDate) &&
+          (hasFile || noDoc)
+        );
+      }
     ),
   section3_4: (data) => {
     const d = data as
@@ -275,11 +297,13 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     return hasSummaryFields && allProjectsValid;
   },
 
-  // 4.x Infra Enablers
+  // 4.x Infra Enablers (noDocumentAvailable counts as filled when file would be required)
   section4_1: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
-    if (d?.available === "yes") return hasMeaningfulValue(d?.file);
+    if (d?.available === "yes") {
+      return hasMeaningfulValue(d?.file) || d?.noDocumentAvailable === true;
+    }
     // If "no", comment is required
     if (d?.available === "no") {
       return hasMeaningfulValue(d?.comment);
@@ -294,10 +318,14 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         Array.isArray(d?.projects) &&
         anyValid(
           d.projects,
-          (r) =>
-            hasMeaningfulValue(r.projectName) &&
-            hasMeaningfulValue(r.sector) &&
-            hasMeaningfulValue(r.file)
+          (r) => {
+            const row = r as Record<string, unknown>;
+            return (
+              hasMeaningfulValue(row.projectName) &&
+              hasMeaningfulValue(row.sector) &&
+              (hasMeaningfulValue(row.file) || row.noDocumentAvailable === true)
+            );
+          }
         )
       );
     }
@@ -310,7 +338,9 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
   section4_3: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.adopted)) return false;
-    if (d?.adopted === "yes") return hasMeaningfulValue(d?.file);
+    if (d?.adopted === "yes") {
+      return hasMeaningfulValue(d?.file) || d?.noDocumentAvailable === true;
+    }
     // If "no", comment is required
     if (d?.adopted === "no") {
       return hasMeaningfulValue(d?.comment);
@@ -325,10 +355,14 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         Array.isArray(d?.practices) &&
         anyValid(
           d.practices,
-          (r) =>
-            hasMeaningfulValue(r.practiceName) &&
-            hasMeaningfulValue(r.impact) &&
-            hasMeaningfulValue(r.file)
+          (r) => {
+            const row = r as Record<string, unknown>;
+            return (
+              hasMeaningfulValue(row.practiceName) &&
+              hasMeaningfulValue(row.impact) &&
+              (hasMeaningfulValue(row.file) || row.noDocumentAvailable === true)
+            );
+          }
         )
       );
     }

@@ -2443,7 +2443,7 @@ export const InfraDevelopmentStep = () => {
                     : availableIndicators,
                 isNodalOfficer,
                 isStateApprover: user?.role === "STATE_APPROVER",
-                countCompletedByStatus: true,
+                countCompletedByStatus: false, // Progress by filled data, not submission status
               }
             );
             // 🔍 DEBUG: Check if section2_4 is considered filled

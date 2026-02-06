@@ -1818,7 +1818,7 @@ export const PPPDevelopmentStep = () => {
                       : availableIndicators,
                   isNodalOfficer,
                   isStateApprover,
-                  countCompletedByStatus: true,
+                  countCompletedByStatus: false, // Progress by filled data, not submission status
                 }
               );
               console.log("📊 PPP Development Progress Debug:", {

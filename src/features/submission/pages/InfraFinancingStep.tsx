@@ -2527,7 +2527,7 @@ export const InfraFinancingStep = () => {
                 : availableIndicators,
               isNodalOfficer,
               isStateApprover,
-              countCompletedByStatus: true,
+              countCompletedByStatus: false, // Progress by filled data, not submission status
             }
           );
           return (
