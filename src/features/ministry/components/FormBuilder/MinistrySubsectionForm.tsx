@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef } from "react";
+import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -52,6 +52,19 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
         );
         return arrayData;
       }, [formData, sectionKey, subsectionName, mode]);
+
+      // When in edit mode and the subsection has no rows, add one row by default
+      const defaultRowAddedRef = useRef(false);
+      useEffect(() => {
+        if (items.length > 0) {
+          defaultRowAddedRef.current = false;
+          return;
+        }
+        if (isEditable && !defaultRowAddedRef.current) {
+          defaultRowAddedRef.current = true;
+          onAdd();
+        }
+      }, [items.length, isEditable, onAdd]);
 
       // Normalize Yes/No value
       const normalizedYesNoValue = useMemo(() => {
