@@ -30,6 +30,7 @@ import {
 } from "@/utils/statusUtils";
 import {
   areAllIndicatorsAccepted,
+  areAllIndicatorsSubmitted,
   isSubmissionFromNodalOfficer,
   isSubmissionFromStateApprover,
 } from "@/utils/indicatorStatusUtils";
@@ -218,6 +219,17 @@ export function UnifiedSubmissionCard({
   // Check if all indicators are accepted
   const allIndicatorsAccepted = areAllIndicatorsAccepted(submission);
 
+  // When an assigned list exists (submission.indicators or formData.indicators), true only if all assigned are submitted.
+  // If no assigned list is found, we must NOT use this to hide Edit (we don't know assigned list).
+  const formDataForList = (submission as any)?.formData || submission;
+  const assignedList = Array.isArray((submission as any)?.indicators)
+    ? (submission as any).indicators
+    : Array.isArray(formDataForList?.indicators)
+      ? formDataForList.indicators
+      : null;
+  const hasAssignedList = assignedList != null && assignedList.length > 0;
+  const allAssignedIndicatorsSubmitted = hasAssignedList && areAllIndicatorsSubmitted(submission);
+
   // Check if submission is from NODAL_OFFICER
   const isFromNodalOfficer = isSubmissionFromNodalOfficer(submission);
 
@@ -233,7 +245,24 @@ export function UnifiedSubmissionCard({
   });
   console.log("👤 Current User Role:", currentUserRole);
   console.log("✅ All Indicators Accepted:", allIndicatorsAccepted);
+  console.log("📤 All Assigned Indicators Submitted:", allAssignedIndicatorsSubmitted, "(hasAssignedList:", hasAssignedList, ")");
+  console.log("📌 Assigned indicators (submission.indicators):", submissionData?.indicators);
   console.log("👨‍💼 Is From NODAL_OFFICER:", isFromNodalOfficer);
+  const canEditForLog = canEditSubmission(currentUserRole || "", status);
+  const editConditionNodal = currentUserRole !== "NODAL_OFFICER" || !allAssignedIndicatorsSubmitted;
+  const showEdit = !!(
+    onEdit &&
+    canEditForLog &&
+    !allIndicatorsAccepted &&
+    editConditionNodal
+  );
+  console.log("✏️ Edit icon logic:", {
+    hasOnEdit: !!onEdit,
+    canEdit: canEditForLog,
+    notAllAccepted: !allIndicatorsAccepted,
+    nodalCondition: editConditionNodal,
+    showEdit,
+  });
   console.log(
     "📝 Form Data Structure:",
     submissionData?.formData
@@ -441,7 +470,8 @@ export function UnifiedSubmissionCard({
             </Button>
           ) : onEdit &&
             canEditSubmission(currentUserRole || "", status) &&
-            !allIndicatorsAccepted ? (
+            !allIndicatorsAccepted &&
+            (currentUserRole !== "NODAL_OFFICER" || !allAssignedIndicatorsSubmitted) ? (
             <Button size="sm" variant="ghost" onClick={onEdit}>
               <Edit2 className="w-4 h-4" />
             </Button>

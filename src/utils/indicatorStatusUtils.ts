@@ -219,6 +219,82 @@ export function areAllIndicatorsAccepted(
   return true;
 }
 
+/** Section statuses that count as "submitted" by nodal (submitted to state or accepted) */
+const SUBMITTED_SECTION_STATUSES = [
+  "SUBMITTED_TO_STATE",
+  "ACCEPTED",
+  "APPROVED",
+];
+
+const CATEGORY_MAP: Record<string, string> = {
+  "1": "infraFinancing",
+  "2": "infraDevelopment",
+  "3": "pppDevelopment",
+  "4": "infraEnablers",
+};
+
+/**
+ * Check if all indicators in a submission have been submitted (by nodal officer).
+ * When submission.indicators (assigned indicators) is present, only those are checked.
+ * Otherwise falls back to all indicators present in formData.
+ * @param submission - The submission object with formData and optionally indicators[]
+ * @returns true if every assigned indicator (or every indicator in formData) has a submitted status
+ */
+export function areAllIndicatorsSubmitted(
+  submission: Record<string, any> | undefined
+): boolean {
+  if (!submission) return false;
+
+  const formData = submission.formData || submission;
+  if (!formData || typeof formData !== "object") return false;
+
+  const assignedIndicators =
+    Array.isArray(submission.indicators)
+      ? submission.indicators
+      : Array.isArray((formData as any).indicators)
+        ? (formData as any).indicators
+        : null;
+  const indicators: string[] =
+    assignedIndicators && assignedIndicators.length > 0
+      ? assignedIndicators.map((c: any) => String(c).trim()).filter(Boolean)
+      : getIndicatorsInFormData(formData);
+
+  if (indicators.length === 0) {
+    console.log("[areAllIndicatorsSubmitted] No indicators to check → false");
+    return false;
+  }
+
+  console.log("[areAllIndicatorsSubmitted] Checking indicators:", {
+    source: assignedIndicators?.length ? "submission.indicators" : "formData",
+    indicators,
+  });
+
+  for (const indicatorCode of indicators) {
+    const [sectionNum, indicatorNum] = indicatorCode.split(".");
+    const category = CATEGORY_MAP[sectionNum];
+    const section = `section${sectionNum}_${indicatorNum}`;
+    if (!category || !section) continue;
+
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") return false;
+
+    const sectionData = categoryData[section];
+    if (!sectionData || typeof sectionData !== "object") return false;
+
+    const status = Array.isArray(sectionData)
+      ? (sectionData as any)[0]?.status
+      : sectionData?.status;
+    const statusStr = status ? String(status).trim().toUpperCase() : "";
+    if (!SUBMITTED_SECTION_STATUSES.includes(statusStr)) {
+      console.log("[areAllIndicatorsSubmitted] → false (indicator not submitted):", indicatorCode, "status:", statusStr);
+      return false;
+    }
+  }
+
+  console.log("[areAllIndicatorsSubmitted] → true (all submitted)");
+  return true;
+}
+
 /**
  * Check if submission is from NODAL_OFFICER
  * @param submission - The submission object
