@@ -3631,13 +3631,12 @@ export const InfraDevelopmentReview = ({
       return; // Don't show dialog, just return
     }
 
-    // If STATE_APPROVER is accepting their own indicator, show confirmation dialog
+    // If STATE_APPROVER is accepting their own indicator, accept directly (no confirm popup)
     if (isStateApprover && status && isSubmissionFromStateApprover) {
       console.log(
-        `[InfraDevelopmentReview] STATE_APPROVER accepting their own indicator ${sectionId} - showing confirmation dialog`
+        `[InfraDevelopmentReview] STATE_APPROVER accepting their own indicator ${sectionId} - accepting directly without dialog`
       );
-      setPendingActionSectionId(sectionId);
-      setShowAcceptDialog(true);
+      await performIndicatorStatus(sectionId, status);
       return;
     }
 
