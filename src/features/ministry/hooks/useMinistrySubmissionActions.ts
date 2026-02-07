@@ -19,6 +19,7 @@ interface UseMinistrySubmissionActionsProps {
   setSubmittedIndicatorsVersion?: React.Dispatch<React.SetStateAction<number>>; // Optional version setter
   setValidationErrorsForSection: (errors: Record<string, string>) => void;
   clearValidationErrorsForSection: (sectionKey: string) => void;
+  updateSectionStatus?: (indicatorCode: string, status: string) => void;
 }
 
 export function useMinistrySubmissionActions({
@@ -31,6 +32,7 @@ export function useMinistrySubmissionActions({
   setSubmittedIndicatorsVersion,
   setValidationErrorsForSection,
   clearValidationErrorsForSection,
+  updateSectionStatus,
 }: UseMinistrySubmissionActionsProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -257,6 +259,11 @@ export function useMinistrySubmissionActions({
         return newSet;
       });
 
+      // Update section status in UI so badge (Under Review / Resubmitted) shows immediately
+      if (updateSectionStatus) {
+        updateSectionStatus(indicatorCode, statusToSet);
+      }
+
       // Increment version counter to force re-render
       if (setSubmittedIndicatorsVersion) {
         setSubmittedIndicatorsVersion(prev => prev + 1);
@@ -288,7 +295,7 @@ export function useMinistrySubmissionActions({
       // Clear submittingIndicator on error too
       setSubmittingIndicator(null);
     }
-  }, [pendingIndicator, submissionId, toast, setSubmittedIndicators, user?.role]);
+  }, [pendingIndicator, submissionId, toast, setSubmittedIndicators, user?.role, updateSectionStatus]);
 
   // Handle cancel from modal
   const handleCancelSubmit = useCallback(() => {
@@ -385,6 +392,11 @@ export function useMinistrySubmissionActions({
         variant: "default",
       });
 
+      // Update section status in UI so Draft badge shows immediately
+      if (updateSectionStatus) {
+        updateSectionStatus(indicatorCode, "DRAFT");
+      }
+
       setSubmittingIndicator(null);
     } catch (error: any) {
       console.error("Save as Draft error:", error);
@@ -398,7 +410,7 @@ export function useMinistrySubmissionActions({
       });
       setSubmittingIndicator(null);
     }
-  }, [formData, submissionId, assignedIndicators, toast]);
+  }, [formData, submissionId, assignedIndicators, toast, updateSectionStatus]);
 
   const isIndicatorSubmitted = useCallback((indicatorCode: string): boolean => {
     return submittedIndicators.has(indicatorCode);

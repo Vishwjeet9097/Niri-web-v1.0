@@ -56,6 +56,7 @@ export function MinistrySubmissionWrapper() {
     setSubmittedIndicatorsVersion,
     isInitialLoadRef,
     prevFormDataRef,
+    updateSectionStatus,
   } = useMinistrySubmission(persistedFormData);
 
   // Validation hook
@@ -127,6 +128,7 @@ export function MinistrySubmissionWrapper() {
     setSubmittedIndicatorsVersion,
     setValidationErrorsForSection,
     clearValidationErrorsForSection,
+    updateSectionStatus,
   });
 
   // Loading states

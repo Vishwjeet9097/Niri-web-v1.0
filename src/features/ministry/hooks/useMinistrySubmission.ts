@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getMinistrySubmissionDetails, minstryRegistrationForm, getRemainingMinistryIndicators } from "@/services/ministry.service";
@@ -24,6 +24,7 @@ interface UseMinistrySubmissionReturn {
   setSubmittedIndicatorsVersion: React.Dispatch<React.SetStateAction<number>>;
   isInitialLoadRef: React.MutableRefObject<boolean>;
   prevFormDataRef: React.MutableRefObject<Record<string, any>>;
+  updateSectionStatus: (indicatorCode: string, status: string) => void;
 }
 
 export function useMinistrySubmission(
@@ -403,6 +404,26 @@ export function useMinistrySubmission(
     }
   };
 
+  // Update a section's status in assignedIndicators (e.g. after Save as Draft so badge updates immediately)
+  const updateSectionStatus = useCallback((indicatorCode: string, status: string) => {
+    setAssignedIndicators((prev) =>
+      prev.map((indicatorObj) => {
+        const categoryName = Object.keys(indicatorObj)[0];
+        const sections = indicatorObj[categoryName];
+        if (!Array.isArray(sections)) return indicatorObj;
+        const updatedSections = sections.map((sectionObj: any) => {
+          const sectionKey = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionKey];
+          if (section?.sNo === indicatorCode) {
+            return { [sectionKey]: { ...section, status } };
+          }
+          return sectionObj;
+        });
+        return { [categoryName]: updatedSections };
+      })
+    );
+  }, []);
+
   return {
     submissionId,
     assignedIndicators,
@@ -420,6 +441,7 @@ export function useMinistrySubmission(
     setSubmittedIndicatorsVersion,
     isInitialLoadRef,
     prevFormDataRef,
+    updateSectionStatus,
   };
 }
 
