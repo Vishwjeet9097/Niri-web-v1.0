@@ -104,19 +104,40 @@ export const isDateInFinancialYear = (mmYy: string, fy: string): boolean => {
 };
 
 /**
- * Count officers trained in the current Financial Year
- * @param capacityArray - Array of capacity building entries with trainingPeriod field
+ * Get training period (MM/YY) from a capacity building entry.
+ * Entries may have trainingPeriod (Excel) or store it under a field id (form).
+ */
+function getTrainingPeriodFromEntry(entry: Record<string, unknown>): string | null {
+  if (entry.trainingPeriod && typeof entry.trainingPeriod === "string" && entry.trainingPeriod.trim()) {
+    const fy = getFinancialYearFromMMYY(entry.trainingPeriod);
+    if (fy) return entry.trainingPeriod;
+  }
+  for (const key of Object.keys(entry)) {
+    if (key === "id") continue;
+    const val = entry[key];
+    if (val && typeof val === "string" && val.trim() && getFinancialYearFromMMYY(val)) {
+      return val;
+    }
+  }
+  return null;
+}
+
+/**
+ * Count officers trained in the current Financial Year only.
+ * Only entries whose training period falls in the current FY are counted.
+ * @param capacityArray - Array of capacity building entries (trainingPeriod or field-id values in MM/YY format)
  * @returns Count of officers trained in current FY
  */
 export const countOfficersTrainedInCurrentFY = (
-  capacityArray: Array<{ trainingPeriod?: string }>
+  capacityArray: Array<Record<string, unknown>>
 ): number => {
   if (!capacityArray || !Array.isArray(capacityArray)) return 0;
 
   const currentFY = getCurrentFinancialYear();
 
   return capacityArray.filter((entry) => {
-    if (!entry.trainingPeriod) return false;
-    return isDateInFinancialYear(entry.trainingPeriod, currentFY);
+    const trainingPeriod = getTrainingPeriodFromEntry(entry);
+    if (!trainingPeriod) return false;
+    return isDateInFinancialYear(trainingPeriod, currentFY);
   }).length;
 };
