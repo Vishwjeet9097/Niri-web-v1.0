@@ -476,7 +476,8 @@ export function MinistrySubmissionReviewWrapper({
     }
   };
 
-  // Extract categories from assignedIndicators and sort them according to MINISTRY_SUBMISSION_STEPS order
+  // Extract categories from assignedIndicators and sort them according to MINISTRY_SUBMISSION_STEPS order.
+  // In review mode, exclude DRAFT sections so only submitted/accepted indicators are shown.
   const categories = useMemo(() => {
     const categoryMap = new Map<string, AssignedIndicator>();
 
@@ -512,11 +513,31 @@ export function MinistrySubmissionReviewWrapper({
       }
     });
 
+    // In review: exclude DRAFT sections so draft indicators do not show
+    const filteredCategories: AssignedIndicator[] = [];
+    orderedCategories.forEach((cat) => {
+      const categoryName = Object.keys(cat)[0];
+      const sections = cat[categoryName];
+      if (!Array.isArray(sections)) {
+        filteredCategories.push(cat);
+        return;
+      }
+      const nonDraftSections = sections.filter((sectionObj: any) => {
+        const sectionKey = Object.keys(sectionObj)[0];
+        const section = sectionObj[sectionKey];
+        const status = (section?.status ?? "").toString().toUpperCase();
+        return status !== "DRAFT";
+      });
+      if (nonDraftSections.length > 0) {
+        filteredCategories.push({ [categoryName]: nonDraftSections });
+      }
+    });
+
     console.log(
-      "📋 Extracted categories (ordered):",
-      orderedCategories.map((cat) => Object.keys(cat)[0]),
+      "📋 Extracted categories (ordered, draft sections excluded in review):",
+      filteredCategories.map((cat) => Object.keys(cat)[0]),
     );
-    return orderedCategories;
+    return filteredCategories;
   }, [assignedIndicators]);
 
   // When form is with MOSPI, freeze indicator status and progress only for MINISTRY_APPROVER (preview/review).
