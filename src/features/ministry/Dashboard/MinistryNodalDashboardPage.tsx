@@ -199,7 +199,7 @@ export function MinistryNodalDashboardPage() {
           {
             title: "Total Submitted",
             value: String(metrics.totalSubmitted),
-            subtitle: "Submitted forms",
+            subtitle: "Submitted Indicators",
             icon: TrendingUp,
             variant: "blue" as const,
             description:
@@ -286,7 +286,7 @@ export function MinistryNodalDashboardPage() {
         <div>
           <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome</h1>
           <p className="text-[#212121]">
-            Manage your NIRI data submissions and track approval status
+            Manage your NIE-I data submissions and track approval status
           </p>
         </div>
         <img

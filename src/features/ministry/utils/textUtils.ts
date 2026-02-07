@@ -1,32 +1,31 @@
 /**
- * Capitalize the first letter of each word (title case).
- * Used for Names of Project/Officers/Authority etc. so initials are capital.
+ * Ensures the first letter of each word is uppercase; rest of word is left unchanged.
+ * So "SDE" stays "SDE", "sde" becomes "Sde", "new delhi" becomes "New delhi".
  */
 export function capitalizeInitials(str: string): string {
   if (str == null || typeof str !== "string") return str;
-  const trimmed = str.trim();
+  const trimmed = str.trim().replace(/\s+/g, " ");
   if (!trimmed) return trimmed;
   return trimmed
-    .replace(/\s+/g, " ")
     .split(" ")
     .map((word) =>
-      word.length
-        ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        : ""
+      word.length ? word.charAt(0).toUpperCase() + word.slice(1) : ""
     )
     .join(" ");
 }
 
 /**
- * Returns true if the string is already in title case (first letter of each word capital).
- * Used by validation to block submit when user enters small letters.
+ * Returns true if the first character of every word is an uppercase letter (A-Z).
+ * Allows "SDE", "MBA", "New Delhi", "New delhi" etc. Fails only when a word starts with lowercase.
  */
 export function isCapitalizedProperly(str: string): boolean {
   if (str == null || typeof str !== "string") return true;
   const trimmed = str.trim();
   if (!trimmed) return true;
-  const expected = capitalizeInitials(trimmed);
-  return trimmed === expected;
+  const words = trimmed.replace(/\s+/g, " ").split(" ");
+  return words.every(
+    (word) => word.length === 0 || (word[0] >= "A" && word[0] <= "Z")
+  );
 }
 
 /**

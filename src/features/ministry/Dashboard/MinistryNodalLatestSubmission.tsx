@@ -99,7 +99,7 @@ export function MinistryNodalLatestSubmission({
               <div>
                 <h2 className="text-xl font-semibold">Latest Submissions</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Your latest NIRI data submissions and their status
+                  Your latest NIE-I data submissions and their status
                 </p>
               </div>
               {/* <Button onClick={() => navigate('/submissions')}>+ New Submission</Button> */}

@@ -159,7 +159,7 @@ export function NodalDashboardPage() {
           {
             title: "Total Submitted",
             value: String(metrics.totalSubmitted ?? 0),
-            subtitle: "Submitted forms",
+            subtitle: "Submitted Indicators",
             icon: TrendingUp,
             variant: "blue" as const,
             description:
