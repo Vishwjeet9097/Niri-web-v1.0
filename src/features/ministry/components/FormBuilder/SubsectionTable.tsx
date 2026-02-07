@@ -10,6 +10,7 @@ import { FileUploadSection } from '@/features/submission/components/FileUploadSe
 import { Dropdown } from '@/utils/getDropDowns';
 import { cn } from '@/lib/utils';
 import { MinistryFileTable } from '@/features/ministry/components/FileTable/MinistryFileTable';
+import { capitalizeInitials } from '@/features/ministry/utils/textUtils';
 import type { SubsectionRendererProps } from './types';
 
 interface SubsectionTableProps extends SubsectionRendererProps {}
@@ -451,6 +452,12 @@ const CompactFieldRenderer: React.FC<{
         <Input
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={() => {
+            if (value && typeof value === 'string' && value.trim()) {
+              const formatted = capitalizeInitials(value);
+              if (formatted !== value) onChange(formatted);
+            }
+          }}
           disabled={disabled}
           className={error ? 'border-destructive text-sm' : 'text-sm'}
           placeholder={`Enter ${field.label.toLowerCase()}...`}
@@ -539,6 +546,12 @@ const CompactFieldRenderer: React.FC<{
         <Input
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={() => {
+            if (value && typeof value === 'string' && value.trim()) {
+              const formatted = capitalizeInitials(value);
+              if (formatted !== value) onChange(formatted);
+            }
+          }}
           disabled={disabled}
           className={error ? 'border-destructive text-sm' : 'text-sm'}
         />

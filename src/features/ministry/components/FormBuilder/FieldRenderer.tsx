@@ -8,6 +8,7 @@ import { MinistryFileUploadSection } from "@/features/ministry/components/FileUp
 import { Dropdown } from "@/utils/getDropDowns";
 import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
+import { capitalizeInitials } from "@/features/ministry/utils/textUtils";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { getCurrentFinancialYear, formatYearAsFinancialYear } from "@/utils/dateUtils";
@@ -385,6 +386,17 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
                     }
                   }}
                   onBlur={() => {
+                    // Capitalize first letter of every entry (title case) for consistency
+                    if (value && typeof value === "string" && value.trim()) {
+                      const formatted = capitalizeInitials(value);
+                      if (formatted !== value) {
+                        onChange(formatted);
+                        if (onValidate && field) {
+                          onValidate(`${field.sectionId}.${field.id}`, formatted, field);
+                        }
+                        return;
+                      }
+                    }
                     // Validate on blur as well
                     if (onValidate && field && value) {
                       const fieldPath = `${field.sectionId}.${field.id}`;

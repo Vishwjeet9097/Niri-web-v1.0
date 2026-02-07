@@ -9,6 +9,7 @@ import { MinistryFileUploadSection } from "@/features/ministry/components/FileUp
 import { Dropdown } from "@/utils/getDropDowns";
 import { cn } from "@/lib/utils";
 import { validateField } from "@/features/ministry/utils/validation";
+import { capitalizeInitials } from "@/features/ministry/utils/textUtils";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { formatYearAsFinancialYear, getCurrentFinancialYear } from "@/utils/dateUtils";
@@ -421,6 +422,17 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                       }
                     }}
                     onBlur={() => {
+                      // Capitalize first letter of every entry (title case) for consistency
+                      if (fieldValue && typeof fieldValue === "string" && fieldValue.trim()) {
+                        const formatted = capitalizeInitials(fieldValue);
+                        if (formatted !== fieldValue) {
+                          onChange(index, field.id, formatted);
+                          if (onValidateField && field) {
+                            onValidateField(fieldPath, formatted, field);
+                          }
+                          return;
+                        }
+                      }
                       // Validate on blur as well
                       if (onValidateField && field && fieldValue) {
                         onValidateField(fieldPath, fieldValue, field);

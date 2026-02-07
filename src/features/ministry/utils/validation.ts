@@ -2,6 +2,8 @@
  * Validation utilities for Ministry Approver forms
  */
 
+import { isCapitalizedProperly } from "./textUtils";
+
 export interface ValidationError {
   [fieldPath: string]: string;
 }
@@ -109,9 +111,12 @@ export const validateField = (
   yesNoValue?: string | null
 ): string | undefined => {
   // Check if this is a Comment field
-  const isComment = field.label?.toLowerCase().includes('comment') || 
+  const isComment = field.label?.toLowerCase().includes('comment') ||
                    field.uiComponent === 'Text Area' ||
                    field.uiComponent === 'TextArea';
+
+  // Check if this is a Yes/No field (value is "yes"/"no" - do not apply capitalization validation)
+  const isYesNoField = field.label?.toLowerCase().includes('yes/no') || field.label === 'Yes/No';
   
   // Determine if field is required based on Yes/No value
   let isRequired = true;
@@ -246,6 +251,11 @@ export const validateField = (
       // For all other string fields, validate alphabets only
       if (value && !validateAlphabetsOnly(value)) {
         return `${field.label} should contain only text or alphabets.`;
+      }
+
+      // Validate capitalization: first letter of each word must be capital (skip comment, Yes/No fields)
+      if (!isComment && !isYesNoField && value && typeof value === 'string' && value.trim() && !isCapitalizedProperly(value)) {
+        return `${field.label}: First letter of each word must be capital (e.g. "New Delhi" not "new delhi").`;
       }
       break;
 
