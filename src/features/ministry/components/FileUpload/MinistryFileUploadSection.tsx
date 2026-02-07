@@ -554,6 +554,7 @@ export const MinistryFileUploadSection = ({
   const handleCancelNoDocument = () => {
     setShowConfirmModal(false);
     setPendingCheckboxState(false);
+    setLocalCheckboxState(false); // Revert checkbox so it shows unchecked when user cancels
   };
 
   return (
