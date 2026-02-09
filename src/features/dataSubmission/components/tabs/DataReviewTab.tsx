@@ -54,6 +54,10 @@ interface DataReviewTabProps {
   onRequestFinalSubmit?: () => void;
   /** When true, the Submit button (when on last section) is disabled until all indicators are accepted */
   isFinalSubmitDisabled?: boolean;
+  /** When provided (e.g. for MOSPI Reviewer), show Submit at end of last section and call this when clicked (same as Send to Approver) */
+  onRequestSendToApprover?: () => void;
+  /** When true, the Submit button (Send to Approver) is disabled (e.g. already sent to MOSPI Approver) */
+  isSendToApproverDisabled?: boolean;
 }
 
 const DEFAULT_SECTIONS = [
@@ -74,6 +78,8 @@ export const DataReviewTab = ({
   onRefetch,
   onRequestFinalSubmit,
   isFinalSubmitDisabled = false,
+  onRequestSendToApprover,
+  isSendToApproverDisabled = false,
 }: DataReviewTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -511,10 +517,18 @@ export const DataReviewTab = ({
             Previous
           </Button>
           {currentSection === availableSections.length - 1 &&
-          onRequestFinalSubmit ? (
+          (onRequestFinalSubmit || onRequestSendToApprover) ? (
             <Button
-              onClick={onRequestFinalSubmit}
-              disabled={isFinalSubmitDisabled}
+              onClick={
+                onRequestFinalSubmit
+                  ? onRequestFinalSubmit
+                  : onRequestSendToApprover
+              }
+              disabled={
+                onRequestFinalSubmit
+                  ? isFinalSubmitDisabled
+                  : isSendToApproverDisabled
+              }
               className="gap-2"
             >
               Submit

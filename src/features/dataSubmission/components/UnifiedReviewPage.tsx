@@ -453,17 +453,20 @@ export const UnifiedReviewPage = ({
     //   );
     // }
 
-    // Send to Approver button
-    // Disable if already submitted to MOSPI_APPROVER
+    // Send to Approver button (disabled once already sent to MOSPI_APPROVER)
     if (
       currentUserRole === "MOSPI_REVIEWER" &&
-      submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER"
+      (submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER" ||
+        submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")
     ) {
+      const alreadySentToMospiApprover =
+        submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER";
       buttons.push(
         <Button
           key="send-to-approver"
           variant="outline"
           onClick={() => setSendToApproverModalOpen(true)}
+          disabled={alreadySentToMospiApprover}
           className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Send className="w-4 h-4" />
@@ -698,6 +701,14 @@ export const UnifiedReviewPage = ({
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
                 onRefetch={loadSubmission}
+                onRequestSendToApprover={
+                  user?.role === "MOSPI_REVIEWER"
+                    ? () => setSendToApproverModalOpen(true)
+                    : undefined
+                }
+                isSendToApproverDisabled={
+                  submission?.status === "SUBMITTED_TO_MOSPI_APPROVER"
+                }
               />
             )}
           </TabsContent>
