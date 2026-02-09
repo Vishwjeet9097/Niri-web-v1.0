@@ -48,13 +48,13 @@ export const IndicatorScoreDisplay: React.FC<IndicatorScoreDisplayProps> = ({
     }
   }, [toggleState, submissionId, indicatorCode]);
 
-  // Show different colors and content based on toggle state
+  // Show different colors and content based on toggle state (format: score/max marks)
   if (toggleState === "score" && indicatorScore) {
-    // Show actual score when "Score" is selected - Green color scheme
+    // Show actual score when "Score" is selected - Green color scheme (score/maxScore)
     return (
       <div className="bg-green-100 border border-green-300 rounded-md px-3 py-1.5 flex-shrink-0">
         <span className="text-sm font-semibold text-green-900">
-          Score : {indicatorScore.score}
+          Score : {indicatorScore.score}/{indicatorScore.maxScore}
         </span>
       </div>
     );
@@ -63,12 +63,12 @@ export const IndicatorScoreDisplay: React.FC<IndicatorScoreDisplayProps> = ({
     return (
       <div className="bg-green-100 border border-green-300 rounded-md px-3 py-1.5 flex-shrink-0">
         <span className="text-sm font-semibold text-green-900">
-          Score : 0.00
+          Score : 0/-
         </span>
       </div>
     );
   } else if (toggleState === "updatedScore") {
-    // Show latest manual updated score when "Updated Score" is selected - Blue color scheme
+    // Show latest manual updated score when "Updated Score" is selected - Blue color scheme (score/maxScore)
     if (loading) {
       return (
         <div className="bg-blue-100 border border-blue-300 rounded-md px-3 py-1.5 flex-shrink-0">
@@ -83,7 +83,7 @@ export const IndicatorScoreDisplay: React.FC<IndicatorScoreDisplayProps> = ({
       return (
         <div className="bg-blue-100 border border-blue-300 rounded-md px-3 py-1.5 flex-shrink-0">
           <span className="text-sm font-semibold text-blue-900">
-            Updated Score : {latestManualUpdate.manualUpdatedScore}
+            Updated Score : {latestManualUpdate.manualUpdatedScore}/{latestManualUpdate.maxScore}
           </span>
         </div>
       );
