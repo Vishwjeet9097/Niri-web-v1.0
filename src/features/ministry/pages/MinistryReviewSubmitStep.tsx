@@ -96,7 +96,8 @@ export const MinistryReviewSubmitStep = ({
     fetchSubmissionUuid();
   }, [submissionId]);
 
-  // Calculate summary for each category
+  // Calculate summary for each category (only count indicators that are Submitted)
+  const submittedStatuses = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED"];
   const calculateCategorySummary = () => {
     const summary: Record<string, { completed: number; total: number }> = {};
 
@@ -111,16 +112,9 @@ export const MinistryReviewSubmitStep = ({
         sections.forEach((sectionObj) => {
           const sectionName = Object.keys(sectionObj)[0];
           const section = sectionObj[sectionName];
-          const sectionKey = `section${section.sNo.replace('.', '_')}`;
-
-          // Check if section has any data
-          if (formData[sectionKey] && Object.keys(formData[sectionKey]).length > 0) {
-            const hasData = Object.values(formData[sectionKey]).some(
-              (value) => value !== '' && value !== null && value !== undefined
-            );
-            if (hasData) {
-              completed++;
-            }
+          const status = (section?.status ?? "").toString().toUpperCase();
+          if (submittedStatuses.some((s) => status === s)) {
+            completed++;
           }
         });
 

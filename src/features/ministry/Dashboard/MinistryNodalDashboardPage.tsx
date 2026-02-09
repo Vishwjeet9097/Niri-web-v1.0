@@ -6,16 +6,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MinistryNodalLatestSubmission } from "./MinistryNodalLatestSubmission";
 // import { apiService } from "@/services/api.service"; // Commented out - using new API
 import { notificationService } from "@/services/notification.service";
-import { getNodalKpiData, getNodalDashboardSubmissions } from "@/services/ministry.service"; // New API
+import {
+  getNodalKpiData,
+  getNodalDashboardSubmissions,
+} from "@/services/ministry.service"; // New API
 import { calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import { useAuth } from "@/features/auth/AuthProvider";
-import {
-  FileText,
-  Clock,
-  CheckCircle,
-  Search,
-  TrendingUp,
-} from "lucide-react";
+import { FileText, Clock, CheckCircle, Search, TrendingUp } from "lucide-react";
 
 // Helper function to map backend status to frontend status
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -67,23 +64,42 @@ export function MinistryNodalDashboardPage() {
   // Separate handler function to load submissions from API
   const loadSubmissions = async (userId: string) => {
     try {
-      console.log('🔍 Loading ministry submissions using new API for nodal dashboard, userId:', userId);
-      
+      console.log(
+        "🔍 Loading ministry submissions using new API for nodal dashboard, userId:",
+        userId,
+      );
+
       // Use dedicated service function for nodal dashboard submissions
       const response = await getNodalDashboardSubmissions(userId);
-      
-      console.log('📋 Component - Full Response:', response);
-      console.log('📋 Component - Response status:', response?.status);
-      console.log('📋 Component - Response data:', response?.data);
-      console.log('📋 Component - Submissions array:', response?.data?.submissions);
-      console.log('📋 Component - Submissions array length:', response?.data?.submissions?.length);
-      console.log('📋 Component - Is array check:', Array.isArray(response?.data?.submissions));
-      
+
+      console.log("📋 Component - Full Response:", response);
+      console.log("📋 Component - Response status:", response?.status);
+      console.log("📋 Component - Response data:", response?.data);
+      console.log(
+        "📋 Component - Submissions array:",
+        response?.data?.submissions,
+      );
+      console.log(
+        "📋 Component - Submissions array length:",
+        response?.data?.submissions?.length,
+      );
+      console.log(
+        "📋 Component - Is array check:",
+        Array.isArray(response?.data?.submissions),
+      );
+
       // Handle new API response structure: { status, data: { submissions: [...] }, message }
-      if (response?.status && response?.data?.submissions && Array.isArray(response.data.submissions)) {
+      if (
+        response?.status &&
+        response?.data?.submissions &&
+        Array.isArray(response.data.submissions)
+      ) {
         const submissionsArray = response.data.submissions;
-        console.log('📋 Component - Processing submissions array, length:', submissionsArray.length);
-        
+        console.log(
+          "📋 Component - Processing submissions array, length:",
+          submissionsArray.length,
+        );
+
         if (submissionsArray.length > 0) {
           const processedSubmissions = await Promise.all(
             submissionsArray.map(async (sub: any) => {
@@ -93,7 +109,8 @@ export function MinistryNodalDashboardPage() {
                 submittedBy: sub.user?.id || sub.submittedBy || sub.user,
               };
 
-              const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+              const progressData =
+                await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
               const progress = progressData.progress;
 
               let nextStep = "Complete submission";
@@ -101,7 +118,8 @@ export function MinistryNodalDashboardPage() {
                 nextStep = "Complete all required sections";
               else if (sub.status === "SUBMITTED_TO_STATE") {
                 if (progress === 100) {
-                  nextStep = "Approved by State Approver waiting for Mospi review";
+                  nextStep =
+                    "Approved by State Approver waiting for Mospi review";
                 } else {
                   nextStep = "Waiting for state approval";
                 }
@@ -114,13 +132,15 @@ export function MinistryNodalDashboardPage() {
                 sub.review_comments && sub.review_comments.length > 0
                   ? sub.review_comments[sub.review_comments.length - 1]?.text
                   : sub.reviewComments && sub.reviewComments.length > 0
-                  ? sub.reviewComments[sub.reviewComments.length - 1]?.text
-                  : undefined;
+                    ? sub.reviewComments[sub.reviewComments.length - 1]?.text
+                    : undefined;
 
               return {
                 id: sub.id,
                 title:
-                  sub.submission_id || sub.submissionId || `Submission ${sub.id}`,
+                  sub.submission_id ||
+                  sub.submissionId ||
+                  `Submission ${sub.id}`,
                 status: mapBackendStatusToFrontend(sub.status),
                 referenceId: sub.submission_id || sub.submissionId,
                 updatedDate: sub.updatedAt
@@ -138,9 +158,10 @@ export function MinistryNodalDashboardPage() {
                 rejectionCount: sub.rejection_count ?? sub.rejectionCount ?? 0,
                 finalScore: sub.finalScore,
                 createdAt: sub.createdAt,
-                currentOwnerRole: sub.current_owner_role ?? sub.currentOwnerRole,
+                currentOwnerRole:
+                  sub.current_owner_role ?? sub.currentOwnerRole,
               };
-            })
+            }),
           );
           return processedSubmissions;
         } else {
@@ -151,8 +172,14 @@ export function MinistryNodalDashboardPage() {
         console.warn("Unexpected response structure from new API:", response);
         console.warn("Response status check:", response?.status);
         console.warn("Response data check:", response?.data);
-        console.warn("Response data.submissions check:", response?.data?.submissions);
-        console.warn("Is array check:", Array.isArray(response?.data?.submissions));
+        console.warn(
+          "Response data.submissions check:",
+          response?.data?.submissions,
+        );
+        console.warn(
+          "Is array check:",
+          Array.isArray(response?.data?.submissions),
+        );
         return [];
       }
     } catch (error) {
@@ -178,7 +205,7 @@ export function MinistryNodalDashboardPage() {
         } else {
           // Use separate handler function to load submissions
           submissionsData = await loadSubmissions(user.id);
-          
+
           // If no submissions from API, use empty array (not dummy data)
           if (submissionsData.length === 0) {
             console.log("No submissions found from API");
@@ -217,7 +244,7 @@ export function MinistryNodalDashboardPage() {
           {
             title: "Approved",
             value: `${metrics.approved}/${metrics.totalAllocated || 0}`,
-            subtitle: "This fiscal year",
+            subtitle: "This financial year",
             icon: CheckCircle,
             variant: "green" as const,
             description:
@@ -241,9 +268,9 @@ export function MinistryNodalDashboardPage() {
         console.error("Failed to load ministry nodal dashboard data:", error);
         notificationService.error(
           error.message || "Failed to load dashboard data",
-          "Dashboard Error"
+          "Dashboard Error",
         );
-        
+
         setSubmissions([]);
       } finally {
         setLoading(false);

@@ -89,7 +89,7 @@ export function StateApproverDashboardPage() {
     ? filterSubmissionsForStateApprover(
         submissions,
         user.id,
-        user?.stateUt || user?.stateName || user?.state
+        user?.stateUt || user?.stateName || user?.state,
       )
     : null;
 
@@ -147,7 +147,7 @@ export function StateApproverDashboardPage() {
         const currentStateUt = user?.stateUt || user?.stateName || user?.state;
         const stateSubmissions = currentStateUt
           ? submissionsArray.filter(
-              (sub: any) => (sub.stateUt || sub.state_ut) === currentStateUt
+              (sub: any) => (sub.stateUt || sub.state_ut) === currentStateUt,
             )
           : submissionsArray;
 
@@ -161,21 +161,21 @@ export function StateApproverDashboardPage() {
               status === "SUBMITTED_TO_MOSPI_APPROVER" ||
               status === "SUBMITTED_TO_MOSPI" // legacy status
             );
-          }
+          },
         ).length;
 
         const mospiApprovedFromSubmissions = stateSubmissions.filter(
           (sub: any) => {
             const status = mapBackendStatusToFrontend(sub.status);
             return status === "APPROVED";
-          }
+          },
         ).length;
 
         const mospiReturnedFromSubmissions = stateSubmissions.filter(
           (sub: any) => {
             const status = mapBackendStatusToFrontend(sub.status);
             return status === "RETURNED_FROM_MOSPI";
-          }
+          },
         ).length;
 
         // Use calculated counts from submissions (more accurate than backend indicator counts)
@@ -227,7 +227,7 @@ export function StateApproverDashboardPage() {
           {
             title: "Accepted By State Approver",
             value: `${acceptedFromNodal}`,
-            subtitle: "This fiscal year",
+            subtitle: "This financial year",
             icon: CheckCircle,
             variant: "green",
           },
@@ -258,7 +258,7 @@ export function StateApproverDashboardPage() {
           {
             title: "Approved by MoSPI Approver",
             value: String(mospiApprovedCount),
-            subtitle: "This fiscal year",
+            subtitle: "This financial year",
             icon: CheckCircle,
             variant: "green",
           },
@@ -286,9 +286,8 @@ export function StateApproverDashboardPage() {
             // Calculate progress based on sections with ACCEPTED status
             // Count all sections in formData and count how many have status "ACCEPTED"
             // Progress = (sections with ACCEPTED status / total sections) × 100%
-            const progressData = await calculateProgressByAcceptedStatus(
-              fdWithSubmittedBy
-            );
+            const progressData =
+              await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
             console.log("progressData", progressData);
             const progress = progressData.progress;
 
@@ -306,7 +305,7 @@ export function StateApproverDashboardPage() {
               currentDate.getTime() - submittedDate.getTime();
             const pendingDays = Math.max(
               0,
-              Math.floor(timeDifference / (1000 * 60 * 60 * 24))
+              Math.floor(timeDifference / (1000 * 60 * 60 * 24)),
             );
 
             const submittedByName = sub.user
@@ -324,7 +323,7 @@ export function StateApproverDashboardPage() {
               deadline:
                 sub.dueDate ||
                 new Date(
-                  Date.now() + 7 * 24 * 60 * 60 * 1000
+                  Date.now() + 7 * 24 * 60 * 60 * 1000,
                 ).toLocaleDateString(),
               category: "Infrastructure",
               progress: Math.round(progress),
@@ -334,14 +333,14 @@ export function StateApproverDashboardPage() {
               stateUt: sub.stateUt || sub.state_ut || "",
               submission: sub,
             };
-          })
+          }),
         );
         setSubmissions(processedSubmissions);
       } catch (error: any) {
         console.error("Failed to load state approver dashboard data:", error);
         notificationService.error(
           error.message || "Failed to load dashboard data",
-          "Dashboard Error"
+          "Dashboard Error",
         );
 
         setKpis([]);
@@ -554,12 +553,14 @@ export function StateApproverDashboardPage() {
                       submission.status === "APPROVED"
                         ? "Submission approved"
                         : submission.status === "REJECTED"
-                        ? "Address reviewer feedback"
-                        : submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
-                          submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
-                          submission.status === "RETURNED_FROM_MOSPI"
-                        ? "Waiting for MoSPI approval"
-                        : "Waiting for state approval"
+                          ? "Address reviewer feedback"
+                          : submission.status ===
+                                "SUBMITTED_TO_MOSPI_REVIEWER" ||
+                              submission.status ===
+                                "SUBMITTED_TO_MOSPI_APPROVER" ||
+                              submission.status === "RETURNED_FROM_MOSPI"
+                            ? "Waiting for MoSPI approval"
+                            : "Waiting for state approval"
                     }
                     reviewerNote={submission.reviewerNote}
                     submission={submission}

@@ -13,10 +13,10 @@ import {
 import { MinistryApproverKPICard } from "../../dashboard/components/approver/MinistryApproverKPICard";
 
 // Set to false to use real API when available
- 
+
 export function MinistryDashboardPage() {
   const { user } = useAuth();
-  
+
   // Ministry Dashboard Data - loaded from service
   const [ministryData, setMinistryData] = useState({
     totalIndicators: 0,
@@ -37,10 +37,10 @@ export function MinistryDashboardPage() {
   useEffect(() => {
     const loadDashboardData = async () => {
       if (!user?.id) return;
-       
+
       try {
         setLoading(true);
-        
+
         // Load dashboard data
         const dashboardData = await getMinistryDashboardData(user?.id);
         console.log("dashboardData", dashboardData);
@@ -48,8 +48,10 @@ export function MinistryDashboardPage() {
           setMinistryData({
             totalIndicators: dashboardData.totalIndicators,
             totalIndicatorSubmitted: dashboardData.totalIndicatorSubmitted,
-            totalAssignedMinistryApprover: dashboardData.totalAssignedMinistryApprover,
-            totalIndicatorNodalMinistry: dashboardData.totalIndicatorNodalMinistry,
+            totalAssignedMinistryApprover:
+              dashboardData.totalAssignedMinistryApprover,
+            totalIndicatorNodalMinistry:
+              dashboardData.totalIndicatorNodalMinistry,
             totalAccepted: dashboardData.totalAccepted,
             totalPendingSubmission: dashboardData.totalPendingSubmission,
             totalReturnNodal: dashboardData.totalReturnNodal,
@@ -68,7 +70,6 @@ export function MinistryDashboardPage() {
 
     loadDashboardData();
   }, [user?.id]);
-
 
   // Show loading state
   if (loading) {
@@ -104,7 +105,7 @@ export function MinistryDashboardPage() {
     {
       title: "Accepted By Ministry Approver",
       value: `${ministryData.totalAccepted}`,
-      subtitle: "This fiscal year",
+      subtitle: "This financial year",
       icon: CheckCircle,
       variant: "green" as const,
     },
@@ -128,7 +129,7 @@ export function MinistryDashboardPage() {
     {
       title: "Approved by MoSPI",
       value: String(ministryData.approvedByMospi),
-      subtitle: "This fiscal year",
+      subtitle: "This financial year",
       icon: CheckCircle,
       variant: "green" as const,
     },
@@ -172,11 +173,15 @@ export function MinistryDashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-[#111827]">
                 Total Indicators:&nbsp;
-                <span className="text-black">{ministryData.totalIndicators}</span>
+                <span className="text-black">
+                  {ministryData.totalIndicators}
+                </span>
               </h2>
               <h2 className="text-lg font-semibold text-[#111827]">
                 Total Assigned to Ministry Approver:&nbsp;
-                <span className="text-black">{ministryData.totalAssignedMinistryApprover}</span>
+                <span className="text-black">
+                  {ministryData.totalAssignedMinistryApprover}
+                </span>
               </h2>
             </div>
             <div className="grid gap-4 grid-cols-1">
@@ -198,7 +203,8 @@ export function MinistryDashboardPage() {
             <h2 className="text-lg font-semibold text-[#111827]">
               Total Indicators Submitted:&nbsp;
               <span className="text-black">
-                {ministryData.totalIndicatorSubmitted}/{ministryData.totalIndicators}
+                {ministryData.totalIndicatorSubmitted}/
+                {ministryData.totalIndicators}
               </span>
             </h2>
 

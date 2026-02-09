@@ -610,16 +610,13 @@ export function MinistrySubmissionReviewWrapper({
       return { completed: total, total, progress: 100 };
     }
 
+    const submittedStatuses = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED"];
     let completed = 0;
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
-      const sectionKey = `section${section.sNo.replace(".", "_")}`;
-
-      if (
-        formData[sectionKey] &&
-        Object.keys(formData[sectionKey]).length > 0
-      ) {
+      const status = (section?.status ?? "").toString().toUpperCase();
+      if (submittedStatuses.some((s) => status === s)) {
         completed++;
       }
     });

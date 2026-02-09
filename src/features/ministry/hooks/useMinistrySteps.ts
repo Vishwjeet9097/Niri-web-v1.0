@@ -15,6 +15,14 @@ const categoryToStepMap: Record<string, string> = {
   "Infra Enablers": "infra-enablers",
 };
 
+/** Progress counts only indicators that are Submitted (not just filled). */
+const SUBMITTED_STATUSES = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED"];
+
+function isSectionSubmitted(section: { status?: string }): boolean {
+  const status = (section?.status ?? "").toString().toUpperCase();
+  return SUBMITTED_STATUSES.some((s) => status === s.toUpperCase());
+}
+
 export function useMinistrySteps({
   assignedIndicators,
   formData,
@@ -68,32 +76,12 @@ export function useMinistrySteps({
         
         if (Array.isArray(sections)) {
           totalSections = sections.length;
-          
+
           sections.forEach((sectionObj) => {
             const sectionName = Object.keys(sectionObj)[0];
             const section = sectionObj[sectionName];
-            const sectionKey = `section${section.sNo.replace('.', '_')}`;
-            
-            const sectionData = formDataForProgressRef.current[sectionKey];
-            if (sectionData && Object.keys(sectionData).length > 0) {
-              const hasActualData = (data: any): boolean => {
-                if (data === null || data === undefined || data === '') {
-                  return false;
-                }
-                if (Array.isArray(data)) {
-                  return data.length > 0 && data.some(item => hasActualData(item));
-                }
-                if (typeof data === 'object') {
-                  const keys = Object.keys(data);
-                  if (keys.length === 0) return false;
-                  return keys.some(key => hasActualData(data[key]));
-                }
-                return true;
-              };
-              
-              if (hasActualData(sectionData)) {
-                sectionsCompleted++;
-              }
+            if (isSectionSubmitted(section as { status?: string })) {
+              sectionsCompleted++;
             }
           });
         }
@@ -160,32 +148,25 @@ export function useMinistrySteps({
   const calculateCategoryProgress = useCallback((categoryIndicator: AssignedIndicator) => {
     const categoryName = Object.keys(categoryIndicator)[0];
     const sections = categoryIndicator[categoryName];
-    
+
     if (!Array.isArray(sections)) {
       return { completed: 0, total: 0, progress: 0 };
     }
-    
+
     let completed = 0;
     const total = sections.length;
-    
+
     sections.forEach((sectionObj) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
-      const sectionKey = `section${section.sNo.replace('.', '_')}`;
-      
-      if (formData[sectionKey] && Object.keys(formData[sectionKey]).length > 0) {
-        const hasData = Object.values(formData[sectionKey]).some(
-          (value) => value !== '' && value !== null && value !== undefined
-        );
-        if (hasData) {
-          completed++;
-        }
+      if (isSectionSubmitted(section as { status?: string })) {
+        completed++;
       }
     });
-    
+
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { completed, total, progress };
-  }, [formData]);
+  }, []);
 
   return {
     stepsWithProgress,
