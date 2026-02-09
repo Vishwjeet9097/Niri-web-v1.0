@@ -15,12 +15,12 @@ const categoryToStepMap: Record<string, string> = {
   "Infra Enablers": "infra-enablers",
 };
 
-/** Progress counts only indicators that are Submitted (not just filled). */
-const SUBMITTED_STATUSES = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED"];
+/** Progress counts indicators that are Submitted, Resubmitted, or Accepted. */
+const PROGRESS_COUNT_STATUSES = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED", "ACCEPTED_BY_MINISTRY", "ACCEPTED_BY_MOSPI"];
 
-function isSectionSubmitted(section: { status?: string }): boolean {
+function isSectionCountedForProgress(section: { status?: string }): boolean {
   const status = (section?.status ?? "").toString().toUpperCase();
-  return SUBMITTED_STATUSES.some((s) => status === s.toUpperCase());
+  return PROGRESS_COUNT_STATUSES.some((s) => status === s.toUpperCase());
 }
 
 export function useMinistrySteps({
@@ -80,7 +80,7 @@ export function useMinistrySteps({
           sections.forEach((sectionObj) => {
             const sectionName = Object.keys(sectionObj)[0];
             const section = sectionObj[sectionName];
-            if (isSectionSubmitted(section as { status?: string })) {
+            if (isSectionCountedForProgress(section as { status?: string })) {
               sectionsCompleted++;
             }
           });
@@ -159,7 +159,7 @@ export function useMinistrySteps({
     sections.forEach((sectionObj) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
-      if (isSectionSubmitted(section as { status?: string })) {
+      if (isSectionCountedForProgress(section as { status?: string })) {
         completed++;
       }
     });

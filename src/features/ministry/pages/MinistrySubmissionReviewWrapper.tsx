@@ -8,6 +8,8 @@ import {
   Clock,
   RotateCcw,
   CheckCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
@@ -18,12 +20,14 @@ import {
   getMinistryPreviewData,
   getMinistryProgressBarData,
   getMospiMinistrySubmissionDetails,
+  updateMinistryFormStatus,
   updateMinistryIndicatorStatus,
   updateMinistryIndicatorData,
   updateSubmissionIndicatorStatus,
   getMinistrySubmissionIndicatorComments,
   deleteMinistrySubmissionFile,
 } from "@/services/ministry.service";
+import { notificationService } from "@/services/notification.service";
 import { transformApiResponseToFormData } from "../utils/formDataTransformer";
 import { extractSubmissionId } from "../utils/submissionIdExtractor";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +58,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -61,6 +73,7 @@ interface MinistrySubmissionReviewWrapperProps {
   useConsolidatedApi?: boolean; // If true, use consolidated API with submissionId instead of userId
   submissionId?: string; // Submission ID for consolidated API
   consolidatedFormStatus?: string | null; // Consolidated form status (for freeze logic when viewing individual submissions)
+  onSubmissionSuccess?: () => void; // Callback when form is submitted to MoSPI successfully
 }
 
 export function MinistrySubmissionReviewWrapper({
@@ -69,6 +82,7 @@ export function MinistrySubmissionReviewWrapper({
   useConsolidatedApi = false,
   submissionId: propSubmissionId,
   consolidatedFormStatus: propConsolidatedFormStatus,
+  onSubmissionSuccess,
 }: MinistrySubmissionReviewWrapperProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -177,6 +191,142 @@ export function MinistrySubmissionReviewWrapper({
   const [formStatusFromProgress, setFormStatusFromProgress] = useState<
     string | null
   >(null);
+
+  // Submit to MoSPI flow (same as MinistryApprovedIndicatorsCard)
+  const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
+  const [submittingToMospi, setSubmittingToMospi] = useState(false);
+  const [submitProgressData, setSubmitProgressData] = useState<{
+    formId: string | null;
+    percentage: number;
+    formStatus: string | null;
+  } | null>(null);
+  /** Progress for Submit button enable/disable: only enabled when all indicators accepted and form not with MoSPI */
+  const [submitButtonProgress, setSubmitButtonProgress] = useState<{
+    percentage: number;
+    formStatus: string | null;
+  } | null>(null);
+  const FORM_STATUS_WITH_MOSPI = [
+    "SUBMITTED_TO_MOSPI_REVIEWER",
+    "SUBMITTED_TO_MOSPI_APPROVER",
+    "ACCEPTED_BY_MOSPI",
+  ];
+  const ALLOWED_FORM_STATUS_FOR_SUBMIT = [null, "DRAFT", "RETURNED_FROM_MOSPI"];
+
+  const handleSubmitClick = async () => {
+    const ministryUserId = userId || user?.id;
+    if (!ministryUserId) {
+      toast({
+        title: "Error",
+        description: "User ID is required to submit.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const response: any = await getMinistryProgressBarData(ministryUserId);
+      let accepted = 0;
+      let total = 0;
+      let formId: string | null = null;
+      let formStatus: string | null = null;
+      if (response?.status && response?.data) {
+        accepted = response.data.accepted || 0;
+        total = response.data.total || 0;
+        formId = response.data.formId || null;
+        formStatus = response.data.formStatus || null;
+      } else if (response?.accepted !== undefined && response?.total !== undefined) {
+        accepted = response.accepted || 0;
+        total = response.total || 0;
+        formId = response.formId || null;
+        formStatus = response.formStatus || null;
+      } else if (response?.data) {
+        accepted = response.data.accepted || 0;
+        total = response.data.total || 0;
+        formId = response.data.formId || null;
+        formStatus = response.data.formStatus || null;
+      }
+      const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
+      const upperFormStatus = (formStatus || "").toUpperCase();
+      const isFormWithMospi = FORM_STATUS_WITH_MOSPI.includes(upperFormStatus);
+      const allowedFormStatuses = [null, "DRAFT", "RETURNED_FROM_MOSPI"];
+      const isFormStatusAllowed = allowedFormStatuses.includes(formStatus);
+
+      if (percentage !== 100) {
+        toast({
+          title: "Error",
+          description: "Not all indicators are accepted. Complete all indicators before submitting.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (isFormWithMospi) {
+        toast({
+          title: "Error",
+          description: "Form has already been submitted to MoSPI.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!isFormStatusAllowed) {
+        toast({
+          title: "Error",
+          description: `Form status (${formStatus || "null"}) does not allow submission.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      setSubmitProgressData({ formId, percentage, formStatus });
+      setShowSubmitConfirmModal(true);
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to load progress data.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConfirmSubmitToMospi = async () => {
+    if (!submitProgressData?.formId) {
+      toast({
+        title: "Error",
+        description: "Form data not available. Please try again.",
+        variant: "destructive",
+      });
+      setShowSubmitConfirmModal(false);
+      return;
+    }
+    try {
+      setSubmittingToMospi(true);
+      const result = await updateMinistryFormStatus(
+        submitProgressData.formId,
+        "SUBMITTED_TO_MOSPI_REVIEWER"
+      );
+      if (result.status) {
+        toast({
+          title: "Success",
+          description: result.message || "Form submitted successfully to MoSPI Reviewer",
+          variant: "default",
+        });
+        notificationService.success(result.message || "Form submitted successfully");
+        setShowSubmitConfirmModal(false);
+        setSubmitProgressData(null);
+        setSubmitButtonProgress((prev) =>
+          prev ? { ...prev, formStatus: "SUBMITTED_TO_MOSPI_REVIEWER" } : null
+        );
+        onSubmissionSuccess?.();
+      } else {
+        throw new Error(result.message || "Failed to submit form");
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to submit form. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingToMospi(false);
+    }
+  };
 
   // Handler to execute after comment is saved for send back action (MOSPI Approver)
   const handleSendBackAfterComment = async () => {
@@ -610,13 +760,18 @@ export function MinistrySubmissionReviewWrapper({
       return { completed: total, total, progress: 100 };
     }
 
-    const submittedStatuses = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED"];
+    const progressCountStatuses = [
+      "SUBMITTED_TO_MINISTRY",
+      "RESUBMITTED",
+      "ACCEPTED_BY_MINISTRY",
+      "ACCEPTED_BY_MOSPI",
+    ];
     let completed = 0;
     sections.forEach((sectionObj: any) => {
       const sectionName = Object.keys(sectionObj)[0];
       const section = sectionObj[sectionName];
       const status = (section?.status ?? "").toString().toUpperCase();
-      if (submittedStatuses.some((s) => status === s)) {
+      if (progressCountStatuses.some((s) => status === s)) {
         completed++;
       }
     });
@@ -640,6 +795,52 @@ export function MinistrySubmissionReviewWrapper({
       setActiveCategory(firstCategoryName);
     }
   }, [categories, activeCategory]);
+
+  // Fetch progress when Submit button is visible so we can enable/disable it (only when all accepted and not with MoSPI)
+  const isOnLastCategory =
+    categories.length === 1 ||
+    categories.findIndex((c) => Object.keys(c)[0] === activeCategory) >= categories.length - 1;
+  useEffect(() => {
+    if (!isOnLastCategory || categories.length === 0) {
+      setSubmitButtonProgress(null);
+      return;
+    }
+    const ministryUserId = userId || user?.id;
+    if (!ministryUserId) {
+      setSubmitButtonProgress(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const response: any = await getMinistryProgressBarData(ministryUserId);
+        if (cancelled) return;
+        let accepted = 0;
+        let total = 0;
+        let formStatus: string | null = null;
+        if (response?.status && response?.data) {
+          accepted = response.data.accepted ?? 0;
+          total = response.data.total ?? 0;
+          formStatus = response.data.formStatus ?? null;
+        } else if (response?.accepted !== undefined && response?.total !== undefined) {
+          accepted = response.accepted ?? 0;
+          total = response.total ?? 0;
+          formStatus = response.formStatus ?? null;
+        } else if (response?.data) {
+          accepted = response.data.accepted ?? 0;
+          total = response.data.total ?? 0;
+          formStatus = response.data.formStatus ?? null;
+        }
+        const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
+        setSubmitButtonProgress({ percentage, formStatus });
+      } catch {
+        if (!cancelled) setSubmitButtonProgress(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnLastCategory, categories.length, activeCategory, userId, user?.id, reloadTrigger]);
 
   // Helper function to check if NODAL_OFFICER can edit section
   const canNodalOfficerEdit = (sectionId: string): boolean => {
@@ -2824,6 +3025,72 @@ export function MinistrySubmissionReviewWrapper({
           </Tabs>
         )}
 
+        {/* Previous / Next / Submit navigation - same pattern as FormActions & state DataReviewTab */}
+        {categories.length >= 1 && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const currentIndex = categories.findIndex(
+                  (c) => Object.keys(c)[0] === activeCategory
+                );
+                const idx = currentIndex < 0 ? 0 : currentIndex;
+                if (idx > 0) {
+                  const prevCategoryName = Object.keys(categories[idx - 1])[0];
+                  setActiveCategory(prevCategoryName);
+                }
+              }}
+              disabled={
+                categories.findIndex((c) => Object.keys(c)[0] === activeCategory) <= 0
+              }
+              className="w-full sm:w-auto gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
+            {categories.length === 1 ||
+            categories.findIndex((c) => Object.keys(c)[0] === activeCategory) >=
+              categories.length - 1 ? (
+              <Button
+                onClick={handleSubmitClick}
+                disabled={
+                  submittingToMospi ||
+                  !submitButtonProgress ||
+                  submitButtonProgress.percentage !== 100 ||
+                  !ALLOWED_FORM_STATUS_FOR_SUBMIT.includes(submitButtonProgress.formStatus)
+                }
+                className="w-full sm:w-auto gap-2 shrink-0 text-white px-6 bg-[#1e3a8a] hover:bg-[#1e3299] disabled:opacity-60"
+              >
+                {submittingToMospi ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit"
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  const currentIndex = categories.findIndex(
+                    (c) => Object.keys(c)[0] === activeCategory
+                  );
+                  const idx = currentIndex < 0 ? 0 : currentIndex;
+                  if (idx < categories.length - 1) {
+                    const nextCategoryName = Object.keys(categories[idx + 1])[0];
+                    setActiveCategory(nextCategoryName);
+                  }
+                }}
+                className="w-full sm:w-auto gap-2"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
         {categories.length === 0 && !loading && (
           <div className="text-center py-12 text-muted-foreground">
             <p>No category data available for review.</p>
@@ -2894,6 +3161,49 @@ export function MinistrySubmissionReviewWrapper({
         }
         sectionId={selectedSectionForComment?.sectionId}
       />
+
+      {/* Confirmation Dialog for Submit to MoSPI - same as MinistryApprovedIndicatorsCard */}
+      <Dialog
+        open={showSubmitConfirmModal}
+        onOpenChange={(open) => !submittingToMospi && setShowSubmitConfirmModal(open)}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Submit to MoSPI Reviewer</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to submit this form to the MoSPI Reviewer for review?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              On clicking submit button, the form will be forwarded for review to MoSPI Reviewer. Once submitted, you will not be able to make changes until it is reviewed.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSubmitConfirmModal(false)}
+              disabled={submittingToMospi}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSubmitToMospi}
+              disabled={submittingToMospi}
+              className="bg-[#1e3a8a] hover:bg-[#1e3299] text-white"
+            >
+              {submittingToMospi ? (
+                <div className="flex items-center space-x-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Submitting...</span>
+                </div>
+              ) : (
+                "Submit"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog for NODAL_OFFICER Save */}
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>

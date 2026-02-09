@@ -96,8 +96,8 @@ export const MinistryReviewSubmitStep = ({
     fetchSubmissionUuid();
   }, [submissionId]);
 
-  // Calculate summary for each category (only count indicators that are Submitted)
-  const submittedStatuses = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED"];
+  // Calculate summary for each category (count Submitted, Resubmitted, and Accepted indicators)
+  const progressCountStatuses = ["SUBMITTED_TO_MINISTRY", "RESUBMITTED", "ACCEPTED_BY_MINISTRY", "ACCEPTED_BY_MOSPI"];
   const calculateCategorySummary = () => {
     const summary: Record<string, { completed: number; total: number }> = {};
 
@@ -113,7 +113,7 @@ export const MinistryReviewSubmitStep = ({
           const sectionName = Object.keys(sectionObj)[0];
           const section = sectionObj[sectionName];
           const status = (section?.status ?? "").toString().toUpperCase();
-          if (submittedStatuses.some((s) => status === s)) {
+          if (progressCountStatuses.some((s) => status === s)) {
             completed++;
           }
         });
