@@ -216,76 +216,30 @@ export function UnifiedSubmissionCard({
     currentUserRole
   );
 
-  // Check if all indicators are accepted
-  const allIndicatorsAccepted = areAllIndicatorsAccepted(submission);
+  // Normalize submission so formData is always available (API may return form_data)
+  const submissionWithFormData = {
+    ...(submission as any),
+    formData: (submission as any)?.formData || (submission as any)?.form_data,
+  };
 
-  // When an assigned list exists (submission.indicators or formData.indicators), true only if all assigned are submitted.
-  // If no assigned list is found, we must NOT use this to hide Edit (we don't know assigned list).
-  const formDataForList = (submission as any)?.formData || submission;
-  const assignedList = Array.isArray((submission as any)?.indicators)
-    ? (submission as any).indicators
-    : Array.isArray(formDataForList?.indicators)
-      ? formDataForList.indicators
-      : null;
-  const hasAssignedList = assignedList != null && assignedList.length > 0;
-  const allAssignedIndicatorsSubmitted = hasAssignedList && areAllIndicatorsSubmitted(submission);
+  // Check if all indicators are accepted
+  const allIndicatorsAccepted = areAllIndicatorsAccepted(submissionWithFormData);
+
+  // True when all indicators (assigned list or all in formData) are submitted.
+  // This hides the edit icon for NODAL_OFFICER when everything is submitted, even if no explicit assigned list is returned by the API.
+  const allAssignedIndicatorsSubmitted = areAllIndicatorsSubmitted(submissionWithFormData);
 
   // Check if submission is from NODAL_OFFICER
   const isFromNodalOfficer = isSubmissionFromNodalOfficer(submission);
 
-  // Debug logging
-  console.group("🔍 [UnifiedSubmissionCard] Button Display Logic");
-  const submissionData = submission as any;
-  console.log("📋 Submission:", {
-    id: submissionData?.id,
-    submissionId: submissionData?.submissionId,
-    userRole: submissionData?.user?.role,
-    currentOwnerRole: submissionData?.currentOwnerRole,
-    status: submissionData?.status || status,
-  });
-  console.log("👤 Current User Role:", currentUserRole);
-  console.log("✅ All Indicators Accepted:", allIndicatorsAccepted);
-  console.log("📤 All Assigned Indicators Submitted:", allAssignedIndicatorsSubmitted, "(hasAssignedList:", hasAssignedList, ")");
-  console.log("📌 Assigned indicators (submission.indicators):", submissionData?.indicators);
-  console.log("👨‍💼 Is From NODAL_OFFICER:", isFromNodalOfficer);
-  const canEditForLog = canEditSubmission(currentUserRole || "", status);
+  // For NODAL_OFFICER: hide edit when all indicators are submitted (or all accepted)
   const editConditionNodal = currentUserRole !== "NODAL_OFFICER" || !allAssignedIndicatorsSubmitted;
   const showEdit = !!(
     onEdit &&
-    canEditForLog &&
+    canEditSubmission(currentUserRole || "", status) &&
     !allIndicatorsAccepted &&
     editConditionNodal
   );
-  console.log("✏️ Edit icon logic:", {
-    hasOnEdit: !!onEdit,
-    canEdit: canEditForLog,
-    notAllAccepted: !allIndicatorsAccepted,
-    nodalCondition: editConditionNodal,
-    showEdit,
-  });
-  console.log(
-    "📝 Form Data Structure:",
-    submissionData?.formData
-      ? Object.keys(submissionData.formData)
-      : "No formData"
-  );
-  if (submissionData?.formData) {
-    const formData = submissionData.formData as Record<string, any>;
-    console.log("📦 Form Data Categories:", {
-      infraFinancing: formData.infraFinancing
-        ? Object.keys(formData.infraFinancing)
-        : null,
-      infraDevelopment: formData.infraDevelopment
-        ? Object.keys(formData.infraDevelopment)
-        : null,
-      pppDevelopment: formData.pppDevelopment
-        ? Object.keys(formData.pppDevelopment)
-        : null,
-      infraEnablers: formData.infraEnablers
-        ? Object.keys(formData.infraEnablers)
-        : null,
-    });
-  }
 
   // Determine which buttons to show
   // Logic:
@@ -304,15 +258,6 @@ export function UnifiedSubmissionCard({
     currentUserRole === "STATE_APPROVER" &&
     isSubmissionFromStateApprover(submission);
 
-  console.log(
-    "🔍 Is STATE_APPROVER viewing NODAL_OFFICER submission:",
-    isStateApproverViewingNodalSubmission
-  );
-  console.log(
-    "🔍 Is STATE_APPROVER viewing their own submission:",
-    isStateApproverViewingOwnSubmission
-  );
-
   // Show Review Now when STATE_APPROVER views NODAL_OFFICER submission OR their own submission with unaccepted indicators
   const canReview = canReviewSubmission(currentUserRole || "", status);
   const shouldShowReviewNow =
@@ -321,15 +266,6 @@ export function UnifiedSubmissionCard({
     !allIndicatorsAccepted &&
     onReview &&
     canReview;
-
-  console.log("🔍 Should Show Review Now:", {
-    isStateApproverViewingNodalSubmission,
-    isStateApproverViewingOwnSubmission,
-    allIndicatorsAccepted,
-    hasOnReview: !!onReview,
-    canReview,
-    result: shouldShowReviewNow,
-  });
 
   // Show View Details:
   // - STATE_APPROVER sees View Details (except when showing Review Now for NODAL_OFFICER submissions or their own submissions)
@@ -345,16 +281,6 @@ export function UnifiedSubmissionCard({
         !onReview) ||
       // Fallback: if can't review and can't edit, show View Details
       (!canReview && !canEdit));
-
-  console.log("🔍 Should Show View Details:", {
-    hasOnViewDetails: !!onViewDetails,
-    isStateApprover: currentUserRole === "STATE_APPROVER",
-    shouldShowReviewNow,
-    canReview,
-    canEdit,
-    result: shouldShowViewDetails,
-  });
-  console.groupEnd();
 
   return (
     <Card
@@ -468,10 +394,7 @@ export function UnifiedSubmissionCard({
               <FileText className="w-4 h-4 mr-1" />
               Review Now
             </Button>
-          ) : onEdit &&
-            canEditSubmission(currentUserRole || "", status) &&
-            !allIndicatorsAccepted &&
-            (currentUserRole !== "NODAL_OFFICER" || !allAssignedIndicatorsSubmitted) ? (
+          ) : showEdit ? (
             <Button size="sm" variant="ghost" onClick={onEdit}>
               <Edit2 className="w-4 h-4" />
             </Button>

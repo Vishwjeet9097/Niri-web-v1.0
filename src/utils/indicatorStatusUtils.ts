@@ -219,9 +219,10 @@ export function areAllIndicatorsAccepted(
   return true;
 }
 
-/** Section statuses that count as "submitted" by nodal (submitted to state or accepted) */
+/** Section statuses that count as "submitted" by nodal (submitted to state, resubmitted, or accepted) */
 const SUBMITTED_SECTION_STATUSES = [
   "SUBMITTED_TO_STATE",
+  "RESUBMITTED",
   "ACCEPTED",
   "APPROVED",
 ];
