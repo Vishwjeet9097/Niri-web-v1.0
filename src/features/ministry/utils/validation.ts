@@ -253,9 +253,9 @@ export const validateField = (
         return `${field.label} should contain only text or alphabets.`;
       }
 
-      // Validate capitalization: first letter of each word must be capital (skip comment, Yes/No fields)
+      // Validate capitalization: only the first letter of the value must be capital (skip comment, Yes/No fields)
       if (!isComment && !isYesNoField && value && typeof value === 'string' && value.trim() && !isCapitalizedProperly(value)) {
-        return `${field.label}: First letter of each word must be capital (e.g. "New Delhi" not "new delhi").`;
+        return `${field.label}: First letter must be capital (e.g. "Department of finance").`;
       }
       break;
 

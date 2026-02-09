@@ -19,12 +19,23 @@ import {
 
 interface CapacityBuildingEntry {
   id: string;
-  officerName: string;
-  designation: string;
-  programName: string;
-  organiser: string;
-  trainingType: string;
-  trainingPeriod: string; // MM/YY format
+  officerName?: string;
+  designation?: string;
+  programName?: string;
+  organiser?: string;
+  trainingType?: string;
+  trainingPeriod?: string;
+  [key: string]: unknown;
+}
+
+/** Returns true if the entry is a placeholder with no meaningful data (e.g. first empty row added by form). */
+function isEmptyCapacityEntry(entry: CapacityBuildingEntry): boolean {
+  const keys = Object.keys(entry).filter((k) => k !== "id" && k !== "_fieldPrimaryIds");
+  if (keys.length === 0) return true;
+  return keys.every((k) => {
+    const v = entry[k];
+    return v == null || (typeof v === "string" && String(v).trim() === "");
+  });
 }
 
 interface CapacityBuildingExcelUploadProps {
@@ -107,24 +118,11 @@ export const CapacityBuildingExcelUpload: React.FC<
       }
 
       if (result.data && result.data.length > 0) {
-        console.log("📊 Excel parsed data:", result.data);
-        console.log("📊 Current capacityArray:", capacityArray);
-        
-        // Add new entries from Excel to existing entries
-        // Excel parser generates new UUIDs each time, so all entries are considered new
-        // Merge: keep existing entries + add new Excel entries
-        // The mapping will happen in DynamicFormBuilder's onUpdateCapacityArray callback
-        const finalEntries = [...capacityArray, ...result.data];
+        // Filter out empty placeholder entries (e.g. first empty row added when subsection has no rows)
+        // so that Excel data does not appear after an empty first entry
+        const nonEmptyExisting = capacityArray.filter((e) => !isEmptyCapacityEntry(e));
+        const finalEntries = [...nonEmptyExisting, ...result.data];
 
-        console.log("📊 Existing entries count:", capacityArray.length);
-        console.log("📊 New entries from Excel:", result.data.length);
-        console.log("📊 Final array (merged, before mapping):", finalEntries);
-        console.log("📊 Total entries after merge:", finalEntries.length);
-        console.log("📊 Sample Excel entry structure:", result.data[0]);
-        console.log("📊 Sample existing entry structure:", capacityArray[0]);
-        
-        // Add new entries to existing ones
-        // Note: onUpdateCapacityArray will map Excel entries to form field IDs
         onUpdateCapacityArray(finalEntries);
 
         toast({

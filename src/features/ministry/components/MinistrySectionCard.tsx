@@ -208,14 +208,12 @@ export const MinistrySectionCard = ({
           isEditable
             ? ""
             : indicatorStatus && indicatorStatus.toUpperCase() === "REVERTED"
-            ? "opacity-60 pointer-events-none"
-            : ""
+              ? "opacity-60 pointer-events-none"
+              : ""
         }
       >
         <div className="flex gap-6 items-start justify-between">
-          <div className="flex-1">
-            {children}
-          </div>
+          <div className="flex-1">{children}</div>
           {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
           {scoreDisplay && (
             <div className="flex-shrink-0 self-start ml-auto">
