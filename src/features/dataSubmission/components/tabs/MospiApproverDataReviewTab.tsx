@@ -216,7 +216,19 @@ export const MospiApproverDataReviewTab = ({ submissionId, sections }: MospiAppr
           <Button
             key={section.id}
             variant={currentSection === section.id ? "default" : "outline"}
-            onClick={() => setCurrentSection(section.id)}
+            onClick={() => {
+              setCurrentSection(section.id);
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  const main = document.querySelector("main");
+                  if (main) {
+                    main.scrollTo({ top: 0, behavior: "smooth" });
+                  } else {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                });
+              });
+            }}
             className={currentSection === section.id ? "bg-primary text-primary-foreground" : ""}
           >
             {section.name}

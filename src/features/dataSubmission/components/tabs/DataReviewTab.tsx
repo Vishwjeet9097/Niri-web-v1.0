@@ -138,13 +138,27 @@ export const DataReviewTab = ({
     [searchParams, setSearchParams]
   );
 
-  // Wrapper for setCurrentSection that also updates URL
+  // Scroll to top of page (layout uses scrollable <main>, not window)
+  const scrollToTop = React.useCallback(() => {
+    const main = document.querySelector("main");
+    if (main) {
+      main.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  // Wrapper for setCurrentSection that also updates URL and scrolls to top
   const handleSectionChange = React.useCallback(
     (sectionIndex: number) => {
       setCurrentSection(sectionIndex);
       updateUrlForSection(sectionIndex);
+      // Scroll to top after DOM updates so user sees the new section
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scrollToTop);
+      });
     },
-    [updateUrlForSection]
+    [updateUrlForSection, scrollToTop]
   );
 
   // Refetch data when category changes (but not on initial mount)
