@@ -6085,7 +6085,8 @@ export const InfraEnablersReview = ({
             {renderMOSPIReviewerComments("4.5")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("4.5")}
-            <div className="space-y-4">
+            <div className="flex gap-6 items-start justify-between">
+              <div className="flex-1 space-y-4">
               {/* --- FY Count Display --- */}
               {formDataState?.section4_5?.participated === "yes" && (
                 <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -6626,7 +6627,7 @@ export const InfraEnablersReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload capacity building participation data
               </p>
-            </div>
+              </div>
             {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
             {getUserRole() === "MOSPI_APPROVER" && (
               <div className="flex-shrink-0 self-start ml-auto">
@@ -6637,6 +6638,7 @@ export const InfraEnablersReview = ({
                 />
               </div>
             )}
+            </div>
           </SectionCard>
         )}
       </div>
