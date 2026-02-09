@@ -44,18 +44,20 @@ export function MinistryDashboardPage() {
         // Load dashboard data
         const dashboardData = await getMinistryDashboardData(user?.id);
         console.log("dashboardData", dashboardData);
-        setMinistryData({
-          totalIndicators: dashboardData.totalIndicators,
-          totalIndicatorSubmitted: dashboardData.totalIndicatorSubmitted,
-          totalAssignedMinistryApprover: dashboardData.totalAssignedMinistryApprover,
-          totalIndicatorNodalMinistry: dashboardData.totalIndicatorNodalMinistry,
-          totalAccepted: dashboardData.totalAccepted,
-          totalPendingSubmission: dashboardData.totalPendingSubmission,
-          totalReturnNodal: dashboardData.totalReturnNodal,
-          submittedToMospi: dashboardData.submittedToMospi,
-          approvedByMospi: dashboardData.approvedByMospi,
-          returnedFromMospi: dashboardData.returnedFromMospi,
-        });
+        if (dashboardData) {
+          setMinistryData({
+            totalIndicators: dashboardData.totalIndicators,
+            totalIndicatorSubmitted: dashboardData.totalIndicatorSubmitted,
+            totalAssignedMinistryApprover: dashboardData.totalAssignedMinistryApprover,
+            totalIndicatorNodalMinistry: dashboardData.totalIndicatorNodalMinistry,
+            totalAccepted: dashboardData.totalAccepted,
+            totalPendingSubmission: dashboardData.totalPendingSubmission,
+            totalReturnNodal: dashboardData.totalReturnNodal,
+            submittedToMospi: dashboardData.submittedToMospi,
+            approvedByMospi: dashboardData.approvedByMospi,
+            returnedFromMospi: dashboardData.returnedFromMospi,
+          });
+        }
       } catch (error) {
         console.error("Failed to load ministry dashboard data:", error);
         // Keep default dummy data on error
@@ -101,14 +103,14 @@ export function MinistryDashboardPage() {
   const indicatorsReceivedCards = [
     {
       title: "Accepted By Ministry Approver",
-      value: `${ministryData.totalAccepted}/${ministryData.totalAccepted}`,
+      value: `${ministryData.totalAccepted}`,
       subtitle: "This fiscal year",
       icon: CheckCircle,
       variant: "green" as const,
     },
     {
       title: "Returned to Nodal Officer",
-      value: `${ministryData.totalReturnNodal}/${ministryData.totalReturnNodal}`,
+      value: `${ministryData.totalReturnNodal}/${ministryData.totalIndicatorNodalMinistry}`,
       subtitle: "Need Revision",
       icon: ArrowLeft,
       variant: "yellow" as const,

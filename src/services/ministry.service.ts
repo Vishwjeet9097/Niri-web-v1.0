@@ -636,7 +636,19 @@ export async function getMinistryDashboardData(userId?: string): Promise<{
     };
   } catch (error) {
     console.error("[getMinistryDashboardData] API Error:", error);
-    // Fallback to dummy data on error
+    // Return zeroed metrics so callers never get undefined
+    return {
+      totalIndicators: 0,
+      totalIndicatorSubmitted: 0,
+      totalAssignedMinistryApprover: 0,
+      totalIndicatorNodalMinistry: 0,
+      totalAccepted: 0,
+      totalPendingSubmission: 0,
+      totalReturnNodal: 0,
+      submittedToMospi: 0,
+      approvedByMospi: 0,
+      returnedFromMospi: 0,
+    };
   }
 }
 
