@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { DynamicFormBuilder } from "../components/FormBuilder";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
@@ -13,7 +13,7 @@ import { useMinistrySubmission } from "../hooks/useMinistrySubmission";
 import { useMinistryFormData } from "../hooks/useMinistryFormData";
 import { useMinistryValidation } from "../hooks/useMinistryValidation";
 import { useMinistrySteps } from "../hooks/useMinistrySteps";
-import { useMinistryAutoCalculation } from "../hooks/useMinistryAutoCalculation";
+import { useMinistryAutoCalculation, applyIndicator1_1ToFormData } from "../hooks/useMinistryAutoCalculation";
 import { useMinistrySubmissionActions } from "../hooks/useMinistrySubmissionActions";
 import {
   AlertDialog,
@@ -73,10 +73,21 @@ export function MinistrySubmissionWrapper() {
     assignedIndicators,
   });
 
+  // Apply indicator 1.1 auto-calc on every formData update so it works during edit
+  const setFormDataWithAutoCalc = useCallback(
+    (arg: React.SetStateAction<Record<string, any>>) => {
+      setFormData((prev) => {
+        const next = typeof arg === "function" ? (arg as (prev: Record<string, any>) => Record<string, any>)(prev) : arg;
+        return applyIndicator1_1ToFormData(next, assignedIndicators);
+      });
+    },
+    [setFormData, assignedIndicators]
+  );
+
   // Form data management hook
   const { handleFieldChange } = useMinistryFormData({
     formData,
-    setFormData,
+    setFormData: setFormDataWithAutoCalc,
     isInitialLoadRef,
     prevFormDataRef,
     clearFieldError,
@@ -99,10 +110,10 @@ export function MinistrySubmissionWrapper() {
     formData,
   });
 
-  // Auto-calculation hook
+  // Auto-calculation hook (validation for 1.1; 2.5 and 3.3 still do value + validation in effect)
   useMinistryAutoCalculation({
     formData,
-    setFormData,
+    setFormData: setFormDataWithAutoCalc,
     assignedIndicators,
     setValidationErrors,
   });

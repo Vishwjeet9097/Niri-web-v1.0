@@ -37,6 +37,7 @@ import { MospiReviewerActionButtons } from "../components/actionButtons/MospiRev
 import { MospiApproverActionButtons } from "../components/actionButtons/MospiApproverActionButtons";
 import { useEditableSectionStore } from "@/utils/EditableSection";
 import { useMinistryValidation } from "../hooks/useMinistryValidation";
+import { useMinistryAutoCalculation, applyIndicator1_1ToFormData } from "../hooks/useMinistryAutoCalculation";
 import { validateSection } from "../utils/validation";
 import { MinistryCommentDialog } from "../components/modals/MinistryCommentDialog";
 import { TimelineModal } from "@/features/dataSubmission/components/modals/TimelineModal";
@@ -107,10 +108,31 @@ export function MinistrySubmissionReviewWrapper({
     getFieldErrorMemoized,
     setValidationErrorsForSection,
     clearValidationErrorsForSection,
+    setValidationErrors,
   } = useMinistryValidation({
     formData,
     assignedIndicators,
   });
+
+  // Apply indicator 1.1 % Capex Utilization auto-calc on every formData update (review edit mode)
+  const setFormDataWithAutoCalc = useCallback(
+    (arg: React.SetStateAction<Record<string, any>>) => {
+      setFormData((prev) => {
+        const next = typeof arg === "function" ? (arg as (p: Record<string, any>) => Record<string, any>)(prev) : arg;
+        return applyIndicator1_1ToFormData(next, assignedIndicators) as Record<string, any>;
+      });
+    },
+    [setFormData, assignedIndicators]
+  );
+
+  // Sync validation for auto-calculated fields (1.1, 2.5, 3.3)
+  useMinistryAutoCalculation({
+    formData,
+    setFormData: setFormDataWithAutoCalc,
+    assignedIndicators,
+    setValidationErrors,
+  });
+
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
@@ -347,7 +369,7 @@ export function MinistrySubmissionReviewWrapper({
           }
         });
         // Merge with existing formData to preserve optimistic updates
-        setFormData((prevFormData) => {
+        setFormDataWithAutoCalc((prevFormData) => {
           const mergedFormData = { ...prevFormData };
           // Merge each section's data - server data takes precedence (it's the source of truth)
           Object.keys(initialFormData).forEach((key) => {
@@ -707,7 +729,7 @@ export function MinistrySubmissionReviewWrapper({
     // Restore original form data
     const originalData = originalFormDataSnapshots[sectionId];
     if (originalData) {
-      setFormData((prev) => ({
+      setFormDataWithAutoCalc((prev) => ({
         ...prev,
         [sectionKey]: originalData,
       }));
@@ -813,7 +835,7 @@ export function MinistrySubmissionReviewWrapper({
       // Update local formData immediately with the saved data (optimistic update)
       // Only update if not RESUBMITTED (since we reload data for RESUBMITTED)
       if (statusToSet !== "RESUBMITTED") {
-        setFormData((prevFormData) => {
+        setFormDataWithAutoCalc((prevFormData) => {
           const updatedFormData = { ...prevFormData };
           updatedFormData[sectionKey] = {
             ...(prevFormData[sectionKey] || {}),
@@ -2110,7 +2132,7 @@ export function MinistrySubmissionReviewWrapper({
       .replace("section", "")
       .replace("_", ".");
     if (editingSections.has(sectionId)) {
-      setFormData((prev) => {
+      setFormDataWithAutoCalc((prev) => {
         const newData = { ...prev };
         const keys = path.split(".");
         let current: any = newData;

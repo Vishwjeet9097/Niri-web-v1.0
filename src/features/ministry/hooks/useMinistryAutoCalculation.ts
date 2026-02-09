@@ -1,6 +1,112 @@
 import { useEffect } from "react";
 import { validateField } from "../utils/validation";
-import type { AssignedIndicator } from "../components/FormBuilder/types";
+import type { AssignedIndicator, InputField } from "../components/FormBuilder/types";
+
+const SECTION_KEY_1_1 = "section1_1";
+
+/**
+ * Resolve field IDs for indicator 1.1 from assignedIndicators.
+ * Used so the same IDs are used when applying calc in setFormData wrapper (edit) and in effect (validation).
+ */
+function getIndicator1_1FieldIds(assignedIndicators: AssignedIndicator[]): {
+  CAPITAL_ALLOCATION_FIELD_ID: string | null;
+  CAPITAL_ACTUALS_FIELD_ID: string | null;
+  CAPEX_UTILIZATION_FIELD_ID: string | null;
+} {
+  let CAPITAL_ALLOCATION_FIELD_ID: string | null = null;
+  let CAPITAL_ACTUALS_FIELD_ID: string | null = null;
+  let CAPEX_UTILIZATION_FIELD_ID: string | null = null;
+
+  for (const indicatorObj of assignedIndicators) {
+    const indicatorName = Object.keys(indicatorObj)[0];
+    const sections = indicatorObj[indicatorName];
+    if (!Array.isArray(sections)) continue;
+    for (const sectionObj of sections) {
+      const sectionName = Object.keys(sectionObj)[0];
+      const section = sectionObj[sectionName];
+      const isSection1_1 =
+        section?.sNo === "1.1" ||
+        sectionName?.toLowerCase().includes("capex") ||
+        sectionName?.toLowerCase().includes("capital");
+      if (!isSection1_1 || !section?.inputs || !Array.isArray(section.inputs)) continue;
+      for (const input of section.inputs) {
+        const label = (input.label ?? "").toLowerCase();
+        if (
+          !CAPITAL_ALLOCATION_FIELD_ID &&
+          (label.includes("capital allocation") || label.includes("capital expenditure allocation")) &&
+          !label.includes("%") &&
+          !label.includes("capex utilization")
+        ) {
+          CAPITAL_ALLOCATION_FIELD_ID = input.id;
+        } else if (
+          !CAPITAL_ACTUALS_FIELD_ID &&
+          (label.includes("capital expenditure actuals") ||
+            label.includes("capital expenditure actual") ||
+            label.includes("actual capital expenditure") ||
+            (label.includes("actual") && label.includes("capital")))
+        ) {
+          CAPITAL_ACTUALS_FIELD_ID = input.id;
+        } else if (
+          !CAPEX_UTILIZATION_FIELD_ID &&
+          (label.includes("% capex utilization") ||
+            label.includes("capex utilization") ||
+            label.includes("% of capex") ||
+            (label.includes("capex") && label.includes("%")))
+        ) {
+          CAPEX_UTILIZATION_FIELD_ID = input.id;
+        }
+      }
+      if (CAPITAL_ALLOCATION_FIELD_ID && CAPITAL_ACTUALS_FIELD_ID && CAPEX_UTILIZATION_FIELD_ID) {
+        return { CAPITAL_ALLOCATION_FIELD_ID, CAPITAL_ACTUALS_FIELD_ID, CAPEX_UTILIZATION_FIELD_ID };
+      }
+    }
+  }
+  return { CAPITAL_ALLOCATION_FIELD_ID, CAPITAL_ACTUALS_FIELD_ID, CAPEX_UTILIZATION_FIELD_ID };
+}
+
+/**
+ * Pure function: apply indicator 1.1 % Capex Utilization to formData.
+ * Formula: (Capital Expenditure Actuals / Capital Expenditure Allocation) × 100
+ * Used inside setFormData so auto-calc runs in the same state update as the user's edit (fixes edit mode).
+ */
+export function applyIndicator1_1ToFormData(
+  formData: Record<string, unknown>,
+  assignedIndicators: AssignedIndicator[]
+): Record<string, unknown> {
+  const sectionData = formData[SECTION_KEY_1_1] as Record<string, unknown> | undefined;
+  if (!sectionData || typeof sectionData !== "object" || !assignedIndicators.length) {
+    return formData;
+  }
+
+  const { CAPITAL_ALLOCATION_FIELD_ID, CAPITAL_ACTUALS_FIELD_ID, CAPEX_UTILIZATION_FIELD_ID } =
+    getIndicator1_1FieldIds(assignedIndicators);
+  if (!CAPITAL_ALLOCATION_FIELD_ID || !CAPITAL_ACTUALS_FIELD_ID || !CAPEX_UTILIZATION_FIELD_ID) {
+    return formData;
+  }
+
+  const capitalAllocation = parseFloat(
+    String(sectionData[CAPITAL_ALLOCATION_FIELD_ID] ?? "").replace(/[₹,]/g, "")
+  );
+  const capitalActuals = parseFloat(
+    String(sectionData[CAPITAL_ACTUALS_FIELD_ID] ?? "").replace(/[₹,]/g, "")
+  );
+  const isValidAllocation = !isNaN(capitalAllocation) && capitalAllocation > 0;
+  const isValidActuals = !isNaN(capitalActuals) && capitalActuals > 0;
+
+  let calculatedValue: string | number = "";
+  if (isValidAllocation && isValidActuals) {
+    const percentage = (capitalActuals / capitalAllocation) * 100;
+    calculatedValue = percentage >= 0 ? Math.round(percentage * 100) / 100 : 0;
+  }
+
+  return {
+    ...formData,
+    [SECTION_KEY_1_1]: {
+      ...sectionData,
+      [CAPEX_UTILIZATION_FIELD_ID]: calculatedValue,
+    },
+  };
+}
 
 interface UseMinistryAutoCalculationProps {
   formData: Record<string, any>;
@@ -15,213 +121,77 @@ export function useMinistryAutoCalculation({
   assignedIndicators,
   setValidationErrors,
 }: UseMinistryAutoCalculationProps) {
-  // Auto-calculation for indicator 1.1: % Capex Utilization
-  // Formula: (Capital Expenditure Actuals / Capital Expenditure Allocation) × 100
+  // Indicator 1.1 value updates are applied via setFormData wrapper in MinistrySubmissionWrapper
+  // (applyIndicator1_1ToFormData) so they run in the same state update as the user's edit.
+  // This effect only syncs validation errors for the calculated field.
   useEffect(() => {
-    const sectionKey = "section1_1";
+    const sectionKey = SECTION_KEY_1_1;
     const sectionData = formData[sectionKey];
-    
-    if (!sectionData || !assignedIndicators.length) {
-      console.log("🔍 Auto-calculation: No section1_1 data or assignedIndicators");
-      return;
-    }
+    if (!sectionData || !assignedIndicators.length) return;
 
-    // Find field IDs dynamically by searching through assignedIndicators
-    let CAPITAL_ALLOCATION_FIELD_ID: string | null = null;
-    let CAPITAL_ACTUALS_FIELD_ID: string | null = null;
-    let CAPEX_UTILIZATION_FIELD_ID: string | null = null;
-
-    // Search for fields in indicator 1.1 - search through all indicators and sections
-    // Look for indicator with sNo "1.1" or sectionKey "section1_1"
-    for (const indicatorObj of assignedIndicators) {
-      const indicatorName = Object.keys(indicatorObj)[0];
-      const sections = indicatorObj[indicatorName];
-      
-      // Search through all sections in this indicator
-      for (const sectionObj of sections) {
-        const sectionName = Object.keys(sectionObj)[0];
-        const section = sectionObj[sectionName];
-        
-        // Check if this is section 1.1 by checking sNo
-        const isSection1_1 = section.sNo === "1.1" || 
-                             sectionName?.toLowerCase().includes('capex') ||
-                             sectionName?.toLowerCase().includes('capital');
-        
-        if (isSection1_1 && section.inputs && Array.isArray(section.inputs)) {
-          console.log(`🔍 Auto-calculation: Checking section "${sectionName}" with ${section.inputs.length} inputs`);
-          console.log(`🔍 Auto-calculation: Section inputs:`, section.inputs.map((inp: any) => inp.label));
-          
-          for (const input of section.inputs) {
-            const label = input.label?.toLowerCase() || "";
-            console.log(`🔍 Auto-calculation: Checking field "${input.label}" (label: "${label}")`);
-            
-            // More flexible matching for Capital Allocation
-            if (!CAPITAL_ALLOCATION_FIELD_ID && 
-                (label.includes('capital allocation') || label.includes('capital expenditure allocation')) && 
-                !label.includes('%') && 
-                !label.includes('capex utilization')) {
-              CAPITAL_ALLOCATION_FIELD_ID = input.id;
-              console.log(`✅ Auto-calculation: Found CAPITAL_ALLOCATION_FIELD_ID: ${input.id} for "${input.label}"`);
-            } 
-            // More flexible matching for Capital Actuals
-            else if (!CAPITAL_ACTUALS_FIELD_ID && 
-                     (label.includes('capital expenditure actuals') || 
-                      label.includes('capital expenditure actual') ||
-                      label.includes('actual capital expenditure') ||
-                      (label.includes('actual') && label.includes('capital')))) {
-              CAPITAL_ACTUALS_FIELD_ID = input.id;
-              console.log(`✅ Auto-calculation: Found CAPITAL_ACTUALS_FIELD_ID: ${input.id} for "${input.label}"`);
-            } 
-            // More flexible matching for Capex Utilization
-            else if (!CAPEX_UTILIZATION_FIELD_ID && 
-                     (label.includes('% capex utilization') || 
-                      label.includes('capex utilization') ||
-                      label.includes('% of capex') ||
-                      (label.includes('capex') && label.includes('%')))) {
-              CAPEX_UTILIZATION_FIELD_ID = input.id;
-              console.log(`✅ Auto-calculation: Found CAPEX_UTILIZATION_FIELD_ID: ${input.id} for "${input.label}"`);
-            }
-          }
-        }
-      }
-    }
-
-    console.log("🔍 Auto-calculation: Found field IDs:", {
-      CAPITAL_ALLOCATION_FIELD_ID,
-      CAPITAL_ACTUALS_FIELD_ID,
-      CAPEX_UTILIZATION_FIELD_ID,
-    });
-
-    if (!CAPITAL_ALLOCATION_FIELD_ID || !CAPITAL_ACTUALS_FIELD_ID || !CAPEX_UTILIZATION_FIELD_ID) {
-      console.log("⚠️ Auto-calculation: Could not find all required field IDs");
-      console.log("🔍 Available fields in section1_1:", Object.keys(sectionData));
-      console.log("🔍 Available fields in assignedIndicators:", 
-        assignedIndicators.map(ind => {
-          const name = Object.keys(ind)[0];
-          const sections = ind[name];
-          return sections.map((sec: any) => {
-            const secName = Object.keys(sec)[0];
-            const secData = sec[secName];
-            return {
-              sectionName: secName,
-              fieldLabels: secData.inputs?.map((inp: any) => inp.label) || []
-            };
-          });
-        })
-      );
-      return;
-    }
+    const { CAPITAL_ALLOCATION_FIELD_ID, CAPITAL_ACTUALS_FIELD_ID, CAPEX_UTILIZATION_FIELD_ID } =
+      getIndicator1_1FieldIds(assignedIndicators);
+    if (!CAPEX_UTILIZATION_FIELD_ID) return;
 
     const capitalAllocationValue = sectionData[CAPITAL_ALLOCATION_FIELD_ID];
     const capitalActualsValue = sectionData[CAPITAL_ACTUALS_FIELD_ID];
-    
-    console.log("🔍 Auto-calculation: Raw values:", {
-      capitalAllocation: capitalAllocationValue,
-      capitalActuals: capitalActualsValue,
-      capitalAllocationType: typeof capitalAllocationValue,
-      capitalActualsType: typeof capitalActualsValue,
-    });
-
     const capitalAllocation = parseFloat(
-      (capitalAllocationValue || "").toString().replace(/[₹,]/g, "")
+      (capitalAllocationValue ?? "").toString().replace(/[₹,]/g, "")
     );
     const capitalActuals = parseFloat(
-      (capitalActualsValue || "").toString().replace(/[₹,]/g, "")
+      (capitalActualsValue ?? "").toString().replace(/[₹,]/g, "")
     );
-
-    console.log("🔍 Auto-calculation: Parsed values:", {
-      capitalAllocation,
-      capitalActuals,
-      isValidAllocation: !isNaN(capitalAllocation) && capitalAllocation > 0,
-      isValidActuals: !isNaN(capitalActuals) && capitalActuals > 0,
-    });
-
-    let calculatedValue: string | number = "";
-    
     const isValidAllocation = !isNaN(capitalAllocation) && capitalAllocation > 0;
     const isValidActuals = !isNaN(capitalActuals) && capitalActuals > 0;
-    
+
+    let calculatedValue: string | number = "";
     if (isValidAllocation && isValidActuals) {
       const percentage = (capitalActuals / capitalAllocation) * 100;
-      if (percentage >= 0) {
-        calculatedValue = Math.round(percentage * 100) / 100;
-      } else {
-        calculatedValue = 0;
-      }
-      console.log("✅ Auto-calculation: Calculated value:", calculatedValue);
-    } else {
-      console.log("⚠️ Auto-calculation: Invalid values, cannot calculate");
+      calculatedValue = percentage >= 0 ? Math.round(percentage * 100) / 100 : 0;
     }
 
-    const currentCalculatedValue = sectionData[CAPEX_UTILIZATION_FIELD_ID];
-    console.log("🔍 Auto-calculation: Current vs Calculated:", {
-      current: currentCalculatedValue,
-      calculated: calculatedValue,
-      willUpdate: currentCalculatedValue !== calculatedValue,
-    });
-    
-    if (currentCalculatedValue !== calculatedValue) {
-      setFormData((prev) => {
-        const sectionData = prev[sectionKey] || {};
-        return {
-          ...prev,
-          [sectionKey]: {
-            ...sectionData,
-            [CAPEX_UTILIZATION_FIELD_ID]: calculatedValue,
-          },
-        };
-      });
-
-      if (calculatedValue !== "" && assignedIndicators.length > 0 && CAPEX_UTILIZATION_FIELD_ID) {
-        let calculatedField: any = null;
-        for (const indicatorObj of assignedIndicators) {
-          const indicatorName = Object.keys(indicatorObj)[0];
-          if (indicatorName === "Infra Financing") {
-            const sections = indicatorObj[indicatorName];
-            for (const sectionObj of sections) {
-              const sectionName = Object.keys(sectionObj)[0];
-              if (sectionName === "Capital Utilization") {
-                const section = sectionObj[sectionName];
-                if (section.inputs && Array.isArray(section.inputs)) {
-                  calculatedField = section.inputs.find(
-                    (input: any) => input.id === CAPEX_UTILIZATION_FIELD_ID
-                  );
-                  if (calculatedField) break;
-                }
-              }
+    let calculatedField: InputField | null = null;
+    for (const indicatorObj of assignedIndicators) {
+      const indicatorName = Object.keys(indicatorObj)[0];
+      if (indicatorName === "Infra Financing" || indicatorName?.toLowerCase().includes("infra financing")) {
+        const sections = indicatorObj[indicatorName];
+        if (!Array.isArray(sections)) continue;
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          if (
+            section?.sNo === "1.1" ||
+            sectionName?.toLowerCase().includes("capital utilization") ||
+            sectionName?.toLowerCase().includes("capex")
+          ) {
+            const found = section?.inputs?.find((inp: InputField) => inp.id === CAPEX_UTILIZATION_FIELD_ID);
+            if (found) {
+              calculatedField = found;
+              break;
             }
           }
         }
-
-        if (calculatedField && calculatedValue !== "") {
-          const calculatedFieldPath = `${sectionKey}.${CAPEX_UTILIZATION_FIELD_ID}`;
-          const error = validateField(calculatedField, calculatedValue, calculatedFieldPath);
-          
-          setValidationErrors((prev) => {
-            const newErrors = { ...prev };
-            if (error) {
-              newErrors[calculatedFieldPath] = error;
-            } else {
-              delete newErrors[calculatedFieldPath];
-            }
-            return newErrors;
-          });
-        } else if (calculatedValue === "") {
-          const calculatedFieldPath = `${sectionKey}.${CAPEX_UTILIZATION_FIELD_ID}`;
-          setValidationErrors((prev) => {
-            const newErrors = { ...prev };
-            delete newErrors[calculatedFieldPath];
-            return newErrors;
-          });
-        }
+        if (calculatedField) break;
       }
     }
-  }, [
-    formData,
-    assignedIndicators,
-    setFormData,
-    setValidationErrors,
-  ]);
+
+    const calculatedFieldPath = `${sectionKey}.${CAPEX_UTILIZATION_FIELD_ID}`;
+    if (calculatedField && calculatedValue !== "") {
+      const error = validateField(calculatedField, calculatedValue, calculatedFieldPath);
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        if (error) newErrors[calculatedFieldPath] = error;
+        else delete newErrors[calculatedFieldPath];
+        return newErrors;
+      });
+    } else if (calculatedValue === "") {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[calculatedFieldPath];
+        return newErrors;
+      });
+    }
+  }, [formData, assignedIndicators, setValidationErrors]);
 
   // Auto-calculation for indicator 2.5: Percentage of PPP Project
   // Formula: (Total Project Cost of PPP infra projects awarded / Total Project Cost of all infra projects of the Central ministry awarded) × 100
