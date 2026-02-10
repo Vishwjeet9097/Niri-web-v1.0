@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,16 +20,31 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { getSubmissionsForCurrentUser, getMospiMinistrySubmissionDetails, getMinistryApproverUserIdByMinistryId, getMinistryProgressBarData, submitMospiFormAction, getFormStatusStatistics } from '@/services/ministry.service';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { useToast } from '@/hooks/use-toast';
-import { Send, RotateCcw, CheckCircle } from 'lucide-react';
-import { MinistrySubmissionDetailsCard } from '../components/MinistrySubmissionDetailsCard';
-import { MinistryOverviewTab } from '../components/tabs/MinistryOverviewTab';
-import { MinistryDataReviewTab } from '../components/tabs/MinistryDataReviewTab';
-import { MinistryDocumentsTab } from '../components/tabs/MinistryDocumentsTab';
-import { MinistryHistoryTab } from '../components/tabs/MinistryHistoryTab';
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  getSubmissionsForCurrentUser,
+  getMospiMinistrySubmissionDetails,
+  getMinistryApproverUserIdByMinistryId,
+  getMinistryProgressBarData,
+  submitMospiFormAction,
+  getFormStatusStatistics,
+} from "@/services/ministry.service";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
+import { Send, RotateCcw, CheckCircle, RefreshCw } from "lucide-react";
+import { MinistrySubmissionDetailsCard } from "../components/MinistrySubmissionDetailsCard";
+import { MinistryOverviewTab } from "../components/tabs/MinistryOverviewTab";
+import { MinistryDataReviewTab } from "../components/tabs/MinistryDataReviewTab";
+import { MinistryDocumentsTab } from "../components/tabs/MinistryDocumentsTab";
+import { MinistryHistoryTab } from "../components/tabs/MinistryHistoryTab";
 
 export function MinistryFormReviewSubmissionPage() {
   const navigate = useNavigate();
@@ -32,24 +52,26 @@ export function MinistryFormReviewSubmissionPage() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const { user } = useAuth();
-  
+
   // Check if isConsolidated query parameter is true
   // If true, use consolidated API, otherwise use regular API
-  const isConsolidated = searchParams.get('isConsolidated') === 'true';
-  
+  const isConsolidated = searchParams.get("isConsolidated") === "true";
+
   console.log("🔍 Ministry Review Page - API Selection:", {
     isConsolidated,
     submissionId: id,
-    willUseConsolidatedApi: isConsolidated
+    willUseConsolidatedApi: isConsolidated,
   });
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
-  const [consolidatedFormStatus, setConsolidatedFormStatus] = useState<string | null>(null); // Consolidated form status for freeze logic
+  const [consolidatedFormStatus, setConsolidatedFormStatus] = useState<
+    string | null
+  >(null); // Consolidated form status for freeze logic
   const { toast } = useToast();
-  
+
   // Form status statistics for MOSPI Approver button logic
   const [formStatusStats, setFormStatusStats] = useState<{
     total: number;
@@ -58,13 +80,15 @@ export function MinistryFormReviewSubmissionPage() {
     totalSubmitted: number;
   } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [showSendToApproverConfirmModal, setShowSendToApproverConfirmModal] = useState(false);
+  const [childIsSubmittingToApprover, setChildIsSubmittingToApprover] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadSubmission();
     } else {
       setLoading(false);
-      setError('Submission ID not found');
+      setError("Submission ID not found");
     }
   }, [id, isConsolidated]);
 
@@ -97,16 +121,22 @@ export function MinistryFormReviewSubmissionPage() {
 
       try {
         setLoadingStats(true);
-        console.log("📊 Fetching form status statistics for formId:", currentFormId);
+        console.log(
+          "📊 Fetching form status statistics for formId:",
+          currentFormId,
+        );
         const response = await getFormStatusStatistics(currentFormId);
-        
+
         console.log("📊 Raw API response:", response);
         console.log("📊 Response type:", typeof response);
-        console.log("📊 Response keys:", response ? Object.keys(response) : "null");
-        
+        console.log(
+          "📊 Response keys:",
+          response ? Object.keys(response) : "null",
+        );
+
         // Handle different response structures
         let statsData: any = null;
-        
+
         if (response?.status && response?.data) {
           // Standard structure: { status: true, data: { formId, total, ... } }
           statsData = response.data;
@@ -123,7 +153,7 @@ export function MinistryFormReviewSubmissionPage() {
           console.warn("⚠️ Unexpected response structure:", response);
           console.warn("⚠️ Full response:", JSON.stringify(response, null, 2));
         }
-        
+
         if (statsData && statsData.formId) {
           console.log("✅ Setting formStatusStats:", statsData);
           setFormStatusStats(statsData);
@@ -154,8 +184,11 @@ export function MinistryFormReviewSubmissionPage() {
   // Listen for indicator status updates to reload form statistics
   useEffect(() => {
     const handleIndicatorStatusUpdate = async (event: CustomEvent) => {
-      console.log("🔄 Indicator status updated, reloading form statistics:", event.detail);
-      
+      console.log(
+        "🔄 Indicator status updated, reloading form statistics:",
+        event.detail,
+      );
+
       if (user?.role !== "MOSPI_APPROVER") {
         return;
       }
@@ -170,12 +203,15 @@ export function MinistryFormReviewSubmissionPage() {
       setTimeout(async () => {
         try {
           setLoadingStats(true);
-          console.log("📊 Reloading form status statistics after indicator update for formId:", currentFormId);
+          console.log(
+            "📊 Reloading form status statistics after indicator update for formId:",
+            currentFormId,
+          );
           const response = await getFormStatusStatistics(currentFormId);
-          
+
           // Handle different response structures
           let statsData: any = null;
-          
+
           if (response?.status && response?.data) {
             statsData = response.data;
           } else if ((response as any)?.formId) {
@@ -183,7 +219,7 @@ export function MinistryFormReviewSubmissionPage() {
           } else if ((response as any)?.data?.formId) {
             statsData = (response as any).data;
           }
-          
+
           if (statsData && statsData.formId) {
             console.log("✅ Reloaded form status statistics:", statsData);
             setFormStatusStats(statsData);
@@ -199,13 +235,13 @@ export function MinistryFormReviewSubmissionPage() {
     // Listen for custom event when indicator status is updated
     window.addEventListener(
       "ministry-indicator-status-updated",
-      handleIndicatorStatusUpdate as EventListener
+      handleIndicatorStatusUpdate as EventListener,
     );
 
     return () => {
       window.removeEventListener(
         "ministry-indicator-status-updated",
-        handleIndicatorStatusUpdate as EventListener
+        handleIndicatorStatusUpdate as EventListener,
       );
     };
   }, [user?.role, submission?.formId, submission?.id]);
@@ -213,15 +249,18 @@ export function MinistryFormReviewSubmissionPage() {
   const loadSubmission = async () => {
     try {
       setLoading(true);
-      
+
       // For consolidated submissions, first call current user API to get submission details
       // This provides the submission metadata (user info, status, etc.)
       if (isConsolidated) {
-        console.log("📋 Loading consolidated submission - Step 1: Getting submission from current user API, submissionId:", id);
-        
+        console.log(
+          "📋 Loading consolidated submission - Step 1: Getting submission from current user API, submissionId:",
+          id,
+        );
+
         // First, get submission from current user API
         const response = await getSubmissionsForCurrentUser();
-        
+
         let submissionsData: any[] = [];
         if (Array.isArray(response)) {
           submissionsData = response;
@@ -231,39 +270,79 @@ export function MinistryFormReviewSubmissionPage() {
 
         // Find the submission by ID
         const foundSubmission = submissionsData.find((sub) => sub.id === id);
-        
+
         if (foundSubmission) {
-          console.log("✅ Found consolidated submission from current user API:", foundSubmission);
+          console.log(
+            "✅ Found consolidated submission from current user API:",
+            foundSubmission,
+          );
           setSubmission(foundSubmission);
           // For consolidated submissions, also check if it's with MOSPI for consistency
-          const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
-          if (FORM_STATUS_WITH_MOSPI.includes((foundSubmission.status || foundSubmission.formStatus || '').toUpperCase())) {
-            setConsolidatedFormStatus(foundSubmission.status || foundSubmission.formStatus);
+          const FORM_STATUS_WITH_MOSPI = [
+            "SUBMITTED_TO_MOSPI_REVIEWER",
+            "SUBMITTED_TO_MOSPI_APPROVER",
+            "ACCEPTED_BY_MOSPI",
+          ];
+          if (
+            FORM_STATUS_WITH_MOSPI.includes(
+              (
+                foundSubmission.status ||
+                foundSubmission.formStatus ||
+                ""
+              ).toUpperCase(),
+            )
+          ) {
+            setConsolidatedFormStatus(
+              foundSubmission.status || foundSubmission.formStatus,
+            );
           } else {
             setConsolidatedFormStatus(null);
           }
         } else {
           // Fallback: Try MOSPI dashboard API if not found in current user API
-          console.log("⚠️ Submission not found in current user API, trying MOSPI dashboard API...");
-          
+          console.log(
+            "⚠️ Submission not found in current user API, trying MOSPI dashboard API...",
+          );
+
           if (!user?.id) {
-            setError('User ID is required for consolidated API');
+            setError("User ID is required for consolidated API");
             setLoading(false);
             return;
           }
-          
-          const mospiResponse = await getMospiMinistrySubmissionDetails(user.id);
-          
+
+          const mospiResponse = await getMospiMinistrySubmissionDetails(
+            user.id,
+          );
+
           if (mospiResponse?.status && mospiResponse?.data?.submissions) {
-            const foundInMospi = mospiResponse.data.submissions.find((sub: any) => sub.id === id);
-            
+            const foundInMospi = mospiResponse.data.submissions.find(
+              (sub: any) => sub.id === id,
+            );
+
             if (foundInMospi) {
-              console.log("✅ Found submission from MOSPI dashboard API:", foundInMospi);
+              console.log(
+                "✅ Found submission from MOSPI dashboard API:",
+                foundInMospi,
+              );
               setSubmission(foundInMospi);
               // Check if consolidated form is with MOSPI
-              const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
-              if (FORM_STATUS_WITH_MOSPI.includes((foundInMospi.status || foundInMospi.formStatus || '').toUpperCase())) {
-                setConsolidatedFormStatus(foundInMospi.status || foundInMospi.formStatus);
+              const FORM_STATUS_WITH_MOSPI = [
+                "SUBMITTED_TO_MOSPI_REVIEWER",
+                "SUBMITTED_TO_MOSPI_APPROVER",
+                "ACCEPTED_BY_MOSPI",
+              ];
+              if (
+                FORM_STATUS_WITH_MOSPI.includes(
+                  (
+                    foundInMospi.status ||
+                    foundInMospi.formStatus ||
+                    ""
+                  ).toUpperCase(),
+                )
+              ) {
+                setConsolidatedFormStatus(
+                  foundInMospi.status || foundInMospi.formStatus,
+                );
               } else {
                 setConsolidatedFormStatus(null);
               }
@@ -272,23 +351,31 @@ export function MinistryFormReviewSubmissionPage() {
                 (s: any) =>
                   s.isConsolidated === true &&
                   s.id !== id &&
-                  FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+                  FORM_STATUS_WITH_MOSPI.includes(
+                    (s.status || s.formStatus || "").toUpperCase(),
+                  ),
               );
               if (consolidatedWithMospi) {
-                setConsolidatedFormStatus(consolidatedWithMospi.status || consolidatedWithMospi.formStatus);
+                setConsolidatedFormStatus(
+                  consolidatedWithMospi.status ||
+                    consolidatedWithMospi.formStatus,
+                );
               }
             } else {
-              setError('Submission not found in consolidated data');
+              setError("Submission not found in consolidated data");
             }
           } else {
-            setError('Failed to load submissions from consolidated API');
+            setError("Failed to load submissions from consolidated API");
           }
         }
       } else {
         // Use regular API - get submission from current user's submissions
-        console.log("📋 Loading submission using regular API, submissionId:", id);
+        console.log(
+          "📋 Loading submission using regular API, submissionId:",
+          id,
+        );
         const response = await getSubmissionsForCurrentUser();
-        
+
         let submissionsData: any[] = [];
         if (Array.isArray(response)) {
           submissionsData = response;
@@ -298,37 +385,56 @@ export function MinistryFormReviewSubmissionPage() {
 
         // Find the submission by ID
         const foundSubmission = submissionsData.find((sub) => sub.id === id);
-        
+
         if (foundSubmission) {
-          console.log("✅ [MinistryFormReview] Found submission from regular API:", {
-            submissionId: foundSubmission.id,
-            userId: foundSubmission.userId,
-            userFromSubmission: foundSubmission.user?.id,
-            currentUserRole: user?.role,
-            status: foundSubmission.status,
-            formStatus: (foundSubmission as any)?.formStatus,
-          });
+          console.log(
+            "✅ [MinistryFormReview] Found submission from regular API:",
+            {
+              submissionId: foundSubmission.id,
+              userId: foundSubmission.userId,
+              userFromSubmission: foundSubmission.user?.id,
+              currentUserRole: user?.role,
+              status: foundSubmission.status,
+              formStatus: (foundSubmission as any)?.formStatus,
+            },
+          );
           setSubmission(foundSubmission);
-          
+
           // For individual submissions, check if there's a consolidated form with MOSPI status
           // This is needed to freeze indicator statuses when consolidated form is with MOSPI
-          const FORM_STATUS_WITH_MOSPI = ['SUBMITTED_TO_MOSPI_REVIEWER', 'SUBMITTED_TO_MOSPI_APPROVER', 'ACCEPTED_BY_MOSPI'];
-          
+          const FORM_STATUS_WITH_MOSPI = [
+            "SUBMITTED_TO_MOSPI_REVIEWER",
+            "SUBMITTED_TO_MOSPI_APPROVER",
+            "ACCEPTED_BY_MOSPI",
+          ];
+
           // First, check in current user's submissions (works when backend returns isConsolidated)
           const consolidatedWithMospi = submissionsData.find(
             (s) =>
               s.isConsolidated === true &&
-              FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+              FORM_STATUS_WITH_MOSPI.includes(
+                (s.status || s.formStatus || "").toUpperCase(),
+              ),
           );
           console.log("[MinistryFormReview] Consolidated-with-MOSPI check:", {
             foundInList: !!consolidatedWithMospi,
             submissionsCount: submissionsData.length,
-            firstFewIsConsolidated: submissionsData.slice(0, 3).map((s: any) => ({ id: s.id, isConsolidated: s.isConsolidated, status: s.status || s.formStatus })),
+            firstFewIsConsolidated: submissionsData
+              .slice(0, 3)
+              .map((s: any) => ({
+                id: s.id,
+                isConsolidated: s.isConsolidated,
+                status: s.status || s.formStatus,
+              })),
           });
-          
+
           if (consolidatedWithMospi) {
-            const statusToSet = consolidatedWithMospi.status || consolidatedWithMospi.formStatus;
-            console.log("[MinistryFormReview] Setting consolidatedFormStatus from list:", statusToSet);
+            const statusToSet =
+              consolidatedWithMospi.status || consolidatedWithMospi.formStatus;
+            console.log(
+              "[MinistryFormReview] Setting consolidatedFormStatus from list:",
+              statusToSet,
+            );
             setConsolidatedFormStatus(statusToSet);
           } else {
             // For individual submissions: consolidated form belongs to ministry approver.
@@ -337,70 +443,111 @@ export function MinistryFormReviewSubmissionPage() {
             const formOwnerId =
               user?.role === "MINISTRY_APPROVER"
                 ? user?.id
-                : (foundSubmission.userId || (foundSubmission as any)?.user?.id);
-            console.log("[MinistryFormReview] Individual submission – resolving consolidated form status:", {
-              formOwnerId,
-              currentUserRole: user?.role,
-              submissionUserId: foundSubmission.userId,
-              hasFormOwnerId: !!formOwnerId,
-            });
+                : foundSubmission.userId || (foundSubmission as any)?.user?.id;
+            console.log(
+              "[MinistryFormReview] Individual submission – resolving consolidated form status:",
+              {
+                formOwnerId,
+                currentUserRole: user?.role,
+                submissionUserId: foundSubmission.userId,
+                hasFormOwnerId: !!formOwnerId,
+              },
+            );
             if (formOwnerId) {
               try {
-                const progressRes = await getMinistryProgressBarData(formOwnerId);
+                const progressRes =
+                  await getMinistryProgressBarData(formOwnerId);
                 const d = progressRes?.data ?? progressRes;
                 const formStatus = d?.formStatus ?? null;
-                const isWithMospi = formStatus && FORM_STATUS_WITH_MOSPI.includes(String(formStatus).toUpperCase());
-                console.log("[MinistryFormReview] Progress API response for form owner:", {
-                  formOwnerId,
-                  formStatus,
-                  isWithMospi,
-                  rawProgressKeys: d ? Object.keys(d) : [],
-                });
+                const isWithMospi =
+                  formStatus &&
+                  FORM_STATUS_WITH_MOSPI.includes(
+                    String(formStatus).toUpperCase(),
+                  );
+                console.log(
+                  "[MinistryFormReview] Progress API response for form owner:",
+                  {
+                    formOwnerId,
+                    formStatus,
+                    isWithMospi,
+                    rawProgressKeys: d ? Object.keys(d) : [],
+                  },
+                );
                 setConsolidatedFormStatus(isWithMospi ? formStatus : null);
               } catch (err) {
-                console.warn("[MinistryFormReview] Progress API failed for form owner:", formOwnerId, err);
+                console.warn(
+                  "[MinistryFormReview] Progress API failed for form owner:",
+                  formOwnerId,
+                  err,
+                );
                 setConsolidatedFormStatus(null);
               }
             } else if (user?.role === "NODAL_OFFICER") {
-              console.log("[MinistryFormReview] NODAL_OFFICER branch – resolving ministry user");
-              const ministryUserId = (foundSubmission as any)?.ministryUserId ||
-                                     (foundSubmission as any)?.user?.ministryUserId ||
-                                     (user?.ministryId ? await getMinistryApproverUserIdByMinistryId(String(user.ministryId)) : null);
-              console.log("[MinistryFormReview] NODAL ministryUserId:", { ministryUserId, ministryId: user?.ministryId });
+              console.log(
+                "[MinistryFormReview] NODAL_OFFICER branch – resolving ministry user",
+              );
+              const ministryUserId =
+                (foundSubmission as any)?.ministryUserId ||
+                (foundSubmission as any)?.user?.ministryUserId ||
+                (user?.ministryId
+                  ? await getMinistryApproverUserIdByMinistryId(
+                      String(user.ministryId),
+                    )
+                  : null);
+              console.log("[MinistryFormReview] NODAL ministryUserId:", {
+                ministryUserId,
+                ministryId: user?.ministryId,
+              });
               if (ministryUserId) {
                 try {
-                  const mospiResponse = await getMospiMinistrySubmissionDetails(ministryUserId);
-                  if (mospiResponse?.status && mospiResponse?.data?.submissions) {
+                  const mospiResponse =
+                    await getMospiMinistrySubmissionDetails(ministryUserId);
+                  if (
+                    mospiResponse?.status &&
+                    mospiResponse?.data?.submissions
+                  ) {
                     const consolidated = mospiResponse.data.submissions.find(
                       (s: any) =>
                         s.isConsolidated === true &&
-                        FORM_STATUS_WITH_MOSPI.includes((s.status || s.formStatus || '').toUpperCase())
+                        FORM_STATUS_WITH_MOSPI.includes(
+                          (s.status || s.formStatus || "").toUpperCase(),
+                        ),
                     );
-                    const statusToSet = consolidated ? (consolidated.status || consolidated.formStatus) : null;
-                    console.log("[MinistryFormReview] NODAL getMospiMinistrySubmissionDetails:", { foundConsolidated: !!consolidated, statusToSet });
+                    const statusToSet = consolidated
+                      ? consolidated.status || consolidated.formStatus
+                      : null;
+                    console.log(
+                      "[MinistryFormReview] NODAL getMospiMinistrySubmissionDetails:",
+                      { foundConsolidated: !!consolidated, statusToSet },
+                    );
                     setConsolidatedFormStatus(statusToSet);
                   } else {
                     setConsolidatedFormStatus(null);
                   }
                 } catch (err) {
-                  console.warn("[MinistryFormReview] NODAL getMospiMinistrySubmissionDetails failed:", err);
+                  console.warn(
+                    "[MinistryFormReview] NODAL getMospiMinistrySubmissionDetails failed:",
+                    err,
+                  );
                   setConsolidatedFormStatus(null);
                 }
               } else {
                 setConsolidatedFormStatus(null);
               }
             } else {
-              console.log("[MinistryFormReview] No formOwnerId and not NODAL – setting consolidatedFormStatus to null");
+              console.log(
+                "[MinistryFormReview] No formOwnerId and not NODAL – setting consolidatedFormStatus to null",
+              );
               setConsolidatedFormStatus(null);
             }
           }
         } else {
-          setError('Submission not found');
+          setError("Submission not found");
         }
       }
     } catch (error: any) {
-      console.error('Error loading submission:', error);
-      setError(error.message || 'Failed to load submission');
+      console.error("Error loading submission:", error);
+      setError(error.message || "Failed to load submission");
     } finally {
       setLoading(false);
     }
@@ -409,39 +556,39 @@ export function MinistryFormReviewSubmissionPage() {
   const handleBack = () => {
     // Redirect based on user role
     if (user?.role === "MINISTRY_APPROVER") {
-      navigate('/ministry/review-submissions');
+      navigate("/ministry/review-submissions");
     } else if (user?.role === "NODAL_OFFICER") {
-      navigate('/ministry/nodal');
+      navigate("/ministry/nodal");
     } else {
       // For MOSPI_APPROVER and MOSPI_REVIEWER, keep current behavior
-      navigate('/data-submission/review');
+      navigate("/data-submission/review");
     }
   };
 
   const statusConfig: Record<string, { label: string; badgeClass: string }> = {
     DRAFT: {
-      label: 'Draft',
-      badgeClass: 'bg-gray-100 text-gray-800 border-gray-200',
+      label: "Draft",
+      badgeClass: "bg-gray-100 text-gray-800 border-gray-200",
     },
     SUBMITTED_TO_STATE: {
-      label: 'Submitted',
-      badgeClass: 'bg-blue-100 text-blue-800 border-blue-200',
+      label: "Submitted",
+      badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
     },
     SUBMITTED_TO_MOSPI_REVIEWER: {
-      label: 'Under Review',
-      badgeClass: 'bg-blue-100 text-blue-800 border-blue-200',
+      label: "Under Review",
+      badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
     },
     APPROVED: {
-      label: 'Approved',
-      badgeClass: 'bg-green-100 text-green-800 border-green-200',
+      label: "Approved",
+      badgeClass: "bg-green-100 text-green-800 border-green-200",
     },
     REJECTED: {
-      label: 'Rejected',
-      badgeClass: 'bg-red-100 text-red-800 border-red-200',
+      label: "Rejected",
+      badgeClass: "bg-red-100 text-red-800 border-red-200",
     },
     REJECTED_FINAL: {
-      label: 'Rejected',
-      badgeClass: 'bg-red-100 text-red-800 border-red-200',
+      label: "Rejected",
+      badgeClass: "bg-red-100 text-red-800 border-red-200",
     },
   };
 
@@ -458,7 +605,7 @@ export function MinistryFormReviewSubmissionPage() {
       <div className="container mx-auto px-4 py-8">
         <Card className="bg-white rounded-lg">
           <CardContent className="p-6">
-            <p className="text-red-600">{error || 'Submission not found'}</p>
+            <p className="text-red-600">{error || "Submission not found"}</p>
             <Button onClick={handleBack} variant="outline" className="mt-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -469,32 +616,33 @@ export function MinistryFormReviewSubmissionPage() {
     );
   }
 
-  const status = submission.status || 'DRAFT';
+  const status = submission.status || "DRAFT";
   const config = statusConfig[status] || {
     label: status,
-    badgeClass: 'bg-gray-100 text-gray-800 border-gray-200',
+    badgeClass: "bg-gray-100 text-gray-800 border-gray-200",
   };
 
-  const ministryName = submission.user?.ministryName || 'N/A';
-  const submissionId = submission.submissionId || 'N/A';
+  const ministryName = submission.user?.ministryName || "N/A";
+  const submissionId = submission.submissionId || "N/A";
   const formId = submission.formId || submission.id;
 
-  // Handle MOSPI Reviewer action: Send to Approver
+  // Handle MOSPI Reviewer action: Send to Approver (called after confirmation)
   const handleSendToApprover = async () => {
     try {
       setIsSubmitting(true);
+      setShowSendToApproverConfirmModal(false);
       console.log("📤 Sending to Approver, formId:", formId);
-      
+
       await submitMospiFormAction(formId, "submit-to-approver");
-      
+
       toast({
         title: "Success",
         description: "Submission sent to Approver successfully",
       });
-      
+
       // Reload submission to reflect status change
       await loadSubmission();
-      
+
       // Reload form status statistics for MOSPI Approver
       if (isMospiApprover && formId) {
         try {
@@ -510,7 +658,10 @@ export function MinistryFormReviewSubmissionPage() {
       console.error("❌ Error sending to approver:", error);
       toast({
         title: "Error",
-        description: error?.response?.data?.message || error?.message || "Failed to send to approver",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to send to approver",
         variant: "destructive",
       });
     } finally {
@@ -523,17 +674,17 @@ export function MinistryFormReviewSubmissionPage() {
     try {
       setIsSubmitting(true);
       console.log("📤 Sending back, formId:", formId);
-      
+
       await submitMospiFormAction(formId, "send-back");
-      
+
       toast({
         title: "Success",
         description: "Submission sent back successfully",
       });
-      
+
       // Reload submission to reflect status change
       await loadSubmission();
-      
+
       // Reload form status statistics for MOSPI Approver
       if (isMospiApprover && formId) {
         try {
@@ -549,7 +700,10 @@ export function MinistryFormReviewSubmissionPage() {
       console.error("❌ Error sending back:", error);
       toast({
         title: "Error",
-        description: error?.response?.data?.message || error?.message || "Failed to send back",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to send back",
         variant: "destructive",
       });
     } finally {
@@ -573,17 +727,17 @@ export function MinistryFormReviewSubmissionPage() {
       setIsSubmitting(true);
       setShowAcceptDialog(false);
       console.log("📤 Submitting (Accepting), formId:", formId);
-      
+
       await submitMospiFormAction(formId, "accept");
-      
+
       toast({
         title: "Success",
         description: "Submission accepted successfully",
       });
-      
+
       // Reload submission to reflect status change
       await loadSubmission();
-      
+
       // Reload form status statistics for MOSPI Approver
       if (isMospiApprover && formId) {
         try {
@@ -599,7 +753,10 @@ export function MinistryFormReviewSubmissionPage() {
       console.error("❌ Error accepting submission:", error);
       toast({
         title: "Error",
-        description: error?.response?.data?.message || error?.message || "Failed to accept submission",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to accept submission",
         variant: "destructive",
       });
     } finally {
@@ -610,7 +767,7 @@ export function MinistryFormReviewSubmissionPage() {
   // Check if user is MOSPI Reviewer or Approver
   const isMospiReviewer = user?.role === "MOSPI_REVIEWER";
   const isMospiApprover = user?.role === "MOSPI_APPROVER";
-  
+
   // Debug: Log user role to verify
   console.log("🔍 MinistryFormReviewSubmissionPage - User:", user);
   console.log("🔍 User role:", user?.role);
@@ -650,18 +807,25 @@ export function MinistryFormReviewSubmissionPage() {
             {/* Status Badge and Action Buttons */}
             <div className="flex items-center gap-3">
               {/* Status Badge */}
-              <Badge variant="outline" className={`${config.badgeClass} text-xs font-medium px-3 py-1`}>
+              <Badge
+                variant="outline"
+                className={`${config.badgeClass} text-xs font-medium px-3 py-1`}
+              >
                 {config.label}
               </Badge>
-              
+
               {/* Action Buttons - MOSPI Reviewer */}
               {isMospiReviewer && (
                 <Button
-                  onClick={handleSendToApprover}
-                  disabled={isSubmitting || submission?.status !== "SUBMITTED_TO_MOSPI_REVIEWER"}
+                  onClick={() => setShowSendToApproverConfirmModal(true)}
+                  disabled={
+                    isSubmitting ||
+                    childIsSubmittingToApprover ||
+                    submission?.status !== "SUBMITTED_TO_MOSPI_REVIEWER"
+                  }
                   className="flex items-center gap-2"
                 >
-                  {isSubmitting ? (
+                  {isSubmitting || childIsSubmittingToApprover ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Sending...
@@ -674,123 +838,152 @@ export function MinistryFormReviewSubmissionPage() {
                   )}
                 </Button>
               )}
-              
+
               {/* Action Buttons - MOSPI Approver */}
-              {isMospiApprover && (() => {
-                // First check: If formStatus is not SUBMITTED_TO_MOSPI_APPROVER, disable both buttons
-                const isCorrectStatus = submission?.status === "SUBMITTED_TO_MOSPI_APPROVER";
-                
-                if (!isCorrectStatus) {
-                  console.log("⚠️ Disabling buttons: formStatus is not SUBMITTED_TO_MOSPI_APPROVER", {
-                    currentStatus: submission?.status,
-                    requiredStatus: "SUBMITTED_TO_MOSPI_APPROVER",
-                  });
-                }
-                
-                // Calculate button enable/disable logic based on form status statistics
-                let isSubmitEnabled = false;
-                let isSendBackEnabled = false;
-                
-                console.log("🔍 Button Logic - formStatusStats:", formStatusStats);
-                console.log("🔍 Button Logic - submission status:", submission?.status);
-                
-                if (formStatusStats && isCorrectStatus) {
-                  const { total, totalSentBack, totalApproved, totalSubmitted } = formStatusStats;
-                  
-                  console.log("🔍 Button Logic - Stats:", {
-                    total,
-                    totalSentBack,
-                    totalApproved,
-                    totalSubmitted,
-                  });
-                  
-                  // Submit (Accept): enabled only when all indicators are approved
-                  isSubmitEnabled = totalApproved === total;
-                  
-                  // Send Back (top): enabled only when at least one indicator is sent back AND
-                  // all indicators have had an action (accept or send back)
-                  const allIndicatorsActioned = totalApproved + totalSentBack === total;
-                  const atLeastOneSentBack = totalSentBack >= 1;
-                  isSendBackEnabled = atLeastOneSentBack && allIndicatorsActioned;
-                  
-                  // If not all submitted yet, disable Submit (form not ready for full accept)
-                  if (totalSubmitted !== total) {
-                    isSubmitEnabled = false;
-                  }
-                  
-                  console.log("✅ Button states:", {
-                    isSubmitEnabled,
-                    isSendBackEnabled,
-                    atLeastOneSentBack,
-                    allIndicatorsActioned,
-                    reason: {
-                      submit: totalApproved === total && totalSubmitted === total ? "All approved" : `${totalApproved}/${total} approved`,
-                      sendBack: isSendBackEnabled ? "At least one sent back + all actioned" : `sentBack=${totalSentBack}, actioned=${totalApproved + totalSentBack}/${total}`,
-                    },
-                  });
-                } else {
+              {isMospiApprover &&
+                (() => {
+                  // First check: If formStatus is not SUBMITTED_TO_MOSPI_APPROVER, disable both buttons
+                  const isCorrectStatus =
+                    submission?.status === "SUBMITTED_TO_MOSPI_APPROVER";
+
                   if (!isCorrectStatus) {
-                    console.log("⚠️ Buttons disabled: formStatus is not SUBMITTED_TO_MOSPI_APPROVER");
-                  } else {
-                    console.log("⚠️ formStatusStats is null/undefined - Send Back disabled until stats load");
-                    // Send Back requires stats (at least one sent back + all actioned); keep disabled until loaded
-                    isSendBackEnabled = false;
+                    console.log(
+                      "⚠️ Disabling buttons: formStatus is not SUBMITTED_TO_MOSPI_APPROVER",
+                      {
+                        currentStatus: submission?.status,
+                        requiredStatus: "SUBMITTED_TO_MOSPI_APPROVER",
+                      },
+                    );
                   }
-                }
-                
-                // Final disabled state: combine status check with stats logic
-                const sendBackDisabled = isSubmitting || !isCorrectStatus || !isSendBackEnabled;
-                const submitDisabled = isSubmitting || !isCorrectStatus || !isSubmitEnabled;
-                
-                console.log("🔍 Final button disabled states:", {
-                  isSubmitting,
-                  isCorrectStatus,
-                  isSendBackEnabled,
-                  isSubmitEnabled,
-                  sendBackDisabled,
-                  submitDisabled,
-                });
-                
-                return (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handleSendBack}
-                      disabled={sendBackDisabled}
-                      variant="outline"
-                      className="flex items-center gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <RotateCcw className="w-4 h-4" />
-                          Send Back
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={submitDisabled}
-                      className="flex items-center gap-2"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          Submit
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                );
-              })()}
+
+                  // Calculate button enable/disable logic based on form status statistics
+                  let isSubmitEnabled = false;
+                  let isSendBackEnabled = false;
+
+                  console.log(
+                    "🔍 Button Logic - formStatusStats:",
+                    formStatusStats,
+                  );
+                  console.log(
+                    "🔍 Button Logic - submission status:",
+                    submission?.status,
+                  );
+
+                  if (formStatusStats && isCorrectStatus) {
+                    const {
+                      total,
+                      totalSentBack,
+                      totalApproved,
+                      totalSubmitted,
+                    } = formStatusStats;
+
+                    console.log("🔍 Button Logic - Stats:", {
+                      total,
+                      totalSentBack,
+                      totalApproved,
+                      totalSubmitted,
+                    });
+
+                    // Submit (Accept): enabled only when all indicators are approved
+                    isSubmitEnabled = totalApproved === total;
+
+                    // Send Back (top): enabled only when at least one indicator is sent back AND
+                    // all indicators have had an action (accept or send back)
+                    const allIndicatorsActioned =
+                      totalApproved + totalSentBack === total;
+                    const atLeastOneSentBack = totalSentBack >= 1;
+                    isSendBackEnabled =
+                      atLeastOneSentBack && allIndicatorsActioned;
+
+                    // If not all submitted yet, disable Submit (form not ready for full accept)
+                    if (totalSubmitted !== total) {
+                      isSubmitEnabled = false;
+                    }
+
+                    console.log("✅ Button states:", {
+                      isSubmitEnabled,
+                      isSendBackEnabled,
+                      atLeastOneSentBack,
+                      allIndicatorsActioned,
+                      reason: {
+                        submit:
+                          totalApproved === total && totalSubmitted === total
+                            ? "All approved"
+                            : `${totalApproved}/${total} approved`,
+                        sendBack: isSendBackEnabled
+                          ? "At least one sent back + all actioned"
+                          : `sentBack=${totalSentBack}, actioned=${totalApproved + totalSentBack}/${total}`,
+                      },
+                    });
+                  } else {
+                    if (!isCorrectStatus) {
+                      console.log(
+                        "⚠️ Buttons disabled: formStatus is not SUBMITTED_TO_MOSPI_APPROVER",
+                      );
+                    } else {
+                      console.log(
+                        "⚠️ formStatusStats is null/undefined - Send Back disabled until stats load",
+                      );
+                      // Send Back requires stats (at least one sent back + all actioned); keep disabled until loaded
+                      isSendBackEnabled = false;
+                    }
+                  }
+
+                  // Final disabled state: combine status check with stats logic
+                  const sendBackDisabled =
+                    isSubmitting || !isCorrectStatus || !isSendBackEnabled;
+                  const submitDisabled =
+                    isSubmitting || !isCorrectStatus || !isSubmitEnabled;
+
+                  console.log("🔍 Final button disabled states:", {
+                    isSubmitting,
+                    isCorrectStatus,
+                    isSendBackEnabled,
+                    isSubmitEnabled,
+                    sendBackDisabled,
+                    submitDisabled,
+                  });
+
+                  return (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={handleSendBack}
+                        disabled={sendBackDisabled}
+                        variant="outline"
+                        className="flex items-center gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <RotateCcw className="w-4 h-4" />
+                            Send Back
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={submitDisabled}
+                        className="flex items-center gap-2"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Submit
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })()}
             </div>
           </div>
         </CardContent>
@@ -798,7 +991,11 @@ export function MinistryFormReviewSubmissionPage() {
 
       {/* Submission Details Card */}
       <MinistrySubmissionDetailsCard
-        submittedByName={submission.user ? `${submission.user.firstName} ${submission.user.lastName}` : undefined}
+        submittedByName={
+          submission.user
+            ? `${submission.user.firstName} ${submission.user.lastName}`
+            : undefined
+        }
         submittedByEmail={submission.user?.email}
         submissionDate={submission.createdAt}
         currentOwner={submission.user?.role}
@@ -815,24 +1012,31 @@ export function MinistryFormReviewSubmissionPage() {
         </TabsList>
 
         <TabsContent value="overview">
-          <MinistryOverviewTab 
-            submission={submission} 
+          <MinistryOverviewTab
+            submission={submission}
             currentUserRole={user?.role}
             currentUserPhone={user?.contactNumber}
           />
         </TabsContent>
 
         <TabsContent value="data-review">
-          <MinistryDataReviewTab 
+          <MinistryDataReviewTab
             submission={submission}
             useConsolidatedApi={isConsolidated}
             submissionId={id}
             consolidatedFormStatus={consolidatedFormStatus}
+            externalSendToApproverDisabled={isSubmitting}
+            onSendToApproverSubmittingChange={setChildIsSubmittingToApprover}
+            onSendToApproverOpen={
+              isMospiReviewer
+                ? () => setShowSendToApproverConfirmModal(true)
+                : undefined
+            }
           />
         </TabsContent>
 
         <TabsContent value="documents">
-          <MinistryDocumentsTab 
+          <MinistryDocumentsTab
             submission={submission}
             documents={submission?.attachedFiles || []}
             formData={submission?.formData}
@@ -845,13 +1049,58 @@ export function MinistryFormReviewSubmissionPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Confirmation Dialog for MOSPI Reviewer - Send to Approver (same as last category in Data Review tab) */}
+      <Dialog
+        open={showSendToApproverConfirmModal}
+        onOpenChange={(open) => !isSubmitting && setShowSendToApproverConfirmModal(open)}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Send to Approver</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to send this form to the MoSPI Approver?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              On clicking the button, the form will be forwarded to the MoSPI Approver. Once sent, you will not be able to make changes until the Approver reviews it.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSendToApproverConfirmModal(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendToApprover}
+              disabled={isSubmitting}
+              className="bg-[#1e3a8a] hover:bg-[#1e3299] text-white"
+            >
+              {isSubmitting ? (
+                <div className="flex items-center space-x-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Submitting...</span>
+                </div>
+              ) : (
+                "Send to Approver"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirmation Dialog for MOSPI Approver Accept */}
       <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to accept this submission? This action will mark the submission as ACCEPTED and finalize the review. No further action can be taken after accept.
+              Are you sure you want to accept this submission? This action will
+              mark the submission as ACCEPTED and finalize the review. No
+              further action can be taken after accept.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

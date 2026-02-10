@@ -94,29 +94,80 @@ export const formatYearAsFinancialYear = (
 };
 
 /**
- * Check if a date (MM/YY format) falls within a given Financial Year
- * @param mmYy - Date in MM/YY format
+ * Check if a date (MM/YY or YYYY-MM-DD format) falls within a given Financial Year
+ * @param dateStr - Date in MM/YY format (e.g. "04/24") or YYYY-MM-DD/ISO (e.g. "2025-04-15")
  * @param fy - Financial Year in format "YYYY-YY" (e.g., "2024-25")
  */
-export const isDateInFinancialYear = (mmYy: string, fy: string): boolean => {
-  const dateFY = getFinancialYearFromMMYY(mmYy);
+export const isDateInFinancialYear = (dateStr: string, fy: string): boolean => {
+  const dateFY = getFinancialYearFromMMYY(dateStr) || getFinancialYearFromYYYYMMDD(dateStr);
   return dateFY === fy;
 };
 
 /**
- * Get training period (MM/YY) from a capacity building entry.
+ * Format training period for display in review mode.
+ * Converts YYYY-MM-DD or ISO format to MM/YY (e.g. "2025-04-15" -> "04/25").
+ * If already in MM/YY format, returns as is.
+ */
+export const formatTrainingPeriodForDisplay = (
+  value: string | null | undefined
+): string => {
+  if (value === null || value === undefined) return "";
+  const str = String(value).trim();
+  if (!str) return "";
+  const yyyyMmDdMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (yyyyMmDdMatch) {
+    const month = yyyyMmDdMatch[2];
+    const yearShort = yyyyMmDdMatch[1].slice(-2);
+    return `${month}/${yearShort}`;
+  }
+  return str;
+};
+
+/**
+ * Get Financial Year from a date in YYYY-MM-DD or ISO format.
+ * Used when backend stores dates in this format (e.g. valueDate from API).
+ */
+function getFinancialYearFromYYYYMMDD(dateStr: string): string | null {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const trimmed = dateStr.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  if (month < 1 || month > 12) return null;
+  const yearShort = year.toString().slice(-2);
+  const nextYearShort = (year + 1).toString().slice(-2);
+  if (month >= 4) {
+    return `${year}-${nextYearShort}`;
+  } else {
+    const prevYear = year - 1;
+    const prevYearShort = prevYear.toString().slice(-2);
+    return `${prevYear}-${yearShort}`;
+  }
+}
+
+/**
+ * Get training period value from a capacity building entry and derive its FY.
  * Entries may have trainingPeriod (Excel) or store it under a field id (form).
+ * Supports both MM/YY format (e.g. "04/24") and YYYY-MM-DD/ISO (e.g. "2025-04-15") from API.
  */
 function getTrainingPeriodFromEntry(entry: Record<string, unknown>): string | null {
+  const tryGetFY = (val: string): string | null => {
+    if (!val || typeof val !== "string" || !val.trim()) return null;
+    const fy = getFinancialYearFromMMYY(val) || getFinancialYearFromYYYYMMDD(val);
+    return fy;
+  };
+
   if (entry.trainingPeriod && typeof entry.trainingPeriod === "string" && entry.trainingPeriod.trim()) {
-    const fy = getFinancialYearFromMMYY(entry.trainingPeriod);
+    const fy = tryGetFY(entry.trainingPeriod);
     if (fy) return entry.trainingPeriod;
   }
   for (const key of Object.keys(entry)) {
-    if (key === "id") continue;
+    if (key === "id" || key === "_fieldPrimaryIds") continue;
     const val = entry[key];
-    if (val && typeof val === "string" && val.trim() && getFinancialYearFromMMYY(val)) {
-      return val;
+    if (val && typeof val === "string" && val.trim()) {
+      const fy = tryGetFY(val);
+      if (fy) return val;
     }
   }
   return null;

@@ -11,7 +11,7 @@ import { validateField } from "@/features/ministry/utils/validation";
 import { capitalizeInitials } from "@/features/ministry/utils/textUtils";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
-import { getCurrentFinancialYear, formatYearAsFinancialYear } from "@/utils/dateUtils";
+import { getCurrentFinancialYear, formatYearAsFinancialYear, formatTrainingPeriodForDisplay } from "@/utils/dateUtils";
 import type { FileUpload } from "@/features/submission/types";
 import type { FieldRendererProps } from "./types";
 
@@ -670,7 +670,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = React.memo(
             ) : (
               <Input
                 type="text"
-                value={isMMYYFormat ? value || "" : formatDateForDisplay(value)}
+                value={isMMYYFormat ? formatTrainingPeriodForDisplay(value) : formatDateForDisplay(value)}
                 readOnly={true}
                 className={cn("cursor-not-allowed", className)}
                 placeholder={value ? undefined : "N/A"}

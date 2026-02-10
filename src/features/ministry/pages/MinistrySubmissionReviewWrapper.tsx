@@ -80,6 +80,9 @@ interface MinistrySubmissionReviewWrapperProps {
   submissionId?: string; // Submission ID for consolidated API
   consolidatedFormStatus?: string | null; // Consolidated form status (for freeze logic when viewing individual submissions)
   onSubmissionSuccess?: () => void; // Callback when form is submitted to MoSPI successfully
+  externalSendToApproverDisabled?: boolean; // When true, disable bottom Send to Approver (e.g. top button submit in progress)
+  onSendToApproverSubmittingChange?: (submitting: boolean) => void; // Notify parent when this wrapper is submitting Send to Approver
+  onSendToApproverOpen?: () => void; // When provided, bottom "Send to Approver" will open parent's modal instead of using its own flow
 }
 
 export function MinistrySubmissionReviewWrapper({
@@ -89,6 +92,9 @@ export function MinistrySubmissionReviewWrapper({
   submissionId: propSubmissionId,
   consolidatedFormStatus: propConsolidatedFormStatus,
   onSubmissionSuccess,
+  externalSendToApproverDisabled = false,
+  onSendToApproverSubmittingChange,
+  onSendToApproverOpen,
 }: MinistrySubmissionReviewWrapperProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -205,6 +211,7 @@ export function MinistrySubmissionReviewWrapper({
     formId: string | null;
     percentage: number;
     formStatus: string | null;
+    targetStatus: "SUBMITTED_TO_MOSPI_REVIEWER" | "SUBMITTED_TO_MOSPI_APPROVER";
   } | null>(null);
   /** Progress for Submit button enable/disable: only enabled when all indicators accepted and form not with MoSPI */
   const [submitButtonProgress, setSubmitButtonProgress] = useState<{
@@ -217,6 +224,16 @@ export function MinistrySubmissionReviewWrapper({
     "ACCEPTED_BY_MOSPI",
   ];
   const ALLOWED_FORM_STATUS_FOR_SUBMIT = [null, "DRAFT", "RETURNED_FROM_MOSPI"];
+  /** When MOSPI Reviewer is reviewing (form is with them), Submit button becomes "Send to Approver" */
+  const isMospiReviewerSendingToApprover =
+    user?.role === "MOSPI_REVIEWER" &&
+    (submitButtonProgress?.formStatus || "").toUpperCase() === "SUBMITTED_TO_MOSPI_REVIEWER";
+
+  // Notify parent (e.g. MinistryFormReviewSubmissionPage) when Send to Approver is submitting so top button can be disabled
+  useEffect(() => {
+    onSendToApproverSubmittingChange?.(submittingToMospi);
+    return () => onSendToApproverSubmittingChange?.(false);
+  }, [submittingToMospi, onSendToApproverSubmittingChange]);
 
   const handleSubmitClick = async () => {
     const ministryUserId = userId || user?.id;
@@ -252,9 +269,6 @@ export function MinistrySubmissionReviewWrapper({
       }
       const percentage = total > 0 ? Math.round((accepted / total) * 100) : 0;
       const upperFormStatus = (formStatus || "").toUpperCase();
-      const isFormWithMospi = FORM_STATUS_WITH_MOSPI.includes(upperFormStatus);
-      const allowedFormStatuses = [null, "DRAFT", "RETURNED_FROM_MOSPI"];
-      const isFormStatusAllowed = allowedFormStatuses.includes(formStatus);
 
       if (percentage !== 100) {
         toast({
@@ -264,6 +278,24 @@ export function MinistrySubmissionReviewWrapper({
         });
         return;
       }
+
+      // MOSPI Reviewer: form is with them → Send to Approver
+      if (user?.role === "MOSPI_REVIEWER" && upperFormStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+        setSubmitProgressData({
+          formId,
+          percentage,
+          formStatus,
+          targetStatus: "SUBMITTED_TO_MOSPI_APPROVER",
+        });
+        setShowSubmitConfirmModal(true);
+        return;
+      }
+
+      // Ministry Approver (or form at ministry): Submit to MoSPI Reviewer
+      const isFormWithMospi = FORM_STATUS_WITH_MOSPI.includes(upperFormStatus);
+      const allowedFormStatuses = [null, "DRAFT", "RETURNED_FROM_MOSPI"];
+      const isFormStatusAllowed = allowedFormStatuses.includes(formStatus);
+
       if (isFormWithMospi) {
         toast({
           title: "Error",
@@ -280,7 +312,12 @@ export function MinistrySubmissionReviewWrapper({
         });
         return;
       }
-      setSubmitProgressData({ formId, percentage, formStatus });
+      setSubmitProgressData({
+        formId,
+        percentage,
+        formStatus,
+        targetStatus: "SUBMITTED_TO_MOSPI_REVIEWER",
+      });
       setShowSubmitConfirmModal(true);
     } catch (err: any) {
       toast({
@@ -301,23 +338,24 @@ export function MinistrySubmissionReviewWrapper({
       setShowSubmitConfirmModal(false);
       return;
     }
+    const targetStatus = submitProgressData.targetStatus || "SUBMITTED_TO_MOSPI_REVIEWER";
     try {
       setSubmittingToMospi(true);
-      const result = await updateMinistryFormStatus(
-        submitProgressData.formId,
-        "SUBMITTED_TO_MOSPI_REVIEWER"
-      );
+      const result = await updateMinistryFormStatus(submitProgressData.formId, targetStatus);
       if (result.status) {
         toast({
           title: "Success",
-          description: result.message || "Form submitted successfully to MoSPI Reviewer",
+          description:
+            targetStatus === "SUBMITTED_TO_MOSPI_APPROVER"
+              ? result.message || "Form sent to MoSPI Approver successfully"
+              : result.message || "Form submitted successfully to MoSPI Reviewer",
           variant: "default",
         });
         notificationService.success(result.message || "Form submitted successfully");
         setShowSubmitConfirmModal(false);
         setSubmitProgressData(null);
         setSubmitButtonProgress((prev) =>
-          prev ? { ...prev, formStatus: "SUBMITTED_TO_MOSPI_REVIEWER" } : null
+          prev ? { ...prev, formStatus: targetStatus } : null
         );
         onSubmissionSuccess?.();
       } else {
@@ -803,9 +841,19 @@ export function MinistrySubmissionReviewWrapper({
   }, [categories, activeCategory]);
 
   // Scroll to top when switching category (tabs or Next/Previous) for MOSPI reviewer/approver
+  // Scroll to top when switching category (tabs or Next/Previous). Layout uses <main> as scroll container.
   const setActiveCategoryWithScroll = useCallback((category: string) => {
     setActiveCategory(category);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const main = document.querySelector("main");
+        if (main) {
+          main.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    });
   }, []);
 
   // Fetch progress when Submit button is visible so we can enable/disable it (only when all accepted and not with MoSPI)
@@ -3144,12 +3192,19 @@ export function MinistrySubmissionReviewWrapper({
             categories.findIndex((c) => Object.keys(c)[0] === activeCategory) >=
               categories.length - 1 ? (
               <Button
-                onClick={handleSubmitClick}
+                onClick={
+                  isMospiReviewerSendingToApprover && onSendToApproverOpen
+                    ? onSendToApproverOpen
+                    : handleSubmitClick
+                }
                 disabled={
                   submittingToMospi ||
+                  externalSendToApproverDisabled ||
                   !submitButtonProgress ||
                   submitButtonProgress.percentage !== 100 ||
-                  !ALLOWED_FORM_STATUS_FOR_SUBMIT.includes(submitButtonProgress.formStatus)
+                  (isMospiReviewerSendingToApprover
+                    ? false
+                    : !ALLOWED_FORM_STATUS_FOR_SUBMIT.includes(submitButtonProgress.formStatus))
                 }
                 className="w-full sm:w-auto gap-2 shrink-0 text-white px-6 bg-[#1e3a8a] hover:bg-[#1e3299] disabled:opacity-60"
               >
@@ -3158,6 +3213,8 @@ export function MinistrySubmissionReviewWrapper({
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     Submitting...
                   </>
+                ) : isMospiReviewerSendingToApprover ? (
+                  "Send to Approver"
                 ) : (
                   "Submit"
                 )}
@@ -3254,21 +3311,29 @@ export function MinistrySubmissionReviewWrapper({
         sectionId={selectedSectionForComment?.sectionId}
       />
 
-      {/* Confirmation Dialog for Submit to MoSPI - same as MinistryApprovedIndicatorsCard */}
+      {/* Confirmation Dialog for Submit to MoSPI - Ministry: Submit to Reviewer; MOSPI Reviewer: Send to Approver */}
       <Dialog
         open={showSubmitConfirmModal}
         onOpenChange={(open) => !submittingToMospi && setShowSubmitConfirmModal(open)}
       >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Submit to MoSPI Reviewer</DialogTitle>
+            <DialogTitle>
+              {submitProgressData?.targetStatus === "SUBMITTED_TO_MOSPI_APPROVER"
+                ? "Send to Approver"
+                : "Submit to MoSPI Reviewer"}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to submit this form to the MoSPI Reviewer for review?
+              {submitProgressData?.targetStatus === "SUBMITTED_TO_MOSPI_APPROVER"
+                ? "Are you sure you want to send this form to the MoSPI Approver?"
+                : "Are you sure you want to submit this form to the MoSPI Reviewer for review?"}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
-              On clicking submit button, the form will be forwarded for review to MoSPI Reviewer. Once submitted, you will not be able to make changes until it is reviewed.
+              {submitProgressData?.targetStatus === "SUBMITTED_TO_MOSPI_APPROVER"
+                ? "On clicking the button, the form will be forwarded to the MoSPI Approver. Once sent, you will not be able to make changes until the Approver reviews it."
+                : "On clicking submit button, the form will be forwarded for review to MoSPI Reviewer. Once submitted, you will not be able to make changes until it is reviewed."}
             </p>
           </div>
           <DialogFooter>
@@ -3289,6 +3354,8 @@ export function MinistrySubmissionReviewWrapper({
                   <RefreshCw className="w-4 h-4 animate-spin" />
                   <span>Submitting...</span>
                 </div>
+              ) : submitProgressData?.targetStatus === "SUBMITTED_TO_MOSPI_APPROVER" ? (
+                "Send to Approver"
               ) : (
                 "Submit"
               )}

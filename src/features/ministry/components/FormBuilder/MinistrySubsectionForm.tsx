@@ -12,7 +12,7 @@ import { validateField } from "@/features/ministry/utils/validation";
 import { capitalizeInitials } from "@/features/ministry/utils/textUtils";
 import { MinistryFileTable } from "@/features/ministry/components/FileTable/MinistryFileTable";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
-import { formatYearAsFinancialYear, getCurrentFinancialYear } from "@/utils/dateUtils";
+import { formatYearAsFinancialYear, getCurrentFinancialYear, formatTrainingPeriodForDisplay } from "@/utils/dateUtils";
 import type { SubsectionRendererProps } from "./types";
 
 interface MinistrySubsectionFormProps extends SubsectionRendererProps {}
@@ -627,7 +627,7 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
                       type="text"
                       value={
                         isMMYYFormat
-                          ? fieldValue || ""
+                          ? formatTrainingPeriodForDisplay(fieldValue)
                           : formatDateForDisplay(fieldValue)
                       }
                       readOnly={true}
