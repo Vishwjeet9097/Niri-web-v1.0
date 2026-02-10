@@ -110,6 +110,31 @@ export function MinistrySubmissionWrapper() {
     formData,
   });
 
+  // Scroll to top when moving to next/previous step (create flow).
+  // Layout uses <main className="overflow-y-auto"> as scroll container, not window.
+  const scrollMainToTop = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const main = document.querySelector("main");
+        if (main) {
+          main.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    });
+  }, []);
+
+  const handleNextWithScroll = useCallback(() => {
+    handleNext();
+    scrollMainToTop();
+  }, [handleNext, scrollMainToTop]);
+
+  const handlePreviousWithScroll = useCallback(() => {
+    handlePrevious();
+    scrollMainToTop();
+  }, [handlePrevious, scrollMainToTop]);
+
   // Auto-calculation hook (validation for 1.1; 2.5 and 3.3 still do value + validation in effect)
   useMinistryAutoCalculation({
     formData,
@@ -200,7 +225,7 @@ export function MinistrySubmissionWrapper() {
             submissionId={submissionId}
             currentStep={currentStep}
             onStepClick={handleStepClick}
-            onPrevious={handlePrevious}
+            onPrevious={handlePreviousWithScroll}
           />
         ) : currentCategoryIndicator ? (() => {
           const categoryName = Object.keys(currentCategoryIndicator)[0];
@@ -245,8 +270,8 @@ export function MinistrySubmissionWrapper() {
               {/* Navigation Buttons */}
               <div className="mt-6 sm:mt-8">
                 <FormActions
-                  onPrevious={isFirstStep ? undefined : handlePrevious}
-                  onNext={handleNext}
+                  onPrevious={isFirstStep ? undefined : handlePreviousWithScroll}
+                  onNext={handleNextWithScroll}
                   isFirstStep={isFirstStep}
                   isLastStep={isLastStep}
                   nextLabel={isLastStep ? "Review & Submit" : "Next"}

@@ -796,6 +796,12 @@ export function MinistrySubmissionReviewWrapper({
     }
   }, [categories, activeCategory]);
 
+  // Scroll to top when switching category (tabs or Next/Previous) for MOSPI reviewer/approver
+  const setActiveCategoryWithScroll = useCallback((category: string) => {
+    setActiveCategory(category);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   // Fetch progress when Submit button is visible so we can enable/disable it (only when all accepted and not with MoSPI)
   const isOnLastCategory =
     categories.length === 1 ||
@@ -2393,7 +2399,7 @@ export function MinistrySubmissionReviewWrapper({
         {categories.length > 0 && (
           <Tabs
             value={activeCategory}
-            onValueChange={setActiveCategory}
+            onValueChange={setActiveCategoryWithScroll}
             className="w-full"
           >
             <TabsList className="mb-6 bg-transparent border-0 rounded-none p-0 h-auto gap-2 flex flex-row overflow-x-auto pb-2 w-auto">
@@ -3037,7 +3043,7 @@ export function MinistrySubmissionReviewWrapper({
                 const idx = currentIndex < 0 ? 0 : currentIndex;
                 if (idx > 0) {
                   const prevCategoryName = Object.keys(categories[idx - 1])[0];
-                  setActiveCategory(prevCategoryName);
+                  setActiveCategoryWithScroll(prevCategoryName);
                 }
               }}
               disabled={
@@ -3079,7 +3085,7 @@ export function MinistrySubmissionReviewWrapper({
                   const idx = currentIndex < 0 ? 0 : currentIndex;
                   if (idx < categories.length - 1) {
                     const nextCategoryName = Object.keys(categories[idx + 1])[0];
-                    setActiveCategory(nextCategoryName);
+                    setActiveCategoryWithScroll(nextCategoryName);
                   }
                 }}
                 className="w-full sm:w-auto gap-2"
