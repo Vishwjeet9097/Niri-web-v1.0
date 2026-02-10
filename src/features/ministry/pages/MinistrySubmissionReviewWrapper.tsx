@@ -66,6 +66,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface MinistrySubmissionReviewWrapperProps {
   submission: any; // The submission object from the review page
@@ -1474,6 +1480,41 @@ export function MinistrySubmissionReviewWrapper({
     return valuesMatch;
   }, [formData, assignedIndicators, user?.role]);
 
+  // Value from Indicator 1.1 (Capital allocation) that 3.3 must match - for tooltip display
+  const valueFrom1_1For3_3Tooltip = useMemo((): string | null => {
+    if (user?.role !== "MINISTRY_APPROVER" || !assignedIndicators.length) return null;
+    let linkedIndicatorDataValue: string | number | null = null;
+    for (const indicatorObj of assignedIndicators) {
+      const indicatorName = Object.keys(indicatorObj)[0];
+      if (
+        indicatorName === "PPP Development" ||
+        indicatorName.toLowerCase().includes("ppp development")
+      ) {
+        const sections = indicatorObj[indicatorName];
+        for (const sectionObj of sections) {
+          const sectionName = Object.keys(sectionObj)[0];
+          const section = sectionObj[sectionName];
+          if (section.sNo === "3.3") {
+            const linkedData = (section as any).linkedIndicatorData;
+            if (linkedData !== undefined && linkedData !== null) {
+              if (typeof linkedData === "object" && !Array.isArray(linkedData) && linkedData.data !== undefined) {
+                linkedIndicatorDataValue = linkedData.data;
+              } else {
+                linkedIndicatorDataValue = linkedData;
+              }
+            }
+            break;
+          }
+        }
+        if (linkedIndicatorDataValue !== null) break;
+      }
+    }
+    if (linkedIndicatorDataValue === null || linkedIndicatorDataValue === "") return null;
+    const str = String(linkedIndicatorDataValue).trim();
+    if (!str) return null;
+    return str;
+  }, [assignedIndicators, user?.role]);
+
   // Helper function to check if section is accepted
   const isSectionAccepted = (sectionId: string): boolean => {
     const status = getSectionStatus(sectionId);
@@ -1485,6 +1526,32 @@ export function MinistrySubmissionReviewWrapper({
       upperStatus === "ACCEPTED"
     );
   };
+
+  // Accept disabled for 3.3: when 1.1 is not accepted first, OR when values don't match
+  const isAcceptDisabledFor3_3 = useMemo(
+    () =>
+      user?.role === "MINISTRY_APPROVER" &&
+      (!isSectionAccepted("1.1") || !canAcceptIndicator3_3),
+    [user?.role, canAcceptIndicator3_3, assignedIndicators, formData]
+  );
+
+  // Tooltip when Accept is disabled: one message at a time (1.1 not accepted first, else value mismatch)
+  const getAcceptDisabledTooltip = useCallback(
+    (sectionId: string): string | null => {
+      if (user?.role !== "MINISTRY_APPROVER" || sectionId !== "3.3") return null;
+      if (!isSectionAccepted("1.1")) {
+        return "Indicator 1.1 must be accepted before you can accept Indicator 3.3.";
+      }
+      if (!canAcceptIndicator3_3) {
+        const valueText = valueFrom1_1For3_3Tooltip != null
+          ? ` The value from Indicator 1.1 (Capital allocation) is: ${valueFrom1_1For3_3Tooltip}.`
+          : "";
+        return `Total Budgeted capital allocation (Indicator 3.3) must match the Capital allocation value from Indicator 1.1.${valueText}`;
+      }
+      return null;
+    },
+    [user?.role, canAcceptIndicator3_3, valueFrom1_1For3_3Tooltip, assignedIndicators, formData]
+  );
 
   // Helper function to get submissionIndicatorId from sectionId
   const getSubmissionIndicatorId = useCallback(
@@ -2664,20 +2731,38 @@ export function MinistrySubmissionReviewWrapper({
                                   {/* Accept button - only show when not editing and not already accepted */}
                                   {!isSectionEditing &&
                                     !isAccepted &&
-                                    !isAcceptedByMospi && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                                        onClick={() => handleAccept(sectionId)}
-                                        disabled={
-                                          sectionId === "3.3" && !canAcceptIndicator3_3
-                                        }
-                                      >
-                                        <CheckCircle className="w-4 h-4" />
-                                        Accept
-                                      </Button>
-                                    )}
+                                    !isAcceptedByMospi && (() => {
+                                      const acceptDisabled = sectionId === "3.3" && isAcceptDisabledFor3_3;
+                                      const tooltipMsg = getAcceptDisabledTooltip(sectionId);
+                                      const acceptButton = (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                          onClick={() => handleAccept(sectionId)}
+                                          disabled={acceptDisabled}
+                                        >
+                                          <CheckCircle className="w-4 h-4" />
+                                          Accept
+                                        </Button>
+                                      );
+                                      return acceptDisabled && tooltipMsg ? (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="inline-block">
+                                                {acceptButton}
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-xs">
+                                              {tooltipMsg}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : (
+                                        acceptButton
+                                      );
+                                    })()}
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -2726,8 +2811,9 @@ export function MinistrySubmissionReviewWrapper({
                                 }
                                 disabled={false}
                                 acceptDisabled={
-                                  sectionId === "3.3" && !canAcceptIndicator3_3
+                                  sectionId === "3.3" && isAcceptDisabledFor3_3
                                 }
+                                acceptDisabledTooltip={getAcceptDisabledTooltip(sectionId) ?? undefined}
                                 onSendBack={
                                   !isSectionEditing &&
                                   !isAccepted &&

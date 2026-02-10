@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   CheckCircle,
   Clock,
   Send,
@@ -26,6 +32,7 @@ interface MinistryApproverActionButtonsProps {
   formStatus?: string; // Form/submission level status
   disabled?: boolean;
   acceptDisabled?: boolean; // Separate prop to disable only the Accept button
+  acceptDisabledTooltip?: string; // Tooltip shown when Accept is disabled (e.g. 3.3 / 1.1 validation)
   isSaving?: boolean;
 }
 
@@ -46,6 +53,7 @@ export function MinistryApproverActionButtons({
   formStatus,
   disabled = false,
   acceptDisabled = false, // Separate prop to disable only the Accept button
+  acceptDisabledTooltip,
   isSaving = false,
 }: MinistryApproverActionButtonsProps) {
   // Log component render and props for debugging
@@ -223,25 +231,42 @@ export function MinistryApproverActionButtons({
               Send Back
             </Button>
           )}
-          {/* Accept Button - matches State approver styling */}
-          {onAccept && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => {
-                console.log(
-                  "[MinistryApproverActionButtons] Accept clicked for section:",
-                  sectionId
-                );
-                onAccept();
-              }}
-              disabled={disabled || acceptDisabled}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-          )}
+          {/* Accept Button - matches State approver styling; show tooltip when disabled */}
+          {onAccept && (() => {
+            const isAcceptDisabled = disabled || acceptDisabled;
+            const acceptButton = (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => {
+                  console.log(
+                    "[MinistryApproverActionButtons] Accept clicked for section:",
+                    sectionId
+                  );
+                  onAccept();
+                }}
+                disabled={isAcceptDisabled}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Accept
+              </Button>
+            );
+            return isAcceptDisabled && acceptDisabledTooltip ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block">{acceptButton}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    {acceptDisabledTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              acceptButton
+            );
+          })()}
         </>
       )}
       <Button
