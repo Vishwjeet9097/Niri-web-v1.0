@@ -272,7 +272,7 @@ export function MinistrySubmissionWrapper() {
               <strong>
                 {pendingIndicator?.code} - {pendingIndicator?.title}
               </strong>
-              ? This will send the data for review. Once submitted, you cannot modify this indicator.
+              ? Once submitted, you cannot modify this indicator.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

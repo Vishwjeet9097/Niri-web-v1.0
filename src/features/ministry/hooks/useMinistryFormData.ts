@@ -92,7 +92,7 @@ export function useMinistryFormData({
     if (clearFieldError) {
       clearFieldError(path);
     }
-  }, [clearFieldError]);
+  }, [setFormData, clearFieldError]);
 
   // Sync formData to persistence with debouncing
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
