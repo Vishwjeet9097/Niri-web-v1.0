@@ -1963,7 +1963,7 @@ export const InfraEnablersStep = () => {
                     : availableIndicators,
                 isNodalOfficer,
                 isStateApprover,
-                countCompletedByStatus: false, // Progress by filled data, not submission status
+                countCompletedByStatus: true, 
               }
             );
             console.log("Infra Enablers Progress Debug:", {
