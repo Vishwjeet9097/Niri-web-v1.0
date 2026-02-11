@@ -29,6 +29,14 @@ export const STATUS_MAP: Record<string, StatusInfo> = {
     borderClass: "border-l-blue-400",
     bgClass: "bg-blue-50",
   },
+  SUBMITTED_TO_MINISTRY: {
+    label: "Under Review",
+    description: "Waiting for Ministry Approver Review",
+    className: "bg-blue-100 text-blue-800 border-blue-200",
+    badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+    borderClass: "border-l-blue-400",
+    bgClass: "bg-blue-50",
+  },
   SUBMITTED_TO_MOSPI_REVIEWER: {
     label: "Under Review",
     description: "Waiting for Mospi Reviewer Review",
@@ -147,6 +155,20 @@ export const getRoleSpecificStatusInfo = (
     };
   }
 
+  // For MINISTRY_APPROVER viewing SUBMITTED_TO_STATE or SUBMITTED_TO_MINISTRY
+  // (Ministry dashboard maps SUBMITTED_TO_MINISTRY to SUBMITTED_TO_STATE for card compatibility)
+  // Show "Waiting for Ministry Approver Review" instead of "Waiting for State Approver Review"
+  if (
+    currentUserRole === "MINISTRY_APPROVER" &&
+    (status === "SUBMITTED_TO_STATE" || status === "SUBMITTED_TO_MINISTRY")
+  ) {
+    const baseInfo = getStatusInfo(status);
+    return {
+      ...baseInfo,
+      description: "Waiting for Ministry Approver Review",
+    };
+  }
+
   // Default to regular status info for all other cases
   return getStatusInfo(status);
 };
@@ -157,16 +179,18 @@ export const getRoleSpecificStatusInfo = (
  * @param currentUserRole - Current user's role (optional)
  */
 export const getStatusPills = (status: string, currentUserRole?: string) => {
-  const statusInfo = getStatusInfo(status);
+  // Use role-specific status info for correct description (e.g. Ministry vs State Approver)
+  const statusInfo = getRoleSpecificStatusInfo(status, currentUserRole);
 
   // Don't show "waiting for" message to the user who needs to take action
   if (
     status === "SUBMITTED_TO_STATE" ||
+    status === "SUBMITTED_TO_MINISTRY" ||
     status === "DRAFT" ||
     status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
     status === "SUBMITTED_TO_MOSPI_APPROVER"
   ) {
-    // Check if current user is the one who needs to take action
+    // Check if current user is the one who needs to take action (single pill for them)
     const isWaitingForCurrentUser =
       ((status === "SUBMITTED_TO_STATE" || status === "DRAFT") &&
         currentUserRole === "STATE_APPROVER") ||
@@ -174,6 +198,7 @@ export const getStatusPills = (status: string, currentUserRole?: string) => {
         currentUserRole === "MOSPI_REVIEWER") ||
       (status === "SUBMITTED_TO_MOSPI_APPROVER" &&
         currentUserRole === "MOSPI_APPROVER");
+    // Note: MINISTRY_APPROVER sees both pills with "Waiting for Ministry Approver Review"
 
     if (isWaitingForCurrentUser) {
       // Show only "Under Review" for the user who needs to take action
@@ -197,13 +222,14 @@ export const getWaitingMessage = (
   status: string,
   currentUserRole: string
 ): string => {
-  const statusInfo = getStatusInfo(status);
+  const statusInfo = getRoleSpecificStatusInfo(status, currentUserRole);
 
   switch (currentUserRole) {
     case "NODAL_OFFICER":
       return `Your submission is ${statusInfo.description.toLowerCase()}`;
     case "STATE_APPROVER":
-      // No waiting message for State Approver
+    case "MINISTRY_APPROVER":
+      // No waiting message for approvers (they are the ones who need to act)
       return "";
     case "MOSPI_REVIEWER":
       // No waiting message for Mospi Reviewer
@@ -227,6 +253,7 @@ export const shouldShowMultipleStatusPills = (
 ): boolean => {
   if (
     status === "SUBMITTED_TO_STATE" ||
+    status === "SUBMITTED_TO_MINISTRY" ||
     status === "DRAFT" ||
     status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
     status === "SUBMITTED_TO_MOSPI_APPROVER"
@@ -239,6 +266,7 @@ export const shouldShowMultipleStatusPills = (
         currentUserRole === "MOSPI_REVIEWER") ||
       (status === "SUBMITTED_TO_MOSPI_APPROVER" &&
         currentUserRole === "MOSPI_APPROVER");
+    // Note: MINISTRY_APPROVER sees multiple pills with "Waiting for Ministry Approver Review"
 
     // Show multiple pills only if it's NOT waiting for current user
     return !isWaitingForCurrentUser;
