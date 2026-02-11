@@ -197,6 +197,33 @@ export async function deleteMinistrySubmissionFile(payload: {
   }
 }
 
+/**
+ * Delete submission data rows (e.g. when removing a row from "Add more" subsections)
+ * Backend deletes all rows with the same sequence for each primaryId
+ * @param submissionIndicatorId - The submission indicator ID
+ * @param inputPrimaryId - Array of primaryIds (one per row to delete - use any field's primaryId from the row)
+ * @returns Promise with status, message, deletedCount
+ */
+export async function deleteMinistrySubmissionData(payload: {
+  submissionIndicatorId: string;
+  inputPrimaryId: string[];
+}): Promise<{ status: boolean; message: string; deletedCount?: number }> {
+  try {
+    const url = getApiUrl(`/ministry/form/submission/data`);
+
+    console.log("📤 Deleting ministry submission data rows:", payload);
+
+    const response = await apiService.delete(url, {
+      data: payload,
+      withCredentials: true,
+    });
+    return response.data?.data || response.data || response;
+  } catch (error: any) {
+    console.error("❌ Error in deleteMinistrySubmissionData:", error);
+    throw error;
+  }
+}
+
 // Helper to build full API URL
 function getApiUrl(path: string) {
   const baseUrl = config.apiBaseUrl || "";

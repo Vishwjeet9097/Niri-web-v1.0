@@ -11,6 +11,8 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import type { DynamicFormBuilderProps } from "./types";
 import { TotalNumberOfOfficersTrained } from "./CapacityBuilding/TotalNumberOfOfficersTrained";
 import { CapacityBuildingExcelUpload } from "./CapacityBuilding/CapacityBuildingExcelUpload";
+import { deleteMinistrySubmissionData } from "@/services/ministry.service";
+import { notificationService } from "@/services/notification.service";
 
 export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
   ({
@@ -83,7 +85,12 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
     );
 
     const handleSubsectionRemove = useCallback(
-      (sectionKey: string, subsectionName: string, index: number) => {
+      async (
+        sectionKey: string,
+        subsectionName: string,
+        index: number,
+        submissionIndicatorId?: string | null
+      ) => {
         console.log(
           "➖ Removing subsection:",
           sectionKey,
@@ -91,66 +98,54 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
           "at index:",
           index
         );
-        // CRITICAL: Use a function form to get the latest formData, not the stale closure value
-        // This ensures we always work with the most current state, even if multiple deletions happen quickly
-        onChange(`${sectionKey}.${subsectionName}`, (currentValue: any) => {
-          // currentValue is the current array from the latest formData state
-          // Always use currentValue directly - it's guaranteed to be the latest state
-          const currentArray = Array.isArray(currentValue) ? currentValue : [];
-          console.log(
-            "📦 Current array before removal:",
-            currentArray,
-            "length:",
-            currentArray.length
-          );
-          console.log(
-            "📦 Removing item at index:",
-            index,
-            "from array with",
-            currentArray.length,
-            "items"
-          );
 
-          // Filter out ONLY the item at the specified index
-          const newArray = currentArray.filter((_: any, i: number) => {
-            const shouldKeep = i !== index;
-            if (!shouldKeep) {
-              console.log("📦 Filtering out item at index:", i);
+        const currentArray = formData[sectionKey]?.[subsectionName] || [];
+        const itemToDelete = Array.isArray(currentArray) ? currentArray[index] : undefined;
+
+        // If row has persisted data (primaryIds), call delete API first
+        if (submissionIndicatorId && itemToDelete) {
+          const fieldPrimaryIds = (itemToDelete as any)._fieldPrimaryIds as Record<string, string> | undefined;
+          const primaryIds = fieldPrimaryIds ? Object.values(fieldPrimaryIds) : [];
+
+          // Also check for _primaryId on file fields
+          if (primaryIds.length === 0 && typeof itemToDelete === "object") {
+            for (const key of Object.keys(itemToDelete)) {
+              if (key === "id" || key === "_fieldPrimaryIds") continue;
+              const val = (itemToDelete as any)[key];
+              if (val && typeof val === "object" && (val as any)._primaryId) {
+                primaryIds.push((val as any)._primaryId);
+                break;
+              }
             }
-            return shouldKeep;
-          });
-
-          console.log(
-            "📦 New array after filter:",
-            newArray,
-            "length:",
-            newArray.length
-          );
-          console.log(
-            "📦 Expected length:",
-            currentArray.length - 1,
-            "Actual length:",
-            newArray.length
-          );
-
-          if (newArray.length !== currentArray.length - 1) {
-            console.error(
-              "❌ Array length mismatch! Expected:",
-              currentArray.length - 1,
-              "Got:",
-              newArray.length
-            );
-            console.error("❌ Current array:", currentArray);
-            console.error("❌ New array:", newArray);
-          } else {
-            console.log("✅ Array length correct after removal");
           }
 
-          return newArray;
+          if (primaryIds.length > 0) {
+            try {
+              // Backend deletes by sequence - one primaryId per row is enough (it finds sequence and deletes all fields for that row)
+              await deleteMinistrySubmissionData({
+                submissionIndicatorId,
+                inputPrimaryId: [primaryIds[0]],
+              });
+              console.log("✅ Delete API success for row primaryIds:", primaryIds);
+            } catch (err: any) {
+              console.error("❌ Delete row API failed:", err);
+              notificationService.error(
+                err?.response?.data?.message || err?.message || "Failed to delete row. Please try again.",
+                "Delete Failed"
+              );
+              return;
+            }
+          }
+        }
+
+        // CRITICAL: Use a function form to get the latest formData
+        onChange(`${sectionKey}.${subsectionName}`, (currentValue: any) => {
+          const arr = Array.isArray(currentValue) ? currentValue : [];
+          return arr.filter((_: any, i: number) => i !== index);
         });
       },
-      [onChange]
-    ); // Removed formData dependency - we use function update instead
+      [formData, onChange]
+    );
 
     const handleSubsectionFieldChange = useCallback(
       (
@@ -211,16 +206,16 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                 // Check if this specific section is in edit mode
                 const isSectionInEditMode = isSectionEditable(indicatorId);
                 // Section is disabled if: globally disabled OR section is accepted OR
-                // indicator is submitted (from submittedIndicators set - updated immediately on submit) OR
-                // indicator is submitted (SUBMITTED_TO_MINISTRY/SUBMITTED_TO_STATE from section status) OR
+                // (Nodal Officer flow only) indicator is submitted - disables Add more rows when submitted OR
+                // indicator is submitted (SUBMITTED_TO_MINISTRY/SUBMITTED_TO_STATE) - except when Ministry Approver is in edit mode on review OR
                 // (section is resubmitted AND NOT in edit mode for ministry approver) OR
                 // (for Nodal Officers: section was returned from MOSPI) OR (not in edit mode AND in review mode)
-                // Note: For MINISTRY_APPROVER, resubmitted sections should be editable when in edit mode
+                // Note: Ministry Approver can edit on review when they click "Edit" (isSectionInEditMode)
                 const isSectionDisabled =
                   disabled ||
                   isSectionAccepted ||
-                  isIndicatorSubmitted?.(indicatorId) ||
-                  isSubmittedToApprover ||
+                  (mode === "edit" && isIndicatorSubmitted?.(indicatorId)) ||
+                  (isSubmittedToApprover && !(mode === "review" && user?.role === "MINISTRY_APPROVER" && isSectionInEditMode)) ||
                   (isResubmitted && !(user?.role === "MINISTRY_APPROVER" && isSectionInEditMode)) ||
                   (user?.role === "NODAL_OFFICER" && isReturnedFromMospi) ||
                   (mode === "review" && !isSectionInEditMode);
@@ -787,7 +782,8 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                           handleSubsectionRemove(
                                             sectionKey,
                                             subsectionName,
-                                            index
+                                            index,
+                                            (section as any).submissionIndicatorId
                                           )
                                         }
                                         mode={mode}
