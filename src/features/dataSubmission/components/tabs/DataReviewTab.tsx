@@ -504,8 +504,8 @@ export const DataReviewTab = ({
       {/* Section Content */}
       {renderSectionContent()}
 
-      {/* Navigation Buttons */}
-      {availableSections.length > 1 && (
+      {/* Navigation Buttons - Show when at least one section; on last category show Submit (same as Submit Now) when handler provided, else Next */}
+      {availableSections.length >= 1 && (
         <div className="flex items-center justify-between pt-6">
           <Button
             variant="outline"

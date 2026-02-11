@@ -632,6 +632,23 @@ export const SubmissionListPage = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const isFetchingProgress = useRef(false);
+  const hasOpenedSubmitModalFromParam = useRef(false);
+
+  // When navigated from Preview with ?submitNow=true, open Submit Now modal (same flow - creates consolidated form)
+  useEffect(() => {
+    if (
+      searchParams.get("submitNow") === "true" &&
+      user?.role === "STATE_APPROVER" &&
+      !hasOpenedSubmitModalFromParam.current
+    ) {
+      hasOpenedSubmitModalFromParam.current = true;
+      setShowConfirmModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("submitNow");
+      // Keep returnToPreview, state, year for Cancel -> back to Preview
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, user?.role, setSearchParams]);
   // Use ref to access latest submissions without triggering useEffect re-runs
   const submissionsRef = useRef<any[]>([]);
 
@@ -2422,7 +2439,20 @@ export const SubmissionListPage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submittingFinal}>
+            <AlertDialogCancel
+              disabled={submittingFinal}
+              onClick={() => {
+                // When Cancel clicked and user came from Preview, navigate back to Preview
+                if (searchParams.get("returnToPreview") === "true") {
+                  const params = new URLSearchParams();
+                  const state = searchParams.get("state");
+                  const year = searchParams.get("year");
+                  if (state) params.set("state", state);
+                  if (year) params.set("year", year);
+                  navigate(`/data-submission/state-aggregate?${params.toString()}`);
+                }
+              }}
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction

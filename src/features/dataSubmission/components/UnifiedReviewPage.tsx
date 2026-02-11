@@ -701,6 +701,8 @@ export const UnifiedReviewPage = ({
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
                 onRefetch={loadSubmission}
+                onRequestFinalSubmit={onFinalSubmit}
+                isFinalSubmitDisabled={isSubmitting}
                 onRequestSendToApprover={
                   user?.role === "MOSPI_REVIEWER"
                     ? () => setSendToApproverModalOpen(true)

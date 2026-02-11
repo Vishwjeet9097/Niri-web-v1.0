@@ -1354,6 +1354,31 @@ export const StateAggregateReviewPage = () => {
     checkSubmittedStatus();
   }, [user?.role, user?.id, user?.email, effectiveState, selectedState]);
 
+  // Derive "all accepted" from the preview data (aggregateData) - this is the source of truth
+  // for what the user is viewing. stateProgress comes from a different API (state-statuses) which
+  // may not match the selected state or may be stale, causing Submit to be disabled incorrectly.
+  const allAcceptedFromPreviewData = useMemo(() => {
+    if (!aggregateData?.indicators) return false;
+    const APPROVED = new Set(["APPROVED", "ACCEPTED"]);
+    const allIndicators: AggregatedIndicator[] = [];
+    Object.values(aggregateData.indicators).forEach((arr) => {
+      if (Array.isArray(arr)) allIndicators.push(...arr);
+    });
+    // For nodal officers, only consider assigned indicators
+    const indicatorsToCheck =
+      isNodalOfficer && assignedIndicators && assignedIndicators.length > 0
+        ? allIndicators.filter((ind) =>
+            assignedIndicators.includes(ind.code?.trim() || "")
+          )
+        : allIndicators;
+    if (indicatorsToCheck.length === 0) return false;
+    const allAccepted = indicatorsToCheck.every((ind) => {
+      const status = String(ind?.status ?? "").trim().toUpperCase();
+      return APPROVED.has(status);
+    });
+    return allAccepted;
+  }, [aggregateData, isNodalOfficer, assignedIndicators]);
+
   // Handle final submit - Creates consolidated submission from aggregated formData
   const handleFinalSubmit = async () => {
     console.group(
@@ -1365,18 +1390,19 @@ export const StateAggregateReviewPage = () => {
     );
 
     try {
-      // Gate: must have progress and must be 100% approved
-      if (
-        !stateProgress ||
-        stateProgress.percentage !== 100 ||
-        stateProgress.approved !== stateProgress.total
-      ) {
+      // Gate: must have progress and must be 100% approved (from stateProgress API)
+      // OR all indicators in preview data are ACCEPTED (source of truth for what user is viewing)
+      const stateProgressOk =
+        stateProgress &&
+        stateProgress.percentage === 100 &&
+        stateProgress.approved === stateProgress.total;
+      if (!stateProgressOk && !allAcceptedFromPreviewData) {
         notificationService.warning(
           "All indicators must be approved before final submission."
         );
         console.warn(
           "❌ Submission blocked: Not all indicators approved",
-          stateProgress
+          { stateProgress, allAcceptedFromPreviewData }
         );
         setShowConfirmModal(false);
         return;
@@ -1397,24 +1423,72 @@ export const StateAggregateReviewPage = () => {
 
       setSubmittingFinal(true);
 
-      // Use the aggregated formData from the page (consolidated data)
+      // Fetch fresh data (same as Submit Now) to ensure submission works correctly
+      // Fall back to page formData if fetch fails
+      let formDataForSubmission = formData;
+      try {
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "📦 STEP 1: Fetching fresh data (same as Submit Now) for submission"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        const statusResp = await apiService.getStateIndicatorStatuses();
+        const normalizedStatus = statusResp?.data
+          ? statusResp
+          : { data: statusResp };
+        const statusData = normalizedStatus.data || {};
+        const approvedSubmissions = statusData.submissions || [];
+        const payload = await getCumulativePreview(effectiveState, {
+          year: selectedYear || undefined,
+        });
+        const data = (payload as any)?.data || payload;
+        const indicators = data?.indicators || {};
+        const apiSubmissions =
+          approvedSubmissions.length > 0
+            ? approvedSubmissions
+            : data?.submissions || (payload as any)?.submissions || [];
+
+        if (data && indicators && Object.keys(indicators).length > 0) {
+          formDataForSubmission = transformIndicatorsToFormData(
+            indicators,
+            apiSubmissions
+          );
+          console.log(
+            "✅ Using fresh transformed formData for submission (same as Submit Now)"
+          );
+        } else {
+          console.log(
+            "⚠️ Fresh fetch returned empty, using page formData as fallback"
+          );
+        }
+      } catch (fetchErr) {
+        console.warn(
+          "⚠️ Error fetching fresh data, using page formData:",
+          fetchErr
+        );
+      }
+
+      // Use formDataForSubmission for the rest of submission (same structure as Submit Now)
+      const formDataToUse = formDataForSubmission;
       console.log(
         "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log(
-        "📦 STEP 1: Using aggregated formData from State Aggregate Review"
-      );
+      console.log("📦 STEP 2: FormData for submission");
       console.log(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
       console.log(
-        "📋 Raw aggregated formData:",
-        JSON.stringify(formData, null, 2)
+        "📋 FormData categories:",
+        Object.keys(formDataToUse || {})
       );
 
       // Show breakdown by category with section details
-      Object.keys(formData).forEach((category) => {
-        const categoryData = formData[category];
+      Object.keys(formDataToUse).forEach((category) => {
+        const categoryData = formDataToUse[category];
         if (categoryData && typeof categoryData === "object") {
           const sections = Object.keys(categoryData);
           console.log(
@@ -1524,7 +1598,7 @@ export const StateAggregateReviewPage = () => {
                 if (
                   categoryData &&
                   typeof categoryData === "object" &&
-                  formData[categoryKey]
+                  formDataToUse[categoryKey]
                 ) {
                   Object.keys(categoryData).forEach((sectionKey) => {
                     const sectionData = categoryData[sectionKey];
@@ -1539,11 +1613,11 @@ export const StateAggregateReviewPage = () => {
                         .toUpperCase();
                       // Only merge ACCEPTED mospi_status
                       if (normalizedStatus === "ACCEPTED") {
-                        // Ensure the section exists in formData
-                        if (!formData[categoryKey][sectionKey]) {
-                          formData[categoryKey][sectionKey] = {};
+                        // Ensure the section exists in formDataToUse
+                        if (!formDataToUse[categoryKey][sectionKey]) {
+                          formDataToUse[categoryKey][sectionKey] = {};
                         }
-                        formData[categoryKey][sectionKey].mospi_status =
+                        formDataToUse[categoryKey][sectionKey].mospi_status =
                           mospiStatus;
                         console.log(
                           `✅ Merged mospi_status (ACCEPTED) from cleaned submission into ${categoryKey}.${sectionKey}`
@@ -1551,7 +1625,7 @@ export const StateAggregateReviewPage = () => {
                         console.log(
                           `   📋 Section data after merge:`,
                           JSON.stringify(
-                            formData[categoryKey][sectionKey],
+                            formDataToUse[categoryKey][sectionKey],
                             null,
                             2
                           )
@@ -1574,7 +1648,7 @@ export const StateAggregateReviewPage = () => {
               );
               console.log(
                 "📋 FormData after merge:",
-                JSON.stringify(formData, null, 2)
+                JSON.stringify(formDataToUse, null, 2)
               );
             } else {
               console.warn(
@@ -1614,7 +1688,7 @@ export const StateAggregateReviewPage = () => {
         : "SUBMITTED_TO_MOSPI_REVIEWER";
 
       const transformedData = transformFormDataForSubmission(
-        formData,
+        formDataToUse,
         submissionStatus
       );
 
@@ -1645,7 +1719,7 @@ export const StateAggregateReviewPage = () => {
       multipartData.append("submission", JSON.stringify(transformedData));
 
       // Append file attachments recursively
-      appendFilesRecursively(multipartData, formData);
+      appendFilesRecursively(multipartData, formDataToUse);
 
       console.log("✅ Multipart FormData prepared");
       console.log("📋 FormData entries:");
@@ -1786,7 +1860,7 @@ export const StateAggregateReviewPage = () => {
           // Create new FormData for update
           const updateFormData = new FormData();
           updateFormData.append("submission", JSON.stringify(updatePayload));
-          appendFilesRecursively(updateFormData, formData);
+          appendFilesRecursively(updateFormData, formDataToUse);
 
           response = await axios.patch(
             `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}`,
@@ -2242,14 +2316,24 @@ export const StateAggregateReviewPage = () => {
                   isNodalOfficer={isNodalOfficer}
                   onRequestFinalSubmit={
                     user?.role === "STATE_APPROVER"
-                      ? () => setShowConfirmModal(true)
+                      ? () => {
+                          // Use same flow as Submit Now - navigate to list page, modal opens there
+                          // Cancel there will navigate back to preview (handled on list page)
+                          const params = new URLSearchParams();
+                          params.set("submitNow", "true");
+                          if (selectedState) params.set("state", selectedState);
+                          if (selectedYear) params.set("year", selectedYear);
+                          params.set("returnToPreview", "true");
+                          navigate(`/data-submission/review?${params.toString()}`);
+                        }
                       : undefined
                   }
                   isFinalSubmitDisabled={
                     user?.role === "STATE_APPROVER"
-                      ? !stateProgress ||
-                        stateProgress.approved !== stateProgress.total ||
-                        stateProgress.percentage !== 100 ||
+                      ? ((!stateProgress ||
+                          stateProgress.approved !== stateProgress.total ||
+                          stateProgress.percentage !== 100) &&
+                          !allAcceptedFromPreviewData) ||
                         hasSubmittedToMospiReviewer ||
                         progressLoading ||
                         submittingFinal
