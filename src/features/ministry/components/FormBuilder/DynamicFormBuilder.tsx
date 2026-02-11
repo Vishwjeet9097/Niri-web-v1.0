@@ -198,6 +198,10 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                 const isReturnedFromMospi =
                   upperStatus === "RETURNED_FROM_MOSPI_APPROVER" ||
                   upperStatus === "RETURNED_FROM_MOSPI_APPROVER_DRAFT";
+                // Indicator is submitted - cannot add more rows when waiting for Ministry/State Approver review
+                const isSubmittedToApprover =
+                  upperStatus === "SUBMITTED_TO_MINISTRY" ||
+                  upperStatus === "SUBMITTED_TO_STATE";
                 // Indicator is considered submitted if: it's in submittedIndicators OR it's accepted OR it's resubmitted
                 const isSubmitted =
                   isIndicatorSubmitted?.(indicatorId) ||
@@ -206,13 +210,17 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                   isResubmitted;
                 // Check if this specific section is in edit mode
                 const isSectionInEditMode = isSectionEditable(indicatorId);
-                // Section is disabled if: globally disabled OR section is accepted OR 
+                // Section is disabled if: globally disabled OR section is accepted OR
+                // indicator is submitted (from submittedIndicators set - updated immediately on submit) OR
+                // indicator is submitted (SUBMITTED_TO_MINISTRY/SUBMITTED_TO_STATE from section status) OR
                 // (section is resubmitted AND NOT in edit mode for ministry approver) OR
                 // (for Nodal Officers: section was returned from MOSPI) OR (not in edit mode AND in review mode)
                 // Note: For MINISTRY_APPROVER, resubmitted sections should be editable when in edit mode
                 const isSectionDisabled =
                   disabled ||
                   isSectionAccepted ||
+                  isIndicatorSubmitted?.(indicatorId) ||
+                  isSubmittedToApprover ||
                   (isResubmitted && !(user?.role === "MINISTRY_APPROVER" && isSectionInEditMode)) ||
                   (user?.role === "NODAL_OFFICER" && isReturnedFromMospi) ||
                   (mode === "review" && !isSectionInEditMode);
@@ -414,7 +422,6 @@ export const DynamicFormBuilder: React.FC<DynamicFormBuilderProps> = React.memo(
                                   
                                   onChange(updatePath, mappedEntries);
                                 }}
-                                disabled={isSectionDisabled}
                               />
                             </div>
                           )}

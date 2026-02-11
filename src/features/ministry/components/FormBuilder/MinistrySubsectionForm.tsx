@@ -893,15 +893,16 @@ export const MinistrySubsectionForm: React.FC<MinistrySubsectionFormProps> =
               </div>
             ))}
 
-          {/* Add button - Only show when editable */}
-          {isEditable && (
+          {/* Add button - Show when in edit mode; disabled when indicator is submitted */}
+          {(mode === "edit" || isEditable) && (
             <div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleAdd}
-                className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                disabled={disabled}
+                className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 Add {subsectionName}
