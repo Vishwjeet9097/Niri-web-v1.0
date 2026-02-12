@@ -178,7 +178,7 @@ export const validatePPPDevelopment = (
             "Project name is required.";
         } else if (!hasInitialsCapital(entry.projectName)) {
           errors[`section3_3.VGFArray.${index}.projectName`] =
-            "Initial letter of each word must be capital.";
+            "First letter must be capital.";
         }
         if (!entry.sector || entry.sector.trim() === "") {
           errors[`section3_3.VGFArray.${index}.sector`] = "Sector is required.";
@@ -190,7 +190,7 @@ export const validatePPPDevelopment = (
             "Scheme should contain only letters, spaces, hyphens, and apostrophes.";
         } else if (!hasInitialsCapital(entry.scheme)) {
           errors[`section3_3.VGFArray.${index}.scheme`] =
-            "Initial letter of each word must be capital.";
+            "First letter must be capital.";
         }
         if (!entry.submissionDate || !isValidDate(entry.submissionDate)) {
           errors[`section3_3.VGFArray.${index}.submissionDate`] =
@@ -214,7 +214,7 @@ export const validatePPPDevelopment = (
             "Status should contain only letters, spaces, hyphens, and apostrophes.";
         } else if (!hasInitialsCapital(entry.statusOfProject)) {
           errors[`section3_3.VGFArray.${index}.statusOfProject`] =
-            "Initial letter of each word must be capital.";
+            "First letter must be capital.";
         }
         // Document required: either upload file or check "No Document Available"
         const hasFile =
@@ -262,7 +262,7 @@ export const validatePPPDevelopment = (
             !hasInitialsCapital(project.nameOfProject)
           ) {
             errors[`section3_4.projects.${index}.nameOfProject`] =
-              "Initial letter of each word must be capital.";
+              "First letter must be capital.";
           }
           // Validate infrastructureSector (required)
           if (

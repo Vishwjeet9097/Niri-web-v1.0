@@ -1,23 +1,20 @@
 /**
  * Text validation utilities for submission forms.
- * Used for name/project/authority fields where initial letters must be capital.
+ * Used for name/project/authority fields where the first letter must be capital.
  */
 
 /**
- * Returns true if the value is empty or if the first letter of each word is uppercase.
- * Used to enforce "Initials of text must be capital letter" for names, projects, authority, etc.
+ * Returns true if the value is empty or if the first letter of the text is uppercase.
+ * Only the first character of the string needs to be capital, not every word.
  */
 export function hasInitialsCapital(value: string): boolean {
   if (!value || typeof value !== "string") return true;
   const trimmed = value.trim();
   if (trimmed === "") return true;
-  const words = trimmed.split(/\s+/);
-  return words.every((word) => {
-    const match = word.match(/\p{L}/u);
-    if (!match) return true;
-    const firstLetter = match[0];
-    return firstLetter === firstLetter.toUpperCase();
-  });
+  const match = trimmed.match(/\p{L}/u);
+  if (!match) return true;
+  const firstLetter = match[0];
+  return firstLetter === firstLetter.toUpperCase();
 }
 
 /**

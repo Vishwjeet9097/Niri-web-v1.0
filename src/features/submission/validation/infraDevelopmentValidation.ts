@@ -301,7 +301,7 @@ export const validateInfraDevelopment = (
               !hasInitialsCapital(entry.projectName)
             ) {
               errors[`section2_4.investmentReadyArray.${index}.projectName`] =
-                "Initial letter of each word must be capital.";
+                "First letter must be capital.";
             }
             const projectSizeStr =
               entry.projectSize != null ? String(entry.projectSize) : "";
@@ -351,7 +351,7 @@ export const validateInfraDevelopment = (
           section25.assetMonetizationArray.forEach((entry, index) => {
             if (entry.projectName && entry.projectName.trim() !== "" && !hasInitialsCapital(entry.projectName)) {
               errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
-                "Initial letter of each word must be capital.";
+                "First letter must be capital.";
             }
             if (entry.location && entry.location.trim() !== "") {
               if (!isAlphabetsOnly(entry.location)) {
@@ -359,7 +359,7 @@ export const validateInfraDevelopment = (
                   "Location should contain only letters, spaces, hyphens, and apostrophes.";
               } else if (!hasInitialsCapital(entry.location)) {
                 errors[`section2_5.assetMonetizationArray.${index}.location`] =
-                  "Initial letter of each word must be capital.";
+                  "First letter must be capital.";
               }
             }
             if (entry.ownership && entry.ownership.length > 100) {
