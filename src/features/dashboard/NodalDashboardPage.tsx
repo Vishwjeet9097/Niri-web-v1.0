@@ -75,7 +75,7 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
           submissionId,
           error: error.message,
         },
-      }
+      },
     );
   }
 };
@@ -83,7 +83,7 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
 // Helper function to handle edit submission for edit page
 const handleEditSubmissionForEdit = async (
   submissionId: string,
-  navigate: any
+  navigate: any,
 ) => {
   try {
     // Debug logging removed for performance
@@ -100,7 +100,7 @@ const handleEditSubmissionForEdit = async (
     console.error("❌ Failed to open edit page:", error);
     notificationService.error(
       error.message || "Failed to open edit page",
-      "Error"
+      "Error",
     );
   }
 };
@@ -177,7 +177,7 @@ export function NodalDashboardPage() {
           {
             title: "Approved",
             value: `${approvedIndicators}/${totalIndicators || 0}`,
-            subtitle: "This fiscal year",
+            subtitle: "This Financial year",
             icon: CheckCircle,
             variant: "green" as const,
             description:
@@ -223,9 +223,8 @@ export function NodalDashboardPage() {
             // Calculate progress based on sections with ACCEPTED status
             // Count all sections in formData and count how many have status "ACCEPTED"
             // Progress = (sections with ACCEPTED status / total sections) × 100%
-            const progressData = await calculateProgressByAcceptedStatus(
-              fdWithSubmittedBy
-            );
+            const progressData =
+              await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
             const progress = progressData.progress;
 
             let nextStep = "Complete submission";
@@ -248,8 +247,8 @@ export function NodalDashboardPage() {
               sub.review_comments && sub.review_comments.length > 0
                 ? sub.review_comments[sub.review_comments.length - 1]?.text
                 : sub.reviewComments && sub.reviewComments.length > 0
-                ? sub.reviewComments[sub.reviewComments.length - 1]?.text
-                : undefined;
+                  ? sub.reviewComments[sub.reviewComments.length - 1]?.text
+                  : undefined;
 
             return {
               id: sub.id,
@@ -276,14 +275,14 @@ export function NodalDashboardPage() {
               createdAt: sub.createdAt,
               currentOwnerRole: sub.current_owner_role ?? sub.currentOwnerRole,
             };
-          })
+          }),
         );
         setSubmissions(processedSubmissions);
       } catch (error: any) {
         console.error("Failed to load nodal dashboard data:", error);
         notificationService.error(
           error.message || "Failed to load dashboard data",
-          "Dashboard Error"
+          "Dashboard Error",
         );
         setKpis([]);
         setSubmissions([]);
