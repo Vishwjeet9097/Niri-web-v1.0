@@ -2995,6 +2995,19 @@ class ApiService implements HttpClient {
     }
   }
 
+  /**
+   * Admin-only: Change a user's password without requiring current password.
+   */
+  async changePasswordByAdmin(
+    userId: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    const response = await this.axios.patch(`/users/${userId}/change-password`, {
+      newPassword,
+    });
+    return response.data || { message: "Password changed successfully" };
+  }
+
   async deactivateUser(id: string): Promise<{ message: string }> {
     try {
       const response = await this.axios.delete(`/users/${id}`);

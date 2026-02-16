@@ -27,6 +27,7 @@ import { apiService } from "@/services/api.service";
 import { assignIndicatorsToNodal } from "@/services/ministry.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import { ChangePasswordModal } from "./components/ChangePasswordModal";
 import { statesService } from "@/services/states.service";
 import {
   useIndicatorAccess,
@@ -46,6 +47,8 @@ export function UserManagementPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<NodalOfficer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+  const [officerToChangePassword, setOfficerToChangePassword] = useState<NodalOfficer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [states, setStates] = useState<any[]>([]);
   const [allIndicators, setAllIndicators] = useState<any[]>([]);
@@ -724,6 +727,18 @@ export function UserManagementPage() {
   const handleEditUser = (officer: NodalOfficer) => {
     setEditingOfficer(officer);
     setShowForm(true);
+  };
+
+  const handleChangePassword = (officer: NodalOfficer) => {
+    setOfficerToChangePassword(officer);
+    setChangePasswordModalOpen(true);
+  };
+
+  const handleConfirmChangePassword = async (userId: string, newPassword: string) => {
+    await apiService.changePasswordByAdmin(userId, newPassword);
+    toast({ title: "Success", description: "Password changed successfully" });
+    setChangePasswordModalOpen(false);
+    setOfficerToChangePassword(null);
   };
 
   // Ministry Approver: Assign indicator handler
@@ -2209,6 +2224,7 @@ export function UserManagementPage() {
         officers={paginatedOfficers}
         onEdit={user?.role === "MINISTRY_APPROVER" ? handleMinistryEditUser : handleEditUser}
         onDelete={handleDeleteUser}
+        onChangePassword={user?.role === "ADMIN" ? handleChangePassword : undefined}
         onAssignIndicator={user?.role === "MINISTRY_APPROVER" ? handleMinisterAssignIndicator : handleAssignIndicator}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
@@ -2337,6 +2353,17 @@ export function UserManagementPage() {
           </div>
         )}
       </ConfirmationModal>
+
+      {/* Change Password Modal (Admin only) */}
+      <ChangePasswordModal
+        open={changePasswordModalOpen}
+        onClose={() => {
+          setChangePasswordModalOpen(false);
+          setOfficerToChangePassword(null);
+        }}
+        officer={officerToChangePassword}
+        onSubmit={handleConfirmChangePassword}
+      />
     </div>
 
     {/* Indicator Summary Section - Outside User Management Component */}
