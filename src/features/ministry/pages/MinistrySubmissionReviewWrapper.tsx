@@ -1036,6 +1036,18 @@ export function MinistrySubmissionReviewWrapper({
           sectionId,
         );
       }
+      // If MINISTRY_APPROVER is saving/editing a section that was RESUBMITTED, preserve RESUBMITTED
+      // (otherwise it would change to SUBMITTED_TO_MINISTRY and incorrectly show Send Back again)
+      else if (
+        user?.role === "MINISTRY_APPROVER" &&
+        sectionStatus?.toUpperCase() === "RESUBMITTED"
+      ) {
+        statusToSet = "RESUBMITTED";
+        console.log(
+          "[MinistrySubmissionReviewWrapper] MINISTRY_APPROVER preserving RESUBMITTED status when editing section:",
+          sectionId,
+        );
+      }
 
       // Execute all pending file deletions before saving
       // This ensures all deletions made during editing are executed when Save is clicked
