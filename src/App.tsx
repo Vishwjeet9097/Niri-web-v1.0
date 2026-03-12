@@ -53,7 +53,7 @@ const App = () => (
         <Sonner />
         <TestDataIndicator />
         <AuthProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={import.meta.env.VITE_BASE_PATH?.replace(/\/$/, '') || undefined}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route
