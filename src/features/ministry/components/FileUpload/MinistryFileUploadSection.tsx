@@ -18,6 +18,21 @@ import { notificationService } from "@/services/notification.service";
 import { deleteMinistrySubmissionFile } from "@/services/ministry.service";
 import type { FileUpload } from "@/features/submission/types";
 
+function readAccessTokenFromLocalStorage(): string | undefined {
+  try {
+    const raw = localStorage.getItem("niri_app:auth_tokens");
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw);
+    return parsed?.value?.accessToken;
+  } catch {
+    return undefined;
+  }
+}
+
+function isProbablyUrl(s: string): boolean {
+  return typeof s === "string" && /^https?:\/\//i.test(s);
+}
+
 interface MinistryFileUploadSectionProps {
   label: string;
   description?: string;
@@ -413,12 +428,25 @@ export const MinistryFileUploadSection = ({
           throw new Error("No URL returned from server");
         }
 
-        onChange({
-          ...value,
-          fileUrl: url,
-        });
-
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (isProbablyUrl(url)) {
+          // S3: full signed URL, open directly
+          onChange({ ...value, fileUrl: url });
+          window.open(url, "_blank", "noopener,noreferrer");
+        } else {
+          // NFS/local: backend returns relative path - fetch via download endpoint and open blob
+          const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+          const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encodeURIComponent(value.filePath)}`;
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) throw new Error("No auth token available. Please login.");
+          const res = await fetch(downloadUrl, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!res.ok) throw new Error(`Failed to fetch file: ${res.statusText}`);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+        }
         return;
       } catch (error) {
         notificationService.error(
@@ -472,18 +500,38 @@ export const MinistryFileUploadSection = ({
           throw new Error("No URL returned from server");
         }
 
-        onChange({
-          ...value,
-          fileUrl: url,
-        });
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = value.originalName || value.fileName || "file";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        if (isProbablyUrl(url)) {
+          // S3: full signed URL, use directly
+          onChange({ ...value, fileUrl: url });
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = value.originalName || value.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          // NFS/local: fetch via download endpoint and trigger download
+          const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+          const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encodeURIComponent(value.filePath)}`;
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) throw new Error("No auth token available. Please login.");
+          const res = await fetch(downloadUrl, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!res.ok) throw new Error(`Failed to fetch file: ${res.statusText}`);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = value.originalName || value.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        }
         return;
       } catch (error) {
         notificationService.error(

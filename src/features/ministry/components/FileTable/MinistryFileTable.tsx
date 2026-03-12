@@ -63,6 +63,13 @@ function isProbablyUrl(s: string): boolean {
   return typeof s === 'string' && /^https?:\/\//i.test(s);
 }
 
+// Safely get file path - never use File object (would become [object File])
+function getFilePath(file: FileLike): string | null {
+  if (typeof file.filePath === 'string' && file.filePath.trim()) return file.filePath;
+  if (typeof file.file === 'string' && file.file.trim() && !file.file.startsWith('[object')) return file.file;
+  return null;
+}
+
 // Fetch signed URL from backend
 async function fetchSignedUrl(
   filePath: string,
@@ -132,10 +139,9 @@ export const MinistryFileTable: React.FC<MinistryFileTableProps> = ({
       return;
     }
 
-    // If file has filePath, check if it's already a full URL
-    if (file.filePath || file.file) {
-      const filePath = String(file.filePath || file.file);
-      
+    // If file has filePath (must be string - never use File object)
+    const filePath = getFilePath(file);
+    if (filePath) {
       // Check if filePath is already a full URL (starts with http:// or https://)
       if (isProbablyUrl(filePath)) {
         // It's already a full signed S3 URL, open it directly
@@ -143,16 +149,28 @@ export const MinistryFileTable: React.FC<MinistryFileTableProps> = ({
         return;
       }
       
-      // filePath is a relative path, need to fetch signed URL from backend
+      // filePath is a relative path - fetch signed URL (S3) or use download endpoint (NFS/local)
       setFileLoading((s) => ({ ...s, [fileKey]: true }));
       try {
         const signed = await fetchSignedUrl(filePath);
-        if (!isProbablyUrl(signed)) {
-          console.error('Signed URL is not a valid URL:', signed);
-          alert('Received invalid file URL. Check console/network tab.');
-          return;
+        if (isProbablyUrl(signed)) {
+          // S3: full signed URL, open directly
+          window.open(signed, '_blank', 'noopener,noreferrer');
+        } else {
+          // NFS/local: backend returns relative path - fetch via download endpoint and open blob
+          const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+          const downloadUrl = `${base.replace(/\/$/, '')}/file/download/${encodeURIComponent(filePath)}`;
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) throw new Error('No auth token available. Please login.');
+          const response = await fetch(downloadUrl, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank', 'noopener,noreferrer');
         }
-        window.open(signed, '_blank', 'noopener,noreferrer');
       } catch (err: any) {
         console.error(err);
         alert('Failed to open file: ' + (err.message || err));
@@ -182,14 +200,13 @@ export const MinistryFileTable: React.FC<MinistryFileTableProps> = ({
       return;
     }
 
-    // If file has filePath, use backend download endpoint
-    if (file.filePath || file.file) {
+    // If file has filePath (must be string - never use File object)
+    const filePath = getFilePath(file);
+    if (filePath) {
       setFileLoading((s) => ({ ...s, [fileKey]: true }));
       let blobUrl: string | null = null;
       try {
-        // In review mode, file.file is a string path from backend
-        const filePath = file.filePath || file.file;
-        const encoded = encodeURIComponent(String(filePath));
+        const encoded = encodeURIComponent(filePath);
         const base =
           import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
         const downloadUrl = `${base.replace(/\/$/, '')}/file/download/${encoded}`;
@@ -263,8 +280,7 @@ export const MinistryFileTable: React.FC<MinistryFileTableProps> = ({
             const fileKey = `${fileKeyPrefix}-${index}`;
             const isLoading = !!fileLoading[fileKey];
             const hasFileAccess = !!(
-              file.filePath ||
-              file.file ||
+              getFilePath(file) ||
               file.fileUrl
             );
             const displayName = extractOriginalName(

@@ -446,12 +446,24 @@ export function MinistryDocumentsTab({
     setLoading((s) => ({ ...s, [docKey]: true }));
     try {
       const signed = await fetchSignedUrl(doc.filePath, token ?? undefined);
-      if (!isProbablyUrl(signed)) {
-        console.error("Signed URL is not a valid URL:", signed);
-        alert("Received invalid file URL. Check console/network tab.");
-        return;
+      if (isProbablyUrl(signed)) {
+        // S3: full signed URL, open directly
+        window.open(signed, "_blank", "noopener,noreferrer");
+      } else {
+        // NFS/local: backend returns relative path - fetch via download endpoint and open blob
+        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encodeURIComponent(doc.filePath)}`;
+        const accessToken = token ?? readAccessTokenFromLocalStorage();
+        if (!accessToken) throw new Error("No auth token available. Please login.");
+        const response = await fetch(downloadUrl, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
       }
-      window.open(signed, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       console.error(err);
       alert("Failed to open file: " + (err.message || err));
