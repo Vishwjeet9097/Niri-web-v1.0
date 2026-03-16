@@ -214,6 +214,25 @@ export const validateInfraDevelopment = (
             "At least one entry is required when specialized entity is available.";
         } else {
           section22.specializedEntityArray.forEach((entry, index) => {
+            // Entity name is required when "yes" is selected
+            if (!entry.entityName || entry.entityName.trim() === "") {
+              errors[`section2_2.specializedEntityArray.${index}.entityName`] =
+                "Entity name is required.";
+            }
+            // Year of notification is required and must be a valid year (YYYY)
+            if (
+              !entry.notificationYear ||
+              entry.notificationYear.trim() === ""
+            ) {
+              errors[
+                `section2_2.specializedEntityArray.${index}.notificationYear`
+              ] = "Year of notification is required.";
+            } else if (!isValidYear(entry.notificationYear)) {
+              errors[
+                `section2_2.specializedEntityArray.${index}.notificationYear`
+              ] =
+                "Enter a valid year of notification (e.g., 2024).";
+            }
             // Skip file validation if "No document available" is selected
             if (!entry.noDocumentAvailable && !hasRequiredFile(entry.files)) {
               errors[`section2_2.specializedEntityArray.${index}.files`] =

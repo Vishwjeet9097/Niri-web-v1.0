@@ -782,7 +782,8 @@ export const InfraDevelopmentStep = () => {
           specializedEntityArray: [
             {
               id: Date.now().toString(),
-              sector: "",
+              entityName: "",
+              notificationYear: "",
               files: [],
             },
           ],
@@ -906,10 +907,16 @@ export const InfraDevelopmentStep = () => {
           ? "Overarching"
           : "";
 
-      // For section2_2, don't include sector/policy fields
+      // For section2_2, include entity name and year of notification
       const newEntry =
         section === "section2_2"
-          ? { id: crypto.randomUUID(), files: [], noDocumentAvailable: false }
+          ? {
+              id: crypto.randomUUID(),
+              entityName: "",
+              notificationYear: "",
+              files: [],
+              noDocumentAvailable: false,
+            }
           : {
               id: crypto.randomUUID(),
               sector: sectorValue,
@@ -960,7 +967,14 @@ export const InfraDevelopmentStep = () => {
               },
             ]
           : section === "section2_2" && arr.length === 0
-          ? [{ id: crypto.randomUUID(), files: [] }]
+          ? [
+              {
+                id: crypto.randomUUID(),
+                entityName: "",
+                notificationYear: "",
+                files: [],
+              },
+            ]
           : arr;
       return {
         ...prev,
@@ -975,7 +989,12 @@ export const InfraDevelopmentStep = () => {
   const updateEntry = (
     section: "section2_1" | "section2_2" | "section2_3",
     id: string,
-    field: "sector" | "files" | "policyName" | "notificationYear",
+    field:
+      | "sector"
+      | "files"
+      | "policyName"
+      | "notificationYear"
+      | "entityName",
     value: any
   ) => {
     // Don't allow sector updates for section2_2
@@ -3352,12 +3371,79 @@ export const InfraDevelopmentStep = () => {
                       )
                         ? formData.section2_2.specializedEntityArray
                         : []
-                      ).map((entry) => (
-                        <div key={entry.id} className="mb-2 relative">
-                          <div className="flex flex-col gap-4 max-w-[70%]">
-                            <div className="flex-1 w-full">
-                              <FileUploadSection
-                                label="Upload File"
+                      ).map((entry) => {
+                        const entryIndex =
+                          formData.section2_2.specializedEntityArray.findIndex(
+                            (e) => e.id === entry.id
+                          );
+                        return (
+                          <div key={entry.id} className="mb-2 relative">
+                            <div className="flex flex-col gap-4 max-w-[70%]">
+                              <div className="flex flex-col md:flex-row gap-4 w-full">
+                                <div className="flex-1">
+                                  <Label>
+                                    Entity Name{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={entry.entityName || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.2")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_2",
+                                        entry.id,
+                                        "entityName",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.2")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_2.specializedEntityArray.${entryIndex}.entityName`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_2.specializedEntityArray.${entryIndex}.entityName`
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <Label>
+                                    Year of Notification{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="YYYY"
+                                    value={entry.notificationYear || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.2")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_2",
+                                        entry.id,
+                                        "notificationYear",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.2")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_2.specializedEntityArray.${entryIndex}.notificationYear`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_2.specializedEntityArray.${entryIndex}.notificationYear`
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex-1 w-full">
+                                <FileUploadSection
+                                  label="Upload File"
                                 value={entry.files?.[0] || null}
                                 onChange={(file) => {
                                   showErrorsIfNeeded();
@@ -3453,7 +3539,8 @@ export const InfraDevelopmentStep = () => {
                             </Button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
 
                       {renderFieldError("section2_2.specializedEntityArray")}
 
@@ -3518,6 +3605,12 @@ export const InfraDevelopmentStep = () => {
                           <thead>
                             <tr className="bg-[#DDE3F9]">
                               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                Entity Name
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Year of Notification
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
                                 Uploaded File
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3539,6 +3632,12 @@ export const InfraDevelopmentStep = () => {
                               if (!file) {
                                 return (
                                   <tr key={entry.id} className="bg-white">
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {entry.entityName || "-"}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {entry.notificationYear || "-"}
+                                    </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       No file uploaded
                                     </td>
@@ -3597,6 +3696,12 @@ export const InfraDevelopmentStep = () => {
 
                               return (
                                 <tr key={entry.id} className="bg-white">
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.entityName || "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.notificationYear || "-"}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {displayName}
                                   </td>

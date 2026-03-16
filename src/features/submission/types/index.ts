@@ -100,6 +100,8 @@ export interface InfraDevelopmentData {
   section2_2: {
     specializedEntityArray: Array<{
       id: string;
+      entityName?: string;
+      notificationYear?: string;
       files: FileUpload[];
       noDocumentAvailable?: boolean;
     }>;

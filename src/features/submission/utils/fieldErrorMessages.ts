@@ -74,6 +74,10 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // Section 2.2
   "section2_2.specializedEntityArray":
     "At least one specialized entity entry is required.",
+  "section2_2.specializedEntityArray.entityName":
+    "Entity name is required.",
+  "section2_2.specializedEntityArray.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
   "section2_2.specializedEntityArray.files": "Upload evidence is required.",
 
   // Section 2.3
