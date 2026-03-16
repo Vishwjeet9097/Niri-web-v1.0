@@ -67,6 +67,8 @@ const defaultData: PPPDevelopmentData = {
   },
   section3_2: {
     available: "",
+    policyName: "",
+    notificationYear: "",
     file: null,
     noDocumentAvailable: false,
   },
@@ -2225,96 +2227,124 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_2.available")}
                   </div>
 
-                  {/* If Yes → show File Upload */}
+                  {/* If Yes → show Policy Name, Year of Notification, and File Upload */}
                   {formData.section3_2.available === "yes" && (
-                    <div className="flex flex-col gap-2">
-                      {(() => {
-                        console.log(
-                          "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_2",
-                          {
-                            noDocumentAvailable:
-                              formData.section3_2.noDocumentAvailable,
-                            hasFile: !!formData.section3_2.file,
-                            available: formData.section3_2.available,
+                    <div className="flex flex-col gap-4 max-w-[70%]">
+                      <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Policy Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            value={formData.section3_2.policyName || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.2")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_2: {
+                                  ...prev.section3_2,
+                                  policyName: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.2")}
+                            className={cn(
+                              getInputValidationClass("section3_2.policyName"),
+                              isIndicatorSubmitted("3.2") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_2.policyName")}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Year of Notification{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="YYYY"
+                            value={formData.section3_2.notificationYear || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.2")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_2: {
+                                  ...prev.section3_2,
+                                  notificationYear: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.2")}
+                            className={cn(
+                              getInputValidationClass(
+                                "section3_2.notificationYear"
+                              ),
+                              isIndicatorSubmitted("3.2") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_2.notificationYear")}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <FileUploadSection
+                          label="Upload File"
+                          value={formData.section3_2.file ?? null}
+                          onChange={(fileUpload) => {
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_2: {
+                                ...prev.section3_2,
+                                file: fileUpload,
+                                noDocumentAvailable: fileUpload
+                                  ? false
+                                  : prev.section3_2.noDocumentAvailable,
+                              },
+                            }));
+                          }}
+                          submissionId={submissionId}
+                          required
+                          disabled={isIndicatorSubmitted("3.2")}
+                          deferFileDeletion={editingIndicators.has("3.2")}
+                          showNoDocumentOption={true}
+                          noDocumentAvailable={
+                            formData.section3_2.noDocumentAvailable || false
                           }
-                        );
-                        return null;
-                      })()}
-                      <FileUploadSection
-                        label="Upload File"
-                        value={formData.section3_2.file ?? null}
-                        onChange={(fileUpload) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section3_2: {
-                              ...prev.section3_2,
-                              file: fileUpload,
-                              // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                              // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                              noDocumentAvailable: fileUpload
-                                ? false
-                                : prev.section3_2.noDocumentAvailable,
-                            },
-                          }));
-                        }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("3.2")}
-                        deferFileDeletion={editingIndicators.has("3.2")}
-                        showNoDocumentOption={true}
-                        noDocumentAvailable={
-                          formData.section3_2.noDocumentAvailable || false
-                        }
-                        onNoDocumentChange={(noDocument) => {
-                          console.log(
-                            "📝 PPPDevelopmentStep: section3_2 onNoDocumentChange called",
-                            {
-                              noDocument,
-                              currentValue:
-                                formData.section3_2.noDocumentAvailable,
-                            }
-                          );
-                          showErrorsIfNeeded();
-                          setFormData((prev) => {
-                            const newData = {
+                          onNoDocumentChange={(noDocument) => {
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
                               ...prev,
                               section3_2: {
                                 ...prev.section3_2,
                                 noDocumentAvailable: noDocument,
                                 file: noDocument ? null : prev.section3_2.file,
                               },
-                            };
-                            console.log(
-                              "📝 PPPDevelopmentStep: section3_2 state updated",
-                              {
-                                newValue:
-                                  newData.section3_2.noDocumentAvailable,
-                                prevValue: prev.section3_2.noDocumentAvailable,
-                              }
-                            );
-                            return newData;
-                          });
-                        }}
-                        className={getInputValidationClass("section3_2.file")}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Upload notification or mandate
-                      </p>
-                      {renderFieldError("section3_2.file")}
+                            }));
+                          }}
+                          className={getInputValidationClass("section3_2.file")}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Upload notification or mandate
+                        </p>
+                        {renderFieldError("section3_2.file")}
+                      </div>
                     </div>
                   )}
 
-                  {/* If No → show Comment */}
+                  {/* If No → show Comment (optional) */}
                   {formData.section3_2.available === "no" && (
                     <div className="flex flex-col gap-2">
-                      <Label>
-                        Comments (Reason)
-                        <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         type="text"
-                        placeholder="Enter reason or comment"
+                        placeholder="Enter reason or comment (optional)"
                         value={formData.section3_2.comment || ""}
                         onChange={(e) => {
                           showErrorsIfNeeded();

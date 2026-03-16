@@ -160,6 +160,8 @@ export interface PPPDevelopmentData {
   };
   section3_2: {
     available: "yes" | "no" | "";
+    policyName?: string;
+    notificationYear?: string;
     file: FileUpload | null;
     comment?: string;
     noDocumentAvailable?: boolean;

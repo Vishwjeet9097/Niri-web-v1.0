@@ -123,8 +123,10 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
 
   // Section 3.2
   "section3_2.available": "Please select Yes or No.",
+  "section3_2.policyName": "Policy name is required.",
+  "section3_2.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
   "section3_2.file": "Upload notification is required.",
-  "section3_2.comment": "Comment (reason) is required.",
 
   // Section 3.3
   "section3_3.available":

@@ -154,6 +154,20 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_2.available"] = "Please select Yes or No.";
     } else if (section32.available === "yes") {
+      // Policy name and year of notification are required when "yes" is selected
+      if (!section32.policyName || section32.policyName.trim() === "") {
+        errors["section3_2.policyName"] = "Policy name is required.";
+      }
+      if (
+        !section32.notificationYear ||
+        section32.notificationYear.trim() === ""
+      ) {
+        errors["section3_2.notificationYear"] =
+          "Year of notification is required.";
+      } else if (!isValidYear(section32.notificationYear)) {
+        errors["section3_2.notificationYear"] =
+          "Enter a valid year of notification (e.g., 2024).";
+      }
       // Skip file validation if "No document available" is selected
       if (!section32.noDocumentAvailable) {
         if (!hasRequiredFile(section32.file)) {
@@ -166,11 +180,8 @@ export const validatePPPDevelopment = (
           errors["section3_2.file"] = "Only PDF files are allowed.";
         }
       }
-    } else if (section32.available === "no") {
-      if (!section32.comment || section32.comment.trim() === "") {
-        errors["section3_2.comment"] = "Comment (reason) is required.";
-      }
     }
+    // When "no", reason/comment is non-mandatory (no validation)
   }
 
   // Section 3.3 - Proposals under VGF/IIPDF (Yes/No: Yes = proposals; No = comment)
