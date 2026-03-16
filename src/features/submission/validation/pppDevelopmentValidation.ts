@@ -58,6 +58,12 @@ const hasRequiredFile = (file: FileUpload | null | undefined): boolean => {
   return !!(file.file || file.fileName || file.filePath);
 };
 
+const isValidYear = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.toString().trim();
+  return /^\d{4}$/.test(normalized);
+};
+
 const isValidDate = (value: string): boolean => {
   if (!value || value.trim() === "") return false;
   try {
@@ -104,6 +110,20 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_1.available"] = "Please select Yes or No.";
     } else if (section31.available === "yes") {
+      // Policy name and year of notification are required when "yes" is selected
+      if (!section31.policyName || section31.policyName.trim() === "") {
+        errors["section3_1.policyName"] = "Policy name is required.";
+      }
+      if (
+        !section31.notificationYear ||
+        section31.notificationYear.trim() === ""
+      ) {
+        errors["section3_1.notificationYear"] =
+          "Year of notification is required.";
+      } else if (!isValidYear(section31.notificationYear)) {
+        errors["section3_1.notificationYear"] =
+          "Enter a valid year of notification (e.g., 2024).";
+      }
       // Skip file validation if "No document available" is selected
       if (!section31.noDocumentAvailable) {
         if (!hasRequiredFile(section31.file)) {

@@ -60,6 +60,8 @@ import {
 const defaultData: PPPDevelopmentData = {
   section3_1: {
     available: "",
+    policyName: "",
+    notificationYear: "",
     file: null,
     noDocumentAvailable: false,
   },
@@ -1935,22 +1937,73 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_1.available")}
                   </div>
 
-                  {/* If Yes → show File Upload */}
+                  {/* If Yes → show Policy Name, Year of Notification, and File Upload */}
                   {formData.section3_1.available === "yes" && (
-                    <div className="flex flex-col gap-2">
-                      {(() => {
-                        console.log(
-                          "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_1",
-                          {
-                            noDocumentAvailable:
-                              formData.section3_1.noDocumentAvailable,
-                            hasFile: !!formData.section3_1.file,
-                            available: formData.section3_1.available,
-                          }
-                        );
-                        return null;
-                      })()}
-                      <FileUploadSection
+                    <div className="flex flex-col gap-4 max-w-[70%]">
+                      <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Policy Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            value={formData.section3_1.policyName || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.1")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_1: {
+                                  ...prev.section3_1,
+                                  policyName: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.1")}
+                            className={cn(
+                              getInputValidationClass("section3_1.policyName"),
+                              isIndicatorSubmitted("3.1") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_1.policyName")}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Year of Notification{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="YYYY"
+                            value={formData.section3_1.notificationYear || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.1")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_1: {
+                                  ...prev.section3_1,
+                                  notificationYear: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.1")}
+                            className={cn(
+                              getInputValidationClass(
+                                "section3_1.notificationYear"
+                              ),
+                              isIndicatorSubmitted("3.1") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_1.notificationYear")}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <FileUploadSection
                         label="Upload File"
                         value={formData.section3_1.file ?? null}
                         onChange={(fileUpload) => {
@@ -2008,10 +2061,11 @@ export const PPPDevelopmentStep = () => {
                         }}
                         className={getInputValidationClass("section3_1.file")}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Upload copy of Act/Policy
-                      </p>
-                      {renderFieldError("section3_1.file")}
+                        <p className="text-xs text-muted-foreground">
+                          Upload copy of Act/Policy
+                        </p>
+                        {renderFieldError("section3_1.file")}
+                      </div>
                     </div>
                   )}
 

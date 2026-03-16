@@ -152,6 +152,8 @@ export interface InfraDevelopmentData {
 export interface PPPDevelopmentData {
   section3_1: {
     available: "yes" | "no" | "";
+    policyName?: string;
+    notificationYear?: string;
     file: FileUpload | null;
     comment?: string;
     noDocumentAvailable?: boolean;
