@@ -84,6 +84,9 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section2_3.hasInfraDevelopmentPlan": "Please select Yes or No.",
   "section2_3.infraDevelopmentArray":
     "At least one development plan entry is required.",
+  "section2_3.infraDevelopmentArray.planName": "Plan name is required.",
+  "section2_3.infraDevelopmentArray.planDuration":
+    "Plan duration is required.",
   "section2_3.infraDevelopmentArray.sector": "Sector is required.",
   "section2_3.infraDevelopmentArray.files": "Upload plan is required.",
   "section2_3.comment": "Comment (reason) is required.",

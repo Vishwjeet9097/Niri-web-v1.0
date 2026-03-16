@@ -282,6 +282,15 @@ export const validateInfraDevelopment = (
               "At least one entry is required when plan is available.";
           } else {
             section23.infraDevelopmentArray.forEach((entry, index) => {
+            // Plan name and duration are mandatory when plan is available
+            if (!entry.planName || entry.planName.trim() === "") {
+              errors[`section2_3.infraDevelopmentArray.${index}.planName`] =
+                "Plan name is required.";
+            }
+            if (!entry.planDuration || entry.planDuration.trim() === "") {
+              errors[`section2_3.infraDevelopmentArray.${index}.planDuration`] =
+                "Plan duration is required.";
+            }
               if (!entry.sector || entry.sector.trim() === "") {
                 errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
                   "Sector is required.";

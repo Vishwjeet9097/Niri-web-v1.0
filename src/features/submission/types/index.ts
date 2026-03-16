@@ -112,6 +112,8 @@ export interface InfraDevelopmentData {
     infraDevelopmentArray: Array<{
       id: string;
       sector: string;
+      planName?: string;
+      planDuration?: string;
       files: FileUpload[];
       comment?: string;
       noDocumentAvailable?: boolean;
