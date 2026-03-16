@@ -310,6 +310,31 @@ export const validateInfraFinancing = (
           "Total Number of ULBs must be at least 1.";
       }
 
+      // Cross-indicator consistency: Total Number of ULBs in 1.4 must equal Total Number of ULBs in 1.3
+      const section13 = data.section1_3;
+      if (section13 != null) {
+        const totalULBs13 = section13.totalULBs as
+          | number
+          | string
+          | undefined
+          | null;
+        const num13 =
+          totalULBs13 !== undefined &&
+          totalULBs13 !== null &&
+          totalULBs13 !== ""
+            ? Number(totalULBs13)
+            : NaN;
+        const num14 = !isEmpty ? Number(totalULBsVal) : NaN;
+        if (
+          !Number.isNaN(num13) &&
+          !Number.isNaN(num14) &&
+          num13 !== num14
+        ) {
+          errors["section1_4.totalULBs"] =
+            "Total Number of ULBs in indicator 1.4 must match Total Number of ULBs in indicator 1.3.";
+        }
+      }
+
       if (section14.bondList && Array.isArray(section14.bondList)) {
         section14.bondList.forEach((bond, index) => {
           const basePath = `section1_4.bondList.${index}`;
