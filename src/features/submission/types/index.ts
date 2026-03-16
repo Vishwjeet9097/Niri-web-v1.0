@@ -179,6 +179,8 @@ export interface PPPDevelopmentData {
       totalProjectCost?: string;
       statusOfProject?: string;
       file: FileUpload | null;
+      /** Optional link or text proof (e.g., PPP India portal) when upload not provided */
+      proofLinkOrText?: string;
       marksObtained?: number;
       noDocumentAvailable?: boolean;
     }>;

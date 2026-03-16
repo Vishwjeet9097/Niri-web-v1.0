@@ -143,6 +143,8 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section3_3.VGFArray.statusOfProject": "Status of Project is required.",
   "section3_3.VGFArray.submissionDate":
     "Submission date is required (DD-MM-YYYY format).",
+  "section3_3.VGFArray.file":
+    "Either upload a file, select No document available, or provide link/text proof (e.g., PPP India portal).",
 
   // Section 3.4
   "section3_4.projects": "At least one project is required.",

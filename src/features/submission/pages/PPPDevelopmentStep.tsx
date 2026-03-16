@@ -31,6 +31,16 @@ import {
   PROJECT_STATUS_OPTIONS,
   SUBMISSION_STEPS,
 } from "../constants/steps";
+
+// Scheme dropdown options for 3.3 VGF/IIPDF proposals
+const VGF_SCHEME_OPTIONS = [
+  "DEA's VGF",
+  "DEA's IIPDF scheme",
+  "State-specific VGF scheme",
+  "State-specific IIPDF Scheme",
+  "Ministry VGF",
+] as const;
+
 import { withFullForm } from "../constants/abbreviations";
 import type { PPPDevelopmentData, FileUpload } from "../types";
 import { FileUploadSection } from "../components/FileUploadSection";
@@ -197,6 +207,7 @@ export const PPPDevelopmentStep = () => {
             ? (data.section3_3 as any).VGFArray.map((entry: any) => ({
                 ...entry,
                 file: typeof entry.file !== "undefined" ? entry.file : null,
+                proofLinkOrText: entry.proofLinkOrText ?? "",
               }))
             : defaultData.section3_3.VGFArray,
         status: (data.section3_3 as any)?.status,
@@ -739,6 +750,7 @@ export const PPPDevelopmentStep = () => {
             totalProjectCost: "",
             statusOfProject: "",
             file: null,
+            proofLinkOrText: "",
             noDocumentAvailable: false,
           },
         ],
@@ -784,7 +796,8 @@ export const PPPDevelopmentStep = () => {
       | "submissionDate"
       | "totalProjectCost"
       | "statusOfProject"
-      | "file",
+      | "file"
+      | "proofLinkOrText",
     value: string | FileUpload | null
   ) => {
     setFormData((prev) => ({
@@ -2611,13 +2624,11 @@ export const PPPDevelopmentStep = () => {
                               <SelectValue placeholder="Select scheme" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="IIPDF">{withFullForm("IIPDF")}</SelectItem>
-                              <SelectItem value="Central VGF">
-                                Central {withFullForm("VGF")}
-                              </SelectItem>
-                              <SelectItem value="State VGF">
-                                State {withFullForm("VGF")}
-                              </SelectItem>
+                              {VGF_SCHEME_OPTIONS.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {opt}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           {renderFieldError(
@@ -2750,16 +2761,48 @@ export const PPPDevelopmentStep = () => {
                           )}
                         </div>
                       </div>
-                      {/* Row 3: File Upload with Delete button */}
-                      <div className="flex items-end gap-4">
+                      {/* Row 3: Link Proof (one column width, above Upload) */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                        <div>
+                          <Label className="block mb-2">
+                            Link Proof
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Paste link or enter text proof (e.g., PPP India portal)"
+                            value={entry.proofLinkOrText || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.3")) return;
+                              showErrorsIfNeeded();
+                              updateProject(
+                                entry.id,
+                                "proofLinkOrText",
+                                e.target.value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.proofLinkOrText`
+                              ),
+                              isIndicatorSubmitted("3.3") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.proofLinkOrText`
+                          )}
+                        </div>
+                      </div>
+                      {/* Row 4: Upload File + Delete button on same line */}
+                      <div className="flex items-end justify-between gap-4 mb-4">
                         <div className="flex-1">
                           <FileUploadSection
-                            label="Upload File"
+                            label="Upload File (optional)"
                             value={entry.file ?? null}
                             onChange={(fileUpload) => {
                               showErrorsIfNeeded();
                               updateProject(entry.id, "file", fileUpload);
-                              // Clear noDocumentAvailable when file is uploaded
                               if (fileUpload) {
                                 setFormData((prev) => ({
                                   ...prev,
@@ -2804,8 +2847,11 @@ export const PPPDevelopmentStep = () => {
                                 },
                               }));
                             }}
-                            required={true}
+                            required={false}
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Upload optional; link/text proof above also accepted
+                          </p>
                           {renderFieldError(`section3_3.VGFArray.${idx}.file`)}
                         </div>
                         <Button
@@ -2815,7 +2861,7 @@ export const PPPDevelopmentStep = () => {
                           onClick={() => removeProject(entry.id)}
                           disabled={isIndicatorSubmitted("3.3")}
                           aria-label="Remove"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-5 h-5" />
                         </Button>
@@ -2866,6 +2912,9 @@ export const PPPDevelopmentStep = () => {
                               Submission Date
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
+                              Link Proof
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               File Uploaded
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2909,6 +2958,11 @@ export const PPPDevelopmentStep = () => {
                                           new Date(entry.submissionDate),
                                           "dd-MM-yyyy"
                                         )
+                                      : "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.proofLinkOrText && entry.proofLinkOrText.trim()
+                                      ? entry.proofLinkOrText
                                       : "-"}
                                   </td>
                                   <td className="py-3 px-4 text-sm">

@@ -247,13 +247,16 @@ export const validatePPPDevelopment = (
           errors[`section3_3.VGFArray.${index}.statusOfProject`] =
             "First letter must be capital.";
         }
-        // Document required: either upload file or check "No Document Available"
+        // Proof required: either upload file, "No Document Available", or link/text proof
         const hasFile =
           entry.file && (entry.file.fileName || (entry.file as FileUpload).file);
         const noDocumentAvailable = entry.noDocumentAvailable === true;
-        if (!hasFile && !noDocumentAvailable) {
+        const hasProofLinkOrText =
+          entry.proofLinkOrText != null &&
+          String(entry.proofLinkOrText).trim() !== "";
+        if (!hasFile && !noDocumentAvailable && !hasProofLinkOrText) {
           errors[`section3_3.VGFArray.${index}.file`] =
-            "Upload file is required.";
+            "Either upload a file, select No document available, or provide link/text proof (e.g., PPP India portal).";
         }
       });
     }
