@@ -90,6 +90,8 @@ export interface InfraDevelopmentData {
     infraActArray: Array<{
       id: string;
       sector: string;
+      policyName?: string;
+      notificationYear?: string;
       files: FileUpload[];
       noDocumentAvailable?: boolean;
     }>;

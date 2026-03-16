@@ -148,6 +148,8 @@ function safeInfraDevelopmentFormData(
               {
                 id: Math.random().toString(36).substr(2, 9),
                 sector: "",
+                policyName: "",
+                notificationYear: "",
                 files: [],
               },
             ]
@@ -904,13 +906,15 @@ export const InfraDevelopmentStep = () => {
           ? "Overarching"
           : "";
 
-      // For section2_2, don't include sector field
+      // For section2_2, don't include sector/policy fields
       const newEntry =
         section === "section2_2"
           ? { id: crypto.randomUUID(), files: [], noDocumentAvailable: false }
           : {
               id: crypto.randomUUID(),
               sector: sectorValue,
+              policyName: "",
+              notificationYear: "",
               files: [],
               noDocumentAvailable: false,
             };
@@ -946,7 +950,15 @@ export const InfraDevelopmentStep = () => {
       // Always keep at least one entry for section2_1
       const newArr =
         section === "section2_1" && arr.length === 0
-          ? [{ id: crypto.randomUUID(), sector: "", files: [] }]
+          ? [
+              {
+                id: crypto.randomUUID(),
+                sector: "",
+                policyName: "",
+                notificationYear: "",
+                files: [],
+              },
+            ]
           : section === "section2_2" && arr.length === 0
           ? [{ id: crypto.randomUUID(), files: [] }]
           : arr;
@@ -963,7 +975,7 @@ export const InfraDevelopmentStep = () => {
   const updateEntry = (
     section: "section2_1" | "section2_2" | "section2_3",
     id: string,
-    field: "sector" | "files",
+    field: "sector" | "files" | "policyName" | "notificationYear",
     value: any
   ) => {
     // Don't allow sector updates for section2_2
@@ -2640,9 +2652,75 @@ export const InfraDevelopmentStep = () => {
                             );
                           }, 0);
                         }
+                        const entryIndex =
+                          formData.section2_1.infraActArray.findIndex(
+                            (e) => e.id === entry.id
+                          );
                         return (
                           <div key={entry.id} className=" mb-2 relative">
                             <div className="flex flex-col gap-4 max-w-[70%]">
+                              <div className="flex flex-col md:flex-row gap-4 w-full">
+                                <div className="flex-1">
+                                  <Label>
+                                    Policy Name{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={entry.policyName || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.1")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_1",
+                                        entry.id,
+                                        "policyName",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.1")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_1.infraActArray.${entryIndex}.policyName`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_1.infraActArray.${entryIndex}.policyName`
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <Label>
+                                    Year of Notification{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="YYYY"
+                                    value={entry.notificationYear || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.1")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_1",
+                                        entry.id,
+                                        "notificationYear",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.1")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_1.infraActArray.${entryIndex}.notificationYear`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_1.infraActArray.${entryIndex}.notificationYear`
+                                  )}
+                                </div>
+                              </div>
                               <div className="flex-1 w-full">
                                 <FileUploadSection
                                   label="Upload File"
@@ -2942,16 +3020,30 @@ export const InfraDevelopmentStep = () => {
                                   Sector
                                 </th>
                               )}
-                              <th
-                                className={`py-3 px-4 text-left ${
-                                  formData.section2_1.hasOverarchingPolicy ===
-                                  "yes"
-                                    ? "rounded-tl-xl"
-                                    : ""
-                                } text-sm font-normal`}
-                              >
-                                Uploaded File
-                              </th>
+                              {/* When \"yes\", show Policy Name and Year columns before file columns */}
+                              {formData.section2_1.hasOverarchingPolicy ===
+                                "yes" && (
+                                <>
+                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                    Policy Name
+                                  </th>
+                                  <th className="py-3 px-4 text-left text-sm font-normal">
+                                    Year of Notification
+                                  </th>
+                                </>
+                              )}
+                              {formData.section2_1.hasOverarchingPolicy !==
+                                "yes" && (
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Uploaded File
+                                </th>
+                              )}
+                              {formData.section2_1.hasOverarchingPolicy ===
+                                "yes" && (
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Uploaded File
+                                </th>
+                              )}
                               <th className="py-3 px-4 text-left text-sm font-normal">
                                 File Size
                               </th>
@@ -2975,6 +3067,17 @@ export const InfraDevelopmentStep = () => {
                                       <td className="py-3 px-4 text-sm font-normal">
                                         {entry.sector}
                                       </td>
+                                    )}
+                                    {formData.section2_1.hasOverarchingPolicy ===
+                                      "yes" && (
+                                      <>
+                                        <td className="py-3 px-4 text-sm font-normal">
+                                          {entry.policyName || "-"}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-normal">
+                                          {entry.notificationYear || "-"}
+                                        </td>
+                                      </>
                                     )}
                                     <td className="py-3 px-4 text-sm font-normal">
                                       No file uploaded
@@ -3051,6 +3154,17 @@ export const InfraDevelopmentStep = () => {
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {entry.sector}
                                     </td>
+                                  )}
+                                  {formData.section2_1.hasOverarchingPolicy ===
+                                    "yes" && (
+                                    <>
+                                      <td className="py-3 px-4 text-sm font-normal">
+                                        {entry.policyName || "-"}
+                                      </td>
+                                      <td className="py-3 px-4 text-sm font-normal">
+                                        {entry.notificationYear || "-"}
+                                      </td>
+                                    </>
                                   )}
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {displayName}

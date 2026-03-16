@@ -67,6 +67,9 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "At least one infrastructure act/policy entry is required.",
   "section2_1.infraActArray.sector": "Sector is required.",
   "section2_1.infraActArray.files": "Upload file is required.",
+  "section2_1.infraActArray.policyName": "Policy name is required.",
+  "section2_1.infraActArray.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
 
   // Section 2.2
   "section2_2.specializedEntityArray":
