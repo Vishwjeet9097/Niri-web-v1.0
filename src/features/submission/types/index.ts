@@ -229,6 +229,8 @@ export interface InfraEnablersData {
   };
   section4_3: {
     adopted: "yes" | "no" | "";
+    adrName?: string;
+    notificationYear?: string;
     file: FileUpload | null;
     noDocumentAvailable?: boolean;
     // Calculation fields

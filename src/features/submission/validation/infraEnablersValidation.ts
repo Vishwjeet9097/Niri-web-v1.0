@@ -160,6 +160,18 @@ export const validateInfraEnablers = (
     ) {
       errors["section4_3.adopted"] = "Please select Yes or No.";
     } else if (section44.adopted === "yes") {
+      // ADR Name is required
+      if (!section44.adrName || section44.adrName.trim() === "") {
+        errors["section4_3.adrName"] = "ADR Name is required.";
+      }
+      // Year of Notification is required
+      if (
+        !section44.notificationYear ||
+        section44.notificationYear.trim() === ""
+      ) {
+        errors["section4_3.notificationYear"] =
+          "Year of Notification is required.";
+      }
       // Skip file validation if "No document available" is selected
       if (!section44.noDocumentAvailable) {
         if (!hasRequiredFile(section44.file)) {

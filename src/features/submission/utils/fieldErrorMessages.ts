@@ -172,6 +172,8 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
 
   // Section 4.3
   "section4_3.adopted": "Please select Yes or No.",
+  "section4_3.adrName": "ADR Name is required.",
+  "section4_3.notificationYear": "Year of Notification is required.",
   "section4_3.file": "Upload orders is required.",
   "section4_3.comment": "Comment (reason) is required.",
 
