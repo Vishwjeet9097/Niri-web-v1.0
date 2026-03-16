@@ -3341,10 +3341,7 @@ export const InfraFinancingStep = () => {
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
                     </div>
                     <div className="col-span-3">
-                      <Label>
-                        Credit Rating Date
-                        <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Credit Rating Date</Label>
                       <Input
                         type="date"
                         max={new Date().toISOString().split("T")[0]}

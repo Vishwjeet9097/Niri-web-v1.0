@@ -158,6 +158,7 @@ export const validateInfraFinancing = (
   // Section 1.2 validations
   if (shouldValidateSection("1.2")) {
     const section12 = data.section1_2;
+    const section11 = data.section1_1;
     if (!section12) {
       // Skip validation if section doesn't exist
     } else {
@@ -204,6 +205,22 @@ export const validateInfraFinancing = (
             "Calculated capex actuals to GSDP cannot exceed 100%.";
         }
       }
+
+      // Cross-indicator consistency: Capital Allocation in 1.2 must equal Capital Allocation in 1.1
+      if (section11 && section11.capitalAllocation) {
+        const capitalAllocation11 = parseNumber(section11.capitalAllocation);
+        const capitalAllocation12 = parseNumber(
+          section12.stateCapexUtilisation
+        );
+        if (
+          !Number.isNaN(capitalAllocation11) &&
+          !Number.isNaN(capitalAllocation12) &&
+          capitalAllocation11 !== capitalAllocation12
+        ) {
+          errors["section1_2.stateCapexUtilisation"] =
+            "Capital Allocation for FY in indicator 1.2 must match Capital Allocation in indicator 1.1.";
+        }
+      }
     }
   }
 
@@ -245,7 +262,11 @@ export const validateInfraFinancing = (
           if (!ulb.ulb) {
             errors[`${basePath}.ulb`] = "ULB is required.";
           }
-          if (!ulb.ratingDate || Number.isNaN(Date.parse(ulb.ratingDate))) {
+          // Credit Rating Date is optional; if provided, must be a valid date
+          if (
+            ulb.ratingDate &&
+            Number.isNaN(Date.parse(ulb.ratingDate as string))
+          ) {
             errors[`${basePath}.ratingDate`] = "Select a valid rating date.";
           }
           if (!ulb.rating) {
