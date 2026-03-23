@@ -18,6 +18,7 @@ import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
 import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
+import { toAppPath } from "@/config/environment";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -386,7 +387,7 @@ export const MospiApproverDashboardPage = () => {
             {/* Laptop illustration */}
             <div className="absolute right-6 top-0 hidden md:block">
               <img
-                src="/images/dashboard.png"
+                src={toAppPath("/images/dashboard.png")}
                 alt="Dashboard"
                 className="h-32 w-auto"
               />

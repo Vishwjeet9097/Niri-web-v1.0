@@ -22,6 +22,7 @@ import {
   TrendingUp,
   ArrowLeft,
 } from "lucide-react";
+import { toAppPath } from "@/config/environment";
 
 // Helper function to map backend status to frontend status
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -333,7 +334,7 @@ export function NodalDashboardPage() {
           </p>
         </div>
         <img
-          src="/images/dashboard.png"
+          src={toAppPath("/images/dashboard.png")}
           alt="Dashboard"
           className="absolute right-6 top-0"
         />

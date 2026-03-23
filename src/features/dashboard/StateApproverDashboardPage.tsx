@@ -44,6 +44,7 @@ import {
   calculateProgressByAcceptedStatus,
 } from "@/features/submission/utils/progress";
 import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
+import { toAppPath } from "@/config/environment";
 
 // Helper function to map backend status to frontend status (kept for compatibility)
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -408,7 +409,7 @@ export function StateApproverDashboardPage() {
           Review and approve infrastructure data submissions from nodal officers
         </p>
         <img
-          src="/images/dashboard.png"
+          src={toAppPath("/images/dashboard.png")}
           alt="Dashboard"
           className="absolute right-6 top-0"
         />

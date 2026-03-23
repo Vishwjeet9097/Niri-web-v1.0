@@ -8,6 +8,7 @@ import ReviewerRecentActions from "./components/reviewer/ReviewerRecentActions";
 import ReviewerQuickActions from "./components/reviewer/ReviewerQuickActions";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { toAppPath } from "@/config/environment";
 
 const ReviewerDashboardPage: React.FC = () => {
   const { hasRole } = useAuth();
@@ -195,7 +196,7 @@ const ReviewerDashboardPage: React.FC = () => {
             {/* Laptop illustration */}
             <div className="absolute right-6 top-0 hidden md:block">
               <img
-                src="/images/dashboard.png"
+                src={toAppPath("/images/dashboard.png")}
                 alt="Dashboard"
                 className="h-32 w-auto"
               />

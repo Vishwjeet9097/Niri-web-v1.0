@@ -24,6 +24,7 @@ import { NotificationCenter } from "@/features/notifications/NotificationCenter"
 import { authService } from "@/services/auth.service";
 import { notificationService } from "@/services/notification.service";
 import { MENU_CONFIG } from "@/utils/roles";
+import { toAppPath } from "@/config/environment";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   dashboard: LayoutDashboard,
@@ -89,7 +90,7 @@ export function DashboardLayout() {
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src="/images/logo.png"
+                src={toAppPath("/images/logo.png")}
                 alt="NIE-I Logo"
                 className="h-10 bg-white rounded object-contain"
               />
