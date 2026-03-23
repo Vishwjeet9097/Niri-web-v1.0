@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ErrorContext } from '@/types';
+import { toAppPath } from '@/config/environment';
 
 interface Props {
   children: ReactNode;
@@ -104,7 +105,7 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleGoHome = () => {
-    window.location.href = '/dashboard';
+    window.location.href = toAppPath('/dashboard');
   };
 
   private handleReload = () => {
