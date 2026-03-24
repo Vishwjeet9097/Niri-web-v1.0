@@ -4873,7 +4873,7 @@ export const InfraFinancingStep = () => {
                     onClick={() =>
                       handleSubmitIndicator(
                         "1.5",
-                        "Functional Financial Intermediary"
+                        "Functional Financial Intermediary For Infra Development"
                       )
                     }
                     disabled={

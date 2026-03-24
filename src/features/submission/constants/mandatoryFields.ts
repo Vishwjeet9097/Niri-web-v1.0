@@ -71,7 +71,7 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     return fields;
   },
   
-  // Section 1.5 - Functional Financial Intermediary
+  // Section 1.5 - Functional Financial Intermediary For Infra Development
   "section1_5": (data: any) => {
     const fields: string[] = ["hasIntermediary"];
     if (data?.hasIntermediary === "yes") {

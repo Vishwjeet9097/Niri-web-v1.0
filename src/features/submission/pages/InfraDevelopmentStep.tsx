@@ -2750,11 +2750,15 @@ export const InfraDevelopmentStep = () => {
                                     onChange={(e) => {
                                       if (isIndicatorSubmitted("2.1")) return;
                                       showErrorsIfNeeded();
+                                      const value = e.target.value;
+                                      if (value !== "" && !/^\d{0,4}$/.test(value)) {
+                                        return;
+                                      }
                                       updateEntry(
                                         "section2_1",
                                         entry.id,
                                         "notificationYear",
-                                        e.target.value
+                                        value
                                       );
                                     }}
                                     disabled={isIndicatorSubmitted("2.1")}
@@ -3296,8 +3300,7 @@ export const InfraDevelopmentStep = () => {
                 title={
                   <div className="flex flex-col">
                     <span className="text-base font-semibold ">
-                      <span className="text-primary">2.2 -</span> Availability
-                      of Specialized Entity{" "}
+                      <span className="text-primary">2.2 -</span> Availability of Specialised Entity for Infrastructure Development{" "}
                     </span>
                   </div>
                 }
@@ -3451,11 +3454,15 @@ export const InfraDevelopmentStep = () => {
                                     onChange={(e) => {
                                       if (isIndicatorSubmitted("2.2")) return;
                                       showErrorsIfNeeded();
+                                      const value = e.target.value;
+                                      if (value !== "" && !/^\d{0,4}$/.test(value)) {
+                                        return;
+                                      }
                                       updateEntry(
                                         "section2_2",
                                         entry.id,
                                         "notificationYear",
-                                        e.target.value
+                                        value
                                       );
                                     }}
                                     disabled={isIndicatorSubmitted("2.2")}
@@ -3974,7 +3981,7 @@ export const InfraDevelopmentStep = () => {
                                         const endYear =
                                           endPart && /^\d{4}$/.test(endPart)
                                             ? endPart
-                                            : startYear;
+                                            : "";
                                         updateEntry(
                                           "section2_3",
                                           entry.id,
@@ -4025,7 +4032,7 @@ export const InfraDevelopmentStep = () => {
                                         const startYear =
                                           startPart && /^\d{4}$/.test(startPart)
                                             ? startPart
-                                            : endYear;
+                                            : "";
                                         updateEntry(
                                           "section2_3",
                                           entry.id,

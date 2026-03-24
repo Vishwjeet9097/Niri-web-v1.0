@@ -372,7 +372,7 @@ export const EditableInfraDevelopment = ({
 
         {/* Section 2.2 */}
         <SectionCard
-          title="2.2 - Availability of Specialized Entity"
+          title="2.2 - Availability of Specialised Entity for Infrastructure Development"
           // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">

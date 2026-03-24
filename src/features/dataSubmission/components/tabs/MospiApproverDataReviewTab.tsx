@@ -59,7 +59,7 @@ const sectionData = [
       },
       {
         id: "1.5",
-        title: "Functional Financial Intermediary",
+        title: "Functional Financial Intermediary For Infra Development",
         marks: "",
         annex: ""
       }
@@ -83,7 +83,7 @@ const sectionData = [
       },
       {
         id: "2.2",
-        title: "Availability of Specialized Entity",
+        title: "Availability of Specialised Entity for Infrastructure Development",
         marks: "",
         annex: ""
       },

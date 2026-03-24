@@ -27,7 +27,7 @@ export function Section1_5_FunctionalFinancialIntermediary({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>1.5 Functional Financial Intermediary</CardTitle>
+        <CardTitle>1.5 Functional Financial Intermediary For Infra Development</CardTitle>
         <p className="text-sm text-muted-foreground">
           Number of Functional Financial Intermediaries
         </p>

@@ -85,6 +85,17 @@ const isValidYear = (value: string | undefined): boolean => {
   return /^\d{4}$/.test(normalized);
 };
 
+const isValidPlanDuration = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.toString().trim();
+  const match = normalized.match(/^(\d{4})-(\d{4})$/);
+  if (!match) return false;
+
+  const startYear = Number(match[1]);
+  const endYear = Number(match[2]);
+  return !Number.isNaN(startYear) && !Number.isNaN(endYear) && startYear <= endYear;
+};
+
 export const validateInfraDevelopment = (
   data: InfraDevelopmentData,
   options: InfraDevelopmentValidationOptions = {}
@@ -132,6 +143,12 @@ export const validateInfraDevelopment = (
             if (!entry.policyName || entry.policyName.trim() === "") {
               errors[`section2_1.infraActArray.${index}.policyName`] =
                 "Policy name is required.";
+            } else if (!isAlphabetsOnly(entry.policyName)) {
+              errors[`section2_1.infraActArray.${index}.policyName`] =
+                "Policy name should contain only letters, spaces, hyphens, and apostrophes.";
+            } else if (!hasInitialsCapital(entry.policyName)) {
+              errors[`section2_1.infraActArray.${index}.policyName`] =
+                "First letter must be capital.";
             }
             // Year of notification is mandatory and must be a valid year (YYYY)
             if (!entry.notificationYear || entry.notificationYear.trim() === "") {
@@ -218,6 +235,12 @@ export const validateInfraDevelopment = (
             if (!entry.entityName || entry.entityName.trim() === "") {
               errors[`section2_2.specializedEntityArray.${index}.entityName`] =
                 "Entity name is required.";
+            } else if (!isAlphabetsOnly(entry.entityName)) {
+              errors[`section2_2.specializedEntityArray.${index}.entityName`] =
+                "Entity name should contain only letters, spaces, hyphens, and apostrophes.";
+            } else if (!hasInitialsCapital(entry.entityName)) {
+              errors[`section2_2.specializedEntityArray.${index}.entityName`] =
+                "First letter must be capital.";
             }
             // Year of notification is required and must be a valid year (YYYY)
             if (
@@ -286,10 +309,19 @@ export const validateInfraDevelopment = (
             if (!entry.planName || entry.planName.trim() === "") {
               errors[`section2_3.infraDevelopmentArray.${index}.planName`] =
                 "Plan name is required.";
+            } else if (!isAlphabetsOnly(entry.planName)) {
+              errors[`section2_3.infraDevelopmentArray.${index}.planName`] =
+                "Plan name should contain only letters, spaces, hyphens, and apostrophes.";
+            } else if (!hasInitialsCapital(entry.planName)) {
+              errors[`section2_3.infraDevelopmentArray.${index}.planName`] =
+                "First letter must be capital.";
             }
             if (!entry.planDuration || entry.planDuration.trim() === "") {
               errors[`section2_3.infraDevelopmentArray.${index}.planDuration`] =
                 "Plan duration is required.";
+            } else if (!isValidPlanDuration(entry.planDuration)) {
+              errors[`section2_3.infraDevelopmentArray.${index}.planDuration`] =
+                "Enter a valid plan duration in YYYY-YYYY format.";
             }
               if (!entry.sector || entry.sector.trim() === "") {
                 errors[`section2_3.infraDevelopmentArray.${index}.sector`] =

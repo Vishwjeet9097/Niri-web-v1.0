@@ -95,14 +95,15 @@ export function transformFormDataToNiriSubmission(
       });
     }
 
-    // 1.5 - Functional financial intermediary
+    // 1.5 - Functional Financial Intermediary For Infra Development
     if (formData.infraFinancing.section1_5) {
       const hasFunctionalIntermediary =
         formData.infraFinancing.section1_5.length > 0;
 
       submissionData.Infrastructure_Financing.push({
         indicator_id: "1.5",
-        indicator_name: "Functional financial intermediary for infra dev",
+        indicator_name:
+          "Functional Financial Intermediary For Infra Development",
         user_fill_value_a1: hasFunctionalIntermediary ? "Yes" : "No",
         user_fill_value_a2: null,
         details: {
