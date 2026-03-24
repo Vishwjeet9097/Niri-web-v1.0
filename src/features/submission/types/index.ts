@@ -30,6 +30,7 @@ export interface InfraFinancingData {
     stateCapexUtilisation: string;
     allocationToGSDP: string;
     capexToCapexActuals: string;
+    file?: FileUpload | null;
     // Calculation fields
     percentage?: number;
     marksObtained?: number;

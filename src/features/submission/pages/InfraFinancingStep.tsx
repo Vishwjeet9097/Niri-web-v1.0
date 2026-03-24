@@ -196,6 +196,7 @@ export const InfraFinancingStep = () => {
       stateCapexUtilisation: "",
       allocationToGSDP: "",
       capexToCapexActuals: "",
+      file: null,
     },
     section1_2: {
       year: "",
@@ -227,6 +228,7 @@ export const InfraFinancingStep = () => {
       section1_1: {
         ...defaultData.section1_1,
         ...(data.section1_1 || {}),
+        file: (data.section1_1 as any)?.file || null,
         // Preserve status field
         status: (data.section1_1 as any)?.status,
       },
@@ -2512,7 +2514,6 @@ export const InfraFinancingStep = () => {
           steps={SUBMISSION_STEPS}
           currentStep={currentStep}
           onStepClick={goToStep}
-          onStepClick={goToStep}
         />
       </div>
 
@@ -2709,6 +2710,28 @@ export const InfraFinancingStep = () => {
                     )}
                   />
                   {renderFieldError("section1_1.allocationToGSDP")}
+                </div>
+                <div className="col-span-2">
+                  <FileUploadSection
+                    label="Uploading Budget Document Indicating The Allocation"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    maxSize={50}
+                    value={formData.section1_1.file || null}
+                    onChange={(fileUpload) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section1_1: {
+                          ...prev.section1_1,
+                          file: fileUpload,
+                        },
+                      }));
+                    }}
+                    submissionId={currentSubmissionId || undefined}
+                    required={false}
+                    disabled={isIndicatorSubmitted("1.1")}
+                    deferFileDeletion={editingIndicators.has("1.1")}
+                  />
                 </div>
               </div>
               <div className="mt-4 flex gap-2">

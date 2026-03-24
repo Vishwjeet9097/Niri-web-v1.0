@@ -82,6 +82,38 @@ export const FileUploadSection = ({
 
   const handleFile = async (file: File) => {
     if (disabled) return;
+
+    const isAcceptedFile = (candidate: File, acceptValue: string): boolean => {
+      const tokens = (acceptValue || "")
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (tokens.length === 0) return true;
+
+      const fileName = (candidate.name || "").toLowerCase();
+      const mimeType = (candidate.type || "").toLowerCase();
+
+      return tokens.some((token) => {
+        if (token.startsWith(".")) {
+          return fileName.endsWith(token);
+        }
+        if (token.endsWith("/*")) {
+          const prefix = token.slice(0, -1); // keep trailing slash
+          return mimeType.startsWith(prefix);
+        }
+        return mimeType === token;
+      });
+    };
+
+    if (!isAcceptedFile(file, accept)) {
+      notificationService.warning(
+        "Only the allowed file types can be uploaded.",
+        "Invalid File Type"
+      );
+      return;
+    }
+
     if (file.size > maxSize * 1024 * 1024) {
       notificationService.warning(
         `File size must be less than ${maxSize}MB`,

@@ -856,6 +856,20 @@ export const InfraEnablersStep = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Match FileUploadSection size validation behavior (50 MB default)
+    const maxFileSizeMb = 50;
+    if (file.size > maxFileSizeMb * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: `File size must be less than ${maxFileSizeMb}MB`,
+        variant: "destructive",
+      });
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
+      return;
+    }
+
     // Validate file type
     const validExtensions = [".xlsx", ".xls"];
     const fileExtension = file.name
