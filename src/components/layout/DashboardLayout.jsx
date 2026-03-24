@@ -33,7 +33,7 @@ import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 import { MENU_CONFIG } from "../../utils/roles";
-import { toAppPath } from "@/config/environment";
+import { getPublicAssetPath } from "@/config/environment";
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -215,7 +215,7 @@ export function DashboardLayout() {
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src={toAppPath("/images/logo.png")}
+                src={getPublicAssetPath("/images/logo.png")}
                 alt="NIE-I Logo"
                 className=" h-12 rounded-lg object-contain bg-white"
               />

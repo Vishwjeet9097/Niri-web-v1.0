@@ -16,3 +16,15 @@ export function toAppPath(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return config.basePath ? `${config.basePath}${p}` : p;
 }
+
+/**
+ * URLs for files in `public/` (images, logos). In dev, Vite serves `public` at the site root,
+ * so `/state/images/...` 404s while `/images/...` works. In production builds, use the base path.
+ */
+export function getPublicAssetPath(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (import.meta.env.DEV) {
+    return p;
+  }
+  return config.basePath ? `${config.basePath}${p}` : p;
+}

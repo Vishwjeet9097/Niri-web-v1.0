@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Clock, RotateCcw, Edit3, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IndicatorTooltip } from "@/components/IndicatorTooltip";
+import { getIndicatorDefinition } from "@/utils/indicatorDefinitions";
 
 interface SectionCardProps {
   title: string | ReactNode;
@@ -33,6 +34,11 @@ export const SectionCard = ({
   onCancel,
   isSaving = false,
 }: SectionCardProps) => {
+  const indicatorDefinition =
+    indicatorCode != null && indicatorCode !== ""
+      ? getIndicatorDefinition(indicatorCode)
+      : null;
+
   // Get status badge
   const getStatusBadge = () => {
     if (!indicatorStatus) return null;
@@ -169,6 +175,11 @@ export const SectionCard = ({
               </div>
             </div>
           </CardTitle>
+          {indicatorDefinition && (
+            <p className="px-6 pb-3 pt-2 text-sm text-muted-foreground font-normal leading-relaxed border-t border-[#E9EDFB] bg-[#E9EDFB]/40">
+              {indicatorDefinition}
+            </p>
+          )}
           {subtitle && (
             <p className="mt-1 text-xs text-muted-foreground font-normal px-6">
               {subtitle}
