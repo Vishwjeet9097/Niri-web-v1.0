@@ -2923,7 +2923,7 @@ export const InfraFinancingReview = ({
       "1.2": "1.2 - % Capex Utilisation",
       "1.3": "1.3 - % of Credit Rated ULBs",
       "1.4": "1.4 - % of ULBs Issuing Bonds",
-      "1.5": "1.5 - Functional Financial Intermediary",
+      "1.5": "1.5 - Functional Financial Intermediary For Infra Development",
     };
     return titles[sectionId] || sectionId;
   };
@@ -6649,8 +6649,7 @@ export const InfraFinancingReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.5 -</span> Functional
-                    Financial Intermediary{" "}
+                    <span className="text-primary">1.5 -</span> Functional Financial Intermediary For Infra Development{" "}
                   </span>
                   {renderActionButtons("1.5")}
                 </div>

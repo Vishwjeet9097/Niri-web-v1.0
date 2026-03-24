@@ -4370,7 +4370,7 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.5 -</span> Functional {withFullForm("FI")}{" "}
+                    <span className="text-primary">1.5 -</span> Functional Financial Intermediary For Infra Development{" "}
                   </span>
                 </div>
               }
