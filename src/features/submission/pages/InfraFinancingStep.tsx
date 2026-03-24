@@ -474,6 +474,7 @@ export const InfraFinancingStep = () => {
               yearEstablished: "",
               totalFunding: "",
               website: "",
+              notificationDocument: null,
             },
           ],
         },
@@ -1386,6 +1387,7 @@ export const InfraFinancingStep = () => {
       yearEstablished: "",
       totalFunding: "",
       website: "",
+      notificationDocument: null,
     };
     setFormData((prev) => ({
       ...prev,
@@ -4426,6 +4428,7 @@ export const InfraFinancingStep = () => {
                                         yearEstablished: "",
                                         totalFunding: "",
                                         website: "",
+                                        notificationDocument: null,
                                       },
                                     ]
                                   : prev.section1_5.ffiArray,
@@ -4468,7 +4471,7 @@ export const InfraFinancingStep = () => {
                     {formData.section1_5.ffiArray.map((intermediary, index) => (
                       <div
                         key={intermediary.id}
-                        className="grid grid-cols-6 gap-4"
+                        className="grid grid-cols-5 gap-4"
                       >
                         <div>
                           <Label>
@@ -4610,7 +4613,6 @@ export const InfraFinancingStep = () => {
                         <div>
                           <Label>
                             Total Funding (INR-CRORE)
-                            <span className="text-red-500">*</span>
                           </Label>
                           <Input
                             placeholder="Enter total funding in INR"
@@ -4694,7 +4696,36 @@ export const InfraFinancingStep = () => {
                             `section1_5.ffiArray.${index}.website`
                           )}
                         </div>
-                        <div className="flex items-end">
+                        <div className="col-span-4">
+                          <FileUploadSection
+                            label="Notification Document"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                            maxSize={50}
+                            value={intermediary.notificationDocument || null}
+                            onChange={(fileUpload) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? {
+                                            ...item,
+                                            notificationDocument: fileUpload,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            submissionId={currentSubmissionId || undefined}
+                            required={false}
+                            disabled={isIndicatorSubmitted("1.5")}
+                            deferFileDeletion={editingIndicators.has("1.5")}
+                          />
+                        </div>
+                        <div className="flex items-end justify-center col-span-1">
                           <Button
                             variant="outline"
                             size="icon"
@@ -4745,6 +4776,9 @@ export const InfraFinancingStep = () => {
                                 <th className="py-3 px-4 text-left text-sm font-normal">
                                   Website
                                 </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Notification Document
+                                </th>
                                 <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                                   Action
                                 </th>
@@ -4771,6 +4805,13 @@ export const InfraFinancingStep = () => {
                                     </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {intermediary.website}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.notificationDocument
+                                        ?.fileName ||
+                                        intermediary.notificationDocument
+                                          ?.originalName ||
+                                        "N/A"}
                                     </td>
                                     <td className="py-3 px-4">
                                       <button

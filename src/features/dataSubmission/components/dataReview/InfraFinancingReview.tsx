@@ -1269,6 +1269,17 @@ export const InfraFinancingReview = ({
     yearEstablished: "",
     totalFunding: "",
     website: "",
+    notificationDocument: null as any,
+  });
+
+  const createFileUploadFromFile = (file: File) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    file,
+    fileName: file.name,
+    originalName: file.name,
+    fileSize: file.size,
+    uploadedAt: Date.now(),
+    mimeType: file.type,
   });
 
   // Helper function to check user role
@@ -2465,6 +2476,7 @@ export const InfraFinancingReview = ({
       yearEstablished: "",
       totalFunding: "",
       website: "",
+      notificationDocument: null,
     });
     setShowAddForm1_5(false);
   };
@@ -2611,6 +2623,7 @@ export const InfraFinancingReview = ({
           yearEstablished: "",
           totalFunding: "",
           website: "",
+          notificationDocument: null,
         });
       }
       // Increment reset key to force Select components to remount
@@ -3374,6 +3387,7 @@ export const InfraFinancingReview = ({
                 yearEstablished: item.yearEstablished,
                 totalFunding: item.totalFunding,
                 website: item.website,
+                notificationDocument: item.notificationDocument || null,
               })),
             },
           ];
@@ -6759,6 +6773,9 @@ export const InfraFinancingReview = ({
                             <th className="py-3 px-4 text-left text-sm font-normal">
                               Website
                             </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Notification Document
+                            </th>
                             {shouldBeEditable("1.5") && (
                               <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                                 Action
@@ -6778,7 +6795,7 @@ export const InfraFinancingReview = ({
                               return (
                                 <tr>
                                   <td
-                                    colSpan={shouldBeEditable("1.5") ? 6 : 5}
+                                    colSpan={shouldBeEditable("1.5") ? 7 : 6}
                                     className="py-8 text-center text-muted-foreground"
                                   >
                                     No financial intermediary data available
@@ -6995,6 +7012,129 @@ export const InfraFinancingReview = ({
                                     item.website || "N/A"
                                   )}
                                 </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {shouldBeEditable("1.5") ? (
+                                    <div className="space-y-2">
+                                      <Input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                                        onChange={createOnChangeHandler(
+                                          `section1_5.ffiArray.${index}.notificationDocument`,
+                                          (e) => {
+                                            const selectedFile =
+                                              e.target.files?.[0] ?? null;
+                                            const updatedArray = [...ffiArray];
+                                            updatedArray[index] = {
+                                              ...updatedArray[index],
+                                              notificationDocument: selectedFile
+                                                ? createFileUploadFromFile(
+                                                    selectedFile
+                                                  )
+                                                : null,
+                                            };
+                                            setSection15State({
+                                              ...section15State,
+                                              ffiArray: updatedArray,
+                                            });
+                                            setShowValidationErrors(true);
+                                          }
+                                        )}
+                                        className="w-full"
+                                      />
+                                      {item.notificationDocument && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground truncate max-w-[140px]">
+                                            {item.notificationDocument.originalName ||
+                                              item.notificationDocument.fileName ||
+                                              "Uploaded file"}
+                                          </span>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleViewFile(
+                                                item.notificationDocument,
+                                                `section1_5.ffiArray.${index}.notificationDocument`
+                                              )
+                                            }
+                                            disabled={
+                                              !!fileLoading[
+                                                `section1_5.ffiArray.${index}.notificationDocument`
+                                              ]
+                                            }
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleDownloadFile(
+                                                item.notificationDocument,
+                                                `section1_5.ffiArray.${index}.notificationDocument`
+                                              )
+                                            }
+                                            disabled={
+                                              !!fileLoading[
+                                                `section1_5.ffiArray.${index}.notificationDocument`
+                                              ]
+                                            }
+                                          >
+                                            <Download className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : item.notificationDocument ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm truncate max-w-[160px]">
+                                        {item.notificationDocument.originalName ||
+                                          item.notificationDocument.fileName ||
+                                          "Uploaded file"}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleViewFile(
+                                            item.notificationDocument,
+                                            `section1_5.ffiArray.${index}.notificationDocument`
+                                          )
+                                        }
+                                        disabled={
+                                          !!fileLoading[
+                                            `section1_5.ffiArray.${index}.notificationDocument`
+                                          ]
+                                        }
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleDownloadFile(
+                                            item.notificationDocument,
+                                            `section1_5.ffiArray.${index}.notificationDocument`
+                                          )
+                                        }
+                                        disabled={
+                                          !!fileLoading[
+                                            `section1_5.ffiArray.${index}.notificationDocument`
+                                          ]
+                                        }
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    "N/A"
+                                  )}
+                                </td>
                                 {shouldBeEditable("1.5") && (
                                   <td className="py-3 px-4 text-sm font-normal">
                                     <Button
@@ -7075,7 +7215,7 @@ export const InfraFinancingReview = ({
                         <h4 className="font-medium mb-3">
                           Add New Organization
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                           <div>
                             <Label>Organisation Name</Label>
                             <Input
@@ -7216,6 +7356,33 @@ export const InfraFinancingReview = ({
                               "section1_5.ffiArray.new.website"
                             )}
                           </div>
+                          <div>
+                            <Label>Notification Document</Label>
+                            <Input
+                              type="file"
+                              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                              onChange={createOnChangeHandler(
+                                "section1_5.ffiArray.new.notificationDocument",
+                                (e) => {
+                                  const selectedFile = e.target.files?.[0] ?? null;
+                                  setNewEntry1_5({
+                                    ...newEntry1_5,
+                                    notificationDocument: selectedFile
+                                      ? createFileUploadFromFile(selectedFile)
+                                      : null,
+                                  });
+                                  setShowValidationErrors(true);
+                                }
+                              )}
+                              className="bg-white"
+                            />
+                            {newEntry1_5.notificationDocument && (
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                {newEntry1_5.notificationDocument.originalName ||
+                                  newEntry1_5.notificationDocument.fileName}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <div className="flex gap-2 mt-4">
                           <Button
@@ -7238,6 +7405,7 @@ export const InfraFinancingReview = ({
                                 yearEstablished: "",
                                 totalFunding: "",
                                 website: "",
+                                notificationDocument: null,
                               });
                             }}
                             className="flex items-center gap-2"

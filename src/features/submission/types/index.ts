@@ -80,6 +80,7 @@ export interface InfraFinancingData {
       yearEstablished: string;
       totalFunding: string;
       website: string;
+      notificationDocument?: FileUpload | null;
     }>;
     hasIntermediary?: string;
     comment?: string;

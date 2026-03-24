@@ -23,6 +23,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
     yearEstablished: "",
     totalFunding: "",
     website: "",
+    notificationDocument: null as any,
   });
 
   // Reset form when resetKey changes (on cancel)
@@ -35,6 +36,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
         yearEstablished: "",
         totalFunding: "",
         website: "",
+        notificationDocument: null,
       });
     }
   }, [resetKey]);
@@ -65,6 +67,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
       yearEstablished: "",
       totalFunding: "",
       website: "",
+      notificationDocument: null,
     });
     setShowAddOrgForm(false);
   };
@@ -77,6 +80,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
       yearEstablished: "",
       totalFunding: "",
       website: "",
+      notificationDocument: null,
     });
     setShowAddOrgForm(false);
   };
@@ -92,7 +96,8 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
               <th className="py-3 px-4 text-left text-sm font-normal">Organisation Type</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Year of Establishment</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (INR-CRORE)</th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Website</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">Website</th>
+              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Notification Document</th>
             </tr>
           </thead>
           <tbody>
@@ -163,11 +168,29 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                       item.website || 'N/A'
                     )}
                   </td>
+                  <td className="py-3 px-4 text-sm font-normal">
+                    {isEditable("1.5") ? (
+                      <Input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        onChange={(e) =>
+                          handleOrgChange(
+                            index,
+                            "notificationDocument",
+                            e.target.files?.[0] ?? null
+                          )
+                        }
+                        className="w-full"
+                      />
+                    ) : (
+                      item.notificationDocument?.fileName || 'N/A'
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="py-8 text-center text-muted-foreground">
                   No financial intermediary data available
                 </td>
               </tr>
@@ -193,7 +216,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
       {showAddOrgForm && isEditable("1.5") && (
         <div className="border rounded-lg p-4 bg-gray-50">
           <h4 className="font-medium mb-3">Add New Organization</h4>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <Label>Organisation Name</Label>
               <Input 
@@ -241,6 +264,20 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(e) => setNewOrgEntry({...newOrgEntry, website: e.target.value})}
                 className="bg-white"
                 placeholder="Enter website"
+              />
+            </div>
+            <div>
+              <Label>Notification Document</Label>
+              <Input
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                onChange={(e) =>
+                  setNewOrgEntry({
+                    ...newOrgEntry,
+                    notificationDocument: e.target.files?.[0] ?? null,
+                  })
+                }
+                className="bg-white"
               />
             </div>
           </div>

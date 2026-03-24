@@ -421,9 +421,13 @@ export const validateInfraFinancing = (
               errors[`section1_5.ffiArray.${index}.yearEstablished`] =
                 "Enter a valid year in YYYY format";
             }
+            const totalFundingValue = intermediary.totalFunding;
             if (
-              !isNonNegativeDecimal(intermediary.totalFunding) ||
-              !hasMaxTwoDecimals(intermediary.totalFunding)
+              totalFundingValue !== undefined &&
+              totalFundingValue !== null &&
+              String(totalFundingValue).trim() !== "" &&
+              (!isNonNegativeDecimal(totalFundingValue) ||
+                !hasMaxTwoDecimals(totalFundingValue))
             ) {
               errors[`section1_5.ffiArray.${index}.totalFunding`] =
                 "Enter a non-negative amount with up to two decimal places.";
