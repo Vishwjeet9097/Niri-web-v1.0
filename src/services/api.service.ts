@@ -2,7 +2,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { authService } from "./auth.service";
 import { notificationService } from "./notification.service";
-import { config } from "@/config/environment";
+import { config, toAppPath } from "@/config/environment";
 import { API_ENDPOINTS } from "@/config/endpoints";
 import { UserService } from "./UserService";
 // import { dummyDataService } from "./dummyData.service"; // Removed - using only real API data
@@ -229,7 +229,7 @@ class ApiService implements HttpClient {
             });
             // Use navigate instead of window.location to avoid page refresh
             if (typeof window !== "undefined" && window.history) {
-              window.history.pushState(null, "", "/login");
+              window.history.pushState(null, "", toAppPath("/login"));
               window.dispatchEvent(new PopStateEvent("popstate"));
             }
             return Promise.reject(refreshError);
@@ -2517,7 +2517,7 @@ class ApiService implements HttpClient {
           const newSubmissionId = result?.id || result?.submissionId;
           if (typeof window !== "undefined" && newSubmissionId) {
             setTimeout(() => {
-              window.location.href = `/data-submission/review/${newSubmissionId}`;
+              window.location.href = toAppPath(`/data-submission/review/${newSubmissionId}`);
             }, 1000);
           }
         }

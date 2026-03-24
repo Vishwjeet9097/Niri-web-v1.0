@@ -10,6 +10,7 @@ import ReviewerRecentActions from "./components/reviewer/ReviewerRecentActions";
 import ReviewerQuickActions from "./components/reviewer/ReviewerQuickActions";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { getPublicAssetPath } from "@/config/environment";
 import { getMospiMinistrySubmissionDetails } from "@/services/ministry.service";
 
 const ReviewerDashboardPage: React.FC = () => {
@@ -305,7 +306,7 @@ const ReviewerDashboardPage: React.FC = () => {
             {/* Laptop illustration */}
             <div className="absolute right-6 top-0 hidden md:block">
               <img
-                src="/images/dashboard.png"
+                src={getPublicAssetPath("/images/dashboard.png")}
                 alt="Dashboard"
                 className="h-32 w-auto"
               />

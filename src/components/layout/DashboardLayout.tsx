@@ -18,6 +18,7 @@ import { NotificationCenter } from "@/features/notifications/NotificationCenter"
 import { authService } from "@/services/auth.service";
 import { notificationService } from "@/services/notification.service";
 import { getMenuConfig } from "@/utils/roles";
+import { getPublicAssetPath } from "@/config/environment";
 import { getRemainingMinistryIndicators, getMinistryDashboardData } from "@/services/ministry.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 
@@ -359,7 +360,7 @@ export function DashboardLayout() {
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src="/images/logo.png"
+                src={getPublicAssetPath("/images/logo.png")}
                 alt="NIE-I Logo"
                 className="h-10 bg-white rounded object-contain"
               />

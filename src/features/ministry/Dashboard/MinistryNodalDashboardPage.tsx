@@ -13,6 +13,7 @@ import {
 import { calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FileText, Clock, CheckCircle, Search, TrendingUp } from "lucide-react";
+import { getPublicAssetPath } from "@/config/environment";
 
 // Helper function to map backend status to frontend status
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -317,7 +318,7 @@ export function MinistryNodalDashboardPage() {
           </p>
         </div>
         <img
-          src="/images/dashboard.png"
+          src={getPublicAssetPath("/images/dashboard.png")}
           alt="Dashboard"
           className="absolute right-6 top-0"
         />

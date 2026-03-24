@@ -32,6 +32,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { getMenuConfig } from "@/utils/roles";
+import { getPublicAssetPath } from "@/config/environment";
 import { getRemainingMinistryIndicators, getMinistryDashboardData } from "@/services/ministry.service";
 
 const ICONS = {
@@ -365,7 +366,7 @@ export function DashboardLayout() {
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src="/images/logo.png"
+                src={getPublicAssetPath("/images/logo.png")}
                 alt="NIE-I Logo"
                 className=" h-12 rounded-lg object-contain bg-white"
               />

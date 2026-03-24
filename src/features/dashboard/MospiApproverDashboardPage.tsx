@@ -20,6 +20,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
 import { MospiApproverMinistryOverviewCards } from "./components/approver/MospiApproverMinistryOverviewCards";
 import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
+import { getPublicAssetPath } from "@/config/environment";
 import { getMospiMinistrySubmissionDetails } from "@/services/ministry.service";
 
 export const MospiApproverDashboardPage = () => {
@@ -617,7 +618,7 @@ export const MospiApproverDashboardPage = () => {
             {/* Laptop illustration */}
             <div className="absolute right-6 top-0 hidden md:block">
               <img
-                src="/images/dashboard.png"
+                src={getPublicAssetPath("/images/dashboard.png")}
                 alt="Dashboard"
                 className="h-32 w-auto"
               />

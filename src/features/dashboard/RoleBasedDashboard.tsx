@@ -1,7 +1,7 @@
 // niri - web / src / features / dashboard / RoleBasedDashboard.tsx;
 import React from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import ReviewerDashboardPage from "./ReviewerDashboardPage";
 import ApproverDashboardPage from "./ApproverDashboardPage";
 import { NodalDashboardPage } from "./NodalDashboardPage";
@@ -13,8 +13,19 @@ import AdminDashboardPage from "./AdminDashboardPage";
 
 export default function RoleBasedDashboard() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
 
-  if (!user) return null;
+  // Show loading while user is being resolved (avoids flash of blank)
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[200px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   // Use backend role format
   const role = user.role;
@@ -44,8 +55,8 @@ export default function RoleBasedDashboard() {
     
      case "ADMIN": {
       // Always redirect Admin to /dashboard for consistent sidebar/menu
-      const location = window.location.pathname;
-      if (location !== "/dashboard") {
+      // use pathname (basename-relative) not window.location.pathname - with base path /state or /ministry, pathname is "/dashboard"
+      if (pathname !== "/dashboard") {
         return <Navigate to="/dashboard" replace />;
       }
       return <AdminDashboardPage />;

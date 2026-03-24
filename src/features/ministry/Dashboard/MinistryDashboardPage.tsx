@@ -11,6 +11,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { MinistryApproverKPICard } from "../../dashboard/components/approver/MinistryApproverKPICard";
+import { getPublicAssetPath } from "@/config/environment";
 
 // Set to false to use real API when available
 
@@ -153,7 +154,7 @@ export function MinistryDashboardPage() {
           Review and approve infrastructure data submissions from nodal officers
         </p>
         <img
-          src="/images/dashboard.png"
+          src={getPublicAssetPath("/images/dashboard.png")}
           alt="Dashboard"
           className="absolute right-6 top-0"
         />
