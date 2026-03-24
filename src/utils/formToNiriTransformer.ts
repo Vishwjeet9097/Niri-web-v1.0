@@ -64,9 +64,10 @@ export function transformFormDataToNiriSubmission(
           planned_sectors: formData.infraFinancing.section1_3.ulbList.map(
             (ulb) => ({
               sector: ulb.cityName,
-              plan_year:
-                new Date(ulb.ratingDate).getFullYear() ||
-                new Date().getFullYear(),
+              plan_year: ulb.ratingDate
+                ? new Date(ulb.ratingDate).getFullYear() ||
+                  new Date().getFullYear()
+                : new Date().getFullYear(),
             })
           ),
         },

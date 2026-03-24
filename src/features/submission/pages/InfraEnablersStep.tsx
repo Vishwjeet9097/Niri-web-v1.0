@@ -80,6 +80,8 @@ const defaultData: InfraEnablersData = {
   },
   section4_3: {
     adopted: "",
+    adrName: "",
+    notificationYear: "",
     file: null,
     comment: "",
     noDocumentAvailable: false,
@@ -853,6 +855,20 @@ export const InfraEnablersStep = () => {
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Match FileUploadSection size validation behavior (50 MB default)
+    const maxFileSizeMb = 50;
+    if (file.size > maxFileSizeMb * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: `File size must be less than ${maxFileSizeMb}MB`,
+        variant: "destructive",
+      });
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = "";
+      }
+      return;
+    }
 
     // Validate file type
     const validExtensions = [".xlsx", ".xls"];
@@ -2764,10 +2780,8 @@ export const InfraEnablersStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.3 – </span> Adoption of {withFullForm("ADR")}
-                    {/* <span className="font-normal text-xs text-muted-foreground ml-1">
-                  (10 marks per practice)
-                </span> */}
+                    <span className="text-primary">4.3 – </span> Adoption of{" "}
+                    {withFullForm("ADR")}
                   </span>
                 </div>
               }
@@ -2784,12 +2798,15 @@ export const InfraEnablersStep = () => {
               <div className="flex flex-col gap-4 w-[70%]">
                 <div>
                   <Label>
-                    Adoption of {withFullForm("ADR")}{" "} <span className="text-red-500">*</span>
+                    Adoption of {withFullForm("ADR")}{" "}
+                    <span className="text-red-500">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
                       </TooltipTrigger>
-                      <TooltipContent>Is ADR (Alternative Dispute Resolution) adopted?</TooltipContent>
+                      <TooltipContent>
+                        Is ADR (Alternative Dispute Resolution) adopted?
+                      </TooltipContent>
                     </Tooltip>
                   </Label>
 
@@ -2842,81 +2859,115 @@ export const InfraEnablersStep = () => {
                   </div>
                 </div>
 
-                {/* ✅ If YES → show file upload */}
+                {/* ✅ If YES → show ADR Name, Year of Notification, and file upload */}
                 {formData.section4_3.adopted === "yes" && (
-                  <div className="flex flex-col gap-2">
-                    {(() => {
-                      console.log(
-                        "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_3",
-                        {
-                          noDocumentAvailable:
-                            formData.section4_3.noDocumentAvailable,
-                          hasFile: !!formData.section4_3.file,
-                          adopted: formData.section4_3.adopted,
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>
+                          ADR Name <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter ADR name"
+                          value={formData.section4_3.adrName || ""}
+                          onChange={(e) => {
+                            if (isIndicatorSubmitted("4.3")) return;
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
+                              ...prev,
+                              section4_3: {
+                                ...prev.section4_3,
+                                adrName: e.target.value,
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("4.3")}
+                          className={cn(
+                            getInputValidationClass("section4_3.adrName"),
+                            isIndicatorSubmitted("4.3") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
+                        {renderFieldError("section4_3.adrName")}
+                      </div>
+                      <div>
+                        <Label>
+                          Year of Notification{" "}
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={4}
+                          placeholder="Enter year (YYYY)"
+                          value={formData.section4_3.notificationYear || ""}
+                          onChange={(e) => {
+                            if (isIndicatorSubmitted("4.3")) return;
+                            showErrorsIfNeeded();
+                            const value = e.target.value.replace(/\D/g, "");
+                            setFormData((prev) => ({
+                              ...prev,
+                              section4_3: {
+                                ...prev.section4_3,
+                                notificationYear: value,
+                              },
+                            }));
+                          }}
+                          disabled={isIndicatorSubmitted("4.3")}
+                          className={cn(
+                            getInputValidationClass(
+                              "section4_3.notificationYear"
+                            ),
+                            isIndicatorSubmitted("4.3") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
+                        {renderFieldError("section4_3.notificationYear")}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={formData.section4_3.file}
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_3: {
+                              ...prev.section4_3,
+                              file,
+                              noDocumentAvailable: file
+                                ? false
+                                : prev.section4_3.noDocumentAvailable,
+                            },
+                          }));
+                        }}
+                        submissionId={submissionId}
+                        required
+                        disabled={isIndicatorSubmitted("4.3")}
+                        deferFileDeletion={editingIndicators.has("4.3")}
+                        showNoDocumentOption={true}
+                        noDocumentAvailable={
+                          formData.section4_3.noDocumentAvailable || false
                         }
-                      );
-                      return null;
-                    })()}
-                    <FileUploadSection
-                      label="Upload File"
-                      value={formData.section4_3.file}
-                      onChange={(file) => {
-                        showErrorsIfNeeded();
-                        setFormData((prev) => ({
-                          ...prev,
-                          section4_3: {
-                            ...prev.section4_3,
-                            file,
-                            // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                            // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                            noDocumentAvailable: file
-                              ? false
-                              : prev.section4_3.noDocumentAvailable,
-                          },
-                        }));
-                      }}
-                      submissionId={submissionId}
-                      required
-                      disabled={isIndicatorSubmitted("4.3")}
-                      deferFileDeletion={editingIndicators.has("4.3")}
-                      showNoDocumentOption={true}
-                      noDocumentAvailable={
-                        formData.section4_3.noDocumentAvailable || false
-                      }
-                      onNoDocumentChange={(noDocument) => {
-                        console.log(
-                          "📝 InfraEnablersStep: section4_3 onNoDocumentChange called",
-                          {
-                            noDocument,
-                            currentValue:
-                              formData.section4_3.noDocumentAvailable,
-                          }
-                        );
-                        showErrorsIfNeeded();
-                        setFormData((prev) => {
-                          const newData = {
+                        onNoDocumentChange={(noDocument) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
                             ...prev,
                             section4_3: {
                               ...prev.section4_3,
                               noDocumentAvailable: noDocument,
                               file: noDocument ? null : prev.section4_3.file,
                             },
-                          };
-                          console.log(
-                            "📝 InfraEnablersStep: section4_3 state updated",
-                            {
-                              newValue: newData.section4_3.noDocumentAvailable,
-                              prevValue: prev.section4_3.noDocumentAvailable,
-                            }
-                          );
-                          return newData;
-                        });
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Upload ADR (Alternative Dispute Resolution) orders
-                    </p>
-                  </div>
+                          }));
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Upload ADR (Alternative Dispute Resolution) orders
+                      </p>
+                    </div>
+                  </>
                 )}
 
                 {/* ✅ If NO → show comment box (same style as 4.1 & 4.2) */}
@@ -2948,10 +2999,14 @@ export const InfraEnablersStep = () => {
                     />
                   </div>
                 )}
+
                 <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
-                      handleSubmitIndicator("4.3", "Adoption of ADR (Alternative Dispute Resolution)")
+                      handleSubmitIndicator(
+                        "4.3",
+                        "Adoption of ADR (Alternative Dispute Resolution)"
+                      )
                     }
                     disabled={
                       submittingIndicator !== null ||

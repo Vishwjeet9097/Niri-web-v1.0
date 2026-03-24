@@ -92,7 +92,6 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
           return (
             hasMeaningfulValue(row.cityName) &&
             hasMeaningfulValue(row.ulb) &&
-            hasMeaningfulValue(row.ratingDate) &&
             hasMeaningfulValue(row.rating) &&
             (hasFile || noDoc)
           );

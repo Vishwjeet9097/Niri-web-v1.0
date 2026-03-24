@@ -416,7 +416,7 @@ export const EditableInfraFinancing = ({
                     />
                   </div>
                   <div>
-                    <Label>Credit Rating Date*</Label>
+                    <Label>Credit Rating Date</Label>
                     <Input
                       type="date"
                       max={new Date().toISOString().split("T")[0]}

@@ -86,6 +86,12 @@ import {
 // NOTE: The InfraDevelopmentData shape now wraps arrays inside objects.
 // This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
 
+// Year options for plan duration dropdowns (e.g. 1990 to current year + 10)
+const PLAN_DURATION_YEARS = (() => {
+  const end = new Date().getFullYear() + 10;
+  return Array.from({ length: end - 1990 + 1 }, (_, i) => String(1990 + i));
+})();
+
 const defaultData: InfraDevelopmentData = {
   section2_1: {
     infraActArray: [], // Don't initialize with entry by default - wait for yes/no selection
@@ -148,6 +154,8 @@ function safeInfraDevelopmentFormData(
               {
                 id: Math.random().toString(36).substr(2, 9),
                 sector: "",
+                policyName: "",
+                notificationYear: "",
                 files: [],
               },
             ]
@@ -780,7 +788,8 @@ export const InfraDevelopmentStep = () => {
           specializedEntityArray: [
             {
               id: Date.now().toString(),
-              sector: "",
+              entityName: "",
+              notificationYear: "",
               files: [],
             },
           ],
@@ -858,6 +867,8 @@ export const InfraDevelopmentStep = () => {
                 {
                   id: Date.now().toString(),
                   sector: "",
+                  planName: "",
+                  planDuration: "",
                   files: [],
                 },
               ];
@@ -904,13 +915,30 @@ export const InfraDevelopmentStep = () => {
           ? "Overarching"
           : "";
 
-      // For section2_2, don't include sector field
+      // For section2_2, include entity name and year of notification
       const newEntry =
         section === "section2_2"
-          ? { id: crypto.randomUUID(), files: [], noDocumentAvailable: false }
+          ? {
+              id: crypto.randomUUID(),
+              entityName: "",
+              notificationYear: "",
+              files: [],
+              noDocumentAvailable: false,
+            }
+          : section === "section2_3"
+          ? {
+              id: crypto.randomUUID(),
+              sector: sectorValue,
+              planName: "",
+              planDuration: "",
+              files: [],
+              noDocumentAvailable: false,
+            }
           : {
               id: crypto.randomUUID(),
               sector: sectorValue,
+              policyName: "",
+              notificationYear: "",
               files: [],
               noDocumentAvailable: false,
             };
@@ -946,9 +974,34 @@ export const InfraDevelopmentStep = () => {
       // Always keep at least one entry for section2_1
       const newArr =
         section === "section2_1" && arr.length === 0
-          ? [{ id: crypto.randomUUID(), sector: "", files: [] }]
+          ? [
+              {
+                id: crypto.randomUUID(),
+                sector: "",
+                policyName: "",
+                notificationYear: "",
+                files: [],
+              },
+            ]
           : section === "section2_2" && arr.length === 0
-          ? [{ id: crypto.randomUUID(), files: [] }]
+          ? [
+              {
+                id: crypto.randomUUID(),
+                entityName: "",
+                notificationYear: "",
+                files: [],
+              },
+            ]
+          : section === "section2_3" && arr.length === 0
+          ? [
+              {
+                id: crypto.randomUUID(),
+                sector: "",
+                planName: "",
+                planDuration: "",
+                files: [],
+              },
+            ]
           : arr;
       return {
         ...prev,
@@ -963,7 +1016,14 @@ export const InfraDevelopmentStep = () => {
   const updateEntry = (
     section: "section2_1" | "section2_2" | "section2_3",
     id: string,
-    field: "sector" | "files",
+    field:
+      | "sector"
+      | "files"
+      | "policyName"
+      | "notificationYear"
+      | "entityName"
+      | "planName"
+      | "planDuration",
     value: any
   ) => {
     // Don't allow sector updates for section2_2
@@ -2640,9 +2700,75 @@ export const InfraDevelopmentStep = () => {
                             );
                           }, 0);
                         }
+                        const entryIndex =
+                          formData.section2_1.infraActArray.findIndex(
+                            (e) => e.id === entry.id
+                          );
                         return (
                           <div key={entry.id} className=" mb-2 relative">
                             <div className="flex flex-col gap-4 max-w-[70%]">
+                              <div className="flex flex-col md:flex-row gap-4 w-full">
+                                <div className="flex-1">
+                                  <Label>
+                                    Policy Name{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={entry.policyName || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.1")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_1",
+                                        entry.id,
+                                        "policyName",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.1")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_1.infraActArray.${entryIndex}.policyName`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_1.infraActArray.${entryIndex}.policyName`
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <Label>
+                                    Year of Notification{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="YYYY"
+                                    value={entry.notificationYear || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.1")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_1",
+                                        entry.id,
+                                        "notificationYear",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.1")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_1.infraActArray.${entryIndex}.notificationYear`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_1.infraActArray.${entryIndex}.notificationYear`
+                                  )}
+                                </div>
+                              </div>
                               <div className="flex-1 w-full">
                                 <FileUploadSection
                                   label="Upload File"
@@ -2942,16 +3068,30 @@ export const InfraDevelopmentStep = () => {
                                   Sector
                                 </th>
                               )}
-                              <th
-                                className={`py-3 px-4 text-left ${
-                                  formData.section2_1.hasOverarchingPolicy ===
-                                  "yes"
-                                    ? "rounded-tl-xl"
-                                    : ""
-                                } text-sm font-normal`}
-                              >
-                                Uploaded File
-                              </th>
+                              {/* When \"yes\", show Policy Name and Year columns before file columns */}
+                              {formData.section2_1.hasOverarchingPolicy ===
+                                "yes" && (
+                                <>
+                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                    Policy Name
+                                  </th>
+                                  <th className="py-3 px-4 text-left text-sm font-normal">
+                                    Year of Notification
+                                  </th>
+                                </>
+                              )}
+                              {formData.section2_1.hasOverarchingPolicy !==
+                                "yes" && (
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Uploaded File
+                                </th>
+                              )}
+                              {formData.section2_1.hasOverarchingPolicy ===
+                                "yes" && (
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Uploaded File
+                                </th>
+                              )}
                               <th className="py-3 px-4 text-left text-sm font-normal">
                                 File Size
                               </th>
@@ -2975,6 +3115,17 @@ export const InfraDevelopmentStep = () => {
                                       <td className="py-3 px-4 text-sm font-normal">
                                         {entry.sector}
                                       </td>
+                                    )}
+                                    {formData.section2_1.hasOverarchingPolicy ===
+                                      "yes" && (
+                                      <>
+                                        <td className="py-3 px-4 text-sm font-normal">
+                                          {entry.policyName || "-"}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-normal">
+                                          {entry.notificationYear || "-"}
+                                        </td>
+                                      </>
                                     )}
                                     <td className="py-3 px-4 text-sm font-normal">
                                       No file uploaded
@@ -3051,6 +3202,17 @@ export const InfraDevelopmentStep = () => {
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {entry.sector}
                                     </td>
+                                  )}
+                                  {formData.section2_1.hasOverarchingPolicy ===
+                                    "yes" && (
+                                    <>
+                                      <td className="py-3 px-4 text-sm font-normal">
+                                        {entry.policyName || "-"}
+                                      </td>
+                                      <td className="py-3 px-4 text-sm font-normal">
+                                        {entry.notificationYear || "-"}
+                                      </td>
+                                    </>
                                   )}
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {displayName}
@@ -3238,12 +3400,79 @@ export const InfraDevelopmentStep = () => {
                       )
                         ? formData.section2_2.specializedEntityArray
                         : []
-                      ).map((entry) => (
-                        <div key={entry.id} className="mb-2 relative">
-                          <div className="flex flex-col gap-4 max-w-[70%]">
-                            <div className="flex-1 w-full">
-                              <FileUploadSection
-                                label="Upload File"
+                      ).map((entry) => {
+                        const entryIndex =
+                          formData.section2_2.specializedEntityArray.findIndex(
+                            (e) => e.id === entry.id
+                          );
+                        return (
+                          <div key={entry.id} className="mb-2 relative">
+                            <div className="flex flex-col gap-4 max-w-[70%]">
+                              <div className="flex flex-col md:flex-row gap-4 w-full">
+                                <div className="flex-1">
+                                  <Label>
+                                    Entity Name{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={entry.entityName || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.2")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_2",
+                                        entry.id,
+                                        "entityName",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.2")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_2.specializedEntityArray.${entryIndex}.entityName`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_2.specializedEntityArray.${entryIndex}.entityName`
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <Label>
+                                    Year of Notification{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="YYYY"
+                                    value={entry.notificationYear || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.2")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_2",
+                                        entry.id,
+                                        "notificationYear",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.2")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_2.specializedEntityArray.${entryIndex}.notificationYear`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_2.specializedEntityArray.${entryIndex}.notificationYear`
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex-1 w-full">
+                                <FileUploadSection
+                                  label="Upload File"
                                 value={entry.files?.[0] || null}
                                 onChange={(file) => {
                                   showErrorsIfNeeded();
@@ -3339,7 +3568,8 @@ export const InfraDevelopmentStep = () => {
                             </Button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
 
                       {renderFieldError("section2_2.specializedEntityArray")}
 
@@ -3404,6 +3634,12 @@ export const InfraDevelopmentStep = () => {
                           <thead>
                             <tr className="bg-[#DDE3F9]">
                               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                Entity Name
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Year of Notification
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
                                 Uploaded File
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3425,6 +3661,12 @@ export const InfraDevelopmentStep = () => {
                               if (!file) {
                                 return (
                                   <tr key={entry.id} className="bg-white">
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {entry.entityName || "-"}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {entry.notificationYear || "-"}
+                                    </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       No file uploaded
                                     </td>
@@ -3483,6 +3725,12 @@ export const InfraDevelopmentStep = () => {
 
                               return (
                                 <tr key={entry.id} className="bg-white">
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.entityName || "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.notificationYear || "-"}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {displayName}
                                   </td>
@@ -3661,10 +3909,156 @@ export const InfraDevelopmentStep = () => {
                       )
                         ? formData.section2_3.infraDevelopmentArray
                         : []
-                      ).map((entry: any) => (
-                        <div key={entry.id} className="mb-2 relative">
-                          <div className="flex flex-col gap-4 max-w-[70%]">
-                            <div className="flex-1 w-full">
+                      ).map((entry: any) => {
+                        const entryIndex =
+                          formData.section2_3.infraDevelopmentArray.findIndex(
+                            (e) => e.id === entry.id
+                          );
+                        return (
+                          <div key={entry.id} className="mb-2 relative">
+                            <div className="flex flex-col gap-4 max-w-[70%]">
+                              <div className="flex flex-col md:flex-row gap-4 w-full gap-y-4">
+                                <div className="flex-1 min-w-0">
+                                  <Label className="block mb-2">
+                                    Plan Name{" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={entry.planName || ""}
+                                    onChange={(e) => {
+                                      if (isIndicatorSubmitted("2.3")) return;
+                                      showErrorsIfNeeded();
+                                      updateEntry(
+                                        "section2_3",
+                                        entry.id,
+                                        "planName",
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={isIndicatorSubmitted("2.3")}
+                                    className={cn(
+                                      getInputValidationClass(
+                                        `section2_3.infraDevelopmentArray.${entryIndex}.planName`
+                                      )
+                                    )}
+                                  />
+                                  {renderFieldError(
+                                    `section2_3.infraDevelopmentArray.${entryIndex}.planName`
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <Label className="block mb-2">
+                                    Plan Duration (e.g., 2001-2020){" "}
+                                    <span className="text-destructive">*</span>
+                                  </Label>
+                                  <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
+                                    <Select
+                                      value={
+                                        (() => {
+                                          const v = entry.planDuration || "";
+                                          const parts = v.split("-");
+                                          return parts.length >= 1 &&
+                                            /^\d{4}$/.test(parts[0])
+                                            ? parts[0]
+                                            : "";
+                                        })()
+                                      }
+                                      onValueChange={(startYear) => {
+                                        if (isIndicatorSubmitted("2.3"))
+                                          return;
+                                        showErrorsIfNeeded();
+                                        const endPart = (
+                                          entry.planDuration || ""
+                                        ).split("-")[1];
+                                        const endYear =
+                                          endPart && /^\d{4}$/.test(endPart)
+                                            ? endPart
+                                            : startYear;
+                                        updateEntry(
+                                          "section2_3",
+                                          entry.id,
+                                          "planDuration",
+                                          `${startYear}-${endYear}`
+                                        );
+                                      }}
+                                      disabled={isIndicatorSubmitted("2.3")}
+                                    >
+                                      <SelectTrigger
+                                        className={cn(
+                                          getInputValidationClass(
+                                            `section2_3.infraDevelopmentArray.${entryIndex}.planDuration`
+                                          )
+                                        )}
+                                      >
+                                        <SelectValue placeholder="From" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PLAN_DURATION_YEARS.map((y) => (
+                                          <SelectItem key={y} value={y}>
+                                            {y}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <span className="text-muted-foreground text-sm">
+                                      to
+                                    </span>
+                                    <Select
+                                      value={
+                                        (() => {
+                                          const v = entry.planDuration || "";
+                                          const parts = v.split("-");
+                                          return parts.length >= 2 &&
+                                            /^\d{4}$/.test(parts[1])
+                                            ? parts[1]
+                                            : "";
+                                        })()
+                                      }
+                                      onValueChange={(endYear) => {
+                                        if (isIndicatorSubmitted("2.3"))
+                                          return;
+                                        showErrorsIfNeeded();
+                                        const startPart = (
+                                          entry.planDuration || ""
+                                        ).split("-")[0];
+                                        const startYear =
+                                          startPart && /^\d{4}$/.test(startPart)
+                                            ? startPart
+                                            : endYear;
+                                        updateEntry(
+                                          "section2_3",
+                                          entry.id,
+                                          "planDuration",
+                                          `${startYear}-${endYear}`
+                                        );
+                                      }}
+                                      disabled={isIndicatorSubmitted("2.3")}
+                                    >
+                                      <SelectTrigger
+                                        className={cn(
+                                          getInputValidationClass(
+                                            `section2_3.infraDevelopmentArray.${entryIndex}.planDuration`
+                                          )
+                                        )}
+                                      >
+                                        <SelectValue placeholder="To" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PLAN_DURATION_YEARS.map((y) => (
+                                          <SelectItem key={y} value={y}>
+                                            {y}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  {renderFieldError(
+                                    `section2_3.infraDevelopmentArray.${entryIndex}.planDuration`
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex-1 w-full">
                               <Label>
                                 Select Sector{" "}
                                 <span className="text-destructive">*</span>
@@ -3814,7 +4208,8 @@ export const InfraDevelopmentStep = () => {
                             <Trash2 className="w-5 h-5 text-destructive" />
                           </Button>
                         </div>
-                      ))}
+                      );
+                      })}
 
                       {renderFieldError("section2_3.infraDevelopmentArray")}
 
@@ -3878,6 +4273,12 @@ export const InfraDevelopmentStep = () => {
                                 Sector
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
+                                Plan Name
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Plan Duration (e.g., 2001-2020)
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
                                 Uploaded File
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3901,6 +4302,12 @@ export const InfraDevelopmentStep = () => {
                                   <tr key={entry.id} className="bg-white">
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {entry.sector}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {entry.planName || "-"}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {entry.planDuration || "-"}
                                     </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       No file uploaded
@@ -3962,6 +4369,12 @@ export const InfraDevelopmentStep = () => {
                                 <tr key={entry.id} className="bg-white">
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {entry.sector}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.planName || "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.planDuration || "-"}
                                   </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {displayName}

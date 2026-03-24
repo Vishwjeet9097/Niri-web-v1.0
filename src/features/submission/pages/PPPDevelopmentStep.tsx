@@ -31,6 +31,16 @@ import {
   PROJECT_STATUS_OPTIONS,
   SUBMISSION_STEPS,
 } from "../constants/steps";
+
+// Scheme dropdown options for 3.3 VGF/IIPDF proposals
+const VGF_SCHEME_OPTIONS = [
+  "DEA's VGF",
+  "DEA's IIPDF scheme",
+  "State-specific VGF scheme",
+  "State-specific IIPDF Scheme",
+  "Ministry VGF",
+] as const;
+
 import { withFullForm } from "../constants/abbreviations";
 import type { PPPDevelopmentData, FileUpload } from "../types";
 import { FileUploadSection } from "../components/FileUploadSection";
@@ -60,11 +70,15 @@ import {
 const defaultData: PPPDevelopmentData = {
   section3_1: {
     available: "",
+    policyName: "",
+    notificationYear: "",
     file: null,
     noDocumentAvailable: false,
   },
   section3_2: {
     available: "",
+    policyName: "",
+    notificationYear: "",
     file: null,
     noDocumentAvailable: false,
   },
@@ -193,6 +207,7 @@ export const PPPDevelopmentStep = () => {
             ? (data.section3_3 as any).VGFArray.map((entry: any) => ({
                 ...entry,
                 file: typeof entry.file !== "undefined" ? entry.file : null,
+                proofLinkOrText: entry.proofLinkOrText ?? "",
               }))
             : defaultData.section3_3.VGFArray,
         status: (data.section3_3 as any)?.status,
@@ -735,6 +750,7 @@ export const PPPDevelopmentStep = () => {
             totalProjectCost: "",
             statusOfProject: "",
             file: null,
+            proofLinkOrText: "",
             noDocumentAvailable: false,
           },
         ],
@@ -780,7 +796,8 @@ export const PPPDevelopmentStep = () => {
       | "submissionDate"
       | "totalProjectCost"
       | "statusOfProject"
-      | "file",
+      | "file"
+      | "proofLinkOrText",
     value: string | FileUpload | null
   ) => {
     setFormData((prev) => ({
@@ -1935,22 +1952,73 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_1.available")}
                   </div>
 
-                  {/* If Yes → show File Upload */}
+                  {/* If Yes → show Policy Name, Year of Notification, and File Upload */}
                   {formData.section3_1.available === "yes" && (
-                    <div className="flex flex-col gap-2">
-                      {(() => {
-                        console.log(
-                          "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_1",
-                          {
-                            noDocumentAvailable:
-                              formData.section3_1.noDocumentAvailable,
-                            hasFile: !!formData.section3_1.file,
-                            available: formData.section3_1.available,
-                          }
-                        );
-                        return null;
-                      })()}
-                      <FileUploadSection
+                    <div className="flex flex-col gap-4 max-w-[70%]">
+                      <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Policy Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            value={formData.section3_1.policyName || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.1")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_1: {
+                                  ...prev.section3_1,
+                                  policyName: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.1")}
+                            className={cn(
+                              getInputValidationClass("section3_1.policyName"),
+                              isIndicatorSubmitted("3.1") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_1.policyName")}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Year of Notification{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="YYYY"
+                            value={formData.section3_1.notificationYear || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.1")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_1: {
+                                  ...prev.section3_1,
+                                  notificationYear: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.1")}
+                            className={cn(
+                              getInputValidationClass(
+                                "section3_1.notificationYear"
+                              ),
+                              isIndicatorSubmitted("3.1") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_1.notificationYear")}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <FileUploadSection
                         label="Upload File"
                         value={formData.section3_1.file ?? null}
                         onChange={(fileUpload) => {
@@ -2008,10 +2076,11 @@ export const PPPDevelopmentStep = () => {
                         }}
                         className={getInputValidationClass("section3_1.file")}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Upload copy of Act/Policy
-                      </p>
-                      {renderFieldError("section3_1.file")}
+                        <p className="text-xs text-muted-foreground">
+                          Upload copy of Act/Policy
+                        </p>
+                        {renderFieldError("section3_1.file")}
+                      </div>
                     </div>
                   )}
 
@@ -2171,96 +2240,124 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_2.available")}
                   </div>
 
-                  {/* If Yes → show File Upload */}
+                  {/* If Yes → show Policy Name, Year of Notification, and File Upload */}
                   {formData.section3_2.available === "yes" && (
-                    <div className="flex flex-col gap-2">
-                      {(() => {
-                        console.log(
-                          "🎨 PPPDevelopmentStep: Rendering FileUploadSection for section3_2",
-                          {
-                            noDocumentAvailable:
-                              formData.section3_2.noDocumentAvailable,
-                            hasFile: !!formData.section3_2.file,
-                            available: formData.section3_2.available,
+                    <div className="flex flex-col gap-4 max-w-[70%]">
+                      <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Policy Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            value={formData.section3_2.policyName || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.2")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_2: {
+                                  ...prev.section3_2,
+                                  policyName: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.2")}
+                            className={cn(
+                              getInputValidationClass("section3_2.policyName"),
+                              isIndicatorSubmitted("3.2") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_2.policyName")}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label className="block mb-2">
+                            Year of Notification{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="YYYY"
+                            value={formData.section3_2.notificationYear || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.2")) return;
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section3_2: {
+                                  ...prev.section3_2,
+                                  notificationYear: e.target.value,
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("3.2")}
+                            className={cn(
+                              getInputValidationClass(
+                                "section3_2.notificationYear"
+                              ),
+                              isIndicatorSubmitted("3.2") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError("section3_2.notificationYear")}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <FileUploadSection
+                          label="Upload File"
+                          value={formData.section3_2.file ?? null}
+                          onChange={(fileUpload) => {
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
+                              ...prev,
+                              section3_2: {
+                                ...prev.section3_2,
+                                file: fileUpload,
+                                noDocumentAvailable: fileUpload
+                                  ? false
+                                  : prev.section3_2.noDocumentAvailable,
+                              },
+                            }));
+                          }}
+                          submissionId={submissionId}
+                          required
+                          disabled={isIndicatorSubmitted("3.2")}
+                          deferFileDeletion={editingIndicators.has("3.2")}
+                          showNoDocumentOption={true}
+                          noDocumentAvailable={
+                            formData.section3_2.noDocumentAvailable || false
                           }
-                        );
-                        return null;
-                      })()}
-                      <FileUploadSection
-                        label="Upload File"
-                        value={formData.section3_2.file ?? null}
-                        onChange={(fileUpload) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section3_2: {
-                              ...prev.section3_2,
-                              file: fileUpload,
-                              // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                              // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                              noDocumentAvailable: fileUpload
-                                ? false
-                                : prev.section3_2.noDocumentAvailable,
-                            },
-                          }));
-                        }}
-                        submissionId={submissionId}
-                        required
-                        disabled={isIndicatorSubmitted("3.2")}
-                        deferFileDeletion={editingIndicators.has("3.2")}
-                        showNoDocumentOption={true}
-                        noDocumentAvailable={
-                          formData.section3_2.noDocumentAvailable || false
-                        }
-                        onNoDocumentChange={(noDocument) => {
-                          console.log(
-                            "📝 PPPDevelopmentStep: section3_2 onNoDocumentChange called",
-                            {
-                              noDocument,
-                              currentValue:
-                                formData.section3_2.noDocumentAvailable,
-                            }
-                          );
-                          showErrorsIfNeeded();
-                          setFormData((prev) => {
-                            const newData = {
+                          onNoDocumentChange={(noDocument) => {
+                            showErrorsIfNeeded();
+                            setFormData((prev) => ({
                               ...prev,
                               section3_2: {
                                 ...prev.section3_2,
                                 noDocumentAvailable: noDocument,
                                 file: noDocument ? null : prev.section3_2.file,
                               },
-                            };
-                            console.log(
-                              "📝 PPPDevelopmentStep: section3_2 state updated",
-                              {
-                                newValue:
-                                  newData.section3_2.noDocumentAvailable,
-                                prevValue: prev.section3_2.noDocumentAvailable,
-                              }
-                            );
-                            return newData;
-                          });
-                        }}
-                        className={getInputValidationClass("section3_2.file")}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Upload notification or mandate
-                      </p>
-                      {renderFieldError("section3_2.file")}
+                            }));
+                          }}
+                          className={getInputValidationClass("section3_2.file")}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Upload notification or mandate
+                        </p>
+                        {renderFieldError("section3_2.file")}
+                      </div>
                     </div>
                   )}
 
-                  {/* If No → show Comment */}
+                  {/* If No → show Comment (optional) */}
                   {formData.section3_2.available === "no" && (
                     <div className="flex flex-col gap-2">
-                      <Label>
-                        Comments (Reason)
-                        <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         type="text"
-                        placeholder="Enter reason or comment"
+                        placeholder="Enter reason or comment (optional)"
                         value={formData.section3_2.comment || ""}
                         onChange={(e) => {
                           showErrorsIfNeeded();
@@ -2527,13 +2624,11 @@ export const PPPDevelopmentStep = () => {
                               <SelectValue placeholder="Select scheme" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="IIPDF">{withFullForm("IIPDF")}</SelectItem>
-                              <SelectItem value="Central VGF">
-                                Central {withFullForm("VGF")}
-                              </SelectItem>
-                              <SelectItem value="State VGF">
-                                State {withFullForm("VGF")}
-                              </SelectItem>
+                              {VGF_SCHEME_OPTIONS.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {opt}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           {renderFieldError(
@@ -2666,16 +2761,48 @@ export const PPPDevelopmentStep = () => {
                           )}
                         </div>
                       </div>
-                      {/* Row 3: File Upload with Delete button */}
-                      <div className="flex items-end gap-4">
+                      {/* Row 3: Link Proof (one column width, above Upload) */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                        <div>
+                          <Label className="block mb-2">
+                            Link Proof
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Paste link or enter text proof (e.g., PPP India portal)"
+                            value={entry.proofLinkOrText || ""}
+                            onChange={(e) => {
+                              if (isIndicatorSubmitted("3.3")) return;
+                              showErrorsIfNeeded();
+                              updateProject(
+                                entry.id,
+                                "proofLinkOrText",
+                                e.target.value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("3.3")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.proofLinkOrText`
+                              ),
+                              isIndicatorSubmitted("3.3") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section3_3.VGFArray.${idx}.proofLinkOrText`
+                          )}
+                        </div>
+                      </div>
+                      {/* Row 4: Upload File + Delete button on same line */}
+                      <div className="flex items-end justify-between gap-4 mb-4">
                         <div className="flex-1">
                           <FileUploadSection
-                            label="Upload File"
+                            label="Upload File (optional)"
                             value={entry.file ?? null}
                             onChange={(fileUpload) => {
                               showErrorsIfNeeded();
                               updateProject(entry.id, "file", fileUpload);
-                              // Clear noDocumentAvailable when file is uploaded
                               if (fileUpload) {
                                 setFormData((prev) => ({
                                   ...prev,
@@ -2720,8 +2847,11 @@ export const PPPDevelopmentStep = () => {
                                 },
                               }));
                             }}
-                            required={true}
+                            required={false}
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Upload optional; link/text proof above also accepted
+                          </p>
                           {renderFieldError(`section3_3.VGFArray.${idx}.file`)}
                         </div>
                         <Button
@@ -2731,7 +2861,7 @@ export const PPPDevelopmentStep = () => {
                           onClick={() => removeProject(entry.id)}
                           disabled={isIndicatorSubmitted("3.3")}
                           aria-label="Remove"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-5 h-5" />
                         </Button>
@@ -2782,6 +2912,9 @@ export const PPPDevelopmentStep = () => {
                               Submission Date
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
+                              Link Proof
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               File Uploaded
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2825,6 +2958,11 @@ export const PPPDevelopmentStep = () => {
                                           new Date(entry.submissionDate),
                                           "dd-MM-yyyy"
                                         )
+                                      : "-"}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {entry.proofLinkOrText && entry.proofLinkOrText.trim()
+                                      ? entry.proofLinkOrText
                                       : "-"}
                                   </td>
                                   <td className="py-3 px-4 text-sm">

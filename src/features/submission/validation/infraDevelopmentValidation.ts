@@ -79,6 +79,12 @@ const hasRequiredFile = (files: FileUpload[] | null | undefined): boolean => {
   );
 };
 
+const isValidYear = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.toString().trim();
+  return /^\d{4}$/.test(normalized);
+};
+
 export const validateInfraDevelopment = (
   data: InfraDevelopmentData,
   options: InfraDevelopmentValidationOptions = {}
@@ -110,17 +116,30 @@ export const validateInfraDevelopment = (
       ) {
         errors["section2_1.hasOverarchingPolicy"] = "Please select Yes or No.";
       } else if (hasOverarchingPolicy === "yes") {
-        // If yes, validate that infraActArray has entries and files are uploaded
-        // Sector is auto-set to "Overarching", so no need to validate sector
+        // If yes, validate that infraActArray has entries, policy details, and files are uploaded
+        // Sector is auto-set to "Overarching", so no need to validate sector input
         if (!section21.infraActArray || section21.infraActArray.length === 0) {
           errors["section2_1.infraActArray"] =
-            "At least 1 file upload is required.";
+            "At least 1 infrastructure act/policy entry is required.";
         } else {
           section21.infraActArray.forEach((entry, index) => {
             // Ensure sector is set to "Overarching" (auto-set, but validate for safety)
             if (!entry.sector || entry.sector.trim() === "") {
               // Auto-set to "Overarching" if empty
               entry.sector = "Overarching";
+            }
+            // Policy name is mandatory when overarching policy is present
+            if (!entry.policyName || entry.policyName.trim() === "") {
+              errors[`section2_1.infraActArray.${index}.policyName`] =
+                "Policy name is required.";
+            }
+            // Year of notification is mandatory and must be a valid year (YYYY)
+            if (!entry.notificationYear || entry.notificationYear.trim() === "") {
+              errors[`section2_1.infraActArray.${index}.notificationYear`] =
+                "Year of notification is required.";
+            } else if (!isValidYear(entry.notificationYear)) {
+              errors[`section2_1.infraActArray.${index}.notificationYear`] =
+                "Enter a valid year of notification (e.g., 2024).";
             }
             // File upload is mandatory when "yes" is selected
             // Skip file validation if "No document available" is selected
@@ -195,6 +214,25 @@ export const validateInfraDevelopment = (
             "At least one entry is required when specialized entity is available.";
         } else {
           section22.specializedEntityArray.forEach((entry, index) => {
+            // Entity name is required when "yes" is selected
+            if (!entry.entityName || entry.entityName.trim() === "") {
+              errors[`section2_2.specializedEntityArray.${index}.entityName`] =
+                "Entity name is required.";
+            }
+            // Year of notification is required and must be a valid year (YYYY)
+            if (
+              !entry.notificationYear ||
+              entry.notificationYear.trim() === ""
+            ) {
+              errors[
+                `section2_2.specializedEntityArray.${index}.notificationYear`
+              ] = "Year of notification is required.";
+            } else if (!isValidYear(entry.notificationYear)) {
+              errors[
+                `section2_2.specializedEntityArray.${index}.notificationYear`
+              ] =
+                "Enter a valid year of notification (e.g., 2024).";
+            }
             // Skip file validation if "No document available" is selected
             if (!entry.noDocumentAvailable && !hasRequiredFile(entry.files)) {
               errors[`section2_2.specializedEntityArray.${index}.files`] =
@@ -244,6 +282,15 @@ export const validateInfraDevelopment = (
               "At least one entry is required when plan is available.";
           } else {
             section23.infraDevelopmentArray.forEach((entry, index) => {
+            // Plan name and duration are mandatory when plan is available
+            if (!entry.planName || entry.planName.trim() === "") {
+              errors[`section2_3.infraDevelopmentArray.${index}.planName`] =
+                "Plan name is required.";
+            }
+            if (!entry.planDuration || entry.planDuration.trim() === "") {
+              errors[`section2_3.infraDevelopmentArray.${index}.planDuration`] =
+                "Plan duration is required.";
+            }
               if (!entry.sector || entry.sector.trim() === "") {
                 errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
                   "Sector is required.";

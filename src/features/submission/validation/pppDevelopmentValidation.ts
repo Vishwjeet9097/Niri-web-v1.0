@@ -58,6 +58,12 @@ const hasRequiredFile = (file: FileUpload | null | undefined): boolean => {
   return !!(file.file || file.fileName || file.filePath);
 };
 
+const isValidYear = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.toString().trim();
+  return /^\d{4}$/.test(normalized);
+};
+
 const isValidDate = (value: string): boolean => {
   if (!value || value.trim() === "") return false;
   try {
@@ -104,6 +110,20 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_1.available"] = "Please select Yes or No.";
     } else if (section31.available === "yes") {
+      // Policy name and year of notification are required when "yes" is selected
+      if (!section31.policyName || section31.policyName.trim() === "") {
+        errors["section3_1.policyName"] = "Policy name is required.";
+      }
+      if (
+        !section31.notificationYear ||
+        section31.notificationYear.trim() === ""
+      ) {
+        errors["section3_1.notificationYear"] =
+          "Year of notification is required.";
+      } else if (!isValidYear(section31.notificationYear)) {
+        errors["section3_1.notificationYear"] =
+          "Enter a valid year of notification (e.g., 2024).";
+      }
       // Skip file validation if "No document available" is selected
       if (!section31.noDocumentAvailable) {
         if (!hasRequiredFile(section31.file)) {
@@ -134,6 +154,20 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_2.available"] = "Please select Yes or No.";
     } else if (section32.available === "yes") {
+      // Policy name and year of notification are required when "yes" is selected
+      if (!section32.policyName || section32.policyName.trim() === "") {
+        errors["section3_2.policyName"] = "Policy name is required.";
+      }
+      if (
+        !section32.notificationYear ||
+        section32.notificationYear.trim() === ""
+      ) {
+        errors["section3_2.notificationYear"] =
+          "Year of notification is required.";
+      } else if (!isValidYear(section32.notificationYear)) {
+        errors["section3_2.notificationYear"] =
+          "Enter a valid year of notification (e.g., 2024).";
+      }
       // Skip file validation if "No document available" is selected
       if (!section32.noDocumentAvailable) {
         if (!hasRequiredFile(section32.file)) {
@@ -146,11 +180,8 @@ export const validatePPPDevelopment = (
           errors["section3_2.file"] = "Only PDF files are allowed.";
         }
       }
-    } else if (section32.available === "no") {
-      if (!section32.comment || section32.comment.trim() === "") {
-        errors["section3_2.comment"] = "Comment (reason) is required.";
-      }
     }
+    // When "no", reason/comment is non-mandatory (no validation)
   }
 
   // Section 3.3 - Proposals under VGF/IIPDF (Yes/No: Yes = proposals; No = comment)
@@ -216,13 +247,16 @@ export const validatePPPDevelopment = (
           errors[`section3_3.VGFArray.${index}.statusOfProject`] =
             "First letter must be capital.";
         }
-        // Document required: either upload file or check "No Document Available"
+        // Proof required: either upload file, "No Document Available", or link/text proof
         const hasFile =
           entry.file && (entry.file.fileName || (entry.file as FileUpload).file);
         const noDocumentAvailable = entry.noDocumentAvailable === true;
-        if (!hasFile && !noDocumentAvailable) {
+        const hasProofLinkOrText =
+          entry.proofLinkOrText != null &&
+          String(entry.proofLinkOrText).trim() !== "";
+        if (!hasFile && !noDocumentAvailable && !hasProofLinkOrText) {
           errors[`section3_3.VGFArray.${index}.file`] =
-            "Upload file is required.";
+            "Either upload a file, select No document available, or provide link/text proof (e.g., PPP India portal).";
         }
       });
     }

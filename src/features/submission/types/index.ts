@@ -30,6 +30,7 @@ export interface InfraFinancingData {
     stateCapexUtilisation: string;
     allocationToGSDP: string;
     capexToCapexActuals: string;
+    file?: FileUpload | null;
     // Calculation fields
     percentage?: number;
     marksObtained?: number;
@@ -90,6 +91,8 @@ export interface InfraDevelopmentData {
     infraActArray: Array<{
       id: string;
       sector: string;
+      policyName?: string;
+      notificationYear?: string;
       files: FileUpload[];
       noDocumentAvailable?: boolean;
     }>;
@@ -98,6 +101,8 @@ export interface InfraDevelopmentData {
   section2_2: {
     specializedEntityArray: Array<{
       id: string;
+      entityName?: string;
+      notificationYear?: string;
       files: FileUpload[];
       noDocumentAvailable?: boolean;
     }>;
@@ -108,6 +113,8 @@ export interface InfraDevelopmentData {
     infraDevelopmentArray: Array<{
       id: string;
       sector: string;
+      planName?: string;
+      planDuration?: string;
       files: FileUpload[];
       comment?: string;
       noDocumentAvailable?: boolean;
@@ -146,12 +153,16 @@ export interface InfraDevelopmentData {
 export interface PPPDevelopmentData {
   section3_1: {
     available: "yes" | "no" | "";
+    policyName?: string;
+    notificationYear?: string;
     file: FileUpload | null;
     comment?: string;
     noDocumentAvailable?: boolean;
   };
   section3_2: {
     available: "yes" | "no" | "";
+    policyName?: string;
+    notificationYear?: string;
     file: FileUpload | null;
     comment?: string;
     noDocumentAvailable?: boolean;
@@ -169,6 +180,8 @@ export interface PPPDevelopmentData {
       totalProjectCost?: string;
       statusOfProject?: string;
       file: FileUpload | null;
+      /** Optional link or text proof (e.g., PPP India portal) when upload not provided */
+      proofLinkOrText?: string;
       marksObtained?: number;
       noDocumentAvailable?: boolean;
     }>;
@@ -217,6 +230,8 @@ export interface InfraEnablersData {
   };
   section4_3: {
     adopted: "yes" | "no" | "";
+    adrName?: string;
+    notificationYear?: string;
     file: FileUpload | null;
     noDocumentAvailable?: boolean;
     // Calculation fields

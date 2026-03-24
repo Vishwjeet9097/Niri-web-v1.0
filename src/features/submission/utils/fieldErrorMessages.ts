@@ -67,16 +67,26 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "At least one infrastructure act/policy entry is required.",
   "section2_1.infraActArray.sector": "Sector is required.",
   "section2_1.infraActArray.files": "Upload file is required.",
+  "section2_1.infraActArray.policyName": "Policy name is required.",
+  "section2_1.infraActArray.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
 
   // Section 2.2
   "section2_2.specializedEntityArray":
     "At least one specialized entity entry is required.",
+  "section2_2.specializedEntityArray.entityName":
+    "Entity name is required.",
+  "section2_2.specializedEntityArray.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
   "section2_2.specializedEntityArray.files": "Upload evidence is required.",
 
   // Section 2.3
   "section2_3.hasInfraDevelopmentPlan": "Please select Yes or No.",
   "section2_3.infraDevelopmentArray":
     "At least one development plan entry is required.",
+  "section2_3.infraDevelopmentArray.planName": "Plan name is required.",
+  "section2_3.infraDevelopmentArray.planDuration":
+    "Plan duration is required.",
   "section2_3.infraDevelopmentArray.sector": "Sector is required.",
   "section2_3.infraDevelopmentArray.files": "Upload plan is required.",
   "section2_3.comment": "Comment (reason) is required.",
@@ -105,13 +115,18 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
 
   // Section 3.1
   "section3_1.available": "Please select Yes or No.",
+  "section3_1.policyName": "Policy name is required.",
+  "section3_1.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
   "section3_1.file": "Upload file is required.",
   "section3_1.comment": "Comment (reason) is required.",
 
   // Section 3.2
   "section3_2.available": "Please select Yes or No.",
+  "section3_2.policyName": "Policy name is required.",
+  "section3_2.notificationYear":
+    "Enter a valid year of notification (e.g., 2024).",
   "section3_2.file": "Upload notification is required.",
-  "section3_2.comment": "Comment (reason) is required.",
 
   // Section 3.3
   "section3_3.available":
@@ -128,6 +143,8 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section3_3.VGFArray.statusOfProject": "Status of Project is required.",
   "section3_3.VGFArray.submissionDate":
     "Submission date is required (DD-MM-YYYY format).",
+  "section3_3.VGFArray.file":
+    "Either upload a file, select No document available, or provide link/text proof (e.g., PPP India portal).",
 
   // Section 3.4
   "section3_4.projects": "At least one project is required.",
@@ -155,6 +172,8 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
 
   // Section 4.3
   "section4_3.adopted": "Please select Yes or No.",
+  "section4_3.adrName": "ADR Name is required.",
+  "section4_3.notificationYear": "Year of Notification is required.",
   "section4_3.file": "Upload orders is required.",
   "section4_3.comment": "Comment (reason) is required.",
 
