@@ -13,6 +13,9 @@ import {
   X,
   CheckCircle,
   RotateCcw,
+  Eye,
+  Download,
+  File as FileIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -91,6 +94,126 @@ export const InfraFinancingReview = ({
     useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [fileLoading, setFileLoading] = useState<Record<string, boolean>>({});
+
+  function readAccessTokenFromLocalStorage(): string | undefined {
+    try {
+      const raw = localStorage.getItem("niri_app:auth_tokens");
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw);
+      return parsed?.value?.accessToken;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async function fetchSignedUrl(
+    filePath: string,
+    token?: string
+  ): Promise<string> {
+    if (!filePath) throw new Error("Missing filePath");
+
+    const encoded = encodeURIComponent(filePath);
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+
+    const accessToken = token ?? readAccessTokenFromLocalStorage();
+    if (!accessToken) throw new Error("No auth token available. Please login.");
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url;
+      if (!signed) {
+        throw new Error("Signed URL not found.");
+      }
+      return signed;
+    } catch {
+      const trimmed = text.trim();
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      throw new Error("Unexpected response while fetching signed URL.");
+    }
+  }
+
+  const handleViewFile = async (file: any, fileKey: string) => {
+    if (file?.fileUrl) {
+      window.open(file.fileUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (file?.filePath || file?.file) {
+      setFileLoading((s) => ({ ...s, [fileKey]: true }));
+      try {
+        const filePath = file.filePath || file.file;
+        const signed = await fetchSignedUrl(filePath);
+        window.open(signed, "_blank", "noopener,noreferrer");
+      } catch (err: any) {
+        notificationService.error(err?.message || "Failed to open file.");
+      } finally {
+        setFileLoading((s) => ({ ...s, [fileKey]: false }));
+      }
+      return;
+    }
+
+    notificationService.warning("File path or URL missing.");
+  };
+
+  const handleDownloadFile = async (file: any, fileKey: string) => {
+    if (file?.fileUrl) {
+      const a = document.createElement("a");
+      a.href = file.fileUrl;
+      a.download = file.originalName || file.fileName || "file";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    if (file?.filePath || file?.file) {
+      setFileLoading((s) => ({ ...s, [fileKey]: true }));
+      let blobUrl: string | null = null;
+      try {
+        const filePath = file.filePath || file.file;
+        const encoded = encodeURIComponent(filePath);
+        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const accessToken = readAccessTokenFromLocalStorage();
+        if (!accessToken) {
+          throw new Error("No auth token available. Please login.");
+        }
+        const response = await fetch(downloadUrl, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) {
+          throw new Error(`Download failed: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = file.originalName || file.fileName || "file";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err: any) {
+        notificationService.error(err?.message || "Failed to download file.");
+      } finally {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        setFileLoading((s) => ({ ...s, [fileKey]: false }));
+      }
+      return;
+    }
+
+    notificationService.warning("File path or URL missing.");
+  };
 
   // Section 1.4 state management
   // Normalize bondList to ensure all fields including tenorOfBond are present
@@ -5869,6 +5992,81 @@ export const InfraFinancingReview = ({
 
                       return renderFieldError("section1_1.allocationToGSDP");
                     })()}
+                </div>
+                <div className="col-span-2">
+                  <Label>Uploading Budget Document Indicating The Allocation</Label>
+                  {(() => {
+                    const section1_1 =
+                      submissionData?.section1_1 ||
+                      formData?.section1_1 ||
+                      (formData as any)?.infraFinancing?.section1_1;
+                    const uploadedFile = section1_1?.file;
+
+                    if (!uploadedFile) {
+                      return (
+                        <Input
+                          value="No file uploaded"
+                          readOnly
+                          className="bg-gray-50 cursor-not-allowed"
+                        />
+                      );
+                    }
+
+                    const displayName =
+                      uploadedFile.originalName ||
+                      uploadedFile.fileName ||
+                      "Uploaded file";
+
+                    const formatFileSize = (bytes: number) => {
+                      if (!bytes || bytes <= 0) return "";
+                      if (bytes < 1024) return `${bytes} B`;
+                      if (bytes < 1024 * 1024)
+                        return `${(bytes / 1024).toFixed(1)} KB`;
+                      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+                    };
+                    const fileKey = "section1_1.file";
+
+                    return (
+                      <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
+                        <FileIcon className="w-8 h-8 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {displayName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(Number(uploadedFile.fileSize))}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewFile(uploadedFile, fileKey)}
+                          disabled={!!fileLoading[fileKey]}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleDownloadFile(
+                              {
+                                ...uploadedFile,
+                                originalName: uploadedFile.originalName || displayName,
+                                fileName: uploadedFile.fileName || displayName,
+                              },
+                              fileKey
+                            )
+                          }
+                          disabled={!!fileLoading[fileKey]}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}
