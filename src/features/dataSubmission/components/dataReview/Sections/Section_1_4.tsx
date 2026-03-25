@@ -371,7 +371,13 @@ export const Section_1_4 = ({
               totalULBs === undefined || totalULBs === null ? "" : totalULBs
             }
             readOnly={!isEditable("1.4")}
-            className={isEditable("1.4") ? "bg-white" : "bg-gray-50"}
+            className={
+              isEditable("1.4")
+                ? getError("section1_4.totalULBs")
+                  ? "bg-white border-red-500"
+                  : "bg-white"
+                : "bg-gray-50"
+            }
             onChange={(e) => {
               const value = e.target.value;
               if (value === "" || /^\d+$/.test(value)) {
@@ -379,6 +385,11 @@ export const Section_1_4 = ({
               }
             }}
           />
+          {getError("section1_4.totalULBs") && (
+            <p className="text-sm text-red-500 mt-1">
+              {getError("section1_4.totalULBs")}
+            </p>
+          )}
         </div>
         <div className="max-w-xs">
           <Label>ULB issuing bond</Label>

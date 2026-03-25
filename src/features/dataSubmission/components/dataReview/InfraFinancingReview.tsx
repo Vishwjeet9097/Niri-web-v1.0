@@ -80,6 +80,139 @@ interface InfraFinancingReviewProps {
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
+
+function parseSubmissionsResponse(submissionsData: any): any[] {
+  if (Array.isArray(submissionsData)) return submissionsData;
+  if (
+    submissionsData?.submissions &&
+    Array.isArray(submissionsData.submissions)
+  ) {
+    return submissionsData.submissions;
+  }
+  if (submissionsData?.data && Array.isArray(submissionsData.data)) {
+    return submissionsData.data;
+  }
+  return [];
+}
+
+function isSubmissionIndicator1_3Accepted(sub: any): boolean {
+  if (sub?.section_status && typeof sub.section_status === "object") {
+    const sectionStatus = (sub.section_status as any)["section1_3"];
+    if (sectionStatus === "ACCEPTED" || sectionStatus === "APPROVED") {
+      return true;
+    }
+  }
+  if (
+    sub?.section_status?.completedIndicators &&
+    Array.isArray(sub.section_status.completedIndicators) &&
+    sub.section_status.completedIndicators.includes("1.3")
+  ) {
+    return true;
+  }
+  const section1_3Data = sub?.formData?.infraFinancing?.section1_3;
+  if (section1_3Data) {
+    const sv = section1_3Data.status
+      ? String(section1_3Data.status).trim().toUpperCase()
+      : null;
+    if (sv === "ACCEPTED" || sv === "APPROVED") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Resolve indicator 1.3 totalULBs across same state (1.3 may be on another submission; may be SUBMITTED_TO_STATE). */
+async function fetchIndicator1_3ReferenceTotalAcrossState(
+  submission: any,
+  formData: any,
+  options?: { preferMatchTotal?: number }
+): Promise<{ totalULBs: number | null; accepted: boolean }> {
+  const getSection1_3FromForm = () =>
+    submission?.formData?.infraFinancing?.section1_3 ||
+    formData?.section1_3 ||
+    formData?.infraFinancing?.section1_3;
+
+  const readN = (section1_3: any): number | null => {
+    if (!section1_3 || section1_3.totalULBs === undefined) return null;
+    const n = Number(section1_3.totalULBs);
+    if (Number.isNaN(n) || n <= 0) return null;
+    return n;
+  };
+
+  const preferN =
+    options?.preferMatchTotal != null &&
+    !Number.isNaN(Number(options.preferMatchTotal)) &&
+    Number(options.preferMatchTotal) > 0
+      ? Number(options.preferMatchTotal)
+      : null;
+
+  const cur13 = getSection1_3FromForm();
+  const curN = readN(cur13);
+
+  const statusAccepted = (section1_3: any) => {
+    const sv = String(section1_3?.status || "").trim().toUpperCase();
+    return sv === "ACCEPTED" || sv === "APPROVED";
+  };
+
+  // General / UI: prefer current submission when it already has indicator 1.3 data.
+  if (preferN == null && curN != null) {
+    return { totalULBs: curN, accepted: statusAccepted(cur13) };
+  }
+
+  const currentStateUt = submission?.stateUt || submission?.user?.stateUt;
+  const submissionsData = await apiService.getSubmissions(1, 100);
+  const submissionsArray = parseSubmissionsResponse(submissionsData);
+  const sameStateSubmissions = currentStateUt
+    ? submissionsArray.filter((sub: any) => {
+        const subStateUt = sub.stateUt || sub.user?.stateUt;
+        return (
+          subStateUt &&
+          String(subStateUt).toUpperCase() ===
+            String(currentStateUt).toUpperCase()
+        );
+      })
+    : [];
+
+  const findMatchScore = (
+    predicate: (n: number, sub: any) => boolean
+  ): { totalULBs: number; accepted: boolean } | null => {
+    for (const sub of sameStateSubmissions) {
+      const section1_3Data = sub?.formData?.infraFinancing?.section1_3;
+      const n = readN(section1_3Data);
+      if (n == null || !predicate(n, sub)) continue;
+      if (isSubmissionIndicator1_3Accepted(sub)) {
+        return { totalULBs: n, accepted: true };
+      }
+    }
+    for (const sub of sameStateSubmissions) {
+      const section1_3Data = sub?.formData?.infraFinancing?.section1_3;
+      const n = readN(section1_3Data);
+      if (n == null || !predicate(n, sub)) continue;
+      return { totalULBs: n, accepted: false };
+    }
+    return null;
+  };
+
+  // Saving 1.4: align with the Total ULBs entered in 1.4 — do not lock to a stale/wrong 1.3 on this submission.
+  if (preferN != null) {
+    const exact = findMatchScore((n) => n === preferN);
+    if (exact) return exact;
+    if (curN != null && curN === preferN) {
+      return { totalULBs: curN, accepted: statusAccepted(cur13) };
+    }
+    return { totalULBs: null, accepted: false };
+  }
+
+  if (!currentStateUt) {
+    return { totalULBs: null, accepted: false };
+  }
+
+  const acceptedFirst = findMatchScore(() => true);
+  if (acceptedFirst) return acceptedFirst;
+
+  return { totalULBs: null, accepted: false };
+}
+
 export const InfraFinancingReview = ({
   submissionId,
   formData,
@@ -319,6 +452,11 @@ export const InfraFinancingReview = ({
   // State for edit functionality indicator wise - moved here to be available before useMemo
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
+  const isEditingSection1_4 = useEditableSectionStore((s) =>
+    s.editableSections.some(
+      (sec) => sec.sectionId === "1.4" && sec.isEditing
+    )
+  );
 
   // Field validation hook for touch tracking
   const {
@@ -332,6 +470,20 @@ export const InfraFinancingReview = ({
     createOnBlurHandler,
     createOnValueChangeHandler,
   } = useFieldValidation();
+
+  // [1.4-debug] Log 1.4 local state whenever it changes while section 1.4 is in edit mode
+  useEffect(() => {
+    if (!import.meta.env.DEV || !isEditingSection1_4) return;
+    console.log(
+      "[InfraFinancingReview][1.4-debug] section14State updated while editing 1.4",
+      {
+        totalULBs: section14State?.totalULBs,
+        bondListLength: section14State?.bondList?.length,
+        bondList: section14State?.bondList,
+        fullSection14State: JSON.parse(JSON.stringify(section14State)),
+      }
+    );
+  }, [section14State, isEditingSection1_4]);
 
   // Helper to check if field is touched
   const isFieldTouched = useCallback(
@@ -436,154 +588,33 @@ export const InfraFinancingReview = ({
     isIndicator1_3AcceptedState,
   ]);
 
-  // Check if indicator 1.3 is accepted in the CURRENT submission only
-  // IMPORTANT: We should NOT check other submissions because when MOSPI sends back a form,
-  // the status resets to "SUBMITTED_TO_STATE" and STATE_APPROVER must accept it again.
-  // The dependency check (1.4 depends on 1.3) should only look at the CURRENT submission.
+  // Indicator 1.3: same-state resolution (ACCEPTED first, else any submission with 1.3 data — 1.3/1.4 may live on different submissions.)
   useEffect(() => {
-    console.group(
-      "🔄 [isIndicator1_3Accepted] useEffect triggered - Checking indicator 1.3 acceptance in CURRENT submission only"
-    );
-    console.log("📋 Dependencies:", {
-      hasSubmission: !!submission,
-      submissionId: submission?.id,
-      refreshIndicator1_3Check,
-      hasFormData: !!formData,
-    });
-
-    const checkIndicator1_3InCurrentSubmission = () => {
+    const loadIndicator1_3Acceptance = async () => {
       if (!submission) {
-        console.log(
-          "❌ [isIndicator1_3Accepted] No submission provided, setting to false"
-        );
         setIsIndicator1_3AcceptedState(false);
-        console.groupEnd();
+        setIndicator1_3TotalULBs(null);
         return;
       }
 
-      console.log(
-        "🔍 [isIndicator1_3Accepted] Checking CURRENT submission only (not other submissions)",
-        {
-          submissionId: submission.id,
-          submissionStatus: submission.status,
-        }
-      );
-
-      // Check ONLY the current submission's formData
-      const currentSubmissionSection1_3 =
-        submission?.formData?.infraFinancing?.section1_3 ||
-        formData?.section1_3 ||
-        (formData as any)?.infraFinancing?.section1_3;
-
-      console.log(
-        "🔍 [isIndicator1_3Accepted] Current submission section1_3 data:",
-        {
-          found: !!currentSubmissionSection1_3,
-          status: currentSubmissionSection1_3?.status,
-          mospi_status: currentSubmissionSection1_3?.mospi_status,
-          totalULBs: currentSubmissionSection1_3?.totalULBs,
-          fullData: currentSubmissionSection1_3,
-        }
-      );
-
-      if (currentSubmissionSection1_3) {
-        const statusValue = currentSubmissionSection1_3.status
-          ? String(currentSubmissionSection1_3.status).trim().toUpperCase()
-          : null;
-
-        console.log(
-          "🔍 [isIndicator1_3Accepted] Checking current status value:",
-          {
-            originalStatus: currentSubmissionSection1_3.status,
-            normalizedStatus: statusValue,
-            isAccepted:
-              statusValue === "ACCEPTED" || statusValue === "APPROVED",
-          }
+      try {
+        const { totalULBs, accepted } =
+          await fetchIndicator1_3ReferenceTotalAcrossState(submission, formData);
+        setIndicator1_3TotalULBs(totalULBs);
+        setIsIndicator1_3AcceptedState(
+          totalULBs != null ? accepted : false
         );
-
-        // Check if CURRENT status is ACCEPTED/APPROVED (not mospi_status)
-        if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
-          console.log(
-            "✅ [isIndicator1_3Accepted] Found indicator 1.3 ACCEPTED in CURRENT submission formData",
-            {
-              status: currentSubmissionSection1_3.status,
-              mospi_status: currentSubmissionSection1_3.mospi_status,
-              normalizedStatus: statusValue,
-              submissionId: submission.id,
-            }
-          );
-
-          // Extract totalULBs value
-          let totalULBsValue: number | null = null;
-          if (currentSubmissionSection1_3.totalULBs !== undefined) {
-            totalULBsValue = Number(currentSubmissionSection1_3.totalULBs);
-            if (!isNaN(totalULBsValue)) {
-              console.log(
-                "📊 [isIndicator1_3Accepted] Found totalULBs value from current submission:",
-                totalULBsValue
-              );
-            } else {
-              console.log(
-                "⚠️ [isIndicator1_3Accepted] totalULBs value is NaN:",
-                currentSubmissionSection1_3.totalULBs
-              );
-            }
-          } else {
-            console.log(
-              "⚠️ [isIndicator1_3Accepted] totalULBs is undefined in current submission"
-            );
-          }
-
-          console.log(
-            "✅ [isIndicator1_3Accepted] Setting indicator 1.3 as ACCEPTED (from CURRENT submission only)",
-            {
-              isAccepted: true,
-              totalULBs: totalULBsValue,
-              submissionId: submission.id,
-            }
-          );
-          setIsIndicator1_3AcceptedState(true);
-          setIndicator1_3TotalULBs(totalULBsValue);
-          console.groupEnd();
-          return;
-        } else {
-          console.log(
-            "❌ [isIndicator1_3Accepted] Current submission section1_3 status is NOT ACCEPTED:",
-            {
-              status: currentSubmissionSection1_3.status,
-              normalizedStatus: statusValue,
-              mospi_status: currentSubmissionSection1_3.mospi_status,
-              submissionId: submission.id,
-              reason:
-                "Status must be ACCEPTED or APPROVED in THIS submission for section1_4 to be accepted",
-            }
-          );
-          console.log(
-            "❌ [isIndicator1_3Accepted] Section 1.4 Accept button will be DISABLED until section1_3 is accepted in this submission"
-          );
-        }
-      } else {
-        console.log(
-          "❌ [isIndicator1_3Accepted] No section1_3 data found in current submission",
-          {
-            submissionId: submission.id,
-          }
+      } catch (error) {
+        console.error(
+          "[isIndicator1_3Accepted] Error resolving indicator 1.3 across submissions:",
+          error
         );
+        setIsIndicator1_3AcceptedState(false);
+        setIndicator1_3TotalULBs(null);
       }
-
-      // If we reach here, section1_3 is NOT accepted in the current submission
-      console.log(
-        "❌ [isIndicator1_3Accepted] Final result: Indicator 1.3 is NOT accepted in current submission",
-        {
-          submissionId: submission.id,
-        }
-      );
-      setIsIndicator1_3AcceptedState(false);
-      setIndicator1_3TotalULBs(null);
-      console.groupEnd();
     };
 
-    checkIndicator1_3InCurrentSubmission();
+    loadIndicator1_3Acceptance();
   }, [submission, refreshIndicator1_3Check, formData]);
 
   // Helper function to check if indicator 1.3 is accepted (uses cached state)
@@ -629,6 +660,75 @@ export const InfraFinancingReview = ({
 
     return indicator1_3Value === currentValueNum;
   };
+
+  /** Merge local section1_3 with state-level 1.3 when 1.3 is on another submission (pairs with validateInfraFinancing 1.3↔1.4 rule). */
+  const getSection1_3ForValidation = useCallback(() => {
+    const local = section13State || { totalULBs: 0, ulbList: [] };
+    const sec13FromPayload =
+      submissionData?.section1_3 ||
+      formData?.section1_3 ||
+      (submission as any)?.formData?.infraFinancing?.section1_3;
+
+    const hasMeaningfulLocal =
+      (sec13FromPayload &&
+        sec13FromPayload.totalULBs !== undefined &&
+        sec13FromPayload.totalULBs !== null &&
+        sec13FromPayload.totalULBs !== "" &&
+        Number(sec13FromPayload.totalULBs) > 0) ||
+      (Array.isArray(sec13FromPayload?.ulbList) &&
+        sec13FromPayload.ulbList.length > 0) ||
+      (Array.isArray(local.ulbList) && local.ulbList.length > 0) ||
+      (Number(local.totalULBs) > 0 && !Number.isNaN(Number(local.totalULBs)));
+
+    if (hasMeaningfulLocal) {
+      let totalULBs =
+        Number(local.totalULBs) ||
+        Number(sec13FromPayload?.totalULBs) ||
+        0;
+      if (
+        totalULBs === 0 &&
+        Array.isArray(local.ulbList) &&
+        local.ulbList.length > 0
+      ) {
+        totalULBs = local.ulbList.length;
+      }
+      if (
+        totalULBs === 0 &&
+        Array.isArray(sec13FromPayload?.ulbList) &&
+        sec13FromPayload.ulbList.length > 0
+      ) {
+        totalULBs = sec13FromPayload.ulbList.length;
+      }
+      return {
+        totalULBs,
+        ulbList:
+          local.ulbList?.length > 0
+            ? local.ulbList
+            : sec13FromPayload?.ulbList || [],
+      };
+    }
+
+    if (
+      indicator1_3TotalULBs != null &&
+      !Number.isNaN(Number(indicator1_3TotalULBs))
+    ) {
+      return {
+        totalULBs: Number(indicator1_3TotalULBs),
+        ulbList: local.ulbList || [],
+      };
+    }
+
+    return {
+      totalULBs: Number(local.totalULBs) || 0,
+      ulbList: local.ulbList || [],
+    };
+  }, [
+    submissionData,
+    formData,
+    section13State,
+    indicator1_3TotalULBs,
+    submission,
+  ]);
 
   useEffect(() => {
     if (!isRestoringRef.current) {
@@ -1669,7 +1769,7 @@ export const InfraFinancingReview = ({
           formData?.section1_2?.capexActualsToGSDP ||
           "",
       },
-      section1_3: section13State || { totalULBs: 0, ulbList: [] },
+      section1_3: getSection1_3ForValidation(),
       section1_4: section14State || { totalULBs: 0, bondList: [] },
       section1_5: {
         ffiArray: section15State?.ffiArray || [],
@@ -1687,6 +1787,7 @@ export const InfraFinancingReview = ({
     section13State,
     section14State,
     section15State,
+    getSection1_3ForValidation,
   ]);
 
   // Real-time validation using useMemo
@@ -1759,13 +1860,15 @@ export const InfraFinancingReview = ({
     const isNodalOfficer = userRole === "NODAL_OFFICER";
     const submissionStatus = submission?.status;
 
-    console.log(`[InfraFinancingReview] shouldBeEditable(${sectionId}):`, {
-      userRole,
-      isNodalOfficer,
-      isStateApprover,
-      submissionStatus,
-      isCurrentlyEditable: isEditable(sectionId),
-    });
+    if (import.meta.env.DEV) {
+      console.log(`[InfraFinancingReview] shouldBeEditable(${sectionId}):`, {
+        userRole,
+        isNodalOfficer,
+        isStateApprover,
+        submissionStatus,
+        isCurrentlyEditable: isEditable(sectionId),
+      });
+    }
 
     // For NODAL_OFFICER, check submission status
     if (isNodalOfficer) {
@@ -1862,34 +1965,35 @@ export const InfraFinancingReview = ({
           : sectionData?.mospi_status
         : undefined;
 
-      // Debug logging for STATE_APPROVER status check
-      console.log(
-        `[InfraFinancingReview] shouldBeEditable(${sectionId}) - STATE_APPROVER status check:`,
-        {
-          sectionKey,
-          sectionStatusValue,
-          fromSubmissionSectionStatus: submission?.section_status
-            ? (submission.section_status as any)[sectionKey]
-            : undefined,
-          fromFormData: formData?.[sectionKey]
-            ? Array.isArray(formData[sectionKey])
-              ? (formData[sectionKey] as any).status
-              : (formData[sectionKey] as any).status
-            : undefined,
-          fromSubmissionData: submissionData?.[sectionKey]
-            ? Array.isArray(submissionData[sectionKey])
-              ? (submissionData[sectionKey] as any).status
-              : (submissionData[sectionKey] as any).status
-            : undefined,
-          fromStore: storeSectionData
-            ? Array.isArray(storeSectionData)
-              ? undefined
-              : (storeSectionData as any).status
-            : undefined,
-          mospiStatus,
-          isEditable: isEditable(sectionId),
-        }
-      );
+      if (import.meta.env.DEV) {
+        console.log(
+          `[InfraFinancingReview] shouldBeEditable(${sectionId}) - STATE_APPROVER status check:`,
+          {
+            sectionKey,
+            sectionStatusValue,
+            fromSubmissionSectionStatus: submission?.section_status
+              ? (submission.section_status as any)[sectionKey]
+              : undefined,
+            fromFormData: formData?.[sectionKey]
+              ? Array.isArray(formData[sectionKey])
+                ? (formData[sectionKey] as any).status
+                : (formData[sectionKey] as any).status
+              : undefined,
+            fromSubmissionData: submissionData?.[sectionKey]
+              ? Array.isArray(submissionData[sectionKey])
+                ? (submissionData[sectionKey] as any).status
+                : (submissionData[sectionKey] as any).status
+              : undefined,
+            fromStore: storeSectionData
+              ? Array.isArray(storeSectionData)
+                ? undefined
+                : (storeSectionData as any).status
+              : undefined,
+            mospiStatus,
+            isEditable: isEditable(sectionId),
+          }
+        );
+      }
 
       // If section status is RESUBMITTED, allow editing if section is in edit mode
       if (sectionStatusValue === "RESUBMITTED") {
@@ -2339,10 +2443,7 @@ export const InfraFinancingReview = ({
           formData?.section1_2?.capexActualsToGSDP ||
           "",
       },
-      section1_3: {
-        totalULBs: section13State.totalULBs || 0,
-        ulbList: section13State.ulbList || [],
-      },
+      section1_3: getSection1_3ForValidation(),
       section1_4: {
         totalULBs: section14State.totalULBs || 0,
         bondList: section14State.bondList || [],
@@ -2353,6 +2454,40 @@ export const InfraFinancingReview = ({
         ffiArray: section15State?.ffiArray || [],
       },
     };
+
+    if (import.meta.env.DEV && sectionId === "1.4") {
+      const sec13Payload =
+        submissionData?.section1_3 ||
+        formData?.section1_3 ||
+        (submission as any)?.formData?.infraFinancing?.section1_3;
+      console.log(
+        "[InfraFinancingReview][1.4-debug] handleEditStart — snapshot (1.3 vs 1.4, all sources)",
+        {
+          submissionId: submission?.id,
+          stateUt: submission?.stateUt,
+          indicator1_3TotalULBs,
+          isIndicator1_3AcceptedState,
+          section13State: JSON.parse(JSON.stringify(section13State)),
+          section14State: JSON.parse(JSON.stringify(section14State)),
+          getSection1_3ForValidation: getSection1_3ForValidation(),
+          sec13FromPayload_raw: sec13Payload
+            ? JSON.parse(JSON.stringify(sec13Payload))
+            : undefined,
+          formData_section1_3: formData?.section1_3,
+          submissionData_section1_3: submissionData?.section1_3,
+          submission_formData_infra_section1_3: (submission as any)?.formData
+            ?.infraFinancing?.section1_3,
+          formData_section1_4: formData?.section1_4,
+          submissionData_section1_4: submissionData?.section1_4,
+          fullDataForValidation_section1_3: fullData.section1_3,
+          fullDataForValidation_section1_4: fullData.section1_4,
+          comparison_editMode: {
+            num13_from_fullData: Number(fullData.section1_3?.totalULBs) || 0,
+            num14_from_fullData: Number(fullData.section1_4?.totalULBs) || 0,
+          },
+        }
+      );
+    }
 
     const effectiveAssignedIndicators =
       assignedIndicators.length > 0
@@ -2949,6 +3084,52 @@ export const InfraFinancingReview = ({
 
   // Handles for review edit, accept, send back
   // Add this handler after other handlers
+  const isValidationFailureError = (e: unknown): boolean => {
+    const err = e as { isValidationError?: boolean; message?: string };
+    return (
+      err?.isValidationError === true || err?.message === "VALIDATION_FAILED"
+    );
+  };
+
+  /** Banner text when save validation fails. For 1.4, omit banner when errors are shown inline under fields. */
+  const getSectionValidationBannerText = (
+    sectionErrors: Record<string, string>,
+    sectionId: string
+  ): string => {
+    const entries = Object.entries(sectionErrors).filter(([, m]) => Boolean(m));
+    if (entries.length === 0) {
+      return "";
+    }
+
+    const isInlineOnly1_4Error = (key: string) =>
+      key === "section1_4.totalULBs" ||
+      key === "section1_4.bondList" ||
+      key.startsWith("section1_4.bondList.");
+
+    if (
+      sectionId === "1.4" &&
+      entries.every(([key]) => isInlineOnly1_4Error(key))
+    ) {
+      return "";
+    }
+
+    const ulbMismatch = entries.find(
+      ([key, msg]) =>
+        key === "section1_4.totalULBs" &&
+        typeof msg === "string" &&
+        (msg.includes("indicator 1.3") ||
+          msg.toLowerCase().includes("must match"))
+    );
+    if (ulbMismatch) return ulbMismatch[1];
+    const anyMatch = entries.find(
+      ([, msg]) =>
+        typeof msg === "string" && msg.toLowerCase().includes("must match")
+    );
+    if (anyMatch) return anyMatch[1];
+    if (entries.length === 1) return entries[0][1];
+    return entries.map(([, m]) => m).join(" ");
+  };
+
   const onSaveSection = async (sectionId: string) => {
     console.log(
       `[InfraFinancingReview] onSaveSection called for section ${sectionId}`
@@ -3092,7 +3273,7 @@ export const InfraFinancingReview = ({
             formData?.section1_2?.capexActualsToGSDP ||
             "",
         },
-        section1_3: section13State || { totalULBs: 0, ulbList: [] },
+        section1_3: getSection1_3ForValidation(),
         section1_4: section14State || { totalULBs: 0, bondList: [] },
         section1_5: {
           ffiArray: section15State?.ffiArray || [],
@@ -3228,7 +3409,7 @@ export const InfraFinancingReview = ({
         // Set section-level validation message (same as STATE_APPROVER)
         setSectionValidationMessages((prev) => ({
           ...prev,
-          [sectionId]: `Please fill all mandatory fields.`,
+          [sectionId]: getSectionValidationBannerText(sectionErrors, sectionId),
         }));
         console.warn(
           `[InfraFinancingReview] ❌ Validation failed for section ${sectionId}:`,
@@ -3264,7 +3445,12 @@ export const InfraFinancingReview = ({
         console.log(
           `[InfraFinancingReview] ✅ Validation passed - proceeding with direct save (not REVERTED)`
         );
-        await performSave(sectionId);
+        try {
+          await performSave(sectionId);
+        } catch (e) {
+          if (isValidationFailureError(e)) return;
+          throw e;
+        }
         return;
       }
     }
@@ -3277,7 +3463,12 @@ export const InfraFinancingReview = ({
       userRole,
     });
     // For non-NODAL_OFFICER users, proceed with submit directly
-    await performSave(sectionId);
+    try {
+      await performSave(sectionId);
+    } catch (e) {
+      if (isValidationFailureError(e)) return;
+      throw e;
+    }
   };
 
   // Actual save function that performs the save operation
@@ -3451,6 +3642,116 @@ export const InfraFinancingReview = ({
       // For individual section saves, only validate the section being saved
       // Don't block saves due to other incomplete sections
       // Ensure all sections have default values to prevent undefined errors
+      let section1_3ForValidationMerge = getSection1_3ForValidation();
+      if (sectionId === "1.4" && submission) {
+        const sec13FromPayload =
+          submissionData?.section1_3 ||
+          formData?.section1_3 ||
+          (submission as any)?.formData?.infraFinancing?.section1_3;
+        const local = section13State || { totalULBs: 0, ulbList: [] };
+        const hasMeaningfulLocal =
+          (sec13FromPayload &&
+            sec13FromPayload.totalULBs !== undefined &&
+            sec13FromPayload.totalULBs !== null &&
+            sec13FromPayload.totalULBs !== "" &&
+            Number(sec13FromPayload.totalULBs) > 0) ||
+          (Array.isArray(sec13FromPayload?.ulbList) &&
+            sec13FromPayload.ulbList.length > 0) ||
+          (Array.isArray(local.ulbList) && local.ulbList.length > 0) ||
+          (Number(local.totalULBs) > 0 &&
+            !Number.isNaN(Number(local.totalULBs)));
+
+        const ulb14 = Number(section14State?.totalULBs) || 0;
+        const merged13 = Number(section1_3ForValidationMerge.totalULBs) || 0;
+        // Re-fetch when 1.3 merge disagrees with 1.4 (stale 1.3 on this submission vs real 1.3 elsewhere).
+        const needsCrossRef =
+          !hasMeaningfulLocal ||
+          (merged13 === 0 && ulb14 > 0) ||
+          (ulb14 > 0 && merged13 > 0 && merged13 !== ulb14);
+
+        let crossRefResult: {
+          totalULBs: number | null;
+          submissionId?: string;
+        } | null = null;
+        if (import.meta.env.DEV) {
+          console.log(
+            "[InfraFinancingReview][1.4-debug] performSave — before cross-ref merge",
+            {
+              initialMerge: JSON.parse(
+                JSON.stringify(section1_3ForValidationMerge)
+              ),
+              section14StateForSave: JSON.parse(
+                JSON.stringify(section14State)
+              ),
+              fieldsBeingSaved: JSON.parse(JSON.stringify(fields)),
+              sec13FromPayload: sec13FromPayload
+                ? JSON.parse(JSON.stringify(sec13FromPayload))
+                : undefined,
+              localSection13State: JSON.parse(JSON.stringify(local)),
+              hasMeaningfulLocal,
+              ulb14,
+              merged13FromGetSection1_3: merged13,
+              needsCrossRef,
+              preferMatchTotal: ulb14 > 0 ? ulb14 : undefined,
+              indicator1_3TotalULBs,
+              isIndicator1_3AcceptedState,
+            }
+          );
+        }
+
+        if (needsCrossRef) {
+          try {
+            const ref = await fetchIndicator1_3ReferenceTotalAcrossState(
+              submission,
+              formData,
+              ulb14 > 0 ? { preferMatchTotal: ulb14 } : undefined
+            );
+            crossRefResult = ref;
+            if (import.meta.env.DEV) {
+              console.log(
+                "[InfraFinancingReview][1.4-debug] performSave — cross-state 1.3 ref fetch",
+                {
+                  ref: ref
+                    ? JSON.parse(JSON.stringify(ref))
+                    : null,
+                }
+              );
+            }
+            if (ref.totalULBs != null) {
+              section1_3ForValidationMerge = {
+                totalULBs: ref.totalULBs,
+                ulbList:
+                  section1_3ForValidationMerge.ulbList?.length > 0
+                    ? section1_3ForValidationMerge.ulbList
+                    : section13State?.ulbList || [],
+              };
+            }
+          } catch {
+            /* keep merged from getSection1_3ForValidation */
+          }
+        }
+
+        if (import.meta.env.DEV) {
+          const final13 = Number(section1_3ForValidationMerge.totalULBs) || 0;
+          const final14 = Number(section14State?.totalULBs) || 0;
+          console.log(
+            "[InfraFinancingReview][1.4-debug] performSave — after merge (values used for validateInfraFinancing)",
+            {
+              section1_3ForValidationMerge: JSON.parse(
+                JSON.stringify(section1_3ForValidationMerge)
+              ),
+              section14State: JSON.parse(JSON.stringify(section14State)),
+              comparison: {
+                totalULBs_1_3: final13,
+                totalULBs_1_4: final14,
+                match: final13 === final14,
+                crossRefUsed: !!crossRefResult?.totalULBs,
+              },
+            }
+          );
+        }
+      }
+
       const fullData: any = {
         section1_1: {
           year:
@@ -3522,7 +3823,7 @@ export const InfraFinancingReview = ({
             formData?.section1_2?.capexActualsToGSDP ||
             "",
         },
-        section1_3: section13State || { totalULBs: 0, ulbList: [] },
+        section1_3: section1_3ForValidationMerge,
         section1_4: section14State || { totalULBs: 0, bondList: [] },
         section1_5: {
           ffiArray: section15State?.ffiArray || [],
@@ -3530,6 +3831,23 @@ export const InfraFinancingReview = ({
           comment: section15State?.comment || "",
         },
       };
+
+      if (import.meta.env.DEV && sectionId === "1.4") {
+        const n13 = Number(fullData.section1_3?.totalULBs) || 0;
+        const n14 = Number(fullData.section1_4?.totalULBs) || 0;
+        console.log(
+          "[InfraFinancingReview][1.4-debug] performSave — fullData passed to validateInfraFinancing",
+          {
+            section1_3: JSON.parse(JSON.stringify(fullData.section1_3)),
+            section1_4: JSON.parse(JSON.stringify(fullData.section1_4)),
+            validatorWillCompare: {
+              totalULBs_indicator_1_3: n13,
+              totalULBs_indicator_1_4: n14,
+              equal: n13 === n14,
+            },
+          }
+        );
+      }
 
       const effectiveAssignedIndicators =
         assignedIndicators.length > 0
@@ -3638,7 +3956,7 @@ export const InfraFinancingReview = ({
         const errorCount = Object.keys(sectionErrors).length;
         setSectionValidationMessages((prev) => ({
           ...prev,
-          [sectionId]: `Please fill all mandatory fields.`,
+          [sectionId]: getSectionValidationBannerText(sectionErrors, sectionId),
         }));
         console.warn("Validation failed for section", sectionId, sectionErrors);
         // Throw validation error so handleConfirmSave can catch it and close dialog
@@ -3998,6 +4316,9 @@ export const InfraFinancingReview = ({
       // Optional: Show success message
       // toast.success(`Section ${sectionId} saved successfully`);
     } catch (error) {
+      if (isValidationFailureError(error)) {
+        throw error;
+      }
       console.error(
         `[InfraFinancingReview] ❌ performSave - Error saving section ${sectionId}:`,
         error
