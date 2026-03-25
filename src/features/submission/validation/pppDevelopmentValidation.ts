@@ -36,6 +36,13 @@ const hasMaxTwoDecimals = (value: string): boolean => {
   return /^\d+(\.\d{1,2})?$/.test(sanitized);
 };
 
+const parseNumber = (value: string): number => {
+  const sanitized = sanitizeNumber(value);
+  if (sanitized === "") return NaN;
+  const num = Number(sanitized);
+  return Number.isNaN(num) ? NaN : num;
+};
+
 const isValidInteger = (value: string): boolean => {
   if (value === "") return false;
   const sanitized = sanitizeNumber(value);
@@ -312,6 +319,34 @@ export const validatePPPDevelopment = (
       ) {
         errors["section3_4.totalProjectsAwarded"] =
           "Enter a non-negative number with up to two decimal places.";
+      } else {
+        // Cross-indicator consistency: 3.4's Budget Allocation must match 1.1's Capital Allocation
+        const section11 =
+          (data as any)?.section1_1 ??
+          (data as any)?.infraFinancing?.section1_1;
+
+        const capitalAllocation11 = section11?.capitalAllocation;
+        if (
+          capitalAllocation11 !== undefined &&
+          capitalAllocation11 !== null &&
+          String(capitalAllocation11).trim() !== ""
+        ) {
+          const capitalAllocation11Num = parseNumber(
+            String(capitalAllocation11)
+          );
+          const totalProjectsAwardedNum = parseNumber(
+            totalProjectsAwardedStr
+          );
+
+          if (
+            !Number.isNaN(capitalAllocation11Num) &&
+            !Number.isNaN(totalProjectsAwardedNum) &&
+            capitalAllocation11Num.toFixed(2) !== totalProjectsAwardedNum.toFixed(2)
+          ) {
+            errors["section3_4.totalProjectsAwarded"] =
+              "Total Budgeted capital allocation (INR-CRORE) in indicator 3.4 must match the Capital Allocation for FY (INR-CRORE) from indicator 1.1.";
+          }
+        }
       }
 
       // Note: totalProjectCostAwarded is auto-calculated, so we don't validate it here

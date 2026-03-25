@@ -532,10 +532,25 @@ export const PPPDevelopmentStep = () => {
       (isNodalOfficer || isStateApprover) && allowedIndicators.length > 0
         ? allowedIndicators
         : undefined;
-    return validatePPPDevelopment(formData, {
+    const section1_1 =
+      (persistedFormData as any)?.infraFinancing?.section1_1;
+
+    // Include indicator 1.1 capital allocation for cross-indicator validation (3.4 must match 1.1)
+    const fullFormDataForValidation = {
+      ...(formData as any),
+      section1_1,
+    };
+
+    return validatePPPDevelopment(fullFormDataForValidation as any, {
       allowedIndicators: indicatorsToValidate,
     });
-  }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
+  }, [
+    formData,
+    persistedFormData,
+    isNodalOfficer,
+    isStateApprover,
+    allowedIndicators,
+  ]);
   const isNextDisabled = false; // Validation disabled - Next button always enabled
 
   // Clear errors for fields that are now valid (when user fixes invalid fields)
@@ -1052,9 +1067,21 @@ export const PPPDevelopmentStep = () => {
     setValidatingIndicator(indicatorCode);
     setShowValidationErrors(true);
     // Validate only this specific indicator
-    const indicatorValidation = validatePPPDevelopment(formData, {
-      allowedIndicators: [indicatorCode],
-    });
+    const section1_1 =
+      (persistedFormData as any)?.infraFinancing?.section1_1 ||
+      (getStepData("infraFinancing") as any)?.section1_1;
+
+    const fullFormDataForValidation = {
+      ...(formData as any),
+      section1_1,
+    };
+
+    const indicatorValidation = validatePPPDevelopment(
+      fullFormDataForValidation as any,
+      {
+        allowedIndicators: [indicatorCode],
+      }
+    );
     if (!indicatorValidation.isValid) {
       // Mark all fields with errors in this indicator as touched so errors show
       markIndicatorFieldsAsTouched(indicatorCode, indicatorValidation.errors);
@@ -1429,10 +1456,22 @@ export const PPPDevelopmentStep = () => {
     // This ensures validation errors are shown on UI instead of alerts
     if (isNodalOfficer) {
       // Run validation first
-      const validationResult = validatePPPDevelopment(formData, {
-        allowedIndicators:
-          assignedIndicators.length > 0 ? assignedIndicators : undefined,
-      });
+      const section1_1 =
+        (persistedFormData as any)?.infraFinancing?.section1_1 ||
+        (getStepData("infraFinancing") as any)?.section1_1;
+
+      const fullFormDataForValidation = {
+        ...(formData as any),
+        section1_1,
+      };
+
+      const validationResult = validatePPPDevelopment(
+        fullFormDataForValidation as any,
+        {
+          allowedIndicators:
+            assignedIndicators.length > 0 ? assignedIndicators : undefined,
+        }
+      );
 
       // Filter validation errors to only include the indicator being saved
       const sectionErrors: Record<string, string> = {};
@@ -1546,9 +1585,21 @@ export const PPPDevelopmentStep = () => {
     setSavingIndicators((prev) => new Set(prev).add(indicatorCode));
     try {
       // Validate the indicator before saving
-      const indicatorValidation = validatePPPDevelopment(formData, {
-        allowedIndicators: [indicatorCode],
-      });
+      const section1_1 =
+        (persistedFormData as any)?.infraFinancing?.section1_1 ||
+        (getStepData("infraFinancing") as any)?.section1_1;
+
+      const fullFormDataForValidation = {
+        ...(formData as any),
+        section1_1,
+      };
+
+      const indicatorValidation = validatePPPDevelopment(
+        fullFormDataForValidation as any,
+        {
+          allowedIndicators: [indicatorCode],
+        }
+      );
 
       if (!indicatorValidation.isValid) {
         // Mark all fields with errors as touched so they show inline
@@ -2777,7 +2828,7 @@ export const PPPDevelopmentStep = () => {
                           </Label>
                           <Input
                             type="text"
-                            placeholder="Paste link or enter text proof (e.g., PPP India portal)"
+                            placeholder="Website Link proof"
                             value={entry.proofLinkOrText || ""}
                             onChange={(e) => {
                               if (isIndicatorSubmitted("3.3")) return;
