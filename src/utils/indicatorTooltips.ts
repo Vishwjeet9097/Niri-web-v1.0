@@ -97,7 +97,8 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "4.1": {
     code: "4.1",
-    fieldName: "State Project Monitoring System (PMG = Project Monitoring Group)",
+    fieldName:
+      "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
     tooltip:
       "Data Requirement: Provide details of a State/UT Project Monitoring Portal for infrastructure projects on the lines of GoI PMG (Project Monitoring Group).\n\nData Validation & Calculation: Portal availability and usage will be verified through portal access and official notifications.\n\nScoring Methodology: Yes/No. Full marks are awarded if the portal is available and in use.\n\nDocuments Required: Government Order / Notification and official portal link.",
   },

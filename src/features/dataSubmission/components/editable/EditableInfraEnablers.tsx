@@ -158,17 +158,19 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
       <div className="space-y-6">
         {/* Section 4.1 */}
         <SectionCard
-          title="4.1 - Availability & Use of State/UT PMG"
+          title="4.1 - Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)"
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
             <Label>
-              Availability & Use of State/UT PMG{" "}
+              Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India){" "}
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="inline w-3 h-3 ml-1" />
                 </TooltipTrigger>
-                <TooltipContent>Is State/UT PMG available and used?</TooltipContent>
+                <TooltipContent>
+                  Is the State/UT project monitoring portal available and in use on the lines of GoI (Government Of India)?
+                </TooltipContent>
               </Tooltip>
             </Label>
             <div className="flex gap-6">

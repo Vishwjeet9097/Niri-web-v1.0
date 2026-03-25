@@ -1789,7 +1789,8 @@ export const InfraEnablersReview = ({
 
   const getSectionTitle = (sectionId: string) => {
     const titles: Record<string, string> = {
-      "4.1": "4.1 - Availability & Use of State/UT PMG",
+      "4.1":
+        "4.1 - Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
       "4.2": "4.2 - Adoption of PM GatiShakti",
       "4.3": "4.3 - Adoption of ADR",
       "4.4": "4.4 - Innovative Practices",
@@ -4392,8 +4393,9 @@ export const InfraEnablersReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.1 -</span> Availability &
-                    Use of State/UT PMG{" "}
+                    <span className="text-primary">4.1 -</span>{" "}
+                    Availability and use of a State/UT Project Monitoring Portal on
+                    the lines of GoI (Government Of India)
                   </span>
                   {renderActionButtons("4.1")}
                 </div>
@@ -4411,7 +4413,8 @@ export const InfraEnablersReview = ({
               <div className="flex-1 space-y-4">
                 <div>
                   <Label className="mb-3 block">
-                    Availability & Use of State/UT PMG{" "}
+                    Availability and use of a State/UT Project Monitoring Portal
+                    on the lines of GoI (Government Of India){" "}
                     <span className="text-red-500">*</span>
                   </Label>
                   {shouldBeEditable("4.1") ? (
@@ -4534,7 +4537,8 @@ export const InfraEnablersReview = ({
                 )}
 
                 <p className="text-xs text-muted-foreground">
-                  Upload documentation of State/UT PMG portal
+                  Upload documentation of State/UT project monitoring portal on
+                  the lines of GoI (Government Of India)
                 </p>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}

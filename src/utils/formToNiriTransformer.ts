@@ -263,7 +263,8 @@ export function transformFormDataToNiriSubmission(
 
       submissionData.Infrastructure_Enablers.push({
         indicator_id: "4.1",
-        indicator_name: "Availability and use of State/UT PMG portal",
+        indicator_name:
+          "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
         user_fill_value_a1: hasStatePortal ? "Yes" : "No",
         user_fill_value_a2: null,
       });

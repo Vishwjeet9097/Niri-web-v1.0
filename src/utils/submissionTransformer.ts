@@ -161,7 +161,8 @@ function getIndicatorName(indicatorId: string): string {
     "3.2": "Functional State/UT PPP Cell/Unit",
     "3.3": "Proposals submitted under VGF/IIPDF",
     "3.4": "Proportion of TPC of PPP or Bankable projects",
-    "4.1": "Availability and use of State/UT PMG portal",
+    "4.1":
+      "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
     "4.2": "Adoption of PM GatiShakti NMP",
     "4.3": "Adoption of Alternate Dispute Resolution (ADR)",
     "4.4": "Any Innovative Practice for Infra Dev",

@@ -2010,8 +2010,9 @@ export const InfraEnablersStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.1 - </span> Availability &
-                    Use of State/UT {withFullForm("PMG")}{" "}
+                    <span className="text-primary">4.1 - </span> Availability and
+                    use of a State/UT Project Monitoring Portal on the lines of
+                    GoI (Government Of India)
                   </span>
                 </div>
               }
@@ -2029,14 +2030,15 @@ export const InfraEnablersStep = () => {
               <div className="flex flex-col gap-4 w-[70%]">
                 <div>
                   <Label>
-                    Availability & Use of State/UT {withFullForm("PMG")}{" "}
+                    Availability and use of a State/UT Project Monitoring Portal on the lines of
+                    GoI (Government Of India){" "}
                     <span className="text-red-500">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Is State/UT PMG (Project Monitoring Group) available and used?
+                        Is the State/UT project monitoring portal available and in use on the lines of GoI (Government Of India)?
                       </TooltipContent>
                     </Tooltip>
                   </Label>

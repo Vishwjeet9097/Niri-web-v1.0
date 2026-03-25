@@ -274,7 +274,8 @@ export function getIndicatorDisplayName(indicatorCode: string): string {
     "3.3": "VGF/IIPDF Proposals",
     "3.4": "PPP Bankable Projects",
     "3.5": "PPP Project Monitoring",
-    "4.1": "Availability & Use of State/UT PMG",
+    "4.1":
+      "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
     "4.2": "Adoption of PM GatiShakti",
     "4.3": "Adoption of ADR",
     "4.4": "Innovative Practices",
