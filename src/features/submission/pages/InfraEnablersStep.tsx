@@ -2699,8 +2699,7 @@ export const InfraEnablersStep = () => {
                 {formData.section4_2.adopted === "no" && (
                   <div className="flex flex-col gap-2 w-[60%]">
                     <Label>
-                      Comments (Reason){" "}
-                      <span className="text-destructive">*</span>
+                      Comments (Reason)
                     </Label>
                     <Input
                       type="text"

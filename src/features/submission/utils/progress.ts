@@ -341,7 +341,8 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     // If "no", comment is required
     if (d?.adopted === "no") {
-      return hasMeaningfulValue(d?.comment);
+      // Comment is optional when adopted === "no"
+      return true;
     }
     return true;
   },

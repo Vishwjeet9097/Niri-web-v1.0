@@ -159,9 +159,7 @@ export const validateInfraEnablers = (
         });
       }
     } else if (section43.adopted === "no") {
-      if (!section43.comment || section43.comment.trim() === "") {
-        errors["section4_2.comment"] = "Comment (reason) is required.";
-      }
+      // Comment is optional when adopted === "no"
     }
   }
 

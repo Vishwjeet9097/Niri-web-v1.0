@@ -1452,6 +1452,13 @@ class ApiService implements HttpClient {
 
         // IMPORTANT: For "no", ONLY check comment - don't check other patterns
         if (conditionalValue === "no") {
+          // Indicator 4.2 (section4_2): comment is optional when adopted === "no"
+          if (sectionKey === "section4_2" && fieldName === "adopted") {
+            console.log(
+              `  ✓ ${sectionKey}: No (comment optional) -> accepted`
+            );
+            return true;
+          }
           if (isMeaningful(sectionData.comment)) {
             console.log(`  ✓ ${sectionKey}: No with comment`);
             return true;

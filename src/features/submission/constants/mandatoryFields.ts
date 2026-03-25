@@ -159,7 +159,7 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     if (data?.adopted === "yes") {
       // projects array is required
     } else if (data?.adopted === "no") {
-      fields.push("comment");
+      // Comment is optional when adopted === "no"
     }
     return fields;
   },
