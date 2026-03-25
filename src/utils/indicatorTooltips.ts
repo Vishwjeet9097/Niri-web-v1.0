@@ -91,7 +91,7 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "3.4": {
     code: "3.4",
-    fieldName: "PPP (Public-Private Partnership) Project Cost Ratio; TPC = Total Project Cost",
+    fieldName: "PPP Project Cost Ratio; TPC = Total Project Cost",
     tooltip:
       "Data Requirement: Provide Total Project Cost (TPC) of awarded PPP projects and total budgeted capital allocation of the State for the assessment year.\n\nData Validation & Calculation: Percentage is calculated as the ratio of TPC of awarded PPP projects to total budgeted capital allocation.\n\nScoring Methodology: 2 marks for every 1%, subject to a maximum of 100 marks.\n\nDocuments Required: List of awarded PPP projects with TPC details and State budgeted capital allocation documents.",
   },

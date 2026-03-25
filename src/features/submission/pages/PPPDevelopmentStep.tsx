@@ -3153,7 +3153,7 @@ export const PPPDevelopmentStep = () => {
                   <div className="flex flex-col">
                     <span className="text-base font-semibold ">
                       <span className="text-primary">3.4 – </span> Proportion of
-                      {withFullForm("TPC")} of {withFullForm("PPP")} Projects
+                      {withFullForm("TPC")} of PPP Projects
                     </span>
                   </div>
                 }
@@ -3204,7 +3204,7 @@ export const PPPDevelopmentStep = () => {
                     </div>
                     <div>
                       <Label className="block min-h-[40px] leading-snug">
-                        Total of {withFullForm("TPC")} of {withFullForm("PPP")} Projects (INR-CRORE)
+                        Total of {withFullForm("TPC")} of PPP Projects (INR-CRORE)
                         <span className="text-destructive">*</span>
                       </Label>
                       <Input
@@ -3229,7 +3229,7 @@ export const PPPDevelopmentStep = () => {
                     </div>
                     <div>
                       <Label className="block min-h-[40px] leading-snug">
-                        % of {withFullForm("TPC")} of {withFullForm("PPP")} Projects
+                        % of {withFullForm("TPC")} of PPP Projects
                       </Label>
                       <Input
                         type="text"
@@ -3527,7 +3527,7 @@ export const PPPDevelopmentStep = () => {
                         onClick={() =>
                           handleSubmitIndicator(
                             "3.4",
-                            `Proportion of ${withFullForm("TPC")} of ${withFullForm("PPP")} Projects`
+                            `Proportion of ${withFullForm("TPC")} of PPP Projects`
                           )
                         }
                         disabled={
