@@ -66,6 +66,7 @@ import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
+import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { validatePPPDevelopment } from "@/features/submission/validation/pppDevelopmentValidation";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import {
@@ -657,6 +658,8 @@ export const PPPDevelopmentReview = ({
     infrastructureSector: "",
     dateOfAward: "",
     totalProjectCost: "",
+    proofLinkOrText: "",
+    file: null as FileUpload | null,
   });
 
   // State for adding new VGF proposal in section 3.3
@@ -2329,6 +2332,8 @@ export const PPPDevelopmentReview = ({
       infrastructureSector: "",
       dateOfAward: "",
       totalProjectCost: "",
+      proofLinkOrText: "",
+      file: null,
     });
     setShowAddProjectForm(false);
   };
@@ -2340,6 +2345,8 @@ export const PPPDevelopmentReview = ({
       infrastructureSector: "",
       dateOfAward: "",
       totalProjectCost: "",
+      proofLinkOrText: "",
+      file: null,
     });
     setShowAddProjectForm(false);
   };
@@ -6023,6 +6030,12 @@ export const PPPDevelopmentReview = ({
                         <th className="py-2 px-2 text-left text-sm font-normal">
                           Total Project Cost
                         </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
+                          Website Link
+                        </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
+                          Upload File
+                        </th>
                         {shouldBeEditable("3.4") && (
                           <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
                             Action
@@ -6046,7 +6059,7 @@ export const PPPDevelopmentReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("3.4") ? 5 : 4}
+                                colSpan={shouldBeEditable("3.4") ? 7 : 6}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No projects available
@@ -6184,6 +6197,134 @@ export const PPPDevelopmentReview = ({
                                 project.totalProjectCost || "N/A"
                               )}
                             </td>
+
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("3.4") ? (
+                                <div className="flex flex-col">
+                                  <Input
+                                    value={project.proofLinkOrText || ""}
+                                    placeholder="Website Link proof"
+                                    onChange={(e) =>
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "proofLinkOrText",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full h-8 text-sm"
+                                  />
+                                  {getFieldError(
+                                    `section3_4.projects.${idx}.proofLinkOrText`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_4.projects.${idx}.proofLinkOrText`
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                project.proofLinkOrText || "N/A"
+                              )}
+                            </td>
+
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("3.4") ? (
+                                <div className="flex flex-col">
+                                  <FileUploadSection
+                                    label="Upload File"
+                                    value={project.file ?? null}
+                                    onChange={(file) =>
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "file",
+                                        file
+                                      )
+                                    }
+                                    submissionId={submissionId}
+                                    required={false}
+                                  />
+                                  {getFieldError(
+                                    `section3_4.projects.${idx}.file`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section3_4.projects.${idx}.file`
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : project.file ? (
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                    title={
+                                      (project.file as any).originalName ||
+                                      project.file.fileName ||
+                                      "Unknown file"
+                                    }
+                                  >
+                                    <Upload className="w-3 h-3" />
+                                    <span className="truncate">
+                                      {(project.file as any).originalName ||
+                                        project.file.fileName ||
+                                        "Unknown file"}
+                                    </span>
+                                  </Badge>
+                                  {(() => {
+                                    const fileKey = `3.4-${idx}`;
+                                    const isLoading = !!fileLoading[fileKey];
+                                    const hasFileAccess = !!(
+                                      (project.file as any).filePath ||
+                                      (project.file as any).file ||
+                                      (project.file as any).fileUrl
+                                    );
+                                    return hasFileAccess ? (
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleViewFile(
+                                              project.file,
+                                              fileKey
+                                            )
+                                          }
+                                          disabled={isLoading}
+                                          className="h-7 w-7 p-0"
+                                          title="View file"
+                                        >
+                                          <Eye className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleDownloadFile(
+                                              project.file,
+                                              fileKey
+                                            )
+                                          }
+                                          disabled={isLoading}
+                                          className="h-7 w-7 p-0"
+                                          title="Download file"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    ) : null;
+                                  })()}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">
+                                  No file
+                                </span>
+                              )}
+                            </td>
+
                             {shouldBeEditable("3.4") && (
                               <td className="py-2 px-2 text-sm font-normal text-center w-12">
                                 <Button
@@ -6323,6 +6464,38 @@ export const PPPDevelopmentReview = ({
                         />
                       </div>
                     </div>
+                    {/* Row: Website Link (proof) + Upload File (proof) */}
+                    <div className="mt-4">
+                      <Label className="block mb-2">Website Link</Label>
+                      <Input
+                        type="text"
+                        placeholder="Website Link proof"
+                        value={newProject.proofLinkOrText || ""}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            proofLinkOrText: e.target.value,
+                          })
+                        }
+                        className="bg-white"
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={newProject.file ?? null}
+                        onChange={(file) =>
+                          setNewProject({
+                            ...newProject,
+                            file,
+                          })
+                        }
+                        submissionId={submissionId}
+                        required={false}
+                      />
+                    </div>
+
                     <div className="flex gap-2 mt-4">
                       <Button
                         variant="default"

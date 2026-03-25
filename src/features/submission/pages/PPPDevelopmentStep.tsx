@@ -218,6 +218,7 @@ export const PPPDevelopmentStep = () => {
           ? data.section3_4.projects.map((proj: any) => ({
               ...defaultData.section3_4.projects?.[0],
               ...proj,
+              proofLinkOrText: proj.proofLinkOrText ?? "",
               file: typeof proj.file !== "undefined" ? proj.file : null,
             }))
           : [],
@@ -845,7 +846,8 @@ export const PPPDevelopmentStep = () => {
             infrastructureSector: "",
             dateOfAward: "",
             totalProjectCost: "",
-            // file: null,
+            proofLinkOrText: "",
+            file: null,
           },
         ],
       },
@@ -870,7 +872,8 @@ export const PPPDevelopmentStep = () => {
       | "nameOfProject"
       | "infrastructureSector"
       | "dateOfAward"
-      | "totalProjectCost",
+      | "totalProjectCost"
+      | "proofLinkOrText",
     value: string
   ) => {
     setFormData((prev) => ({
@@ -880,6 +883,22 @@ export const PPPDevelopmentStep = () => {
         projects: (prev.section3_4.projects || []).map((entry) => {
           if (entry.id !== id) return entry;
           return { ...entry, [field]: value };
+        }),
+      },
+    }));
+  };
+
+  const updatePPPProjectFile = (
+    id: string,
+    value: FileUpload | null
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      section3_4: {
+        ...prev.section3_4,
+        projects: (prev.section3_4.projects || []).map((entry) => {
+          if (entry.id !== id) return entry;
+          return { ...entry, file: value };
         }),
       },
     }));
@@ -3261,7 +3280,7 @@ export const PPPDevelopmentStep = () => {
                         key={project.id || `project-${index}`}
                         className="mb-2"
                       >
-                        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                           <div>
                             <Label>Name of Awarded PPP Projects</Label>
                             <Input
@@ -3425,20 +3444,78 @@ export const PPPDevelopmentStep = () => {
                               )}.totalProjectCost`
                             )}
                           </div>
+                        </div>
 
-                          <div className="flex items-center justify-center w-12">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removePPPProject(project.id)}
+                        {/* Row 3: Website link (one column width, above Upload) */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mt-4 mb-4">
+                          <div>
+                            <Label className="block mb-2">
+                              Website Link
+                            </Label>
+                            <Input
+                              type="text"
+                              placeholder="Website Link proof"
+                              value={project.proofLinkOrText || ""}
+                              onChange={(e) => {
+                                if (isIndicatorSubmitted("3.4")) return;
+                                showErrorsIfNeeded();
+                                updatePPPProject(
+                                  project.id,
+                                  "proofLinkOrText",
+                                  e.target.value
+                                );
+                              }}
                               disabled={isIndicatorSubmitted("3.4")}
-                              aria-label="Remove"
-                              className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                              className={cn(
+                                getInputValidationClass(
+                                  `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                    (p) => p.id === project.id
+                                  )}.proofLinkOrText`
+                                ),
+                                isIndicatorSubmitted("3.4") &&
+                                  "bg-gray-50 cursor-not-allowed"
+                              )}
+                            />
+                            {renderFieldError(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.proofLinkOrText`
+                            )}
                           </div>
+                        </div>
+
+                        {/* Row 4: Upload File + Delete button on same line */}
+                        <div className="flex items-end justify-between gap-4 mb-4">
+                          <div className="flex-1">
+                            <FileUploadSection
+                              label="Upload File"
+                              value={project.file ?? null}
+                              onChange={(fileUpload) => {
+                                showErrorsIfNeeded();
+                                updatePPPProjectFile(project.id, fileUpload);
+                              }}
+                              submissionId={submissionId}
+                              disabled={isIndicatorSubmitted("3.4")}
+                              deferFileDeletion={editingIndicators.has("3.4")}
+                              required={false}
+                            />
+                            {renderFieldError(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.file`
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removePPPProject(project.id)}
+                            disabled={isIndicatorSubmitted("3.4")}
+                            aria-label="Remove"
+                            className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8 flex items-center justify-center"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     )

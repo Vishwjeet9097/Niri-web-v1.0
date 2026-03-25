@@ -166,6 +166,8 @@ export const EditablePPPDevelopment = ({
             infrastructureSector: "",
             dateOfAward: "",
             totalProjectCost: "",
+            proofLinkOrText: "",
+            file: null,
           },
         ],
       },
@@ -190,7 +192,8 @@ export const EditablePPPDevelopment = ({
       | "nameOfProject"
       | "infrastructureSector"
       | "dateOfAward"
-      | "totalProjectCost",
+      | "totalProjectCost"
+      | "proofLinkOrText",
     value: string
   ) => {
     setFormData((prev) => ({
@@ -199,6 +202,18 @@ export const EditablePPPDevelopment = ({
         ...prev.section3_4,
         projects: (prev.section3_4.projects || []).map((entry) =>
           entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
+    }));
+  };
+
+  const updatePPPProjectFile = (id: string, file: FileUpload | null) => {
+    setFormData((prev) => ({
+      ...prev,
+      section3_4: {
+        ...prev.section3_4,
+        projects: (prev.section3_4.projects || []).map((entry) =>
+          entry.id === id ? { ...entry, file } : entry
         ),
       },
     }));
@@ -698,16 +713,44 @@ export const EditablePPPDevelopment = ({
                     </div>
                   </div>
 
-                  {/* Remove Button */}
-                  <div className="mt-4 flex justify-end">
+                  {/* Row: Website Link */}
+                  <div className="mt-4">
+                    <Label className="block mb-2">Website Link</Label>
+                    <Input
+                      type="text"
+                      placeholder="Website Link proof"
+                      value={project.proofLinkOrText || ""}
+                      onChange={(e) =>
+                        updatePPPProject(
+                          project.id,
+                          "proofLinkOrText",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  {/* Row: Upload File + Delete button on same line */}
+                  <div className="flex items-end justify-between gap-4 mt-4">
+                    <div className="flex-1">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={project.file ?? null}
+                        onChange={(fileUpload) =>
+                          updatePPPProjectFile(project.id, fileUpload)
+                        }
+                        required={false}
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => removePPPProject(project.id)}
                       aria-label="Remove"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      <Trash2 className="w-5 h-5 text-destructive" />
+                      <Trash2 className="w-5 h-5" />
                     </Button>
                   </div>
                 </div>

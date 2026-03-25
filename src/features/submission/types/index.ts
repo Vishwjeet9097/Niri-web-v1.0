@@ -194,6 +194,9 @@ export interface PPPDevelopmentData {
       infrastructureSector: string; // Infrastructure Sector
       dateOfAward: string; // Date of Award
       totalProjectCost: string; // Total Project Cost (in crore)
+      // Optional proof (mirrors 3.3 behavior: either upload file or provide a valid website link)
+      proofLinkOrText?: string;
+      file?: FileUpload | null;
     }>;
 
     // Calculation fields

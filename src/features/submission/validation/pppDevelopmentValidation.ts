@@ -387,6 +387,29 @@ export const validatePPPDevelopment = (
                 "Enter a valid non-negative amount with up to two decimal places.";
             }
           }
+
+          // Proof required: either upload file or provide a valid website link
+          const hasFile =
+            project.file &&
+            ((project.file as FileUpload).fileName ||
+              (project.file as FileUpload).file);
+          const hasProofLinkOrText =
+            project.proofLinkOrText != null &&
+            String(project.proofLinkOrText).trim() !== "";
+
+          if (!hasFile && !hasProofLinkOrText) {
+            const message =
+              "Either upload a file or provide a valid website link.";
+            errors[`section3_4.projects.${index}.proofLinkOrText`] =
+              message;
+            errors[`section3_4.projects.${index}.file`] = message;
+          } else if (hasProofLinkOrText) {
+            const proof = String(project.proofLinkOrText).trim();
+            if (!isValidUrl(proof)) {
+              errors[`section3_4.projects.${index}.proofLinkOrText`] =
+                "Please enter a valid website URL (http/https).";
+            }
+          }
         });
       }
     }
