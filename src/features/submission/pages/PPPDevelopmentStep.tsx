@@ -1997,11 +1997,15 @@ export const PPPDevelopmentStep = () => {
                             onChange={(e) => {
                               if (isIndicatorSubmitted("3.1")) return;
                               showErrorsIfNeeded();
+                              const value = e.target.value;
+                              if (value !== "" && !/^\d{0,4}$/.test(value)) {
+                                return;
+                              }
                               setFormData((prev) => ({
                                 ...prev,
                                 section3_1: {
                                   ...prev.section3_1,
-                                  notificationYear: e.target.value,
+                                  notificationYear: value,
                                 },
                               }));
                             }}
@@ -2285,11 +2289,15 @@ export const PPPDevelopmentStep = () => {
                             onChange={(e) => {
                               if (isIndicatorSubmitted("3.2")) return;
                               showErrorsIfNeeded();
+                              const value = e.target.value;
+                              if (value !== "" && !/^\d{0,4}$/.test(value)) {
+                                return;
+                              }
                               setFormData((prev) => ({
                                 ...prev,
                                 section3_2: {
                                   ...prev.section3_2,
-                                  notificationYear: e.target.value,
+                                  notificationYear: value,
                                 },
                               }));
                             }}
@@ -2761,11 +2769,11 @@ export const PPPDevelopmentStep = () => {
                           )}
                         </div>
                       </div>
-                      {/* Row 3: Link Proof (one column width, above Upload) */}
+                      {/* Row 3: Website link (one column width, above Upload) */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
                         <div>
                           <Label className="block mb-2">
-                            Link Proof
+                            Website Link
                           </Label>
                           <Input
                             type="text"
@@ -2798,7 +2806,7 @@ export const PPPDevelopmentStep = () => {
                       <div className="flex items-end justify-between gap-4 mb-4">
                         <div className="flex-1">
                           <FileUploadSection
-                            label="Upload File (optional)"
+                            label="Upload File"
                             value={entry.file ?? null}
                             onChange={(fileUpload) => {
                               showErrorsIfNeeded();
@@ -2825,33 +2833,8 @@ export const PPPDevelopmentStep = () => {
                             submissionId={submissionId}
                             disabled={isIndicatorSubmitted("3.3")}
                             deferFileDeletion={editingIndicators.has("3.3")}
-                            showNoDocumentOption={true}
-                            noDocumentAvailable={
-                              entry.noDocumentAvailable || false
-                            }
-                            onNoDocumentChange={(noDocument) => {
-                              showErrorsIfNeeded();
-                              setFormData((prev) => ({
-                                ...prev,
-                                section3_3: {
-                                  ...prev.section3_3,
-                                  VGFArray: prev.section3_3.VGFArray.map((e) =>
-                                    e.id === entry.id
-                                      ? {
-                                          ...e,
-                                          noDocumentAvailable: noDocument,
-                                          file: noDocument ? null : e.file,
-                                        }
-                                      : e
-                                  ),
-                                },
-                              }));
-                            }}
                             required={false}
                           />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Upload optional; link/text proof above also accepted
-                          </p>
                           {renderFieldError(`section3_3.VGFArray.${idx}.file`)}
                         </div>
                         <Button
@@ -2912,7 +2895,7 @@ export const PPPDevelopmentStep = () => {
                               Submission Date
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
-                              Link Proof
+                              Website link
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
                               File Uploaded

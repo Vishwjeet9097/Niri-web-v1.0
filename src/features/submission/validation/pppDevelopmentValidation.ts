@@ -64,6 +64,17 @@ const isValidYear = (value: string | undefined): boolean => {
   return /^\d{4}$/.test(normalized);
 };
 
+const isValidUrl = (value: string): boolean => {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+  try {
+    const url = new URL(trimmed);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
+};
+
 const isValidDate = (value: string): boolean => {
   if (!value || value.trim() === "") return false;
   try {
@@ -113,6 +124,11 @@ export const validatePPPDevelopment = (
       // Policy name and year of notification are required when "yes" is selected
       if (!section31.policyName || section31.policyName.trim() === "") {
         errors["section3_1.policyName"] = "Policy name is required.";
+      } else if (!isAlphabetsOnly(section31.policyName)) {
+        errors["section3_1.policyName"] =
+          "Policy name should contain only letters, spaces, hyphens, and apostrophes.";
+      } else if (!hasInitialsCapital(section31.policyName)) {
+        errors["section3_1.policyName"] = "First letter must be capital.";
       }
       if (
         !section31.notificationYear ||
@@ -157,6 +173,11 @@ export const validatePPPDevelopment = (
       // Policy name and year of notification are required when "yes" is selected
       if (!section32.policyName || section32.policyName.trim() === "") {
         errors["section3_2.policyName"] = "Policy name is required.";
+      } else if (!isAlphabetsOnly(section32.policyName)) {
+        errors["section3_2.policyName"] =
+          "Policy name should contain only letters, spaces, hyphens, and apostrophes.";
+      } else if (!hasInitialsCapital(section32.policyName)) {
+        errors["section3_2.policyName"] = "First letter must be capital.";
       }
       if (
         !section32.notificationYear ||
@@ -250,13 +271,23 @@ export const validatePPPDevelopment = (
         // Proof required: either upload file, "No Document Available", or link/text proof
         const hasFile =
           entry.file && (entry.file.fileName || (entry.file as FileUpload).file);
-        const noDocumentAvailable = entry.noDocumentAvailable === true;
         const hasProofLinkOrText =
           entry.proofLinkOrText != null &&
           String(entry.proofLinkOrText).trim() !== "";
-        if (!hasFile && !noDocumentAvailable && !hasProofLinkOrText) {
-          errors[`section3_3.VGFArray.${index}.file`] =
-            "Either upload a file, select No document available, or provide link/text proof (e.g., PPP India portal).";
+        if (!hasFile && !hasProofLinkOrText) {
+          const message =
+            "Either upload a file or provide a valid website link.";
+          // Show the error on the Website link field so users know what to fill.
+          errors[`section3_3.VGFArray.${index}.proofLinkOrText`] =
+            message;
+          // Also mark file as invalid so file upload UI can reflect the dependency.
+          errors[`section3_3.VGFArray.${index}.file`] = message;
+        } else if (hasProofLinkOrText) {
+          const proof = String(entry.proofLinkOrText).trim();
+          if (!isValidUrl(proof)) {
+            errors[`section3_3.VGFArray.${index}.proofLinkOrText`] =
+              "Please enter a valid website URL (http/https).";
+          }
         }
       });
     }
