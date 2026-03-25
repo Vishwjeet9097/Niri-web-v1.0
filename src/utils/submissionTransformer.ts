@@ -166,7 +166,7 @@ function getIndicatorName(indicatorId: string): string {
     "4.2":
       "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
     "4.3": "Adoption of Alternate Dispute Resolution (ADR)",
-    "4.4": "Any Innovative Practice for Infra Dev",
+    "4.4": "Any Innovative Practice undertaken for promotion",
     "4.5": "Capacity building - officer participation",
   };
 

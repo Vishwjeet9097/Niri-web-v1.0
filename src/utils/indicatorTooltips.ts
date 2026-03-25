@@ -117,7 +117,8 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "4.4": {
     code: "4.4",
-    fieldName: "Innovative Practices",
+    fieldName:
+      "Any Innovative Practice undertaken for promotion",
     tooltip:
       "Data Requirement: Provide count and description of innovative practices undertaken for promotion or development of infrastructure.\n\nData Validation & Calculation: Practices will be reviewed for relevance, uniqueness, and infrastructure impact.\n\nScoring Methodology: 10 marks for each qualifying innovative practice, subject to a maximum of 50 marks.\n\nDocuments Required: Documentary evidence supporting each innovative practice.",
   },

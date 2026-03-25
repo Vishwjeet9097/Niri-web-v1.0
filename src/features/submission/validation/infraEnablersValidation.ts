@@ -220,7 +220,7 @@ export const validateInfraEnablers = (
     }
   }
 
-  // Section 4.4 - Innovative Practices
+  // Section 4.4 - Any Innovative Practice undertaken for promotion
   if (shouldValidateSection("4.4")) {
     const section45 = data.section4_4;
     if (!section45) {

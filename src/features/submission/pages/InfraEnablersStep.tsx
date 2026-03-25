@@ -3033,8 +3033,8 @@ export const InfraEnablersStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold">
-                    <span className="text-primary">4.4 – </span> Innovative
-                    Practices
+                    <span className="text-primary">4.4 – </span>
+                    Any Innovative Practice undertaken for promotion
                   </span>
                 </div>
               }
@@ -3052,14 +3052,14 @@ export const InfraEnablersStep = () => {
                 {/* Toggle */}
                 <div>
                   <Label>
-                    Innovative Practices{" "}
+                    Any Innovative Practice undertaken for promotion{" "}
                     <span className="text-destructive">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Has the State/UT implemented innovative practices?
+                        Has the State/UT implemented any innovative practice undertaken for promotion?
                       </TooltipContent>
                     </Tooltip>
                   </Label>
@@ -3381,7 +3381,10 @@ export const InfraEnablersStep = () => {
                 <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
-                      handleSubmitIndicator("4.4", "Innovative Practices")
+                      handleSubmitIndicator(
+                        "4.4",
+                        "Any Innovative Practice undertaken for promotion"
+                      )
                     }
                     disabled={
                       submittingIndicator !== null ||

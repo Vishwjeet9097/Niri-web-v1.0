@@ -180,7 +180,7 @@ const sectionData = [
       },
       {
         id: "4.5",
-        title: "Innovative Practices",
+        title: "Any Innovative Practice undertaken for promotion",
         marks: "10 marks per practice",
         annex: ""
       },

@@ -1796,7 +1796,8 @@ export const InfraEnablersReview = ({
       "4.2":
         "4.2 - Adoption of PM GatiShakti National Master Plan in infrastructure planning",
       "4.3": "4.3 - Adoption of ADR",
-      "4.4": "4.4 - Innovative Practices",
+      "4.4":
+        "4.4 - Any Innovative Practice undertaken for promotion",
       "4.5": "4.5 - Capacity Building - Officer Participation",
     };
     return titles[sectionId] || sectionId;
@@ -5478,7 +5479,9 @@ export const InfraEnablersReview = ({
             <div className="flex gap-6 items-start justify-between">
               <div className="flex-1 space-y-4">
                 <div>
-                  <Label className="mb-3 block">Innovation Practices </Label>
+                  <Label className="mb-3 block">
+                    Any Innovative Practice undertaken for promotion
+                  </Label>
                   {shouldBeEditable("4.4") ? (
                     <RadioGroup
                       value={
@@ -6046,7 +6049,8 @@ export const InfraEnablersReview = ({
                 )}
 
                 <p className="text-xs text-muted-foreground">
-                  Upload documentation of innovative practices
+                  Upload documentation of any innovative practice undertaken
+                  for promotion
                 </p>
               </div>
               {/* Score Display on the right for MOSPI_APPROVER - positioned at top-right edge */}

@@ -382,17 +382,19 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.4 */}
         <SectionCard
-          title="4.4 - Innovative Practices "
+          title="4.4 - Any Innovative Practice undertaken for promotion "
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
             <Label>
-              Innovation Practices{" "}
+              Any Innovative Practice undertaken for promotion{" "}
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="inline w-3 h-3 ml-1" />
                 </TooltipTrigger>
-                <TooltipContent>Are there innovative practices?</TooltipContent>
+                <TooltipContent>
+                  Are there any innovative practice undertaken for promotion?
+                </TooltipContent>
               </Tooltip>
             </Label>
             <div className="flex gap-6">
@@ -481,7 +483,8 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Upload documentation of innovative practices
+                  Upload documentation of any innovative practice undertaken for
+                  promotion
                   </p>
                 </div>
               </>

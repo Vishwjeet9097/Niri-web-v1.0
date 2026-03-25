@@ -302,14 +302,15 @@ export function transformFormDataToNiriSubmission(
       });
     }
 
-    // 4.4 - Innovative Practices
+    // 4.4 - Any Innovative Practice undertaken for promotion
     if (formData.infraEnablers.section4_4) {
       const implemented =
         formData.infraEnablers.section4_4.implemented === "yes";
 
       submissionData.Infrastructure_Enablers.push({
         indicator_id: "4.4",
-        indicator_name: "Any Innovative Practice for Infra Dev",
+        indicator_name:
+          "Any Innovative Practice undertaken for promotion",
         user_fill_value_a1: implemented ? 1 : 0,
         user_fill_value_a2: null,
         details: {
