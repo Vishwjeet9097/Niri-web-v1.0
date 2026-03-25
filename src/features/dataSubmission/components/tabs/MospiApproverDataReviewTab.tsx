@@ -161,7 +161,8 @@ const sectionData = [
       },
       {
         id: "4.2",
-        title: "Adoption of PM GatiShakti",
+        title:
+          "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
         marks: "5 marks per 1%",
         annex: ""
       },

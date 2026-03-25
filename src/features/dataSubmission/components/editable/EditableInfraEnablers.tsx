@@ -245,17 +245,19 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.2 */}
         <SectionCard
-          title="4.2 - Adoption of PM GatiShakti (5 marks per 1%)"
+          title="4.2 - Adoption of PM GatiShakti National Master Plan in infrastructure planning (5 marks per 1%)"
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
             <Label>
-              Adoption of PM GatiShakti{" "}
+              Adoption of PM GatiShakti National Master Plan in infrastructure planning{" "}
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="inline w-3 h-3 ml-1" />
                 </TooltipTrigger>
-                <TooltipContent>Is PM GatiShakti adopted?</TooltipContent>
+                <TooltipContent>
+                  Has the State/UT adopted the PM GatiShakti National Master Plan in infrastructure planning?
+                </TooltipContent>
               </Tooltip>
             </Label>
             <div className="flex gap-6">
@@ -302,7 +304,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Upload GatiShakti evidence
+                  Upload PM GatiShakti NMP evidence
                 </p>
               </div>
             )}

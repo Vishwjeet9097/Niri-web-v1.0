@@ -2216,8 +2216,8 @@ export const InfraEnablersStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold">
-                    <span className="text-primary">4.2 – </span> Adoption of {withFullForm("PM")}{" "}
-                    GatiShakti
+                    <span className="text-primary">4.2 – </span>{" "}
+                    Adoption of {withFullForm("PM")} GatiShakti National Master Plan in infrastructure planning
                   </span>
                 </div>
               }
@@ -2235,14 +2235,14 @@ export const InfraEnablersStep = () => {
                 {/* --- Toggle --- */}
                 <div className="w-[60%]">
                   <Label>
-                    Adoption of PM GatiShakti{" "}
+                    Adoption of {withFullForm("PM")} GatiShakti National Master Plan in infrastructure planning{" "}
                     <span className="text-destructive">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Has the State/UT adopted PM GatiShakti?
+                        Has the State/UT adopted PM GatiShakti National Master Plan in infrastructure planning?
                       </TooltipContent>
                     </Tooltip>
                   </Label>
@@ -2727,7 +2727,10 @@ export const InfraEnablersStep = () => {
                 <div className="mt-4 flex gap-2">
                   <Button
                     onClick={() =>
-                      handleSubmitIndicator("4.2", "PM GatiShakti NMP Projects")
+                      handleSubmitIndicator(
+                        "4.2",
+                        "PM GatiShakti National Master Plan in infrastructure planning Projects"
+                      )
                     }
                     disabled={
                       submittingIndicator !== null ||

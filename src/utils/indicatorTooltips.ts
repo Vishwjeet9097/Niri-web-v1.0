@@ -104,9 +104,10 @@ export const INDICATOR_TOOLTIPS: Record<string, IndicatorTooltip> = {
   },
   "4.2": {
     code: "4.2",
-    fieldName: "PM GatiShakti Usage",
+    fieldName:
+      "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
     tooltip:
-      "Data Requirement: Provide count and details of infrastructure projects planned using the PM GatiShakti platform.\n\nData Validation & Calculation: Project-level usage will be verified through screenshots, project IDs, or official communications.\n\nScoring Methodology: 10 marks for each project planned through PM GatiShakti, subject to a maximum of 30 marks.\n\nDocuments Required: Screenshots, project IDs, or official communications evidencing PM GatiShakti usage.",
+      "Data Requirement: Provide count and details of infrastructure projects planned using the PM GatiShakti National Master Plan (NMP) in infrastructure planning.\n\nData Validation & Calculation: Project-level usage will be verified through screenshots, project IDs, or official communications.\n\nScoring Methodology: 10 marks for each project planned through PM GatiShakti NMP, subject to a maximum of 30 marks.\n\nDocuments Required: Screenshots, project IDs, or official communications evidencing PM GatiShakti NMP usage.",
   },
   "4.3": {
     code: "4.3",

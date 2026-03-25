@@ -118,7 +118,7 @@ export const validateInfraEnablers = (
     }
   }
 
-  // Section 4.2 - Adoption of PM GatiShakti
+  // Section 4.2 - Adoption of PM GatiShakti National Master Plan
   if (shouldValidateSection("4.2")) {
     const section43 = data.section4_2;
     if (!section43) {

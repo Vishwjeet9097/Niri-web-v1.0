@@ -276,7 +276,8 @@ export function transformFormDataToNiriSubmission(
 
       submissionData.Infrastructure_Enablers.push({
         indicator_id: "4.2",
-        indicator_name: "Adoption of PM GatiShakti NMP",
+        indicator_name:
+          "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
         user_fill_value_a1: adopted ? 1 : 0,
         user_fill_value_a2: null,
         details: {

@@ -1793,7 +1793,8 @@ export const InfraEnablersReview = ({
     const titles: Record<string, string> = {
       "4.1":
         "4.1 - Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
-      "4.2": "4.2 - Adoption of PM GatiShakti",
+      "4.2":
+        "4.2 - Adoption of PM GatiShakti National Master Plan in infrastructure planning",
       "4.3": "4.3 - Adoption of ADR",
       "4.4": "4.4 - Innovative Practices",
       "4.5": "4.5 - Capacity Building - Officer Participation",
@@ -4557,8 +4558,8 @@ export const InfraEnablersReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.2 -</span> Adoption of PM
-                    GatiShakti{" "}
+                    <span className="text-primary">4.2 -</span>{" "}
+                    Adoption of PM GatiShakti National Master Plan in infrastructure planning{" "}
                   </span>
                   {renderActionButtons("4.2")}
                 </div>
@@ -4576,7 +4577,7 @@ export const InfraEnablersReview = ({
               <div className="flex-1 space-y-4">
                 <div>
                   <Label className="mb-3 block">
-                    Adoption of PM GatiShakti?*
+                    Adoption of PM GatiShakti National Master Plan in infrastructure planning?*
                   </Label>
                   {shouldBeEditable("4.2") ? (
                     <RadioGroup
