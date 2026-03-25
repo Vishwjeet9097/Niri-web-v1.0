@@ -36,6 +36,7 @@ const defaultData: InfraEnablersData = {
   section4_1: {
     available: "",
     file: null,
+    websiteLink: "",
     comment: "",
   },
   section4_2: {
@@ -209,6 +210,23 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
             </div>
             {formData.section4_1.available === "yes" && (
               <div className="flex flex-col gap-2">
+                <div>
+                  <Label className="mb-2 block">Website Link</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter portal website link"
+                    value={formData.section4_1.websiteLink || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_1: {
+                          ...prev.section4_1,
+                          websiteLink: e.target.value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
                 <FileUploadSection
                   label="Upload File"
                   value={formData.section4_1.file}

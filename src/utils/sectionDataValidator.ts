@@ -81,6 +81,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         return (
           hasMeaningfulValue(section.available) ||
           hasMeaningfulValue(section.comment) ||
+          hasMeaningfulValue(section.websiteLink) ||
           hasFileData(section.file)
         );
 

@@ -1381,6 +1381,29 @@ class ApiService implements HttpClient {
             return false;
           }
 
+          // Pattern 1b (updated): section4_1 accepts file OR websiteLink
+          // UI uses `available` for 4.1, while some legacy flows used `allEligible`.
+          if (sectionKey === "section4_1" && fieldName === "available") {
+            if (isMeaningful(sectionData.websiteLink)) {
+              console.log(`  ✓ ${sectionKey}: Yes with websiteLink`);
+              return true;
+            }
+            if (hasFileData(sectionData.file)) {
+              console.log(`  ✓ ${sectionKey}: Yes with file`);
+              return true;
+            }
+            if (sectionData.status === "SAVE_AS_DRAFT") {
+              console.log(
+                `  ✓ ${sectionKey}: Yes with SAVE_AS_DRAFT status (allowing incomplete data)`
+              );
+              return true;
+            }
+            console.log(
+              `  ⚠️ ${sectionKey}: Yes but websiteLink and file are missing or empty`
+            );
+            return false;
+          }
+
           // Pattern 1b: Yes requires websiteLink only (section4_1)
           if (
             fieldName === "allEligible" &&

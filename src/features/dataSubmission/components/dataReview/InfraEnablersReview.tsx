@@ -883,6 +883,7 @@ export const InfraEnablersReview = ({
       section4_1: formDataState?.section4_1 || {
         available: "",
         file: null,
+        websiteLink: "",
         comment: "",
         noDocumentAvailable: false,
       },
@@ -944,6 +945,7 @@ export const InfraEnablersReview = ({
     if (sectionId === "4.1") {
       allSectionFields.push(
         `${sectionPrefix}.available`,
+        `${sectionPrefix}.websiteLink`,
         `${sectionPrefix}.file`,
         `${sectionPrefix}.comment`
       );
@@ -1863,6 +1865,7 @@ export const InfraEnablersReview = ({
         section4_1: formDataState?.section4_1 || {
           available: "",
           file: null,
+          websiteLink: "",
           comment: "",
         },
         section4_2: formDataState?.section4_2 || {
@@ -1922,6 +1925,7 @@ export const InfraEnablersReview = ({
         if (sectionId === "4.1") {
           allSectionFields.push(
             `${sectionPrefix}.available`,
+            `${sectionPrefix}.websiteLink`,
             `${sectionPrefix}.file`,
             `${sectionPrefix}.comment`
           );
@@ -2073,6 +2077,7 @@ export const InfraEnablersReview = ({
             {
               available: formDataState?.section4_1?.available ?? null,
               file: formDataState?.section4_1?.file ?? null,
+              websiteLink: formDataState?.section4_1?.websiteLink ?? null,
               comment: formDataState?.section4_1?.comment ?? null,
               noDocumentAvailable:
                 formDataState?.section4_1?.noDocumentAvailable ?? false,
@@ -2245,6 +2250,7 @@ export const InfraEnablersReview = ({
         section4_1: formDataState?.section4_1 || {
           available: "",
           file: null,
+          websiteLink: "",
           comment: "",
         },
         section4_2: formDataState?.section4_2 || {
@@ -2304,6 +2310,7 @@ export const InfraEnablersReview = ({
         if (sectionId === "4.1") {
           allSectionFields.push(
             `${sectionPrefix}.available`,
+            `${sectionPrefix}.websiteLink`,
             `${sectionPrefix}.file`,
             `${sectionPrefix}.comment`
           );
@@ -2912,12 +2919,13 @@ export const InfraEnablersReview = ({
       if (value === "no") {
         switch (sectionId) {
           case "4.1":
-            if (fieldName === "allEligible") {
+            if (fieldName === "available" || fieldName === "allEligible") {
               clearedFields = {
                 websiteLink: "",
                 file: null,
                 files: [],
                 comment: "",
+                noDocumentAvailable: false,
               };
             }
             break;
@@ -4458,60 +4466,47 @@ export const InfraEnablersReview = ({
                 </div>
 
                 {formDataState?.section4_1?.available === "yes" && (
-                  <div>
-                    {shouldBeEditable("4.1") && (
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Checkbox
-                          id="no-doc-4.1"
-                          checked={
-                            formDataState?.section4_1?.noDocumentAvailable ||
-                            false
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <Label className="mb-2 block">Website Link</Label>
+                      {shouldBeEditable("4.1") ? (
+                        <Input
+                          type="text"
+                          placeholder="Enter portal website link"
+                          value={
+                            formDataState?.section4_1?.websiteLink || ""
                           }
-                          onCheckedChange={(checked) => {
-                            const noDocument = checked as boolean;
-                            setFormDataState((prev: any) => ({
-                              ...prev,
-                              section4_1: {
-                                ...prev.section4_1,
-                                noDocumentAvailable: noDocument,
-                                file: noDocument ? null : prev.section4_1?.file,
-                              },
-                            }));
-                          }}
+                          onChange={(e) =>
+                            handleFieldUpdate(
+                              "4.1",
+                              "websiteLink",
+                              e.target.value
+                            )
+                          }
                         />
-                        <label
-                          htmlFor="no-doc-4.1"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          No document available
-                        </label>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-md text-sm">
+                          {formDataState?.section4_1?.websiteLink ||
+                            "N/A"}
+                        </div>
+                      )}
+                      {renderFieldError("section4_1.websiteLink")}
+                    </div>
 
-                    {formDataState?.section4_1?.noDocumentAvailable &&
-                    !(
-                      formDataState?.section4_1?.file?.file ||
-                      formDataState?.section4_1?.file?.fileName ||
-                      formDataState?.section4_1?.file?.filePath
-                    ) ? (
-                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                        No document available
-                      </div>
-                    ) : (
-                      <>
-                        <Label className="mb-2 block">Upload File</Label>
-                        <EditableFileDisplay
-                          files={formDataState?.section4_1?.file || null}
-                          isEditable={shouldBeEditable("4.1")}
-                          submissionId={submissionId}
-                          onFilesChange={(updatedFiles) =>
-                            handleFileUpdate("4.1", updatedFiles)
-                          }
-                          label="Uploaded File"
-                          multiple={false}
-                        />
-                      </>
-                    )}
+                    <div>
+                      <Label className="mb-2 block">Upload File</Label>
+                      <EditableFileDisplay
+                        files={formDataState?.section4_1?.file || null}
+                        isEditable={shouldBeEditable("4.1")}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) =>
+                          handleFileUpdate("4.1", updatedFiles)
+                        }
+                        label="Uploaded File"
+                        multiple={false}
+                      />
+                      {renderFieldError("section4_1.file")}
+                    </div>
                   </div>
                 )}
 

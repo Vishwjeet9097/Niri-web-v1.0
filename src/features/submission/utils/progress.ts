@@ -304,12 +304,15 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     return hasSummaryFields && allProjectsValid;
   },
 
-  // 4.x Infra Enablers (noDocumentAvailable counts as filled when file would be required)
+  // 4.x Infra Enablers (file OR websiteLink counts as filled)
   section4_1: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
     if (d?.available === "yes") {
-      return hasMeaningfulValue(d?.file) || d?.noDocumentAvailable === true;
+      return (
+        hasMeaningfulValue(d?.file) ||
+        hasMeaningfulValue(d?.websiteLink)
+      );
     }
     // If "no", comment is required
     if (d?.available === "no") {

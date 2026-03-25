@@ -83,16 +83,32 @@ export const validateInfraEnablers = (
     ) {
       errors["section4_1.available"] = "Please select Yes or No.";
     } else if (section42.available === "yes") {
-      // Skip file validation if "No document available" is selected
-      if (!section42.noDocumentAvailable) {
-        if (!hasRequiredFile(section42.file)) {
-          errors["section4_1.file"] = "Upload file is required.";
-        } else if (
+      const hasFile = hasRequiredFile(section42.file);
+      const websiteLink = (section42.websiteLink ?? "").toString().trim();
+      const hasValidWebsiteLink =
+        websiteLink !== "" && isValidUrl(websiteLink);
+
+      // Either file OR website link must be provided
+      if (!hasFile && !hasValidWebsiteLink) {
+        const message =
+          "Either upload a file or provide a valid website link.";
+        errors["section4_1.file"] = message;
+        errors["section4_1.websiteLink"] = message;
+      } else {
+        // Validate file only if file is provided
+        if (
+          hasFile &&
           section42.file &&
           section42.file.file &&
           !isValidPdfFile(section42.file)
         ) {
           errors["section4_1.file"] = "Only PDF files are allowed.";
+        }
+
+        // Validate website link only if something is entered
+        if (websiteLink !== "" && !hasValidWebsiteLink) {
+          errors["section4_1.websiteLink"] =
+            "Please enter a valid website URL (http/https).";
         }
       }
     } else if (section42.available === "no") {

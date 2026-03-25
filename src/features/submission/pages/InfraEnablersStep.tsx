@@ -70,6 +70,7 @@ const defaultData: InfraEnablersData = {
   section4_1: {
     available: "",
     file: null,
+    websiteLink: "",
     comment: "",
     noDocumentAvailable: false,
   },
@@ -2080,6 +2081,8 @@ export const InfraEnablersStep = () => {
                               ...prev.section4_1,
                               available: "no",
                               file: null,
+                              websiteLink: "",
+                              comment: "",
                             },
                           }));
                         }}
@@ -2090,76 +2093,57 @@ export const InfraEnablersStep = () => {
                   </div>
                 </div>
                 {formData.section4_1.available === "yes" && (
-                  <div className="flex flex-col gap-2">
-                    {(() => {
-                      console.log(
-                        "🎨 InfraEnablersStep: Rendering FileUploadSection for section4_1",
-                        {
-                          noDocumentAvailable:
-                            formData.section4_1.noDocumentAvailable,
-                          hasFile: !!formData.section4_1.file,
-                          available: formData.section4_1.available,
-                        }
-                      );
-                      return null;
-                    })()}
-                    <FileUploadSection
-                      label="Upload File"
-                      value={formData.section4_1.file}
-                      onChange={(file) => {
-                        showErrorsIfNeeded();
-                        setFormData((prev) => ({
-                          ...prev,
-                          section4_1: {
-                            ...prev.section4_1,
-                            file,
-                            // Only reset noDocumentAvailable if a file is actually being uploaded (not cleared)
-                            // Preserve noDocumentAvailable if it's true (user selected "No Document Available")
-                            noDocumentAvailable: file
-                              ? false
-                              : prev.section4_1.noDocumentAvailable,
-                          },
-                        }));
-                      }}
-                      submissionId={submissionId}
-                      required
-                      disabled={isIndicatorSubmitted("4.1")}
-                      deferFileDeletion={editingIndicators.has("4.1")}
-                      showNoDocumentOption={true}
-                      noDocumentAvailable={
-                        formData.section4_1.noDocumentAvailable || false
-                      }
-                      onNoDocumentChange={(noDocument) => {
-                        console.log(
-                          "📝 InfraEnablersStep: section4_1 onNoDocumentChange called",
-                          {
-                            noDocument,
-                            currentValue:
-                              formData.section4_1.noDocumentAvailable,
-                          }
-                        );
-                        showErrorsIfNeeded();
-                        setFormData((prev) => {
-                          const newData = {
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1">
+                      <Label className="mb-2 block">Website Link</Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter portal website link"
+                        value={formData.section4_1.websiteLink || ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
                             ...prev,
                             section4_1: {
                               ...prev.section4_1,
-                              noDocumentAvailable: noDocument,
-                              file: noDocument ? null : prev.section4_1.file,
+                              websiteLink: e.target.value,
                             },
-                          };
-                          console.log(
-                            "📝 InfraEnablersStep: section4_1 state updated",
-                            {
-                              newValue: newData.section4_1.noDocumentAvailable,
-                              prevValue: prev.section4_1.noDocumentAvailable,
-                            }
-                          );
-                          return newData;
-                        });
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">Description</p>
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("4.1")}
+                        className={cn(
+                          getInputValidationClass("section4_1.websiteLink"),
+                          isIndicatorSubmitted("4.1") && "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError("section4_1.websiteLink")}
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={formData.section4_1.file}
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section4_1: {
+                              ...prev.section4_1,
+                              file,
+                              // noDocumentAvailable is no longer used for 4.1
+                              noDocumentAvailable: false,
+                            },
+                          }));
+                        }}
+                        submissionId={submissionId}
+                        disabled={isIndicatorSubmitted("4.1")}
+                        deferFileDeletion={editingIndicators.has("4.1")}
+                      />
+                      {renderFieldError("section4_1.file")}
+                      <p className="text-xs text-muted-foreground">
+                        Upload evidence
+                      </p>
+                    </div>
                   </div>
                 )}
                 {formData.section4_1.available === "no" && (
