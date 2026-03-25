@@ -169,6 +169,8 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["adopted"];
     if (data?.adopted === "yes") {
       fields.push("file");
+      fields.push("adrName");
+      fields.push("notificationYear");
     } else if (data?.adopted === "no") {
       fields.push("comment");
     }

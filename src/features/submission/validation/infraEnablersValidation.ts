@@ -41,6 +41,13 @@ const isValidPdfFile = (file: FileUpload | null): boolean => {
   return isPdf;
 };
 
+const isValidYear = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.toString().trim();
+  // Notification/Year fields follow YYYY format in other indicators
+  return /^\d{4}$/.test(normalized);
+};
+
 const hasRequiredFile = (file: FileUpload | null | undefined): boolean => {
   if (!file) return false;
   return !!(file.file || file.fileName || file.filePath);
@@ -177,6 +184,11 @@ export const validateInfraEnablers = (
       // ADR Name is required
       if (!section44.adrName || section44.adrName.trim() === "") {
         errors["section4_3.adrName"] = "ADR Name is required.";
+      } else if (!isAlphabetsOnly(section44.adrName)) {
+        errors["section4_3.adrName"] =
+          "ADR Name should contain only letters, spaces, hyphens, and apostrophes.";
+      } else if (!hasInitialsCapital(section44.adrName)) {
+        errors["section4_3.adrName"] = "First letter must be capital.";
       }
       // Year of Notification is required
       if (
@@ -185,6 +197,9 @@ export const validateInfraEnablers = (
       ) {
         errors["section4_3.notificationYear"] =
           "Year of Notification is required.";
+      } else if (!isValidYear(section44.notificationYear)) {
+        errors["section4_3.notificationYear"] =
+          "Enter a valid year of notification (e.g., 2024).";
       }
       // Skip file validation if "No document available" is selected
       if (!section44.noDocumentAvailable) {
