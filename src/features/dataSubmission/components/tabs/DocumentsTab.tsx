@@ -370,7 +370,32 @@ export const DocumentsTab = ({
         alert("Received invalid file URL. Check console/network tab.");
         return;
       }
-      window.open(signed, "_blank", "noopener,noreferrer");
+      let isProtected = false;
+      try {
+        const u = new URL(signed);
+        isProtected = u.pathname.includes("/file/download/");
+      } catch {
+        isProtected = signed.includes("/file/download/");
+      }
+
+      if (isProtected) {
+        const accessToken = token ?? readAccessTokenFromLocalStorage();
+        if (!accessToken) throw new Error("No auth token available. Please login.");
+
+        const res = await fetch(signed, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) {
+          throw new Error(`Download failed: ${res.statusText}`);
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+      } else {
+        window.open(signed, "_blank", "noopener,noreferrer");
+      }
     } catch (err: any) {
       console.error(err);
       alert("Failed to open file: " + (err.message || err));

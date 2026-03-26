@@ -40,8 +40,10 @@ export const API_ENDPOINTS = {
     upload: (submissionId: string) => `${BASE}/file/upload/${submissionId}`,
     uploadMultiple: (submissionId: string) =>
       `${BASE}/file/upload-multiple/${submissionId}`,
-    url: (filePath: string) => `${BASE}/file/url/${filePath}`,
-    delete: (filePath: string) => `${BASE}/file/${filePath}`,
+    url: (filePath: string) =>
+      `${BASE}/file/url/${encodeURIComponent(filePath)}`,
+    delete: (filePath: string) =>
+      `${BASE}/file/${encodeURIComponent(filePath)}`,
   },
   dashboard: {
     summary: `${BASE}/dashboard/summary`,

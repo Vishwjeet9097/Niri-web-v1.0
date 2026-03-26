@@ -244,7 +244,41 @@ export const EditableFileDisplay = ({
   const handleView = async (file: FileUpload, fileKey: string) => {
     // If file has a direct fileUrl, use it
     if (file.fileUrl) {
-      window.open(file.fileUrl, "_blank", "noopener,noreferrer");
+      try {
+        const url = file.fileUrl as string;
+        let isProtected = false;
+        try {
+          const u = new URL(url);
+          isProtected = u.pathname.includes("/file/download/");
+        } catch {
+          isProtected = url.includes("/file/download/");
+        }
+
+        if (isProtected) {
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) {
+            throw new Error("No auth token available. Please login.");
+          }
+
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (!res.ok) {
+            throw new Error(`Download failed: ${res.statusText}`);
+          }
+
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      } catch (err: any) {
+        alert("Failed to open file: " + (err?.message || err));
+      }
       return;
     }
 
@@ -274,7 +308,36 @@ export const EditableFileDisplay = ({
           alert("Received invalid file URL. Check console/network tab.");
           return;
         }
-        window.open(signed, "_blank", "noopener,noreferrer");
+        let isProtected = false;
+        try {
+          const u = new URL(signed);
+          isProtected = u.pathname.includes("/file/download/");
+        } catch {
+          isProtected = signed.includes("/file/download/");
+        }
+
+        if (isProtected) {
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) {
+            throw new Error("No auth token available. Please login.");
+          }
+
+          const res = await fetch(signed, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (!res.ok) {
+            throw new Error(`Download failed: ${res.statusText}`);
+          }
+
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        } else {
+          window.open(signed, "_blank", "noopener,noreferrer");
+        }
       } catch (err: any) {
         console.error(err);
         alert("Failed to open file: " + (err.message || err));
@@ -290,13 +353,55 @@ export const EditableFileDisplay = ({
   const handleDownload = async (file: FileUpload, fileKey: string) => {
     // If file has a direct fileUrl, download it
     if (file.fileUrl) {
-      const a = document.createElement("a");
-      a.href = file.fileUrl;
-      a.download = file.originalName || file.fileName || "file";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      try {
+        const url = file.fileUrl as string;
+        let isProtected = false;
+        try {
+          const u = new URL(url);
+          isProtected = u.pathname.includes("/file/download/");
+        } catch {
+          isProtected = url.includes("/file/download/");
+        }
+
+        if (isProtected) {
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) {
+            throw new Error("No auth token available. Please login.");
+          }
+
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (!res.ok) {
+            throw new Error(`Download failed: ${res.statusText}`);
+          }
+
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = file.originalName || file.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        } else {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.originalName || file.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch (err: any) {
+        alert("Download failed: " + (err?.message || err));
+      }
       return;
     }
 

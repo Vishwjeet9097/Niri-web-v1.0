@@ -39,10 +39,51 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
     return fileName;
   };
 
-  const handleView = (file: FileUpload) => {
+  function readAccessTokenFromLocalStorage(): string | undefined {
+    try {
+      const raw = localStorage.getItem("niri_app:auth_tokens");
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw);
+      return parsed?.value?.accessToken;
+    } catch {
+      return undefined;
+    }
+  }
+
+  const isBackendProtectedDownloadUrl = (url: string): boolean => {
+    try {
+      const u = new URL(url);
+      return u.pathname.includes("/file/download/");
+    } catch {
+      return url.includes("/file/download/");
+    }
+  };
+
+  const handleView = async (file: FileUpload) => {
     // If file has fileUrl, use it
     if (file.fileUrl) {
-      window.open(file.fileUrl, "_blank", "noopener,noreferrer");
+      const url = file.fileUrl as string;
+      try {
+        if (isBackendProtectedDownloadUrl(url)) {
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) throw new Error("No auth token available. Please login.");
+
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!res.ok) throw new Error(`Download failed: ${res.statusText}`);
+
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      } catch (err: any) {
+        alert("Failed to open file: " + (err?.message || err));
+      }
       return;
     }
 
@@ -64,16 +105,45 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
     alert("File not available for viewing.");
   };
 
-  const handleDownload = (file: FileUpload) => {
+  const handleDownload = async (file: FileUpload) => {
     // If file has fileUrl, download it
     if (file.fileUrl) {
-      const a = document.createElement("a");
-      a.href = file.fileUrl;
-      a.download = file.originalName || file.fileName || "file";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const url = file.fileUrl as string;
+      try {
+        if (isBackendProtectedDownloadUrl(url)) {
+          const accessToken = readAccessTokenFromLocalStorage();
+          if (!accessToken) throw new Error("No auth token available. Please login.");
+
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!res.ok) throw new Error(`Download failed: ${res.statusText}`);
+
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = file.originalName || file.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        } else {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.originalName || file.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch (err: any) {
+        alert("Download failed: " + (err?.message || err));
+      }
       return;
     }
 

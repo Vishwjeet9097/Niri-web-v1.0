@@ -225,12 +225,60 @@ export const FileUploadSection = ({
     return fileName;
   };
 
+  function readAccessTokenFromLocalStorage(): string | undefined {
+    try {
+      const raw = localStorage.getItem("niri_app:auth_tokens");
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw);
+      return parsed?.value?.accessToken;
+    } catch {
+      return undefined;
+    }
+  }
+
+  const isBackendProtectedDownloadUrl = (url: string): boolean => {
+    try {
+      const u = new URL(url);
+      return u.pathname.includes("/file/download/");
+    } catch {
+      return url.includes("/file/download/");
+    }
+  };
+
+  async function fetchBlobWithAuth(url: string): Promise<Blob> {
+    const accessToken = readAccessTokenFromLocalStorage();
+    if (!accessToken) throw new Error("No auth token available. Please login.");
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+    }
+
+    return await res.blob();
+  }
+
   const handleView = async () => {
     if (!value) return;
 
     // If file has fileUrl, use it
     if (value.fileUrl) {
-      window.open(value.fileUrl, "_blank", "noopener,noreferrer");
+      if (isBackendProtectedDownloadUrl(value.fileUrl)) {
+        const blob = await fetchBlobWithAuth(value.fileUrl);
+        const blobUrl = URL.createObjectURL(blob);
+        setObjectUrl(blobUrl);
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+          setObjectUrl(null);
+        }, 60_000);
+      } else {
+        // For S3-style signed URLs (already authorized) open directly.
+        window.open(value.fileUrl, "_blank", "noopener,noreferrer");
+      }
       return;
     }
 
@@ -264,7 +312,18 @@ export const FileUploadSection = ({
           fileUrl: url,
         });
 
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (isBackendProtectedDownloadUrl(url)) {
+          const blob = await fetchBlobWithAuth(url);
+          const blobUrl = URL.createObjectURL(blob);
+          setObjectUrl(blobUrl);
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+            setObjectUrl(null);
+          }, 60_000);
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
         return;
       } catch (error: any) {
         notificationService.error(
@@ -283,13 +342,32 @@ export const FileUploadSection = ({
 
     // If file has fileUrl, download it
     if (value.fileUrl) {
-      const a = document.createElement("a");
-      a.href = value.fileUrl;
-      a.download = value.originalName || value.fileName || "file";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      if (isBackendProtectedDownloadUrl(value.fileUrl)) {
+        const blob = await fetchBlobWithAuth(value.fileUrl);
+        const blobUrl = URL.createObjectURL(blob);
+        setObjectUrl(blobUrl);
+
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = value.originalName || value.fileName || "file";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+          setObjectUrl(null);
+        }, 60_000);
+      } else {
+        const a = document.createElement("a");
+        a.href = value.fileUrl;
+        a.download = value.originalName || value.fileName || "file";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
       return;
     }
 
@@ -329,13 +407,32 @@ export const FileUploadSection = ({
           fileUrl: url,
         });
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = value.originalName || value.fileName || "file";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        if (isBackendProtectedDownloadUrl(url)) {
+          const blob = await fetchBlobWithAuth(url);
+          const blobUrl = URL.createObjectURL(blob);
+          setObjectUrl(blobUrl);
+
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = value.originalName || value.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+            setObjectUrl(null);
+          }, 60_000);
+        } else {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = value.originalName || value.fileName || "file";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
         return;
       } catch (error: any) {
         notificationService.error(
