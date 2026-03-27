@@ -174,12 +174,12 @@ export const SectionCard = ({
                 {getActionButtons()}
               </div>
             </div>
+            {indicatorDefinition && (
+              <p className="mt-2 pt-2 text-sm text-muted-foreground font-normal leading-relaxed border-t border-[#D9E2FA]">
+                {indicatorDefinition}
+              </p>
+            )}
           </CardTitle>
-          {indicatorDefinition && (
-            <p className="px-6 pb-3 pt-2 text-sm text-muted-foreground font-normal leading-relaxed border-t border-[#E9EDFB] bg-[#E9EDFB]/40">
-              {indicatorDefinition}
-            </p>
-          )}
           {subtitle && (
             <p className="mt-1 text-xs text-muted-foreground font-normal px-6">
               {subtitle}
