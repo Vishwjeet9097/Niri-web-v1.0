@@ -455,7 +455,7 @@ function UserFormComponent({
           const submissionsResp = await apiService.getSubmissions(1, 100);
           const submissionsArray = Array.isArray(submissionsResp)
             ? submissionsResp
-            : submissionsResp?.submissions || submissionsResp?.data || [];
+            : submissionsResp?.submissions || [];
 
           // Find STATE_APPROVER submissions for this state
           const stateApproverSubmissions = submissionsArray.filter(
@@ -546,54 +546,10 @@ function UserFormComponent({
           error
         );
 
-        // Fallback to frontend filtering if API fails
-        if (allIndicators.length === 0) {
-          console.warn(
-            "⚠️ allIndicators is empty, cannot show indicators. Please wait for indicators to load."
-          );
-          setAvailableIndicatorsForState([]);
-          return;
-        }
-
-        // Build a set of codes that are already assigned in this state to all users (except current officer)
-        const assignedSet = new Set<string>();
-
-        // Officers array already contains users for the current scope (for Admin it may contain all states)
-        officers.forEach((o) => {
-          // Only consider assigned indicators of users in the same state
-          const officerState = o.state || o.stateId || "";
-          if (!stateName || officerState === stateName) {
-            // assignedIndicators may be an array of codes
-            const assigned =
-              o.assignedIndicators ||
-              (o.assignedIndicator ? [o.assignedIndicator] : []);
-            // Exclude current officer being edited
-            if (o.id !== officer?.id) {
-              assigned.forEach((code) => {
-                if (code) assignedSet.add(code);
-              });
-            }
-          }
-        });
-
-        // Return indicators whose code is NOT in assignedSet AND is a valid indicator code
-        // Convert to the same format as API response (array of objects with code, name, category)
-        const available = allIndicators.filter(
-          (ind: any) =>
-            !assignedSet.has(ind.code) &&
-            ind.code &&
-            ALL_INDICATOR_CODES.includes(ind.code)
-        );
-
-        // Transform to match API response format
-        const formattedAvailable = available.map((ind: any) => ({
-          code: ind.code,
-          name: ind.name || getIndicatorDisplayName(ind.code),
-          category: ind.category || ind.section || "",
-          id: ind.id,
-        }));
-
-        setAvailableIndicatorsForState(formattedAvailable);
+        // Strict behavior: do not fall back to showing *all* indicators.
+        // If the API for "available indicators" fails/returns empty, we prefer an empty list
+        // so users don't see indicators already assigned to other nodal officers as selectable.
+        setAvailableIndicatorsForState([]);
         fetchedIndicatorsRef.current = cacheKey; // Cache the result
         // Track what we just fetched
         lastFetchedRef.current = {
@@ -681,11 +637,8 @@ function UserFormComponent({
         });
       }
 
-      // If no indicators from API and no assigned indicators, show all as fallback
-      // This prevents empty dropdown while API is loading
-      if (allCodes.length === 0) {
-        allCodes = [...ALL_INDICATOR_CODES];
-      }
+      // If API returned nothing, keep list empty (no showing all indicators).
+      // Already assigned indicators are still included below (assigned/originalAssigned/submittedAssigned).
     }
 
     // CRITICAL: Ensure ALL submitted indicators that are assigned are ALWAYS in allCodes
