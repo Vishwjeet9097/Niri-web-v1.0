@@ -1459,6 +1459,13 @@ class ApiService implements HttpClient {
             );
             return true;
           }
+          // Indicator 3.2 (section3_2): comment is non-mandatory when available === "no"
+          if (sectionKey === "section3_2" && fieldName === "available") {
+            console.log(
+              `  ✓ ${sectionKey}: No (comment optional for available) -> accepted`
+            );
+            return true;
+          }
           if (isMeaningful(sectionData.comment)) {
             console.log(`  ✓ ${sectionKey}: No with comment`);
             return true;

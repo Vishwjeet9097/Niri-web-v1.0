@@ -686,7 +686,8 @@ const hasSectionData = (
             }
             // If "no", check for comment (required)
             if (section.adopted === "no") {
-              return hasMeaningfulValue(section.comment);
+              // Comment is non-mandatory when adopted === "no"
+              return true;
             }
           }
           // Fallback: check calculated fields (for backward compatibility)
