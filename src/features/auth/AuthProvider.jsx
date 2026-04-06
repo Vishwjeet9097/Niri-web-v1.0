@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserService } from "@/services/UserService";
 import { authService } from "@/services/auth.service";
 import { tokenManager } from "@/utils/tokenManager";
-import { apiService } from "@/services/api.service";
+import { startIdleSessionWatcher } from "@/utils/idleSession";
 
 // Auth context
 const AuthContext = createContext();
@@ -23,6 +23,17 @@ export function AuthProvider({ children }) {
     return () => {
       tokenManager.stopTokenMonitoring();
     };
+  }, [isAuthenticated]);
+
+  // Auto logout after inactivity (client + server idle policy)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const stop = startIdleSessionWatcher(async () => {
+      await UserService.logout({ reason: "idle" });
+      setUser(null);
+      setIsAuthenticated(false);
+    });
+    return stop;
   }, [isAuthenticated]);
 
   // Listen for auth state changes
@@ -96,8 +107,8 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
-    UserService.logout();
+  const logout = async () => {
+    await UserService.logout();
     setUser(null);
     setIsAuthenticated(false);
   };

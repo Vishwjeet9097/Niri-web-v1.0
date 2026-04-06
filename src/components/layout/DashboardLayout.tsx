@@ -42,8 +42,8 @@ export function DashboardLayout() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const user = authService.getUser();
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    await authService.logout();
     notificationService.toast({
       title: "Logged Out",
       message: "You have been logged out successfully",

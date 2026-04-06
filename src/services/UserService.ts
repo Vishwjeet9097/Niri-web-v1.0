@@ -165,11 +165,14 @@ export const UserService = {
     }
   },
 
-  async logout() {
-    authService.logout();
+  async logout(options?: { reason?: "idle" | "manual" }) {
+    await authService.logout();
+    const idle = options?.reason === "idle";
     notificationService.info(
-      "You have been logged out successfully.",
-      "Logged Out"
+      idle
+        ? "Your session has ended due to inactivity. Please sign in again."
+        : "You have been logged out successfully.",
+      idle ? "Session Timeout" : "Logged Out"
     );
   },
 

@@ -173,13 +173,13 @@ class AuthService {
         storageService.set(TOKEN_KEY, newTokens);
         return newTokens;
       }
-      this.logout();
+      void this.logout();
       throw error;
     }
   }
 
-  logout(): void {
-    void this.performServerLogoutThenClearLocal();
+  async logout(): Promise<void> {
+    await this.performServerLogoutThenClearLocal();
   }
 
   private async performServerLogoutThenClearLocal(): Promise<void> {

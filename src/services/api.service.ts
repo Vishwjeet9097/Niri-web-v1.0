@@ -175,7 +175,7 @@ class ApiService implements HttpClient {
             // Retry the original request with new token
             return this.axios(originalRequest);
           } catch (refreshError) {
-            authService.logout();
+            void authService.logout();
             notificationService.createAndToast({
               title: "Session Expired",
               message: "Please log in again",

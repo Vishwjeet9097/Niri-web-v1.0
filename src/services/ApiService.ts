@@ -71,7 +71,7 @@ export class ApiService {
           console.log("🚨 401 Unauthorized - Session Expired");
 
           // Logout user immediately
-          authService.logout();
+          void authService.logout();
 
           // Show session expired message
           notificationService.error(

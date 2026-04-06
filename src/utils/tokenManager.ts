@@ -86,7 +86,7 @@ class TokenManager {
   private handleTokenExpiration(): void {
     console.warn("⏰ Token expired, logging out user");
 
-    authService.logout();
+    void authService.logout();
     this.clearTimers();
 
     notificationService.warning(
