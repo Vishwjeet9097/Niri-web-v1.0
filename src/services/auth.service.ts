@@ -179,11 +179,39 @@ class AuthService {
   }
 
   logout(): void {
+    void this.performServerLogoutThenClearLocal();
+  }
+
+  private async performServerLogoutThenClearLocal(): Promise<void> {
+    const accessToken = this.tokens?.accessToken?.trim();
+    const baseUrl =
+      config.apiBaseUrl ??
+      (typeof import.meta !== "undefined"
+        ? import.meta.env?.VITE_API_BASE_URL
+        : undefined) ??
+      "http://localhost:3000";
+
+    if (accessToken) {
+      try {
+        await fetch(`${String(baseUrl).replace(/\/+$/, "")}/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: "{}",
+          credentials: "include",
+          keepalive: true,
+        });
+      } catch {
+        /* network / CORS — still clear client session */
+      }
+    }
+
     this.tokens = null;
     this.user = null;
     storageService.remove(TOKEN_KEY);
     storageService.remove(USER_KEY);
-    // Clear all localStorage data on logout
     storageService.clear();
   }
 

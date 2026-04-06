@@ -166,16 +166,11 @@ export const UserService = {
   },
 
   async logout() {
-    try {
-      // TODO: Call logout API endpoint if available
-      // await apiV2.post(`/auth/logout`);
-    } finally {
-      authService.logout();
-      notificationService.info(
-        "You have been logged out successfully.",
-        "Logged Out"
-      );
-    }
+    authService.logout();
+    notificationService.info(
+      "You have been logged out successfully.",
+      "Logged Out"
+    );
   },
 
   getUser(): User | null {

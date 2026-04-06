@@ -41,6 +41,7 @@ export class ApiService {
         const url = (original?.url || "").toString();
         const isLoginCall = url.includes("/login");
         const isRefreshCall = url.includes("/refresh");
+        const isLogoutCall = url.includes("/auth/logout");
 
         // Do not attempt refresh on login or refresh endpoints
         if (isLoginCall || isRefreshCall) {
@@ -56,6 +57,10 @@ export class ApiService {
         // Handle 401 Unauthorized - No refresh, just logout (but not for login calls)
         if (status === 401) {
           const isLoginCall = url.includes("/login");
+
+          if (isLogoutCall) {
+            return Promise.reject(error);
+          }
 
           if (isLoginCall) {
             // For login calls, just reject the error without logout/redirect
