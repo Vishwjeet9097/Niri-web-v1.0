@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "./AuthProvider";
 import { notificationService } from "@/services/notification.service";
-import { Loader2, Minus, Plus, Contrast, Info, Eye, EyeOff } from "lucide-react";
+import { Loader2, Minus, Plus, Contrast, Info, Eye, EyeOff, RotateCcw } from "lucide-react";
 
 type LoginStep = "sso" | "otp" | "manual" | "loading";
 
@@ -42,6 +42,22 @@ export function LoginPage() {
   const [step, setStep] = useState<LoginStep>("sso");
   const [otpTimer, setOtpTimer] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaText, setCaptchaText] = useState("");
+  const [captchaInput, setCaptchaInput] = useState("");
+
+  const generateCaptcha = () => {
+    const charset =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const captchaLength = 6;
+    return Array.from({ length: captchaLength }, () => {
+      const randomIndex = Math.floor(Math.random() * charset.length);
+      return charset[randomIndex];
+    }).join("");
+  };
+
+  useEffect(() => {
+    setCaptchaText(generateCaptcha());
+  }, []);
 
   // Validate email domain
   const isValidDomain = (email: string) =>
@@ -133,6 +149,15 @@ export function LoginPage() {
     e.preventDefault();
     if (!email || !password) {
       notificationService.error("Please enter both your email address and password to continue.", "Missing Information");
+      return;
+    }
+    if (captchaInput.trim().length < 6 || captchaInput.trim() !== captchaText) {
+      notificationService.error(
+        "Invalid CAPTCHA. Please enter the exact 6-character alphanumeric code.",
+        "CAPTCHA Verification Failed"
+      );
+      setCaptchaInput("");
+      setCaptchaText(generateCaptcha());
       return;
     }
 
@@ -356,6 +381,44 @@ export function LoginPage() {
                           )}
                         </button>
                       </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="manual-captcha" className="text-sm font-medium text-gray-700">
+                        CAPTCHA
+                      </Label>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="select-none rounded border border-dashed border-blue-300 bg-blue-50 px-4 py-2 font-mono text-lg font-semibold tracking-[0.2em] text-blue-800">
+                          {captchaText}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-3"
+                          onClick={() => {
+                            setCaptchaText(generateCaptcha());
+                            setCaptchaInput("");
+                          }}
+                          disabled={loading}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Input
+                        id="manual-captcha"
+                        type="text"
+                        value={captchaInput}
+                        onChange={(e) => setCaptchaInput(e.target.value)}
+                        placeholder="Enter CAPTCHA"
+                        required
+                        minLength={6}
+                        autoComplete="off"
+                        className="mt-2"
+                        disabled={loading}
+                      />
+                      <p className="mt-1 text-xs text-gray-600">
+                        Enter the 6-character alphanumeric CAPTCHA shown above.
+                      </p>
                     </div>
 
                     <Button
