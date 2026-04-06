@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
@@ -18,5 +23,12 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     exclude: ['lucide-react']
+  },
+  preview: {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
   },
 }));
