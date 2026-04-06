@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "./AuthProvider";
 import { notificationService } from "@/services/notification.service";
+import { UserService } from "@/services/UserService";
 import { Loader2, Minus, Plus, Contrast, Info, Eye, EyeOff, RotateCcw } from "lucide-react";
 
 type LoginStep = "sso" | "otp" | "manual" | "loading";
@@ -42,21 +43,32 @@ export function LoginPage() {
   const [step, setStep] = useState<LoginStep>("sso");
   const [otpTimer, setOtpTimer] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [captchaText, setCaptchaText] = useState("");
+  const [captchaId, setCaptchaId] = useState<string | null>(null);
+  const [captchaChallenge, setCaptchaChallenge] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(false);
 
-  const generateCaptcha = () => {
-    const charset =
-      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    const captchaLength = 6;
-    return Array.from({ length: captchaLength }, () => {
-      const randomIndex = Math.floor(Math.random() * charset.length);
-      return charset[randomIndex];
-    }).join("");
+  const loadCaptcha = async () => {
+    setCaptchaLoading(true);
+    try {
+      const { captchaId: id, challenge } = await UserService.fetchLoginCaptcha();
+      setCaptchaId(id);
+      setCaptchaChallenge(challenge);
+      setCaptchaInput("");
+    } catch {
+      setCaptchaId(null);
+      setCaptchaChallenge("");
+      notificationService.error(
+        "Could not load CAPTCHA. Check your connection and try again.",
+        "CAPTCHA Error"
+      );
+    } finally {
+      setCaptchaLoading(false);
+    }
   };
 
   useEffect(() => {
-    setCaptchaText(generateCaptcha());
+    void loadCaptcha();
   }, []);
 
   // Validate email domain
@@ -151,19 +163,33 @@ export function LoginPage() {
       notificationService.error("Please enter both your email address and password to continue.", "Missing Information");
       return;
     }
-    if (captchaInput.trim().length < 6 || captchaInput.trim() !== captchaText) {
+    if (!captchaId) {
+      notificationService.error(
+        "CAPTCHA is not ready. Please wait or refresh the code.",
+        "CAPTCHA Verification Failed"
+      );
+      void loadCaptcha();
+      return;
+    }
+    if (
+      captchaInput.trim().length !== 6 ||
+      captchaInput.trim() !== captchaChallenge
+    ) {
       notificationService.error(
         "Invalid CAPTCHA. Please enter the exact 6-character alphanumeric code.",
         "CAPTCHA Verification Failed"
       );
       setCaptchaInput("");
-      setCaptchaText(generateCaptcha());
+      void loadCaptcha();
       return;
     }
 
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email, password, {
+        captchaId,
+        captchaAnswer: captchaInput.trim(),
+      });
 
       if (result.success) {
         notificationService.success(`Welcome, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
@@ -175,11 +201,13 @@ export function LoginPage() {
       } else {
         // Error message is already shown by UserService, no need to show again
         console.log("Login unsuccessful:", result.message);
+        void loadCaptcha();
       }
     } catch (error) {
       // This catch block should rarely be reached as UserService handles most errors
       console.error("Unexpected login error:", error);
       notificationService.error("We encountered an unexpected issue while signing you in. Please try again or contact support if the problem continues.", "Sign In Error");
+      void loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -388,18 +416,17 @@ export function LoginPage() {
                         CAPTCHA
                       </Label>
                       <div className="mt-2 flex items-center gap-2">
-                        <div className="select-none rounded border border-dashed border-blue-300 bg-blue-50 px-4 py-2 font-mono text-lg font-semibold tracking-[0.2em] text-blue-800">
-                          {captchaText}
+                        <div className="select-none rounded border border-dashed border-blue-300 bg-blue-50 px-4 py-2 font-mono text-lg font-semibold tracking-[0.2em] text-blue-800 min-h-[2.75rem] flex items-center">
+                          {captchaLoading ? "…" : captchaChallenge || "—"}
                         </div>
                         <Button
                           type="button"
                           variant="outline"
                           className="px-3"
                           onClick={() => {
-                            setCaptchaText(generateCaptcha());
-                            setCaptchaInput("");
+                            void loadCaptcha();
                           }}
-                          disabled={loading}
+                          disabled={loading || captchaLoading}
                         >
                           <RotateCcw className="h-4 w-4" />
                         </Button>

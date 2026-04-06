@@ -6,10 +6,28 @@ import type { AxiosResponse } from "axios";
 import { notificationService } from "./notification.service";
 
 export const UserService = {
+  async fetchLoginCaptcha(): Promise<{ captchaId: string; challenge: string }> {
+    const res = await apiV2.get<unknown>("/auth/login-captcha");
+    const body = res.data as Record<string, unknown>;
+    const data = (body?.data ?? body) as Record<string, unknown>;
+    const captchaId = data?.captchaId;
+    const challenge = data?.challenge;
+    if (
+      typeof captchaId === "string" &&
+      typeof challenge === "string" &&
+      captchaId.length > 0 &&
+      challenge.length === 6
+    ) {
+      return { captchaId, challenge };
+    }
+    throw new Error("Unable to load CAPTCHA. Please refresh the page.");
+  },
+
   async login(
     email: string,
     password: string,
-    remember = true
+    captcha: { captchaId: string; captchaAnswer: string },
+    _remember = true
   ): Promise<{
     success: boolean;
     user?: User;
@@ -23,6 +41,8 @@ export const UserService = {
         await apiV2.post<LoginApiResponse>(config.loginPath, {
           email,
           password,
+          captchaId: captcha.captchaId,
+          captchaAnswer: captcha.captchaAnswer,
         });
 
       const response: any = res.data;

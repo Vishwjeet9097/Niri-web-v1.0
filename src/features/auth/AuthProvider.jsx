@@ -57,11 +57,11 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval);
   }, [user, isAuthenticated]);
 
-  const login = async (email, password) => {
+  const login = async (email, password, captcha) => {
     setLoading(true);
     try {
       // Use UserService for proper error handling and notifications
-      const result = await UserService.login(email, password);
+      const result = await UserService.login(email, password, captcha);
 
       if (result.success && result.user) {
         // Debug logging removed for performance
