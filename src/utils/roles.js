@@ -88,36 +88,13 @@ export const MENU_CONFIG = [
     label: "Ranking & Scoring",
     path: "/ranking",
     roles: [
-      ROLES.NODAL_OFFICER,
       ROLES.MOSPI_APPROVER,
       ROLES.MOSPI_REVIEWER,
-      ROLES.STATE_APPROVER,
       // ROLES.ADMIN, // Admin doesn't need ranking & scoring
     ],
     icon: "ranking",
   },
-  {
-    label: "Support & Help",
-    path: "/support",
-    roles: [
-      ROLES.NODAL_OFFICER,
-      ROLES.MOSPI_APPROVER,
-      ROLES.MOSPI_REVIEWER,
-      ROLES.STATE_APPROVER,
-      ROLES.ADMIN,
-    ],
-    icon: "support",
-  },
-  {
-    label: "Settings",
-    path: "/settings",
-    roles: [
-      ROLES.NODAL_OFFICER,
-      ROLES.MOSPI_APPROVER,
-      ROLES.MOSPI_REVIEWER,
-      ROLES.ADMIN,
-      ROLES.STATE_APPROVER,
-    ],
-    icon: "settings",
-  },
+  // Hidden from sidebar until implementation is ready:
+  // - /support (PlaceholderPage: Coming Soon)
+  // - /settings (PlaceholderPage: Coming Soon)
 ];

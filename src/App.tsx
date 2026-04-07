@@ -121,8 +121,20 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                <Route path="/ranking" element={<RankingScoringPage />} />
-                <Route
+                <Route path="/ranking" element={
+                  <ProtectedRoute
+                    allowedRoles={[
+                     
+                      "MOSPI_APPROVER",
+                      "MOSPI_REVIEWER",
+                     
+                      "ADMIN",
+                    ]}
+                  >
+                  <RankingScoringPage />
+                  </ProtectedRoute>
+                } />
+                {/* <Route
                   path="/support"
                   element={
                     <PlaceholderPage
@@ -130,8 +142,8 @@ const App = () => (
                       description="Get help and support resources"
                     />
                   }
-                />
-                <Route
+                /> */}
+                {/* <Route
                   path="/settings"
                   element={
                     <PlaceholderPage
@@ -139,7 +151,7 @@ const App = () => (
                       description="Manage your account settings"
                     />
                   }
-                />
+                /> */}
                 <Route
                   path="/unauthorized"
                   element={
