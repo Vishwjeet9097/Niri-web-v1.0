@@ -2355,6 +2355,7 @@ function UserFormComponent({
                 type={showPassword ? "text" : "password"}
                 placeholder="Min 8 chars, upper/lower/number/special"
                 value={formData.password}
+                autoComplete="off"
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }

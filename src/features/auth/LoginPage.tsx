@@ -360,7 +360,11 @@ export function LoginPage() {
                     </div>
                   </div> */}
 
-                  <form onSubmit={handleManualLogin} className="mt-6 space-y-4">
+                  <form
+                    onSubmit={handleManualLogin}
+                    className="mt-6 space-y-4"
+                    autoComplete="off"
+                  >
                     <div>
                       <Label htmlFor="manual-email" className="text-sm font-medium text-gray-700">
                         Email ID
@@ -374,6 +378,7 @@ export function LoginPage() {
                         required
                         className="mt-1"
                         disabled={loading}
+                        autoComplete="off"
                       />
                       <div className="mt-2 flex items-center text-sm text-gray-600">
                         <Info className="w-4 h-4 mr-1" />
@@ -395,6 +400,7 @@ export function LoginPage() {
                           required
                           className="mt-1 pr-10"
                           disabled={loading}
+                          autoComplete="off"
                         />
                         <button
                           type="button"
