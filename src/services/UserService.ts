@@ -6,6 +6,57 @@ import type { AxiosResponse } from "axios";
 import { notificationService } from "./notification.service";
 
 export const UserService = {
+  async fetchLoginEncryptionKey(): Promise<{
+    keyId: string;
+    publicKey: string;
+    algorithm: string;
+    expiresAt: string;
+  }> {
+    const res = await apiV2.get<unknown>("/auth/login-key");
+    const body = res.data as Record<string, unknown>;
+    const data = (body?.data ?? body) as Record<string, unknown>;
+    const keyId = data?.keyId;
+    const publicKey = data?.publicKey;
+    const algorithm = data?.algorithm;
+    const expiresAt = data?.expiresAt;
+    if (
+      typeof keyId === "string" &&
+      typeof publicKey === "string" &&
+      typeof algorithm === "string" &&
+      typeof expiresAt === "string"
+    ) {
+      return { keyId, publicKey, algorithm, expiresAt };
+    }
+    throw new Error("Unable to load login encryption key.");
+  },
+
+  async encryptLoginPassword(
+    password: string,
+    publicKeyPem: string
+  ): Promise<string> {
+    const clean = publicKeyPem
+      .replace("-----BEGIN PUBLIC KEY-----", "")
+      .replace("-----END PUBLIC KEY-----", "")
+      .replace(/\s+/g, "");
+    const binary = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
+    const cryptoKey = await crypto.subtle.importKey(
+      "spki",
+      binary.buffer,
+      {
+        name: "RSA-OAEP",
+        hash: "SHA-256",
+      },
+      false,
+      ["encrypt"]
+    );
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "RSA-OAEP" },
+      cryptoKey,
+      new TextEncoder().encode(password)
+    );
+    return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+  },
+
   async fetchLoginCaptcha(): Promise<{ captchaId: string; challenge: string }> {
     const res = await apiV2.get<unknown>("/auth/login-captcha");
     const body = res.data as Record<string, unknown>;
@@ -36,14 +87,37 @@ export const UserService = {
   }> {
     try {
       console.log("🔐 Attempting login for:", email);
+      let payload: Record<string, unknown> = {
+        email,
+        password,
+        captchaId: captcha.captchaId,
+        captchaAnswer: captcha.captchaAnswer,
+      };
 
-      const res: AxiosResponse<LoginApiResponse> =
-        await apiV2.post<LoginApiResponse>(config.loginPath, {
-          email,
+      try {
+        const key = await this.fetchLoginEncryptionKey();
+        const encryptedPassword = await this.encryptLoginPassword(
           password,
+          key.publicKey
+        );
+        payload = {
+          email,
+          encryptedPassword,
+          keyId: key.keyId,
+          nonce: crypto.randomUUID(),
+          timestamp: Date.now(),
           captchaId: captcha.captchaId,
           captchaAnswer: captcha.captchaAnswer,
-        });
+        };
+      } catch (encError) {
+        console.warn(
+          "Login encryption key unavailable; using protected TLS fallback.",
+          encError
+        );
+      }
+
+      const res: AxiosResponse<LoginApiResponse> =
+        await apiV2.post<LoginApiResponse>(config.loginPath, payload);
 
       const response: any = res.data;
       console.log("🔐 Login response received:", response);
