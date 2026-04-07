@@ -1364,6 +1364,25 @@ function UserFormComponent({
   };
 
   const validateStrongPassword = (password: string): string | null => {
+    const commonPasswords = new Set([
+      "password",
+      "password123",
+      "admin",
+      "admin123",
+      "qwerty",
+      "qwerty123",
+      "welcome",
+      "welcome123",
+      "letmein",
+      "123456",
+      "12345678",
+      "123456789",
+      "1234567890",
+      "abc123",
+      "changeme",
+      "iloveyou",
+    ]);
+
     if (
       password.length < 8 ||
       !/[A-Z]/.test(password) ||
@@ -1373,6 +1392,41 @@ function UserFormComponent({
     ) {
       return "Password must be at least 8 characters and include at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.";
     }
+
+    const loweredPassword = password.toLowerCase();
+    if (commonPasswords.has(loweredPassword)) {
+      return "Password is too common. Please choose a less predictable password.";
+    }
+
+    const splitTokens = (value?: string): string[] =>
+      (value ?? "")
+        .toLowerCase()
+        .split(/[^a-z0-9]+/i)
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 3);
+
+    const contextualTokens = [
+      ...splitTokens(formData.email.split("@")[0]),
+      ...splitTokens(formData.firstName),
+      ...splitTokens(formData.lastName),
+      ...splitTokens(formData.role),
+      ...splitTokens(
+        Array.isArray(formData.stateId)
+          ? formData.stateId.join(" ")
+          : String(formData.stateId ?? "")
+      ),
+      "niri",
+      "niei",
+      "mospi",
+    ];
+
+    const contextualHit = contextualTokens.find((token) =>
+      loweredPassword.includes(token)
+    );
+    if (contextualHit) {
+      return "Password must not include personal or application-related words.";
+    }
+
     return null;
   };
 
