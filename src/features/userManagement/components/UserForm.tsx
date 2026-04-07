@@ -1430,6 +1430,24 @@ function UserFormComponent({
     return null;
   };
 
+  const blockClipboardAction = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+
+  const blockSensitiveFieldShortcuts = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      ["c", "x", "v", "a", "insert"].includes(e.key.toLowerCase())
+    ) {
+      e.preventDefault();
+    }
+    if (e.shiftKey && e.key.toLowerCase() === "insert") {
+      e.preventDefault();
+    }
+  };
+
   const GENERIC_EMAIL_VALIDATION_MESSAGE =
     "Unable to verify this email. Please check and try again.";
   const GENERIC_CONTACT_VALIDATION_MESSAGE =
@@ -2367,6 +2385,11 @@ function UserFormComponent({
                 }
                 value={formData.password}
                 autoComplete="off"
+                onCopy={blockClipboardAction}
+                onCut={blockClipboardAction}
+                onPaste={blockClipboardAction}
+                onContextMenu={(e) => e.preventDefault()}
+                onKeyDown={blockSensitiveFieldShortcuts}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }

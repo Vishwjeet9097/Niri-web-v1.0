@@ -49,6 +49,24 @@ export function LoginPage() {
   const [captchaLoading, setCaptchaLoading] = useState(false);
   const loginFieldLabelClass = "text-sm font-medium font-sans text-gray-700";
 
+  const blockClipboardAction = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+
+  const blockSensitiveFieldShortcuts = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      ["c", "x", "v", "a", "insert"].includes(e.key.toLowerCase())
+    ) {
+      e.preventDefault();
+    }
+    if (e.shiftKey && e.key.toLowerCase() === "insert") {
+      e.preventDefault();
+    }
+  };
+
   const loadCaptcha = async () => {
     setCaptchaLoading(true);
     try {
@@ -402,6 +420,11 @@ export function LoginPage() {
                           className="mt-1 pr-10"
                           disabled={loading}
                           autoComplete="off"
+                          onCopy={blockClipboardAction}
+                          onCut={blockClipboardAction}
+                          onPaste={blockClipboardAction}
+                          onContextMenu={(e) => e.preventDefault()}
+                          onKeyDown={blockSensitiveFieldShortcuts}
                         />
                         <button
                           type="button"
