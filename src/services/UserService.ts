@@ -124,51 +124,14 @@ export const UserService = {
         err?.response?.status === 401 ||
         err?.response?.data?.statusCode === 401
       ) {
-        const serverMessage = err?.response?.data?.message;
-        let userFriendlyMessage = "Invalid credentials";
-        let toastTitle = "Login Failed";
-
-        // Map server messages to user-friendly messages
-        if (serverMessage) {
-          switch (serverMessage.toLowerCase()) {
-            case "invalid credentials":
-            case "unauthorized":
-              userFriendlyMessage =
-                "Login unsuccessful. Please recheck your credentials.";
-              toastTitle = "Login Failed";
-              break;
-            case "user not found":
-              userFriendlyMessage =
-                "No account found with this email address. Please verify your email or contact your administrator.";
-              toastTitle = "Account Not Found";
-              break;
-            case "account disabled":
-            case "user disabled":
-              userFriendlyMessage =
-                "Your account has been disabled. Please contact your administrator for assistance.";
-              toastTitle = "Account Disabled";
-              break;
-            case "account locked":
-              userFriendlyMessage =
-                "Your account has been temporarily locked due to multiple failed login attempts. Please try again later or contact support.";
-              toastTitle = "Account Locked";
-              break;
-            default:
-              userFriendlyMessage =
-                "Login unsuccessful. Please recheck your credentials.";
-              toastTitle = "Login Failed";
-          }
-        } else {
-          userFriendlyMessage =
-            "Login unsuccessful. Please recheck your credentials.";
-          toastTitle = "Login Failed";
-        }
+        const userFriendlyMessage =
+          "No such username or password. Please recheck your credentials.";
 
         console.error(
           "🔐 Login error (401):",
-          serverMessage || "No server message"
+          err?.response?.data?.message || "No server message"
         );
-        notificationService.error(userFriendlyMessage, toastTitle);
+        notificationService.error(userFriendlyMessage, "Login Failed");
         return { success: false, message: userFriendlyMessage };
       }
 

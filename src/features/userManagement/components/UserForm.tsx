@@ -1376,6 +1376,11 @@ function UserFormComponent({
     return null;
   };
 
+  const GENERIC_EMAIL_VALIDATION_MESSAGE =
+    "Unable to verify this email. Please check and try again.";
+  const GENERIC_CONTACT_VALIDATION_MESSAGE =
+    "Unable to verify this contact number. Please check and try again.";
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -1529,7 +1534,7 @@ function UserFormComponent({
         if (!isEmailAvailable) {
           setErrors((prev) => ({
             ...prev,
-            email: "This email is already registered to another user",
+            email: GENERIC_EMAIL_VALIDATION_MESSAGE,
           }));
           setCheckingEmail(false);
           // Error is shown inline in the UI, no toast needed
@@ -1541,7 +1546,7 @@ function UserFormComponent({
           const newErrors = { ...prev };
           if (
             newErrors.email ===
-            "This email is already registered to another user"
+            GENERIC_EMAIL_VALIDATION_MESSAGE
           ) {
             delete newErrors.email;
           }
@@ -1555,7 +1560,7 @@ function UserFormComponent({
         // On error, set error state to show in UI, but allow submission (fail open)
         setErrors((prev) => ({
           ...prev,
-          email: "Could not verify email availability. Please verify manually.",
+          email: GENERIC_EMAIL_VALIDATION_MESSAGE,
         }));
       } finally {
         setCheckingEmail(false);
@@ -1590,8 +1595,7 @@ function UserFormComponent({
         if (!isContactAvailable) {
           setErrors((prev) => ({
             ...prev,
-            contactNumber:
-              "This contact number is already registered to another user",
+            contactNumber: GENERIC_CONTACT_VALIDATION_MESSAGE,
           }));
           setCheckingContact(false);
           // Error is shown inline in the UI, no toast needed
@@ -1603,9 +1607,9 @@ function UserFormComponent({
           const newErrors = { ...prev };
           if (
             newErrors.contactNumber ===
-              "This contact number is already registered to another user" ||
+              GENERIC_CONTACT_VALIDATION_MESSAGE ||
             newErrors.contactNumber ===
-              "This contact number is already assigned to another user"
+              GENERIC_CONTACT_VALIDATION_MESSAGE
           ) {
             delete newErrors.contactNumber;
           }
@@ -1625,8 +1629,7 @@ function UserFormComponent({
         // On error, set error state to show in UI, but allow submission (fail open)
         setErrors((prev) => ({
           ...prev,
-          contactNumber:
-            "Could not verify contact number availability. Please verify manually.",
+          contactNumber: GENERIC_CONTACT_VALIDATION_MESSAGE,
         }));
       } finally {
         setCheckingContact(false);
@@ -1818,7 +1821,7 @@ function UserFormComponent({
             // Only clear duplicate error, keep format errors
             if (
               newErrors.email ===
-              "This email is already registered to another user"
+              GENERIC_EMAIL_VALIDATION_MESSAGE
             ) {
               delete newErrors.email;
             }
@@ -1845,7 +1848,7 @@ function UserFormComponent({
           if (!isAvailable) {
             setErrors((prev) => ({
               ...prev,
-              email: "This email is already registered to another user",
+              email: GENERIC_EMAIL_VALIDATION_MESSAGE,
             }));
           } else {
             setErrors((prev) => {
@@ -1853,7 +1856,7 @@ function UserFormComponent({
               // Only clear email error if it's a duplicate error, keep format errors
               if (
                 newErrors.email ===
-                "This email is already registered to another user"
+                GENERIC_EMAIL_VALIDATION_MESSAGE
               ) {
                 delete newErrors.email;
               }
@@ -1869,7 +1872,7 @@ function UserFormComponent({
             const newErrors = { ...prev };
             if (
               newErrors.email ===
-              "This email is already registered to another user"
+              GENERIC_EMAIL_VALIDATION_MESSAGE
             ) {
               delete newErrors.email;
             }
@@ -1931,7 +1934,7 @@ function UserFormComponent({
             // Only clear duplicate error, keep format errors
             if (
               newErrors.contactNumber ===
-              "This contact number is already registered to another user"
+              GENERIC_CONTACT_VALIDATION_MESSAGE
             ) {
               delete newErrors.contactNumber;
             }
@@ -1958,8 +1961,7 @@ function UserFormComponent({
           if (!isAvailable) {
             setErrors((prev) => ({
               ...prev,
-              contactNumber:
-                "This contact number is already registered to another user",
+              contactNumber: GENERIC_CONTACT_VALIDATION_MESSAGE,
             }));
           } else {
             setErrors((prev) => {
@@ -1967,7 +1969,7 @@ function UserFormComponent({
               // Only clear duplicate error, keep format errors
               if (
                 newErrors.contactNumber ===
-                "This contact number is already registered to another user"
+                GENERIC_CONTACT_VALIDATION_MESSAGE
               ) {
                 delete newErrors.contactNumber;
               }
@@ -1983,7 +1985,7 @@ function UserFormComponent({
             const newErrors = { ...prev };
             if (
               newErrors.contactNumber ===
-              "This contact number is already registered to another user"
+              GENERIC_CONTACT_VALIDATION_MESSAGE
             ) {
               delete newErrors.contactNumber;
             }
@@ -2148,8 +2150,7 @@ function UserFormComponent({
                       normalizedContactNumber
                 );
                 if (duplicateContact) {
-                  newErrors.contactNumber =
-                    "This contact number is already assigned to another user";
+                  newErrors.contactNumber = GENERIC_CONTACT_VALIDATION_MESSAGE;
                 } else {
                   // Clear format errors, but preserve API duplicate error if it exists
                   // The checkContactAvailability function will handle API-level duplicate checking
@@ -2159,7 +2160,7 @@ function UserFormComponent({
                   ) {
                     delete newErrors.contactNumber;
                   }
-                  // Note: We preserve "This contact number is already registered to another user" error
+                  // Note: We preserve the generic contact validation error
                   // which is set by the checkContactAvailability function
                 }
               }
@@ -2244,7 +2245,7 @@ function UserFormComponent({
                   ) {
                     delete newErrors.email;
                   }
-                  // Note: We preserve "This email is already registered to another user" error
+                  // Note: We preserve the generic email validation error
                   // which is set by the checkEmailAvailability function
                 }
               }
