@@ -15,6 +15,7 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  User,
   Menu,
   X,
   Users,
@@ -181,6 +182,10 @@ export function DashboardLayout() {
     navigate("/login");
   };
 
+  const handleMyProfile = () => {
+    navigate("/user-management", { state: { openMyProfile: true } });
+  };
+
   const isActive = (path) => {
     // Handle array of paths (like ["/submissions", "/data-submission/review"])
     if (Array.isArray(path)) {
@@ -262,6 +267,13 @@ export function DashboardLayout() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={8} className="w-56 z-[100]">
+                <DropdownMenuItem
+                  onClick={handleMyProfile}
+                  className="cursor-pointer"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  My Profile
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-destructive focus:text-destructive cursor-pointer focus:bg-destructive/10"

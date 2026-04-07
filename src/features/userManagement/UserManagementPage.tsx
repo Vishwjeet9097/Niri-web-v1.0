@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,8 @@ import {
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 
 export function UserManagementPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [officers, setOfficers] = useState<NodalOfficer[]>([]);
@@ -213,6 +216,45 @@ export function UserManagementPage() {
     loadOfficers(true); // Force refresh on user change
     loadStates();
   }, [user?.role, user?.state]); // Only depend on user role/state, not loadOfficers
+
+  // Open "My Profile" in edit mode when navigated from header dropdown.
+  useEffect(() => {
+    const shouldOpenMyProfile = !!(location.state as any)?.openMyProfile;
+    if (!shouldOpenMyProfile) return;
+    const openMyProfileEditor = async () => {
+      try {
+        const profile = await apiService.getProfile();
+        const profileOfficer: NodalOfficer = {
+          id: profile.id || profile._id || "",
+          firstName: profile.firstName || "",
+          lastName: profile.lastName || "",
+          contactNumber: profile.contactNumber || profile.phone || "",
+          email: profile.email || "",
+          role: profile.role || "",
+          state: profile.stateUt || profile.stateName || profile.state || "",
+          stateId: (profile as any).stateId || "",
+          assignedIndicators: Array.isArray((profile as any).assignedIndicators)
+            ? (profile as any).assignedIndicators
+            : [],
+          isActive: profile.isActive ?? true,
+          createdAt: new Date(profile.createdAt || Date.now()).getTime(),
+          stateUt: profile.stateUt || profile.stateName || profile.state || "",
+        };
+        setEditingOfficer(profileOfficer);
+        setShowForm(true);
+      } catch (error) {
+        console.error("❌ Failed to open My Profile editor:", error);
+        notificationService.error(
+          "Unable to load your profile details. Please try again.",
+          "Profile Load Failed"
+        );
+      } finally {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    };
+
+    void openMyProfileEditor();
+  }, [location.pathname, location.state, navigate]);
 
   // Fetch submitted indicators in state when component loads or state changes
   // NOTE: This is STATE-SCOPED, not global. Only finds submissions within the user's state.
