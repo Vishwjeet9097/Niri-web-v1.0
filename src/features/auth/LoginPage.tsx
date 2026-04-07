@@ -47,6 +47,7 @@ export function LoginPage() {
   const [captchaChallenge, setCaptchaChallenge] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
   const [captchaLoading, setCaptchaLoading] = useState(false);
+  const loginFieldLabelClass = "text-sm font-medium font-sans text-gray-700";
 
   const loadCaptcha = async () => {
     setCaptchaLoading(true);
@@ -366,7 +367,7 @@ export function LoginPage() {
                     autoComplete="off"
                   >
                     <div>
-                      <Label htmlFor="manual-email" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="manual-email" className={loginFieldLabelClass}>
                         Email ID
                       </Label>
                       <Input
@@ -387,7 +388,7 @@ export function LoginPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="manual-password" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="manual-password" className={loginFieldLabelClass}>
                         Password
                       </Label>
                       <div className="relative">
@@ -418,8 +419,8 @@ export function LoginPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="manual-captcha" className="text-sm font-medium text-gray-700">
-                        CAPTCHA
+                      <Label htmlFor="manual-captcha" className={loginFieldLabelClass}>
+                        Captcha
                       </Label>
                       <div className="mt-2 flex items-center gap-2">
                         <div className="select-none rounded border border-dashed border-blue-300 bg-blue-50 px-4 py-2 font-mono text-lg font-semibold tracking-[0.2em] text-blue-800 min-h-[2.75rem] flex items-center">

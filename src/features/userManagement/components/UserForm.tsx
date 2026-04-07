@@ -1476,6 +1476,11 @@ function UserFormComponent({
       if (passwordError) {
         newErrors.password = passwordError;
       }
+    } else if (officer && formData.password.trim()) {
+      const passwordError = validateStrongPassword(formData.password);
+      if (passwordError) {
+        newErrors.password = passwordError;
+      }
     }
 
     if (!formData.role) {
@@ -1717,6 +1722,9 @@ function UserFormComponent({
       stateUt: stateNames.join(", "), // always only the selected unique state(s)
       stateId: normalizedStateId,
     };
+    if (officer && !String(payload.password ?? "").trim()) {
+      delete (payload as { password?: string }).password;
+    }
 
     type SubmitPayload = Omit<
       NodalOfficer,
@@ -2333,11 +2341,10 @@ function UserFormComponent({
           )}
         </div>
 
-        {!officer && (
-          <div className="space-y-2">
+        <div className="space-y-2">
             <Label htmlFor="password" className="flex items-center gap-2">
-              Password
-              <span className="text-destructive">*</span>
+              {officer ? "New Password" : "Password"}
+              {!officer && <span className="text-destructive">*</span>}
               {/* <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -2353,7 +2360,11 @@ function UserFormComponent({
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Min 8 chars, upper/lower/number/special"
+                placeholder={
+                  officer
+                    ? "Enter New Password"
+                    : "Min 8 chars, upper/lower/number/special"
+                }
                 value={formData.password}
                 autoComplete="off"
                 onChange={(e) =>
@@ -2379,7 +2390,6 @@ function UserFormComponent({
               <p className="text-sm text-destructive">{errors.password}</p>
             )}
           </div>
-        )}
 
         <div className="space-y-2">
           <Label htmlFor="role" className="flex items-center gap-2">

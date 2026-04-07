@@ -555,6 +555,12 @@ export function UserManagementPage() {
           indicatorCodes: officerData.assignedIndicators || [],
         };
 
+        // Optional password update during edit.
+        // Only send when a new password is explicitly entered.
+        if (officerData.password && String(officerData.password).trim()) {
+          updatePayload.password = String(officerData.password).trim();
+        }
+
         // Only include stateUt if the role requires it (set to empty string for MOSPI_APPROVER and ADMIN to clear state)
         if (
           officerData.role !== "MOSPI_APPROVER" &&
