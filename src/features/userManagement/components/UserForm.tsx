@@ -1363,6 +1363,19 @@ function UserFormComponent({
     return /^[\p{L}\s'-]+$/u.test(value.trim());
   };
 
+  const validateStrongPassword = (password: string): string | null => {
+    if (
+      password.length < 8 ||
+      !/[A-Z]/.test(password) ||
+      !/[a-z]/.test(password) ||
+      !/\d/.test(password) ||
+      !/[^A-Za-z\d]/.test(password)
+    ) {
+      return "Password must be at least 8 characters and include at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.";
+    }
+    return null;
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -1399,8 +1412,11 @@ function UserFormComponent({
     // Password is required only for new users
     if (!officer && !formData.password.trim()) {
       newErrors.password = "Password is required";
-    } else if (!officer && formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    } else if (!officer) {
+      const passwordError = validateStrongPassword(formData.password);
+      if (passwordError) {
+        newErrors.password = passwordError;
+      }
     }
 
     if (!formData.role) {
@@ -2282,7 +2298,7 @@ function UserFormComponent({
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter password (min 6 characters)"
+                placeholder="Min 8 chars, upper/lower/number/special"
                 value={formData.password}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
