@@ -426,17 +426,25 @@ export function StateApproverDashboardPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* --- Total Indicators Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-            <div className="flex items-center gap-4">
-              <h2 className="text-lg font-semibold text-[#111827]">
-                Total Indicators:&nbsp;
-                <span className="text-black">{totalIndicators}</span>
-              </h2>
-              <h2 className="text-lg font-semibold text-[#111827]">
-                Total Unassigned / Assigned to State Approver:&nbsp;
-                <span className="text-black">
-                  {totalIndicators - totalAssignedState}
-                </span>
-              </h2>
+            <div className="rounded-lg shadow-sm px-4 py-3 border-l-[4px] border-[#1E40AF] bg-white min-h-[100px] flex flex-col justify-center transition-all duration-200 hover:shadow-md">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:gap-0 sm:divide-x sm:divide-[#E5E7EB]">
+                <div className="flex-1 sm:pr-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#727272]">
+                    Total indicators
+                  </p>
+                  <p className="mt-1 text-xl font-bold tabular-nums text-[#212121]">
+                    {totalIndicators}
+                  </p>
+                </div>
+                <div className="flex-1 sm:pl-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#727272]">
+                    Assigned to state approver
+                  </p>
+                  <p className="mt-1 text-xl font-bold tabular-nums text-[#212121]">
+                    {totalIndicators - totalAssignedState}
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="grid gap-4 grid-cols-1">
               {overviewCards.map((c: any, i: number) => (
@@ -454,12 +462,18 @@ export function StateApproverDashboardPage() {
 
           {/* --- Total Indicators Received Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-[#111827]">
-              Total Indicators Submitted:&nbsp;
-              <span className="text-black">
-                {totalIndicatorsReceivedState}/{totalIndicators || 0}
-              </span>
-            </h2>
+            <div className="rounded-lg shadow-sm px-4 py-3 border-l-[4px] border-[#3C9718] bg-white min-h-[100px] flex flex-col justify-center transition-all duration-200 hover:shadow-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-[#727272]">
+                Total Indicators submitted
+              </p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-[#212121]">
+                {totalIndicatorsReceivedState}
+                <span className="text-xl font-bold tabular-nums text-[#727272]">
+                  {" "}
+                  / {totalIndicators || 0}
+                </span>
+              </p>
+            </div>
 
             <div className="grid gap-4 grid-cols-1">
               {indicatorsReceivedCards.map((c: any, i: number) => (
