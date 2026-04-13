@@ -35,6 +35,7 @@ import { getRoleDisplayName } from "@/utils/roles";
 
 interface UserTableProps {
   officers: NodalOfficer[];
+  serialNumberStart?: number;
   onEdit: (officer: NodalOfficer) => void;
   onDelete: (id: string) => void;
   onAssignIndicator: (id: string, indicator: string) => void;
@@ -48,6 +49,7 @@ interface UserTableProps {
 
 function UserTableComponent({
   officers,
+  serialNumberStart = 0,
   onEdit,
   onDelete,
   onAssignIndicator,
@@ -152,7 +154,7 @@ function UserTableComponent({
                 />
               </TableCell>
               <TableCell className="font-medium text-xs text-[#212121]">
-                {index + 1}
+                {serialNumberStart + index + 1}
               </TableCell>
               <TableCell className="font-medium text-xs text-[#212121]">
                 {officer.firstName} {officer.lastName}

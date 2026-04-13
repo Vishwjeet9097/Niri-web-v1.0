@@ -243,6 +243,7 @@ function AdminDashboardPage() {
         </div>
         <UserTableNoActions
           users={paginatedUsers}
+          serialNumberStart={startIndex}
           loading={loading}
           sortField={sortField}
           sortDirection={sortDirection}
@@ -297,7 +298,7 @@ function AdminDashboardPage() {
     </div>
   );
 // UserTableNoActions component for displaying the users table without actions
-function UserTableNoActions({ users, loading, sortField, sortDirection, onSort }) {
+function UserTableNoActions({ users, serialNumberStart = 0, loading, sortField, sortDirection, onSort }) {
   if (loading) {
     return <div className="py-8 text-center text-gray-500">Loading users...</div>;
   }
@@ -335,7 +336,7 @@ function UserTableNoActions({ users, loading, sortField, sortDirection, onSort }
         <tbody>
           {users.map((user, idx) => (
             <tr key={user.email || user.id} className="border-b last:border-0">
-              <td className="px-3 py-2">{idx + 1}</td>
+              <td className="px-3 py-2">{serialNumberStart + idx + 1}</td>
               <td className="px-3 py-2 flex items-center gap-3">                
                 <div>
                   <div className="font-medium text-gray-900">{`${user.firstName || ""} ${user.lastName || ""}`}</div>

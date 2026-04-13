@@ -1396,6 +1396,7 @@ export function UserManagementPage() {
 
       <UserTable
         officers={paginatedOfficers}
+        serialNumberStart={startIndex}
         onEdit={handleEditUser}
         onDelete={handleDeleteUser}
         onAssignIndicator={handleAssignIndicator}
