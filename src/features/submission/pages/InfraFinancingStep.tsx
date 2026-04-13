@@ -285,7 +285,7 @@ export const InfraFinancingStep = () => {
   const initialData: InfraFinancingData =
     safeInfraFinancingFormData(loadedData);
 
-  // Ensure bondList has at least one row for mandatory entries. Section 1.3 ulbList stays empty by default (0 credit rated ULBs until user adds via "Add More ULB").
+  // Ensure bondList has at least one row for mandatory entries. Section 1.3 ulbList stays empty by default (0 credit rated ULBs until user adds via "Add Credit Rated ULB").
   const ensureMandatoryArrays = (data: InfraFinancingData) => {
     let updatedData = { ...data };
 
@@ -3033,7 +3033,7 @@ export const InfraFinancingStep = () => {
                             );
                           }
                           // Do not auto-add any row when user enters Total Number of ULBs.
-                          // Rows are added only when user clicks "Add More ULB"; Credit rated ULBs stays 0 until then.
+                          // Rows are added only when user clicks "Add Credit Rated ULB"; Credit rated ULBs stays 0 until then.
 
                           // Clear validation error if totalULBs is now valid
                           setIndicatorValidationErrors((prevErrors) => {
@@ -3579,7 +3579,7 @@ export const InfraFinancingStep = () => {
 
                 {renderFieldError("section1_3.ulbList")}
 
-                {/* Show Add More button only if totalULBs > 0 and not at limit */}
+                {/* Show add-row button only if totalULBs > 0 and not at limit */}
                 {(formData.section1_3.totalULBs || 0) > 0 && (
                   <Button
                     type="button"
@@ -3593,7 +3593,7 @@ export const InfraFinancingStep = () => {
                     className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="h-4 w-4" />
-                    Add More {withFullForm("ULB")}
+                    Add Credit Rated ULB
                   </Button>
                 )}
                 {renderFieldError("section1_3.ulbList") && (

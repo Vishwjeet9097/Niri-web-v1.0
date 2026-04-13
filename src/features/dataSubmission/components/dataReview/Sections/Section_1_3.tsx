@@ -331,7 +331,7 @@ export const Section_1_3 = ({
       updatedList = ulbList.slice(0, newTotalULBs);
     }
     // Do not auto-add any row when user enters Total Number of ULBs.
-    // Rows are added only when user clicks "Add More"; Credit rated ULBs stays 0 until then.
+    // Rows are added only when user clicks "Add Credit Rated ULB"; Credit rated ULBs stays 0 until then.
 
     // Clear validation error if totalULBs is now valid
     setDuplicateErrors((prev) => {
@@ -897,7 +897,7 @@ export const Section_1_3 = ({
         </table>
       </div>
 
-      {/* Add More Button - Only visible when in edit mode and totalULBs > 0 */}
+      {/* Add Credit Rated ULB — only visible when in edit mode and totalULBs > 0 */}
       {isEditable("1.3") && !showAddULBForm && (totalULBs ?? 0) > 0 && (
         <Button
           variant="outline"
@@ -907,7 +907,7 @@ export const Section_1_3 = ({
           disabled={ulbList.length >= (totalULBs ?? 0)}
         >
           <Plus className="w-4 h-4" />
-          Add More
+          Add Credit Rated ULB
         </Button>
       )}
 
