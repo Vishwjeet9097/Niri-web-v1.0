@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
 import {
   BOND_TYPE_OPTIONS,
@@ -182,7 +183,7 @@ export const EditableInfraFinancing = ({
           title={
             <div className="flex flex-col">
               <span className="text-base font-semibold text-primary">
-                1.1 - % Capex to GSDP{" "}
+                1.1 - % {withFullForm("Capex")} to {withFullForm("GSDP")}{" "}
                 <span className="font-normal text-xs text-muted-foreground"></span>
               </span>
               {/* <span className="text-xs text-muted-foreground font-normal">
@@ -273,7 +274,7 @@ export const EditableInfraFinancing = ({
 
         {/* Section 1.2 */}
         <SectionCard
-          title="1.2 - % Capex Utilization"
+          title={`1.2 - % ${withFullForm("Capex")} Utilization`}
           // subtitle="Annex 2: Verified with MoHUA data"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -361,7 +362,8 @@ export const EditableInfraFinancing = ({
 
         {/* Section 1.3 - ULB Ratings */}
         <SectionCard
-          title="1.3 - Credit Rating for ULBs (50 marks)"
+          title={`1.3 - % of Credit Rated ${withFullForm("ULBs")}`}
+          subtitle="(50 marks)"
           // subtitle="Annex 3: List of ULBs with credit ratings"
         >
           <div className="space-y-4">
@@ -472,8 +474,8 @@ export const EditableInfraFinancing = ({
 
         {/* Section 1.4 - Municipal Bonds */}
         <SectionCard
-          title="1.4 - Municipal Bonds Issued (50 marks)"
-          // subtitle="Annex 4: Details of municipal bonds issued"
+          title={`1.4 - % of ${withFullForm("ULBs")} issuing Bonds`}
+          subtitle="(50 marks)"
         >
           <div className="space-y-4">
             {formData.section1_4.map((bond, index) => (
@@ -608,8 +610,8 @@ export const EditableInfraFinancing = ({
 
         {/* Section 1.5 - Financial Intermediaries */}
         <SectionCard
-          title="1.5 - State-Level Financial Intermediaries (40 marks)"
-          // subtitle="Annex 5: Details of financial intermediaries"
+          title="1.5 - Functional Financial Intermediary For Infra Development"
+          subtitle="(40 marks)"
         >
           <div className="space-y-4">
             {formData.section1_5.map((org, index) => (

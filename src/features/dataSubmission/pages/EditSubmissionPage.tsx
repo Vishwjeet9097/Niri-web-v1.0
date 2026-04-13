@@ -16,10 +16,10 @@ import { config } from "@/config/environment";
 import type { SubmissionFormData } from "@/features/submission/types";
 
 const sections = [
-  { id: "infra-financing", label: "Infra Financing", points: 250, component: EditableInfraFinancing },
-  { id: "infra-development", label: "Infra Development", points: 250, component: EditableInfraDevelopment },
+  { id: "infra-financing", label: "Infrastructure Financing", points: 250, component: EditableInfraFinancing },
+  { id: "infra-development", label: "Infrastructure Development", points: 250, component: EditableInfraDevelopment },
   { id: "ppp-development", label: "PPP Development", points: 250, component: EditablePPPDevelopment },
-  { id: "infra-enablers", label: "Infra Enablers", points: 250, component: EditableInfraEnablers },
+  { id: "infra-enablers", label: "Infrastructure Enablers", points: 250, component: EditableInfraEnablers },
 ];
 
 export const EditSubmissionPage = () => {

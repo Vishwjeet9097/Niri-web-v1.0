@@ -2776,8 +2776,7 @@ export const InfraFinancingStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.2 -</span> % {withFullForm("Capex")} Utilization
-                    Utilization{" "}
+                    <span className="text-primary">1.2 -</span> % {withFullForm("Capex")} Utilization{" "}
                     {/* <span className="font-normal text-xs text-muted-foreground">
                       (10 marks per 1%)
                     </span> */}

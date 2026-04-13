@@ -57,6 +57,7 @@ import {
 } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import {
   computeStepProgress,
   STEP_SECTIONS,
@@ -1892,12 +1893,11 @@ export const InfraEnablersReview = ({
     const titles: Record<string, string> = {
       "4.1":
         "4.1 - Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
-      "4.2":
-        "4.2 - Adoption of PM GatiShakti National Master Plan in infrastructure planning",
-      "4.3": "4.3 - Adoption of ADR",
+      "4.2": `4.2 - Adoption of ${withFullForm("PM")} GatiShakti National Master Plan in infrastructure planning`,
+      "4.3": `4.3 - Adoption of ${withFullForm("ADR")}`,
       "4.4":
         "4.4 - Any Innovative Practice undertaken for promotion",
-      "4.5": "4.5 - Capacity Building - Officer Participation",
+      "4.5": "4.5 - Capacity Building – Officer Participation",
     };
     return titles[sectionId] || sectionId;
   };
@@ -4486,8 +4486,8 @@ export const InfraEnablersReview = ({
           );
           return (
             <ProgressHeader
-              title="Infra Enablers"
-              description="Data related to infra enablers and budget allocation"
+              title="Infrastructure Enablers"
+              description="Regulatory and institutional frameworks supporting infrastructure"
               points={250}
               completed={completed}
               total={total}
@@ -4659,7 +4659,8 @@ export const InfraEnablersReview = ({
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.2 -</span>{" "}
-                    Adoption of PM GatiShakti National Master Plan in infrastructure planning{" "}
+                    Adoption of {withFullForm("PM")} GatiShakti National Master
+                    Plan in infrastructure planning{" "}
                   </span>
                   {renderActionButtons("4.2")}
                 </div>
@@ -5386,7 +5387,8 @@ export const InfraEnablersReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.3 -</span> Adoption of ADR{" "}
+                    <span className="text-primary">4.3 -</span> Adoption of{" "}
+                    {withFullForm("ADR")}{" "}
                   </span>
                   {renderActionButtons("4.3")}
                 </div>
@@ -5544,8 +5546,8 @@ export const InfraEnablersReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">4.4 -</span> Innovative
-                    Practices{" "}
+                    <span className="text-primary">4.4 -</span> Any Innovative
+                    Practice undertaken for promotion{" "}
                   </span>
                   {renderActionButtons("4.4")}
                 </div>
@@ -6174,7 +6176,7 @@ export const InfraEnablersReview = ({
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.5 -</span> Capacity
-                    Building - Officer Participation{" "}
+                    Building – Officer Participation{" "}
                   </span>
                   {renderActionButtons("4.5")}
                 </div>

@@ -41,6 +41,7 @@ import {
 } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import {
   computeStepProgress,
   STEP_SECTIONS,
@@ -3172,10 +3173,10 @@ export const InfraFinancingReview = ({
 
   const getSectionTitle = (sectionId: string) => {
     const titles: Record<string, string> = {
-      "1.1": "1.1 - % Capex to GSDP",
-      "1.2": "1.2 - % Capex Utilisation",
-      "1.3": "1.3 - % of Credit Rated ULBs",
-      "1.4": "1.4 - % of ULBs Issuing Bonds",
+      "1.1": `1.1 - % ${withFullForm("Capex")} to ${withFullForm("GSDP")}`,
+      "1.2": `1.2 - % ${withFullForm("Capex")} Utilization`,
+      "1.3": `1.3 - % of Credit Rated ${withFullForm("ULBs")}`,
+      "1.4": `1.4 - % of ${withFullForm("ULBs")} issuing Bonds`,
       "1.5": "1.5 - Functional Financial Intermediary For Infra Development",
     };
     return titles[sectionId] || sectionId;
@@ -6073,7 +6074,7 @@ export const InfraFinancingReview = ({
           );
           return (
             <ProgressHeader
-              title="Infra Financing"
+              title="Infrastructure Financing"
               description="Data related to infrastructure financing and budget allocation"
               points={250}
               completed={completed}
@@ -6089,7 +6090,8 @@ export const InfraFinancingReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
+                    <span className="text-primary">1.1 -</span> %{" "}
+                    {withFullForm("Capex")} to {withFullForm("GSDP")}{" "}
                   </span>
                   {renderActionButtons("1.1")}
                 </div>
@@ -6530,8 +6532,8 @@ export const InfraFinancingReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.2 -</span> % Capex
-                    Utilisation{" "}
+                    <span className="text-primary">1.2 -</span> %{" "}
+                    {withFullForm("Capex")} Utilization{" "}
                   </span>
                   {renderActionButtons("1.2")}
                 </div>
@@ -6832,7 +6834,7 @@ export const InfraFinancingReview = ({
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">1.3 -</span> % of Credit
-                    Rated ULBs{" "}
+                    Rated {withFullForm("ULBs")}{" "}
                   </span>
                   {renderActionButtons("1.3")}
                 </div>
@@ -6984,8 +6986,8 @@ export const InfraFinancingReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">1.4 -</span> % of ULBs
-                    Issuing Bonds{" "}
+                    <span className="text-primary">1.4 -</span> % of{" "}
+                    {withFullForm("ULBs")} issuing Bonds{" "}
                   </span>
                   {renderActionButtons("1.4")}
                 </div>

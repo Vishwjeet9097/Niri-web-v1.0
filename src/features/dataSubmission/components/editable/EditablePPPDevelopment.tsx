@@ -25,6 +25,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
 import {
@@ -224,7 +225,7 @@ export const EditablePPPDevelopment = ({
       <div className="space-y-6">
         {/* Section 3.1 */}
         <SectionCard
-          title="3.1 - Availability of Infrastructure Act/Policy"
+          title={`3.1 - Availability of ${withFullForm("PPP")} Act/Policy`}
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
@@ -364,7 +365,7 @@ export const EditablePPPDevelopment = ({
 
         {/* Section 3.3 */}
         <SectionCard
-          title="3.3 - Proposals Submitted under VGF/IIPDF"
+          title={`3.3 - Proposals Submitted under ${withFullForm("VGF")}/${withFullForm("IIPDF")}`}
           subtitle="(50 marks - 10 marks per project)"
         >
           <div className="flex flex-col gap-4">
@@ -573,7 +574,7 @@ export const EditablePPPDevelopment = ({
 
         {/* Section 3.4 */}
         <SectionCard
-          title="3.4 - Proportion of TPC of PPP Projects"
+          title={`3.4 - Proportion of ${withFullForm("TPC")} of PPP Projects`}
           subtitle="(100 marks - 10 marks per 10% PPP funding)"
         >
           <div className="flex flex-col gap-4">

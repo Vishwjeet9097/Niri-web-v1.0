@@ -2811,7 +2811,7 @@ export const InfraDevelopmentReview = ({
       "2.1": "2.1 - Availability of Infrastructure Act/Policy",
       "2.2": "2.2 - Availability of Specialised Entity for Infrastructure Development",
       "2.3": "2.3 - Availability of Sector Infra Development Plan",
-      "2.4": "2.4 - Availability of Investment Ready Project Pipeline",
+      "2.4": "2.4 - Investment Ready Project Pipeline",
       "2.5": "2.5 - Availability of Asset Monetization Pipeline",
     };
     return titles[sectionId] || sectionId;
@@ -6428,7 +6428,8 @@ export const InfraDevelopmentReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">2.2 -</span> Availability of Specialised Entity for Infrastructure development{" "}
+                    <span className="text-primary">2.2 -</span> Availability of
+                    Specialised Entity for Infrastructure Development{" "}
                   </span>
                   {renderActionButtons("2.2")}
                 </div>
@@ -7895,8 +7896,8 @@ export const InfraDevelopmentReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">2.4 -</span> Availability of
-                    Investment Ready Project Pipeline{" "}
+                    <span className="text-primary">2.4 -</span> Investment Ready
+                    Project Pipeline{" "}
                   </span>
                   {renderActionButtons("2.4")}
                 </div>

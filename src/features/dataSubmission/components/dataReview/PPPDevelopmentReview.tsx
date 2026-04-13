@@ -58,6 +58,7 @@ import {
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import {
   computeStepProgress,
   STEP_SECTIONS,
@@ -2109,10 +2110,10 @@ export const PPPDevelopmentReview = ({
 
   const getSectionTitle = (sectionId: string) => {
     const titles: Record<string, string> = {
-      "3.1": "3.1 - Availability of Infrastructure Act/Policy",
+      "3.1": `3.1 - Availability of ${withFullForm("PPP")} Act/Policy`,
       "3.2": "3.2 - Functional PPP Cell/Unit",
-      "3.3": "3.3 - Proposals Submitted under VGF/IIPDF",
-      "3.4": "3.4 - Proportion of TPC of PPP Projects",
+      "3.3": `3.3 - Proposals Submitted under ${withFullForm("VGF")}/${withFullForm("IIPDF")}`,
+      "3.4": `3.4 - Proportion of ${withFullForm("TPC")} of PPP Projects`,
     };
     return titles[sectionId] || sectionId;
   };
@@ -4477,7 +4478,7 @@ export const PPPDevelopmentReview = ({
           return (
             <ProgressHeader
               title="PPP Development"
-              description="PPP policy, proposals and project pipeline status"
+              description="Public-Private Partnership projects and initiatives"
               points={250}
               completed={completed}
               total={total}
@@ -4492,8 +4493,8 @@ export const PPPDevelopmentReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">3.1 -</span> Availability of
-                    Infrastructure Act/Policy{" "}
+                    <span className="text-primary">3.1 -</span> Availability of{" "}
+                    {withFullForm("PPP")} Act/Policy{" "}
                   </span>
                   {renderActionButtons("3.1")}
                 </div>
@@ -4708,8 +4709,8 @@ export const PPPDevelopmentReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">3.2 -</span> Availability of
-                    Functional PPP Cell/Unit{" "}
+                    <span className="text-primary">3.2 -</span> Functional PPP
+                    Cell/Unit{" "}
                   </span>
                   {renderActionButtons("3.2")}
                 </div>
@@ -4944,7 +4945,8 @@ export const PPPDevelopmentReview = ({
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">3.3 -</span> Proposals
-                    Submitted under VGF/IIPDF{" "}
+                    Submitted under {withFullForm("VGF")}/
+                    {withFullForm("IIPDF")}{" "}
                   </span>
                   {renderActionButtons("3.3")}
                 </div>
@@ -6006,8 +6008,8 @@ export const PPPDevelopmentReview = ({
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">3.4 -</span> Proportion of
-                    TPC of PPP Projects{" "}
+                    <span className="text-primary">3.4 -</span> Proportion of{" "}
+                    {withFullForm("TPC")} of PPP Projects{" "}
                   </span>
                   {renderActionButtons("3.4")}
                 </div>

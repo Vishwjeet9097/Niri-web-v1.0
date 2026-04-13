@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
 import {
@@ -245,8 +246,8 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.2 */}
         <SectionCard
-          title="4.2 - Adoption of PM GatiShakti National Master Plan in infrastructure planning (5 marks per 1%)"
-          subtitle="(50 marks)"
+          title={`4.2 - Adoption of ${withFullForm("PM")} GatiShakti National Master Plan in infrastructure planning`}
+          subtitle="(50 marks — 5 marks per 1%)"
         >
           <div className="flex flex-col gap-4">
             <Label>
@@ -313,8 +314,8 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.3 */}
         <SectionCard
-          title="4.3 - Adoption of ADR (10 marks per practice)"
-          subtitle="(50 marks)"
+          title={`4.3 - Adoption of ${withFullForm("ADR")}`}
+          subtitle="(50 marks — 10 marks per practice)"
         >
           <div className="flex flex-col gap-4">
             <Label>
@@ -494,7 +495,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.5 */}
         <SectionCard
-          title="4.5 - Officer Training Programs"
+          title="4.5 - Capacity Building – Officer Participation"
           subtitle="(10 marks per officer trained)"
         >
           <div className="space-y-4">

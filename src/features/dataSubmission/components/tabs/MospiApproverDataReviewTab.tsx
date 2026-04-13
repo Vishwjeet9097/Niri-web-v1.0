@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { withFullForm } from "@/features/submission/constants/abbreviations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ interface MospiApproverDataReviewTabProps {
 const sectionData = [
   {
     id: "infra-financing",
-    name: "Infra Financing",
+    name: "Infrastructure Financing",
     label: "Infrastructure Financing",
     points: 235,
     maxPoints: 250,
@@ -35,25 +36,25 @@ const sectionData = [
     subsections: [
       {
         id: "1.1",
-        title: "% Capex to GSDP",
+        title: `% ${withFullForm("Capex")} to ${withFullForm("GSDP")}`,
         marks: "10 marks per 1%",
         annex: ""
       },
       {
         id: "1.2",
-        title: "% Capex Utilization",
+        title: `% ${withFullForm("Capex")} Utilization`,
         marks: "10 marks per 1%",
         annex: ""
       },
       {
         id: "1.3",
-        title: "% of Credit Rated ULBs",
+        title: `% of Credit Rated ${withFullForm("ULBs")}`,
         marks: "",
         annex: ""
       },
       {
         id: "1.4",
-        title: "% of ULBs Issuing Bonds",
+        title: `% of ${withFullForm("ULBs")} issuing Bonds`,
         marks: "",
         annex: ""
       },
@@ -95,7 +96,7 @@ const sectionData = [
       },
       {
         id: "2.4",
-        title: "Availability of Investment Ready Project Pipeline",
+        title: "Investment Ready Project Pipeline",
         marks: "",
         annex: ""
       },
@@ -119,7 +120,7 @@ const sectionData = [
     subsections: [
       {
         id: "3.1",
-        title: "Availability of Infrastructure Act/Policy",
+        title: `Availability of ${withFullForm("PPP")} Act/Policy`,
         marks: "",
         annex: ""
       },
@@ -131,13 +132,13 @@ const sectionData = [
       },
       {
         id: "3.3",
-        title: "Proposals Submitted under VGF/IIPDF",
+        title: `Proposals Submitted under ${withFullForm("VGF")}/${withFullForm("IIPDF")}`,
         marks: "",
         annex: ""
       },
       {
         id: "3.4",
-        title: "Proportion of TPC of PPP Projects",
+        title: `Proportion of ${withFullForm("TPC")} of PPP Projects`,
         marks: "",
         annex: ""
       }
@@ -145,48 +146,42 @@ const sectionData = [
   },
   {
     id: "infra-enablers",
-    name: "Infra Enablers",
+    name: "Infrastructure Enablers",
     label: "Infrastructure Enablers",
     points: 189,
     maxPoints: 250,
     description: "Regulatory and institutional frameworks supporting infrastructure",
-    sectionsCompleted: "3/6",
+    sectionsCompleted: "3/5",
     progress: 0,
     subsections: [
       {
         id: "4.1",
-        title: "Eligible Infrastructure Projects",
+        title:
+          "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
         marks: "",
         annex: ""
       },
       {
         id: "4.2",
-        title:
-          "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
+        title: `Adoption of ${withFullForm("PM")} GatiShakti National Master Plan in infrastructure planning`,
         marks: "5 marks per 1%",
         annex: ""
       },
       {
         id: "4.3",
-        title: "Adoption of PM GatiShakti",
-        marks: "5 marks per 1%",
+        title: `Adoption of ${withFullForm("ADR")}`,
+        marks: "",
         annex: ""
       },
       {
         id: "4.4",
-        title: "Adoption of ADR",
-        marks: "10 marks per practice",
-        annex: ""
-      },
-      {
-        id: "4.5",
         title: "Any Innovative Practice undertaken for promotion",
         marks: "10 marks per practice",
         annex: ""
       },
       {
-        id: "4.6",
-        title: "Capacity Building - Officer Participation",
+        id: "4.5",
+        title: "Capacity Building – Officer Participation",
         marks: "1 marks per officer",
         annex: ""
       }

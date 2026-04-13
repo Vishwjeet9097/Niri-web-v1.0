@@ -519,7 +519,7 @@ export const EditableInfraDevelopment = ({
 
         {/* Section 2.4 */}
         <SectionCard
-          title="2.4 - Projects with DPR/Feasibility Report"
+          title="2.4 - Investment Ready Project Pipeline"
           // subtitle="(10 marks per project)"
         >
           <div className="space-y-4">
@@ -582,7 +582,7 @@ export const EditableInfraDevelopment = ({
 
         {/* Section 2.5 */}
         <SectionCard
-          title="2.5 - Asset Monetization Portfolio"
+          title="2.5 - Availability of Asset Monetization Pipeline"
           // subtitle="(10 marks per asset)"
         >
           <div className="space-y-4">
