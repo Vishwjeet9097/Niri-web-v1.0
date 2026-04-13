@@ -76,8 +76,6 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["hasIntermediary"];
     if (data?.hasIntermediary === "yes") {
       // When yes, ffiArray entries are required (handled in validation)
-    } else if (data?.hasIntermediary === "no") {
-      fields.push("comment");
     }
     return fields;
   },
@@ -93,8 +91,6 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["hasInfraDevelopmentPlan"];
     if (data?.hasInfraDevelopmentPlan === "yes") {
       // infraDevelopmentArray is required
-    } else if (data?.hasInfraDevelopmentPlan === "no") {
-      fields.push("comment");
     }
     return fields;
   },
@@ -104,8 +100,6 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["hasInvestmentReady"];
     if (data?.hasInvestmentReady === "yes") {
       fields.push("websiteLink");
-    } else if (data?.hasInvestmentReady === "no") {
-      fields.push("comment");
     }
     return fields;
   },
@@ -118,8 +112,6 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["available"];
     if (data?.available === "yes") {
       fields.push("file");
-    } else if (data?.available === "no") {
-      fields.push("comment");
     }
     return fields;
   },
@@ -129,14 +121,18 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["available"];
     if (data?.available === "yes") {
       fields.push("file");
-    } else if (data?.available === "no") {
-      fields.push("comment");
     }
     return fields;
   },
   
   // Section 3.3 - VGF/IIPDF Proposals Submitted
-  "section3_3": ["VGFArray"],
+  "section3_3": (data: any) => {
+    const fields: string[] = ["available"];
+    if (data?.available === "yes") {
+      fields.push("VGFArray");
+    }
+    return fields;
+  },
   
   // Section 3.4 - PPP Bankable Projects
   "section3_4": ["projects"],
@@ -147,8 +143,6 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     const fields: string[] = ["available"];
     if (data?.available === "yes") {
       fields.push("file");
-    } else if (data?.available === "no") {
-      fields.push("comment");
     }
     return fields;
   },
@@ -171,8 +165,6 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
       fields.push("file");
       fields.push("adrName");
       fields.push("notificationYear");
-    } else if (data?.adopted === "no") {
-      fields.push("comment");
     }
     return fields;
   },
@@ -189,6 +181,12 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
   },
   
   // Section 4.5 - Capacity Building
-  "section4_5": ["capacityArray"],
+  "section4_5": (data: any) => {
+    const fields: string[] = ["participated"];
+    if (data?.participated === "yes") {
+      fields.push("capacityArray");
+    }
+    return fields;
+  },
 };
 

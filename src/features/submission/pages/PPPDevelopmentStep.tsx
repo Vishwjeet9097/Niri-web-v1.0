@@ -2161,10 +2161,7 @@ export const PPPDevelopmentStep = () => {
                   {/* If No → show Comment */}
                   {formData.section3_1.available === "no" && (
                     <div className="flex flex-col gap-2">
-                      <Label>
-                        <span className="text-red-500">*</span>
-                        Comments (Reason)
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         type="text"
                         placeholder="Enter reason or comment"
@@ -2580,9 +2577,7 @@ export const PPPDevelopmentStep = () => {
                   {/* When No: show comment only */}
                   {formData.section3_3.available === "no" && (
                     <div>
-                      <Label>
-                        Comment (reason) <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Comment (reason)</Label>
                       <textarea
                         className={cn(
                           "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",

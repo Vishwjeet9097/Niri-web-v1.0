@@ -438,11 +438,6 @@ export const validateInfraFinancing = (
             }
           });
         }
-      } else if (hasIntermediary === "no") {
-        if (!section15.comment || section15.comment.trim() === "") {
-          errors["section1_5.comment"] =
-            "Provide a comment explaining why no intermediary is available.";
-        }
       }
     }
   }

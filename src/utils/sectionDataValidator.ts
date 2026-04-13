@@ -128,9 +128,9 @@ export const hasInfraEnablersData = (formData: any): boolean => {
           if (section.participated === "yes") {
             return hasArrayData(section.capacityArray);
           }
-          // If "no", check for comment (required)
+          // If "no", comment is optional — selection alone is enough for visibility
           if (section.participated === "no") {
-            return hasMeaningfulValue(section.comment);
+            return true;
           }
         }
         // Fallback: check for capacityArray (for backward compatibility)
@@ -228,9 +228,9 @@ export const hasInfraFinancingData = (formData: any): boolean => {
           section.hasIntermediary === "yes" ||
           section.hasIntermediary === "no"
         ) {
-          // If "no", also check for comment (required for "no")
+          // If "no", comment is optional — selection alone is enough for visibility
           if (section.hasIntermediary === "no") {
-            return hasMeaningfulValue(section.comment);
+            return true;
           }
           // If "yes", always return true (even if ffiArray is empty initially)
           return true;
@@ -510,7 +510,7 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
 
       case "section3_3":
         return (
-          (section?.available === "no" && hasMeaningfulValue(section.comment)) ||
+          section?.available === "no" ||
           hasArrayData(section?.VGFArray) ||
           hasArrayData(section)
         );
@@ -720,9 +720,9 @@ const hasSectionData = (
             if (section.participated === "yes") {
               return hasArrayData(section.capacityArray);
             }
-            // If "no", check for comment (required)
+            // If "no", comment is optional
             if (section.participated === "no") {
-              return hasMeaningfulValue(section.comment);
+              return true;
             }
           }
           // Fallback: check for capacityArray (for backward compatibility)
@@ -785,9 +785,9 @@ const hasSectionData = (
             section.hasIntermediary === "yes" ||
             section.hasIntermediary === "no"
           ) {
-            // If "no", also check for comment (required for "no")
+            // If "no", comment is optional
             if (section.hasIntermediary === "no") {
-              return hasMeaningfulValue(section.comment);
+              return true;
             }
             // If "yes", always return true (even if ffiArray is empty initially)
             return true;
@@ -1009,8 +1009,7 @@ const hasSectionData = (
           );
         case "section3_3":
           return (
-            (section?.available === "no" &&
-              hasMeaningfulValue(section.comment)) ||
+            section?.available === "no" ||
             hasArrayData(section?.VGFArray) ||
             hasArrayData(section)
           );

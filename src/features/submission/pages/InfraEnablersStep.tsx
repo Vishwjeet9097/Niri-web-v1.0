@@ -2148,10 +2148,7 @@ export const InfraEnablersStep = () => {
                 )}
                 {formData.section4_1.available === "no" && (
                   <div className="flex flex-col gap-2">
-                    <Label>
-                      Comments (Reason){" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
+                    <Label>Comments (Reason)</Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"
@@ -2961,10 +2958,7 @@ export const InfraEnablersStep = () => {
                 {/* ✅ If NO → show comment box (same style as 4.1 & 4.2) */}
                 {formData.section4_3.adopted === "no" && (
                   <div className="flex flex-col gap-2 w-[60%]">
-                    <Label>
-                      Comments (Reason){" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
+                    <Label>Comments (Reason)</Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"
@@ -3352,10 +3346,7 @@ export const InfraEnablersStep = () => {
                 {/* ✅ If NO → show Comment Box (same as 4.1/4.2/4.3) */}
                 {formData.section4_4.implemented === "no" && (
                   <div className="flex flex-col gap-2 w-[60%]">
-                    <Label>
-                      Comments (Reason){" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
+                    <Label>Comments (Reason)</Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"
@@ -3996,10 +3987,7 @@ export const InfraEnablersStep = () => {
                 {/* ✅ If NO → show comment box */}
                 {formData.section4_5.participated === "no" && (
                   <div className="flex flex-col gap-2 w-[60%]">
-                    <Label>
-                      Comments (Reason){" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
+                    <Label>Comments (Reason)</Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"

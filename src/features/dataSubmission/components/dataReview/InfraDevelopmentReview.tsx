@@ -2519,6 +2519,12 @@ export const InfraDevelopmentReview = ({
           );
         }
         case "section2_2": {
+          if (
+            section?.hasSpecializedEntity === "yes" ||
+            section?.hasSpecializedEntity === "no"
+          ) {
+            return true;
+          }
           const items = Array.isArray(section?.specializedEntityArray)
             ? section.specializedEntityArray
             : [];
@@ -8387,12 +8393,10 @@ export const InfraDevelopmentReview = ({
                 </>
               )}
 
-              {/* Show comment field - only when "no" is selected and it's mandatory */}
+              {/* Show comment field when "no" is selected (optional) */}
               {state?.section2_4?.hasInvestmentReady === "no" && (
                 <div>
-                  <Label className="mb-2 block">
-                    Comment <span className="text-destructive">*</span>
-                  </Label>
+                  <Label className="mb-2 block">Comment</Label>
                   {shouldBeEditable("2.4") ? (
                     <Textarea
                       value={state?.section2_4?.comment || ""}
@@ -9294,12 +9298,10 @@ export const InfraDevelopmentReview = ({
               </>
             )}
 
-            {/* Show comment field - only when "no" is selected and it's mandatory */}
+            {/* Show comment field when "no" is selected (optional) */}
             {state?.section2_5?.hasAssetMonetization === "no" && (
               <div>
-                <Label className="mb-2 block">
-                  Comment <span className="text-destructive">*</span>
-                </Label>
+                <Label className="mb-2 block">Comment</Label>
                 {shouldBeEditable("2.5") ? (
                   <Textarea
                     value={state?.section2_5?.comment || ""}

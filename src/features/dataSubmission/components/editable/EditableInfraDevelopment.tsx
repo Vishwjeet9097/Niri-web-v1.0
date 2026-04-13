@@ -793,12 +793,10 @@ export const EditableInfraDevelopment = ({
               </>
             )}
 
-            {/* If No → Comment (mandatory) */}
+            {/* If No → optional comment */}
             {formData.section2_5.hasAssetMonetization === "no" && (
               <div>
-                <Label>
-                  Comments (Reason) <span className="text-destructive">*</span>
-                </Label>
+                <Label>Comments (Reason)</Label>
                 <Input
                   type="text"
                   placeholder="Enter reason or comment"

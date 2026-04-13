@@ -60,7 +60,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section1_5.hasIntermediary": "Please select Yes or No.",
   "section1_5.ffiArray":
     "Add at least one financial intermediary when selecting Yes.",
-  "section1_5.comment": "Comment (reason) is required.",
+  "section1_5.comment": "Optional comment when No is selected.",
 
   // Section 2.1
   "section2_1.infraActArray":
@@ -79,6 +79,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section2_2.specializedEntityArray.notificationYear":
     "Enter a valid year of notification (e.g., 2024).",
   "section2_2.specializedEntityArray.files": "Upload evidence is required.",
+  "section2_2.comment": "Optional comment when No is selected.",
 
   // Section 2.3
   "section2_3.hasInfraDevelopmentPlan": "Please select Yes or No.",
@@ -89,7 +90,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "Plan duration is required.",
   "section2_3.infraDevelopmentArray.sector": "Sector is required.",
   "section2_3.infraDevelopmentArray.files": "Upload plan is required.",
-  "section2_3.comment": "Comment (reason) is required.",
+  "section2_3.comment": "Optional comment when No is selected.",
 
   // Section 2.4
   "section2_4.hasInvestmentReady": "Please select Yes or No.",
@@ -99,7 +100,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section2_4.investmentReadyArray.sector": "Sector is required.",
   "section2_4.investmentReadyArray.status": "Status is required.",
   "section2_4.investmentReadyArray.projectSize": "Project size is required.",
-  "section2_4.comment": "Comment (reason) is required.",
+  "section2_4.comment": "Optional comment when No is selected.",
 
   // Section 2.5
   "section2_5.assetMonetizationArray":
@@ -112,6 +113,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "Asset ownership must be ≤100 characters.",
   "section2_5.assetMonetizationArray.estimatedMonetization":
     "Enter a non-negative amount with up to two decimal places.",
+  "section2_5.comment": "Optional comment when No is selected.",
 
   // Section 3.1
   "section3_1.available": "Please select Yes or No.",
@@ -119,7 +121,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section3_1.notificationYear":
     "Enter a valid year of notification (e.g., 2024).",
   "section3_1.file": "Upload file is required.",
-  "section3_1.comment": "Comment (reason) is required.",
+  "section3_1.comment": "Optional comment when No is selected.",
 
   // Section 3.2
   "section3_2.available": "Please select Yes or No.",
@@ -131,8 +133,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // Section 3.3
   "section3_3.available":
     "Please select Yes or No (proposals submitted under VGF/IIPDF).",
-  "section3_3.comment":
-    "Comment (reason) is required when there are no proposals.",
+  "section3_3.comment": "Optional comment when No is selected.",
   "section3_3.VGFArray": "At least one proposal is required.",
   "section3_3.VGFArray.projectName": "Project name is required.",
   "section3_3.VGFArray.sector": "Sector is required.",
@@ -160,7 +161,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // Section 4.1
   "section4_1.available": "Please select Yes or No.",
   "section4_1.file": "Upload file is required.",
-  "section4_1.comment": "Comment (reason) is required.",
+  "section4_1.comment": "Optional comment when No is selected.",
 
   // Section 4.2
   "section4_2.adopted": "Please select Yes or No.",
@@ -175,7 +176,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section4_3.adrName": "ADR Name is required.",
   "section4_3.notificationYear": "Year of Notification is required.",
   "section4_3.file": "Upload orders is required.",
-  "section4_3.comment": "Comment (reason) is required.",
+  "section4_3.comment": "Optional comment when No is selected.",
 
   // Section 4.4
   "section4_4.implemented": "Please select Yes or No.",
@@ -183,7 +184,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section4_4.practices.practiceName": "Practice name is required.",
   "section4_4.practices.impact": "Impact is required.",
   "section4_4.practices.file": "Upload evidence is required.",
-  "section4_4.comment": "Comment (reason) is required.",
+  "section4_4.comment": "Optional comment when No is selected.",
 
   // Section 4.5
   "section4_5.participated": "Please select Yes or No.",
@@ -193,7 +194,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section4_5.capacityArray.programName": "Program name is required.",
   "section4_5.capacityArray.organiser": "Organizer is required.",
   "section4_5.capacityArray.trainingType": "Type is required.",
-  "section4_5.comment": "Comment (reason) is required.",
+  "section4_5.comment": "Optional comment when No is selected.",
 };
 
 /**

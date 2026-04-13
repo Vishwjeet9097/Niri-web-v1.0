@@ -159,10 +159,6 @@ export const validatePPPDevelopment = (
           errors["section3_1.file"] = "Only PDF files are allowed.";
         }
       }
-    } else if (section31.available === "no") {
-      if (!section31.comment || section31.comment.trim() === "") {
-        errors["section3_1.comment"] = "Comment (reason) is required.";
-      }
     }
   }
 
@@ -223,14 +219,10 @@ export const validatePPPDevelopment = (
     ) {
       errors["section3_3.available"] =
         "Please select Yes or No (proposals submitted under VGF/IIPDF).";
-    } else if (section33.available === "no") {
-      if (!section33.comment || section33.comment.trim() === "") {
-        errors["section3_3.comment"] =
-          "Comment (reason) is required when there are no proposals.";
-      }
-    } else if (!section33.VGFArray || section33.VGFArray.length === 0) {
-      errors["section3_3.VGFArray"] = "At least one proposal is required.";
-    } else {
+    } else if (section33.available === "yes") {
+      if (!section33.VGFArray || section33.VGFArray.length === 0) {
+        errors["section3_3.VGFArray"] = "At least one proposal is required.";
+      } else {
       section33.VGFArray.forEach((entry, index) => {
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section3_3.VGFArray.${index}.projectName`] =
@@ -297,6 +289,7 @@ export const validatePPPDevelopment = (
           }
         }
       });
+      }
     }
   }
 

@@ -1607,7 +1607,7 @@ export const PPPDevelopmentReview = ({
         );
       }
       case "section3_3": {
-        if (section?.available === "no" && section?.comment?.trim()) {
+        if (section?.available === "no") {
           return true;
         }
         const items = Array.isArray(section?.VGFArray) ? section.VGFArray : [];

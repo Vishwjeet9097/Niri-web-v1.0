@@ -118,10 +118,6 @@ export const validateInfraEnablers = (
             "Please enter a valid website URL (http/https).";
         }
       }
-    } else if (section42.available === "no") {
-      if (!section42.comment || section42.comment.trim() === "") {
-        errors["section4_1.comment"] = "Comment (reason) is required.";
-      }
     }
   }
 
@@ -213,10 +209,6 @@ export const validateInfraEnablers = (
           errors["section4_3.file"] = "Only PDF files are allowed.";
         }
       }
-    } else if (section44.adopted === "no") {
-      if (!section44.comment || section44.comment.trim() === "") {
-        errors["section4_3.comment"] = "Comment (reason) is required.";
-      }
     }
   }
 
@@ -258,10 +250,6 @@ export const validateInfraEnablers = (
               "Upload evidence is required.";
           }
         });
-      }
-    } else if (section45.implemented === "no") {
-      if (!section45.comment || section45.comment.trim() === "") {
-        errors["section4_4.comment"] = "Comment (reason) is required.";
       }
     }
   }
@@ -382,10 +370,6 @@ export const validateInfraEnablers = (
             }
           }
         });
-      }
-    } else if (section46.participated === "no") {
-      if (!section46.comment || section46.comment.trim() === "") {
-        errors["section4_5.comment"] = "Comment (reason) is required.";
       }
     }
   }

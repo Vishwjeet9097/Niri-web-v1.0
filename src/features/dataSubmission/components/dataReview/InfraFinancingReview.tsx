@@ -1211,9 +1211,7 @@ export const InfraFinancingReview = ({
           if (section1_5.hasIntermediary === "yes") {
             hasSection1_5Data = true; // "yes" always has data
           } else if (section1_5.hasIntermediary === "no") {
-            // "no" requires a comment to be considered as having data
-            const comment = section1_5.comment || "";
-            hasSection1_5Data = comment.trim() !== "";
+            hasSection1_5Data = true;
           }
           // Check if it has ffiArray with data (legacy format or yes with items)
           else if (
@@ -1360,9 +1358,7 @@ export const InfraFinancingReview = ({
           return true; // "yes" always has data (even if ffiArray is empty initially)
         }
         if (section.hasIntermediary === "no") {
-          // "no" requires a comment to be considered as having data
-          const comment = section.comment || "";
-          if (comment.trim() !== "") return true;
+          return true;
         }
         // Check if it has ffiArray with data (legacy format or yes with items)
         if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0)

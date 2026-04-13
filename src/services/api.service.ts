@@ -1338,6 +1338,8 @@ class ApiService implements HttpClient {
       "hasInvestmentReady",
       "hasIntermediary",
       "hasInfraDevelopmentPlan",
+      "hasSpecializedEntity",
+      "hasAssetMonetization",
       "adopted",
       "implemented",
       "participated",
@@ -1450,29 +1452,12 @@ class ApiService implements HttpClient {
           return false;
         }
 
-        // IMPORTANT: For "no", ONLY check comment - don't check other patterns
+        // "No" is a complete answer; comment is optional (matches submission validation)
         if (conditionalValue === "no") {
-          // Indicator 4.2 (section4_2): comment is optional when adopted === "no"
-          if (sectionKey === "section4_2" && fieldName === "adopted") {
-            console.log(
-              `  ✓ ${sectionKey}: No (comment optional) -> accepted`
-            );
-            return true;
-          }
-          // Indicator 3.2 (section3_2): comment is non-mandatory when available === "no"
-          if (sectionKey === "section3_2" && fieldName === "available") {
-            console.log(
-              `  ✓ ${sectionKey}: No (comment optional for available) -> accepted`
-            );
-            return true;
-          }
-          if (isMeaningful(sectionData.comment)) {
-            console.log(`  ✓ ${sectionKey}: No with comment`);
-            return true;
-          }
-          // If "no" but no comment, return false immediately
-          console.log(`  ⚠️ ${sectionKey}: No but no comment provided`);
-          return false;
+          console.log(
+            `  ✓ ${sectionKey}: "${fieldName}" = No (comment optional) -> accepted`
+          );
+          return true;
         }
       }
     }

@@ -269,10 +269,6 @@ export const validateInfraDevelopment = (
             }
           });
         }
-      } else if (hasSpecializedEntity === "no") {
-        if (!section22.comment || section22.comment.trim() === "") {
-          errors["section2_2.comment"] = "Comment (reason) is required.";
-        }
       }
     }
   }
@@ -340,10 +336,6 @@ export const validateInfraDevelopment = (
               }
             });
           }
-        } else if (hasInfraDevelopmentPlan === "no") {
-          if (!section23.comment || section23.comment.trim() === "") {
-            errors["section2_3.comment"] = "Comment (reason) is required.";
-          }
         }
       }
     }
@@ -394,10 +386,6 @@ export const validateInfraDevelopment = (
               }
             }
           });
-        }
-      } else if (section24.hasInvestmentReady === "no") {
-        if (!section24.comment || section24.comment.trim() === "") {
-          errors["section2_4.comment"] = "Comment (reason) is required.";
         }
       }
     }
@@ -460,10 +448,6 @@ export const validateInfraDevelopment = (
               }
             }
           });
-        }
-      } else if (section25.hasAssetMonetization === "no") {
-        if (!section25.comment || section25.comment.trim() === "") {
-          errors["section2_5.comment"] = "Comment (reason) is required.";
         }
       }
     }

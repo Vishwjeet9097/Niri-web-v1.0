@@ -2129,9 +2129,6 @@ export const InfraDevelopmentStep = () => {
           }
         } else if (indicatorCode === "2.4") {
           allIndicatorFields.push(`${sectionPrefix}.hasInvestmentReady`);
-          if (formData.section2_4?.hasInvestmentReady === "no") {
-            allIndicatorFields.push(`${sectionPrefix}.comment`);
-          }
           allIndicatorFields.push(`${sectionPrefix}.investmentReadyArray`);
           if (
             formData.section2_4?.investmentReadyArray &&
@@ -3602,10 +3599,7 @@ export const InfraDevelopmentStep = () => {
                   {/* If No → show comment box */}
                   {formData.section2_2.hasSpecializedEntity === "no" && (
                     <div>
-                      <Label>
-                        Comments (Reason){" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         placeholder="Enter reason or comment"
                         value={formData.section2_2.comment || ""}
@@ -4240,10 +4234,7 @@ export const InfraDevelopmentStep = () => {
                   {/* If No → show comment box */}
                   {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
                     <div>
-                      <Label>
-                        Comments (Reason){" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         placeholder="Enter reason or comment"
                         value={formData.section2_3.comment || ""}
@@ -4860,13 +4851,10 @@ export const InfraDevelopmentStep = () => {
                     </>
                   )}
 
-                  {/* If No → Comment (mandatory) */}
+                  {/* If No → optional comment */}
                   {formData.section2_4.hasInvestmentReady === "no" && (
                     <div>
-                      <Label>
-                        Comments (Reason){" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         type="text"
                         placeholder="Enter reason or comment"
@@ -5389,13 +5377,10 @@ export const InfraDevelopmentStep = () => {
                     </>
                   )}
 
-                  {/* If No → Comment (mandatory) */}
+                  {/* If No → optional comment */}
                   {formData.section2_5.hasAssetMonetization === "no" && (
                     <div>
-                      <Label>
-                        Comments (Reason){" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
+                      <Label>Comments (Reason)</Label>
                       <Input
                         type="text"
                         placeholder="Enter reason or comment"
