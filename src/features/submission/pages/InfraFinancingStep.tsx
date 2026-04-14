@@ -43,7 +43,9 @@ import { getInputValidationClass as getInputValidationClassUtil } from "../utils
 import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import {
   generateCreditRatedULBsTemplate,
+  generateULBBondsTemplate,
   parseCreditRatedULBsExcel,
+  parseULBBondsExcel,
 } from "@/utils/excelParser";
 import {
   AlertDialog,
@@ -1448,6 +1450,121 @@ export const InfraFinancingStep = () => {
     toast({
       title: "All entries cleared",
       description: "All credit rated ULB entries have been removed.",
+    });
+  };
+
+  // Excel upload functionality for Section 1.4
+  const excel14FileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading14Excel, setIsUploading14Excel] = useState(false);
+  const [showClearAll14Dialog, setShowClearAll14Dialog] = useState(false);
+
+  const handle14ExcelUploadClick = () => {
+    excel14FileInputRef.current?.click();
+  };
+
+  const handle14ExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const maxFileSizeMb = 50;
+    if (file.size > maxFileSizeMb * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: `File size must be less than ${maxFileSizeMb}MB`,
+        variant: "destructive",
+      });
+      if (excel14FileInputRef.current) excel14FileInputRef.current.value = "";
+      return;
+    }
+
+    const validExtensions = [".xlsx", ".xls"];
+    const fileExtension = file.name
+      .toLowerCase()
+      .substring(file.name.lastIndexOf("."));
+    if (!validExtensions.includes(fileExtension)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an Excel file (.xlsx or .xls)",
+        variant: "destructive",
+      });
+      if (excel14FileInputRef.current) excel14FileInputRef.current.value = "";
+      return;
+    }
+
+    setIsUploading14Excel(true);
+    try {
+      const result = await parseULBBondsExcel(file, ulbOptions);
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFormData((prev) => {
+        const merged = [...(prev.section1_4?.bondList || []), ...result.data!];
+        const totalULBs = Math.max(prev.section1_4.totalULBs || 0, merged.length);
+        return {
+          ...prev,
+          section1_4: {
+            ...prev.section1_4,
+            totalULBs,
+            bondList: merged,
+          },
+        };
+      });
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} row(s).${
+          result.warnings?.length
+            ? ` ${result.warnings.length} row(s) were skipped due to invalid data.`
+            : ""
+        }`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description:
+          error?.message || "An error occurred while processing the Excel file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading14Excel(false);
+      if (excel14FileInputRef.current) excel14FileInputRef.current.value = "";
+    }
+  };
+
+  const handle14DownloadTemplate = () => {
+    try {
+      generateULBBondsTemplate();
+      toast({
+        title: "Template downloaded",
+        description: "Excel template has been downloaded for indicator 1.4.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error?.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handle14ClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section1_4: {
+        ...prev.section1_4,
+        bondList: [],
+      },
+    }));
+    setShowClearAll14Dialog(false);
+    toast({
+      title: "All entries cleared",
+      description: "All bond entries have been removed.",
     });
   };
 
@@ -3988,6 +4105,52 @@ export const InfraFinancingStep = () => {
             >
               {renderSectionValidationMessage("1.4")}
               <div className="space-y-4">
+                <div className="flex gap-2 flex-wrap items-center w-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handle14ExcelUploadClick}
+                    disabled={isIndicatorSubmitted("1.4") || isUploading14Excel}
+                    className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {isUploading14Excel ? "Uploading..." : "Upload Excel"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handle14DownloadTemplate}
+                    disabled={isIndicatorSubmitted("1.4")}
+                    className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Template
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowClearAll14Dialog(true)}
+                    disabled={
+                      isIndicatorSubmitted("1.4") ||
+                      (formData.section1_4?.bondList || []).length === 0
+                    }
+                    className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear All
+                  </Button>
+                  <input
+                    ref={excel14FileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handle14ExcelUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
+
                 <div className="flex gap-4">
                   <div className="w-1/3">
                     <Label>
@@ -4502,6 +4665,29 @@ export const InfraFinancingStep = () => {
                     {renderFieldError("section1_4.bondList")}
                   </p>
                 )}
+                <AlertDialog
+                  open={showClearAll14Dialog}
+                  onOpenChange={setShowClearAll14Dialog}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to clear all bond entries? This
+                        action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handle14ClearAll}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Clear All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 {formData.section1_4.bondList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">

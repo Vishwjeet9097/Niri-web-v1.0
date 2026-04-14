@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, Upload, Download, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,10 @@ import {
 } from "../validation/pppDevelopmentValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
+import {
+  generatePPPProjectsTemplate,
+  parsePPPProjectsExcel,
+} from "@/utils/excelParser";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -902,6 +906,76 @@ export const PPPDevelopmentStep = () => {
         }),
       },
     }));
+  };
+
+  // Excel upload functionality for Section 3.4
+  const excel34FileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading34Excel, setIsUploading34Excel] = useState(false);
+  const [showClearAll34Dialog, setShowClearAll34Dialog] = useState(false);
+
+  const handle34ExcelUploadClick = () => excel34FileInputRef.current?.click();
+
+  const handle34ExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsUploading34Excel(true);
+    try {
+      const result = await parsePPPProjectsExcel(file);
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        section3_4: {
+          ...prev.section3_4,
+          projects: [...(prev.section3_4.projects || []), ...result.data!],
+        },
+      }));
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} row(s).`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.message || "An error occurred while processing file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading34Excel(false);
+      if (excel34FileInputRef.current) excel34FileInputRef.current.value = "";
+    }
+  };
+
+  const handle34DownloadTemplate = () => {
+    try {
+      generatePPPProjectsTemplate();
+      toast({ title: "Template downloaded" });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error?.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handle34ClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section3_4: {
+        ...prev.section3_4,
+        projects: [],
+      },
+    }));
+    setShowClearAll34Dialog(false);
   };
 
   const { toast } = useToast();
@@ -3182,6 +3256,52 @@ export const PPPDevelopmentStep = () => {
               >
                 {renderSectionValidationMessage("3.4")}
                 <div className="flex flex-col gap-6">
+                  <div className="flex gap-2 flex-wrap items-center w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handle34ExcelUploadClick}
+                      disabled={isIndicatorSubmitted("3.4") || isUploading34Excel}
+                      className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {isUploading34Excel ? "Uploading..." : "Upload Excel"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handle34DownloadTemplate}
+                      disabled={isIndicatorSubmitted("3.4")}
+                      className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowClearAll34Dialog(true)}
+                      disabled={
+                        isIndicatorSubmitted("3.4") ||
+                        (formData.section3_4?.projects || []).length === 0
+                      }
+                      className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <X className="w-4 h-4" />
+                      Clear All
+                    </Button>
+                    <input
+                      ref={excel34FileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handle34ExcelUpload}
+                      style={{ display: "none" }}
+                    />
+                  </div>
+
                   {/* ✅ Single-instance summary fields */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -3630,6 +3750,28 @@ export const PPPDevelopmentStep = () => {
                       )}
                     </div>
                   </div>
+                  <AlertDialog
+                    open={showClearAll34Dialog}
+                    onOpenChange={setShowClearAll34Dialog}
+                  >
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will remove all section 3.4 project entries.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handle34ClearAll}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Clear All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </SectionCard>
             )}

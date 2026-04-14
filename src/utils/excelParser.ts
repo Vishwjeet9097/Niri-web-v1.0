@@ -446,6 +446,467 @@ export function generateCreditRatedULBsTemplate(): void {
   XLSX.writeFile(workbook, "Credit_Rated_ULBs_1.3_Template.xlsx");
 }
 
+export interface UlbBondParsedRow {
+  id: string;
+  bondType: string;
+  ulb: string;
+  cityName: string;
+  issuingAuthority: string;
+  value: string;
+  tenorOfBond: string;
+}
+
+export interface InfraDevelopmentPlanParsedRow {
+  id: string;
+  sector: string;
+  planName: string;
+  planDuration: string;
+  files: [];
+  noDocumentAvailable: boolean;
+}
+
+export interface InvestmentReadyParsedRow {
+  id: string;
+  projectName: string;
+  sector: string;
+  status: string;
+  projectSize: string;
+}
+
+export interface PPPProjectParsedRow {
+  id: string;
+  nameOfProject: string;
+  infrastructureSector: string;
+  dateOfAward: string;
+  totalProjectCost: string;
+  proofLinkOrText: string;
+  file: null;
+}
+
+interface GenericExcelParseResult<T> {
+  success: boolean;
+  data?: T[];
+  error?: string;
+  warnings?: string[];
+}
+
+function readFirstSheetRows(file: File): Promise<any[][]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        if (!data) return reject(new Error("Failed to read file"));
+        const workbook = XLSX.read(data, { type: "binary", cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) return reject(new Error("Excel file contains no sheets"));
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+          defval: "",
+        });
+        resolve(rows as any[][]);
+      } catch (err: any) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsBinaryString(file);
+  });
+}
+
+function createHeaderHelpers(headerRowRaw: any[]) {
+  const headerRow = (headerRowRaw || []).map((h: any) =>
+    String(h || "")
+      .trim()
+      .toLowerCase()
+  );
+  const findColumnIndex = (possibleNames: string[]): number => {
+    for (const name of possibleNames) {
+      const idx = headerRow.findIndex((h: string) =>
+        h.includes(name.toLowerCase())
+      );
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+  return { headerRow, findColumnIndex };
+}
+
+function resolveUlbByExcelValue(
+  ulbOptions: CreditRatedUlbExcelUlbOption[],
+  ulbIdRaw: string,
+  ulbNameRaw: string,
+  cityRaw: string
+): CreditRatedUlbExcelUlbOption | null {
+  const norm = (s: unknown) =>
+    String(s ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  const normLoose = (s: unknown) => norm(s).replace(/[^a-z0-9]/g, "");
+
+  const idTrim = String(ulbIdRaw ?? "").trim();
+  if (idTrim) {
+    const byId = ulbOptions.find((u) => String(u.id) === idTrim);
+    if (byId) return byId;
+  }
+
+  const nameTrim = String(ulbNameRaw ?? "").trim();
+  const cityTrim = String(cityRaw ?? "").trim();
+  if (!nameTrim) return null;
+
+  let parsedName = nameTrim;
+  let parsedCity = cityTrim;
+  const comboMatch = nameTrim.match(/^(.*?)\s*-\s*(.*?)\s*(\(|$)/);
+  if (comboMatch) {
+    const extractedName = comboMatch[1]?.trim();
+    const extractedCity = comboMatch[2]?.trim();
+    if (extractedName) parsedName = extractedName;
+    if (!parsedCity && extractedCity) parsedCity = extractedCity;
+  }
+
+  const nameN = norm(parsedName);
+  const cityN = norm(parsedCity);
+  const nameLoose = normLoose(parsedName);
+  const cityLoose = normLoose(parsedCity);
+
+  const candidates = ulbOptions.filter((u) => {
+    const ulbName = norm(u.ulb_name);
+    const ulbNameLoose = normLoose(u.ulb_name);
+    return (
+      ulbName === nameN ||
+      ulbName.includes(nameN) ||
+      nameN.includes(ulbName) ||
+      (nameLoose.length > 0 &&
+        (ulbNameLoose === nameLoose ||
+          ulbNameLoose.includes(nameLoose) ||
+          nameLoose.includes(ulbNameLoose)))
+    );
+  });
+
+  if (candidates.length === 0) {
+    const wholeLoose = normLoose(nameTrim);
+    const fallback = ulbOptions.filter((u) =>
+      wholeLoose.includes(normLoose(u.ulb_name))
+    );
+    if (fallback.length === 1) return fallback[0];
+    if (fallback.length > 1) {
+      const byCityFallback = fallback.filter((u) =>
+        cityLoose ? normLoose(u.city_name) === cityLoose : true
+      );
+      if (byCityFallback.length > 0) return byCityFallback[0];
+    }
+    return null;
+  }
+
+  if (cityN) {
+    const byCity = candidates.filter(
+      (u) =>
+        norm(u.city_name) === cityN ||
+        norm(u.city_name).includes(cityN) ||
+        cityN.includes(norm(u.city_name)) ||
+        (cityLoose &&
+          (normLoose(u.city_name) === cityLoose ||
+            normLoose(u.city_name).includes(cityLoose) ||
+            cityLoose.includes(normLoose(u.city_name))))
+    );
+    if (byCity.length > 0) return byCity[0];
+  }
+
+  return candidates[0] || null;
+}
+
+export async function parseULBBondsExcel(
+  file: File,
+  ulbOptions: CreditRatedUlbExcelUlbOption[]
+): Promise<GenericExcelParseResult<UlbBondParsedRow>> {
+  try {
+    const rows = await readFirstSheetRows(file);
+    if (rows.length < 2) {
+      return {
+        success: false,
+        error: "Excel file must contain at least a header row and one data row",
+      };
+    }
+    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const bondTypeIndex = findColumnIndex(["bond type", "type of bond"]);
+    const ulbIdIndex = findColumnIndex(["ulb id", "ulb_id", "ulbid", "id"]);
+    const ulbNameIndex = findColumnIndex(["ulb name", "ulb", "name of ulb"]);
+    const cityNameIndex = findColumnIndex(["city name", "city"]);
+    const issuingAuthorityIndex = findColumnIndex([
+      "issuing authority",
+      "authority",
+    ]);
+    const valueIndex = findColumnIndex(["value", "value (inr-crore)", "inr"]);
+    const tenorIndex = findColumnIndex([
+      "tenure",
+      "tenor",
+      "tenure of bond",
+      "tenure of bond (in months)",
+    ]);
+
+    const missing: string[] = [];
+    if (bondTypeIndex === -1) missing.push("Bond Type");
+    if (ulbIdIndex === -1 && ulbNameIndex === -1) missing.push("ULB ID or ULB Name");
+    if (issuingAuthorityIndex === -1) missing.push("Issuing Authority");
+    if (valueIndex === -1) missing.push("Value (INR-CRORE)");
+    if (tenorIndex === -1) missing.push("Tenure of Bond (in months)");
+    if (missing.length > 0) {
+      return { success: false, error: `Missing required columns: ${missing.join(", ")}` };
+    }
+
+    const data: UlbBondParsedRow[] = [];
+    const warnings: string[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const isEmpty = row.every((c: any) => !String(c ?? "").trim());
+      if (isEmpty) continue;
+
+      const matched = resolveUlbByExcelValue(
+        ulbOptions,
+        ulbIdIndex >= 0 ? String(row[ulbIdIndex] ?? "").trim() : "",
+        ulbNameIndex >= 0 ? String(row[ulbNameIndex] ?? "").trim() : "",
+        cityNameIndex >= 0 ? String(row[cityNameIndex] ?? "").trim() : ""
+      );
+      if (!matched) {
+        warnings.push(`Row ${i + 1} skipped: ULB not found`);
+        continue;
+      }
+
+      const bondType = String(row[bondTypeIndex] ?? "").trim();
+      const issuingAuthority = String(row[issuingAuthorityIndex] ?? "").trim();
+      const value = String(row[valueIndex] ?? "").trim();
+      const tenorOfBond = String(row[tenorIndex] ?? "").trim();
+      if (!bondType || !issuingAuthority || !value || !tenorOfBond) {
+        warnings.push(`Row ${i + 1} skipped: missing required fields`);
+        continue;
+      }
+
+      data.push({
+        id:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${i}`,
+        bondType,
+        ulb: matched.id,
+        cityName:
+          (cityNameIndex >= 0 ? String(row[cityNameIndex] ?? "").trim() : "") ||
+          matched.city_name ||
+          "",
+        issuingAuthority,
+        value,
+        tenorOfBond,
+      });
+    }
+
+    if (!data.length) {
+      return { success: false, error: "No valid data rows found in Excel file", warnings };
+    }
+    return { success: true, data, warnings: warnings.length ? warnings : undefined };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Failed to parse Excel file" };
+  }
+}
+
+export function generateULBBondsTemplate(): void {
+  const headers = [
+    "Bond Type",
+    "ULB ID",
+    "ULB Name",
+    "City Name",
+    "Issuing Authority",
+    "Value (INR-CRORE)",
+    "Tenure of Bond (in months)",
+  ];
+  const rows = [
+    ["Municipal", "ULB001", "Example ULB", "Example City", "State Authority", "120.50", "120"],
+    ["Green", "", "Another ULB", "Another City", "Municipal Board", "65", "60"],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "ULB Bonds 1.4");
+  XLSX.writeFile(wb, "ULB_Bonds_1.4_Template.xlsx");
+}
+
+export async function parseInfraDevelopmentPlanExcel(
+  file: File
+): Promise<GenericExcelParseResult<InfraDevelopmentPlanParsedRow>> {
+  try {
+    const rows = await readFirstSheetRows(file);
+    if (rows.length < 2) {
+      return { success: false, error: "Excel file must contain at least a header row and one data row" };
+    }
+    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const sectorIndex = findColumnIndex(["sector"]);
+    const planNameIndex = findColumnIndex(["plan name", "name"]);
+    const planDurationIndex = findColumnIndex(["plan duration", "duration"]);
+    const missing: string[] = [];
+    if (sectorIndex === -1) missing.push("Sector");
+    if (planNameIndex === -1) missing.push("Plan Name");
+    if (planDurationIndex === -1) missing.push("Plan Duration");
+    if (missing.length) return { success: false, error: `Missing required columns: ${missing.join(", ")}` };
+    const data: InfraDevelopmentPlanParsedRow[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const sector = String(row[sectorIndex] ?? "").trim();
+      const planName = String(row[planNameIndex] ?? "").trim();
+      const planDuration = String(row[planDurationIndex] ?? "").trim();
+      if (!sector && !planName && !planDuration) continue;
+      if (!sector || !planName || !planDuration) continue;
+      data.push({
+        id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${i}`,
+        sector,
+        planName,
+        planDuration,
+        files: [],
+        noDocumentAvailable: false,
+      });
+    }
+    if (!data.length) return { success: false, error: "No valid data rows found in Excel file" };
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Failed to parse Excel file" };
+  }
+}
+
+export function generateInfraDevelopmentPlanTemplate(): void {
+  const headers = ["Sector", "Plan Name", "Plan Duration"];
+  const rows = [
+    ["Roads", "Urban Roads Master Plan", "2020-2030"],
+    ["Water Supply", "City Water Plan", "2022-2028"],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Infra Plan 2.3");
+  XLSX.writeFile(wb, "Infra_Development_Plan_2.3_Template.xlsx");
+}
+
+export async function parseInvestmentReadyProjectsExcel(
+  file: File
+): Promise<GenericExcelParseResult<InvestmentReadyParsedRow>> {
+  try {
+    const rows = await readFirstSheetRows(file);
+    if (rows.length < 2) {
+      return { success: false, error: "Excel file must contain at least a header row and one data row" };
+    }
+    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const projectNameIndex = findColumnIndex(["project name"]);
+    const sectorIndex = findColumnIndex(["sector"]);
+    const statusIndex = findColumnIndex(["status"]);
+    const projectSizeIndex = findColumnIndex(["project cost", "project size", "size"]);
+    const missing: string[] = [];
+    if (projectNameIndex === -1) missing.push("Project Name");
+    if (sectorIndex === -1) missing.push("Sector");
+    if (statusIndex === -1) missing.push("Status");
+    if (projectSizeIndex === -1) missing.push("Project Cost (INR-CRORE)");
+    if (missing.length) return { success: false, error: `Missing required columns: ${missing.join(", ")}` };
+    const data: InvestmentReadyParsedRow[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const projectName = String(row[projectNameIndex] ?? "").trim();
+      const sector = String(row[sectorIndex] ?? "").trim();
+      const status = String(row[statusIndex] ?? "").trim();
+      const projectSize = String(row[projectSizeIndex] ?? "").trim();
+      if (!projectName && !sector && !status && !projectSize) continue;
+      if (!projectName || !sector || !status || !projectSize) continue;
+      data.push({
+        id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${i}`,
+        projectName,
+        sector,
+        status,
+        projectSize,
+      });
+    }
+    if (!data.length) return { success: false, error: "No valid data rows found in Excel file" };
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Failed to parse Excel file" };
+  }
+}
+
+export function generateInvestmentReadyProjectsTemplate(): void {
+  const headers = ["Project Name", "Sector", "Status", "Project Cost (INR-CRORE)"];
+  const rows = [
+    ["Urban Transport Corridor", "Roads", "DPR ready", "450"],
+    ["City STP Upgrade", "Water Supply", "Bid stage", "210.75"],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Investment Ready 2.4");
+  XLSX.writeFile(wb, "Investment_Ready_Projects_2.4_Template.xlsx");
+}
+
+export async function parsePPPProjectsExcel(
+  file: File
+): Promise<GenericExcelParseResult<PPPProjectParsedRow>> {
+  try {
+    const rows = await readFirstSheetRows(file);
+    if (rows.length < 2) {
+      return { success: false, error: "Excel file must contain at least a header row and one data row" };
+    }
+    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const nameIndex = findColumnIndex(["name of awarded ppp projects", "project name"]);
+    const sectorIndex = findColumnIndex(["infrastructure sector", "sector"]);
+    const dateIndex = findColumnIndex(["date of award", "award date"]);
+    const costIndex = findColumnIndex(["total project cost", "cost"]);
+    const proofIndex = findColumnIndex(["website link", "proof", "proof link"]);
+    const missing: string[] = [];
+    if (nameIndex === -1) missing.push("Name of Awarded PPP Projects");
+    if (sectorIndex === -1) missing.push("Infrastructure Sector");
+    if (dateIndex === -1) missing.push("Date of Award");
+    if (costIndex === -1) missing.push("Total Project Cost (INR-CRORE)");
+    if (missing.length) return { success: false, error: `Missing required columns: ${missing.join(", ")}` };
+    const data: PPPProjectParsedRow[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      const nameOfProject = String(row[nameIndex] ?? "").trim();
+      const infrastructureSector = String(row[sectorIndex] ?? "").trim();
+      const dateOfAward = parseExcelDateCell(row[dateIndex]);
+      const totalProjectCost = String(row[costIndex] ?? "").trim();
+      const proofLinkOrText =
+        proofIndex >= 0 ? String(row[proofIndex] ?? "").trim() : "";
+      if (!nameOfProject && !infrastructureSector && !totalProjectCost) continue;
+      if (!nameOfProject || !infrastructureSector || !dateOfAward || !totalProjectCost) continue;
+      data.push({
+        id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${i}`,
+        nameOfProject,
+        infrastructureSector,
+        dateOfAward,
+        totalProjectCost,
+        proofLinkOrText,
+        file: null,
+      });
+    }
+    if (!data.length) return { success: false, error: "No valid data rows found in Excel file" };
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Failed to parse Excel file" };
+  }
+}
+
+export function generatePPPProjectsTemplate(): void {
+  const headers = [
+    "Name of Awarded PPP Projects",
+    "Infrastructure Sector",
+    "Date of Award",
+    "Total Project Cost (INR-CRORE)",
+    "Website Link",
+  ];
+  const rows = [
+    ["Smart Bus Terminal", "Urban Transport", "2024-05-10", "300", "https://example.com/project-1"],
+    ["Water Distribution Upgrade", "Water Supply", "15-07-2024", "150.5", ""],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "PPP Projects 3.4");
+  XLSX.writeFile(wb, "PPP_Projects_3.4_Template.xlsx");
+}
+
 export interface CapacityBuildingEntry {
   id: string;
   officerName: string;

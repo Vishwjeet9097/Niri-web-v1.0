@@ -25,9 +25,9 @@ function sanitizeFilesInFormData(obj: any): any {
   return obj;
 }
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, Upload, Download, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,12 @@ import {
 } from "../validation/infraDevelopmentValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
+import {
+  generateInfraDevelopmentPlanTemplate,
+  generateInvestmentReadyProjectsTemplate,
+  parseInfraDevelopmentPlanExcel,
+  parseInvestmentReadyProjectsExcel,
+} from "@/utils/excelParser";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1188,6 +1194,156 @@ export const InfraDevelopmentStep = () => {
           },
         } as any)
     );
+  };
+
+  // Excel upload functionality for Section 2.3
+  const excel23FileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading23Excel, setIsUploading23Excel] = useState(false);
+  const [showClearAll23Dialog, setShowClearAll23Dialog] = useState(false);
+
+  const handle23ExcelUploadClick = () => excel23FileInputRef.current?.click();
+
+  const handle23ExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsUploading23Excel(true);
+    try {
+      const result = await parseInfraDevelopmentPlanExcel(file);
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        section2_3: {
+          ...prev.section2_3,
+          hasInfraDevelopmentPlan: "yes",
+          comment: "",
+          infraDevelopmentArray: [
+            ...(prev.section2_3?.infraDevelopmentArray || []),
+            ...result.data!,
+          ],
+        },
+      }));
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} row(s).`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.message || "An error occurred while processing file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading23Excel(false);
+      if (excel23FileInputRef.current) excel23FileInputRef.current.value = "";
+    }
+  };
+
+  const handle23DownloadTemplate = () => {
+    try {
+      generateInfraDevelopmentPlanTemplate();
+      toast({ title: "Template downloaded" });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error?.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handle23ClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section2_3: {
+        ...prev.section2_3,
+        infraDevelopmentArray: [],
+      },
+    }));
+    setShowClearAll23Dialog(false);
+  };
+
+  // Excel upload functionality for Section 2.4
+  const excel24FileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading24Excel, setIsUploading24Excel] = useState(false);
+  const [showClearAll24Dialog, setShowClearAll24Dialog] = useState(false);
+
+  const handle24ExcelUploadClick = () => excel24FileInputRef.current?.click();
+
+  const handle24ExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsUploading24Excel(true);
+    try {
+      const result = await parseInvestmentReadyProjectsExcel(file);
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        section2_4: {
+          ...prev.section2_4,
+          hasInvestmentReady: "yes",
+          comment: "",
+          investmentReadyArray: [
+            ...(prev.section2_4?.investmentReadyArray || []),
+            ...result.data!,
+          ],
+        },
+      }));
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} row(s).`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.message || "An error occurred while processing file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading24Excel(false);
+      if (excel24FileInputRef.current) excel24FileInputRef.current.value = "";
+    }
+  };
+
+  const handle24DownloadTemplate = () => {
+    try {
+      generateInvestmentReadyProjectsTemplate();
+      toast({ title: "Template downloaded" });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error?.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handle24ClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section2_4: {
+        ...prev.section2_4,
+        investmentReadyArray: [],
+      },
+    }));
+    setShowClearAll24Dialog(false);
   };
 
   // --- Section 2.5: Add/Remove Asset ---
@@ -3905,6 +4061,51 @@ export const InfraDevelopmentStep = () => {
                   {/* If Yes → show infra plan fields */}
                   {formData.section2_3.hasInfraDevelopmentPlan === "yes" && (
                     <div className="space-y-4">
+                      <div className="flex gap-2 flex-wrap items-center w-full">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handle23ExcelUploadClick}
+                          disabled={isIndicatorSubmitted("2.3") || isUploading23Excel}
+                          className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {isUploading23Excel ? "Uploading..." : "Upload Excel"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handle23DownloadTemplate}
+                          disabled={isIndicatorSubmitted("2.3")}
+                          className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Template
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowClearAll23Dialog(true)}
+                          disabled={
+                            isIndicatorSubmitted("2.3") ||
+                            (formData.section2_3?.infraDevelopmentArray || []).length === 0
+                          }
+                          className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <X className="w-4 h-4" />
+                          Clear All
+                        </Button>
+                        <input
+                          ref={excel23FileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handle23ExcelUpload}
+                          style={{ display: "none" }}
+                        />
+                      </div>
                       {(Array.isArray(
                         formData.section2_3?.infraDevelopmentArray
                       )
@@ -4230,6 +4431,28 @@ export const InfraDevelopmentStep = () => {
                       </p>
                     </div>
                   )}
+                  <AlertDialog
+                    open={showClearAll23Dialog}
+                    onOpenChange={setShowClearAll23Dialog}
+                  >
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will remove all section 2.3 entries.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handle23ClearAll}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Clear All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
 
                   {/* If No → show comment box */}
                   {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
@@ -4567,6 +4790,51 @@ export const InfraDevelopmentStep = () => {
                   {/* If Yes → show fields */}
                   {formData.section2_4.hasInvestmentReady === "yes" && (
                     <>
+                      <div className="flex gap-2 flex-wrap items-center w-full">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handle24ExcelUploadClick}
+                          disabled={isIndicatorSubmitted("2.4") || isUploading24Excel}
+                          className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {isUploading24Excel ? "Uploading..." : "Upload Excel"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handle24DownloadTemplate}
+                          disabled={isIndicatorSubmitted("2.4")}
+                          className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Template
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowClearAll24Dialog(true)}
+                          disabled={
+                            isIndicatorSubmitted("2.4") ||
+                            (formData.section2_4?.investmentReadyArray || []).length === 0
+                          }
+                          className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <X className="w-4 h-4" />
+                          Clear All
+                        </Button>
+                        <input
+                          ref={excel24FileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handle24ExcelUpload}
+                          style={{ display: "none" }}
+                        />
+                      </div>
                       {/* Website link (one time) */}
                       <div className="max-w-[60%]">
                         <Label>
@@ -4850,6 +5118,28 @@ export const InfraDevelopmentStep = () => {
                         )}
                     </>
                   )}
+                  <AlertDialog
+                    open={showClearAll24Dialog}
+                    onOpenChange={setShowClearAll24Dialog}
+                  >
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will remove all section 2.4 entries.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handle24ClearAll}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Clear All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
 
                   {/* If No → optional comment */}
                   {formData.section2_4.hasInvestmentReady === "no" && (
