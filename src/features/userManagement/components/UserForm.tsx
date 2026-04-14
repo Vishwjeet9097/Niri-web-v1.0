@@ -13,7 +13,17 @@ import {
 } from "@/components/ui/select";
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 import { Badge } from "@/components/ui/badge";
-import { InfoIcon, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
+import {
+  InfoIcon,
+  Loader2,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  Circle,
+  ChevronRight,
+  ChevronDown,
+  Search,
+} from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import {
   Tooltip,
@@ -28,6 +38,12 @@ import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 import { ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
@@ -301,6 +317,14 @@ function UserFormComponent({
   const [disabledStateNames, setDisabledStateNames] = useState<string[]>([]);
   const [nodalHasSubmission, setNodalHasSubmission] = useState(false);
   const [checkingNodalSubmission, setCheckingNodalSubmission] = useState(false);
+  const [expandedIndicatorSections, setExpandedIndicatorSections] = useState<
+    Record<string, boolean>
+  >({});
+  const [assignIndicatorsDropdownOpen, setAssignIndicatorsDropdownOpen] =
+    useState(false);
+  const [assignIndicatorsSearchTerm, setAssignIndicatorsSearchTerm] =
+    useState("");
+  const assignIndicatorsDropdownRef = useRef<HTMLDivElement>(null);
 
   // State for API response
   const [availableIndicatorsForState, setAvailableIndicatorsForState] =
@@ -885,6 +909,103 @@ function UserFormComponent({
     },
     [effectiveSubmittedIndicators, toast, formData.assignedIndicators]
   );
+
+  const indicatorOptionsByCode = useMemo(() => {
+    const map: Record<string, MultiSelectOption> = {};
+    indicatorOptions.forEach((opt) => {
+      map[opt.value] = opt;
+    });
+    return map;
+  }, [indicatorOptions]);
+
+  const groupedIndicatorSections = useMemo(() => {
+    return INDICATOR_SECTIONS.map((section) => {
+      const options = section.indicators
+        .map((code) => indicatorOptionsByCode[code])
+        .filter(Boolean);
+      return {
+        id: section.id,
+        name: section.name,
+        indicators: options,
+      };
+    });
+  }, [indicatorOptionsByCode]);
+
+  const handleCategorySelectAll = useCallback(
+    (sectionId: string, checked: boolean) => {
+      const section = groupedIndicatorSections.find((s) => s.id === sectionId);
+      if (!section) return;
+
+      const currentAssigned = formData.assignedIndicators || [];
+      const submittedAssigned = currentAssigned.filter((ind) =>
+        effectiveSubmittedIndicators.includes(ind)
+      );
+      const sectionCodes = section.indicators.map((i) => i.value);
+      const selectableCodes = section.indicators
+        .filter((i) => !i.disabled)
+        .map((i) => i.value);
+
+      let nextSelection: string[];
+      if (checked) {
+        nextSelection = Array.from(new Set([...currentAssigned, ...selectableCodes]));
+      } else {
+        const removableCodes = new Set(
+          sectionCodes.filter((code) => !submittedAssigned.includes(code))
+        );
+        nextSelection = currentAssigned.filter((code) => !removableCodes.has(code));
+      }
+
+      handleIndicatorChange(nextSelection);
+    },
+    [
+      groupedIndicatorSections,
+      formData.assignedIndicators,
+      effectiveSubmittedIndicators,
+      handleIndicatorChange,
+    ]
+  );
+
+  const handleIndividualIndicatorToggle = useCallback(
+    (indicatorCode: string, checked: boolean) => {
+      const currentAssigned = formData.assignedIndicators || [];
+      const nextSelection = checked
+        ? Array.from(new Set([...currentAssigned, indicatorCode]))
+        : currentAssigned.filter((code) => code !== indicatorCode);
+      handleIndicatorChange(nextSelection);
+    },
+    [formData.assignedIndicators, handleIndicatorChange]
+  );
+
+  useEffect(() => {
+    if (!assignIndicatorsDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        assignIndicatorsDropdownRef.current &&
+        !assignIndicatorsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setAssignIndicatorsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [assignIndicatorsDropdownOpen]);
+
+  useEffect(() => {
+    if (!assignIndicatorsDropdownOpen) {
+      setAssignIndicatorsSearchTerm("");
+    }
+  }, [assignIndicatorsDropdownOpen]);
+
+  const assignIndicatorsSelectedOptions = useMemo(
+    () =>
+      indicatorOptions.filter((opt) => multiSelectValue.includes(opt.value)),
+    [indicatorOptions, multiSelectValue]
+  );
+
+  const assignIndicatorsDisabled =
+    loadingIndicators ||
+    (stateApproverHasSubmission && !!officer) ||
+    (nodalHasSubmission && !!officer);
 
   // Fetch assigned indicators from API for editing
   const fetchAssignedIndicators = async (userId: string) => {
@@ -2800,28 +2921,299 @@ function UserFormComponent({
               </div>
             )}
 
-            <MultiSelect
-              options={indicatorOptions}
-              value={multiSelectValue}
-              onChange={handleIndicatorChange}
-              placeholder={
-                loadingIndicators
-                  ? "Loading indicators..."
-                  : "Search and select indicators..."
-              }
-              searchPlaceholder="Type to search indicators..."
-              showSearch={true}
-              showSelectAll={!loadingIndicators}
-              showSectionHeaders={true}
-              groupBySection={true}
-              className="w-full"
-              maxHeight="250px"
-              disabled={
-                loadingIndicators ||
-                (stateApproverHasSubmission && !!officer) ||
-                (nodalHasSubmission && !!officer)
-              }
-            />
+            <div
+              ref={assignIndicatorsDropdownRef}
+              className={cn("relative w-full", errors.assignedIndicators && "rounded-md ring-1 ring-destructive")}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  !assignIndicatorsDisabled &&
+                  setAssignIndicatorsDropdownOpen((o) => !o)
+                }
+                disabled={assignIndicatorsDisabled}
+                className={cn(
+                  "w-full min-h-[44px] px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm",
+                  "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                  "hover:border-gray-400 transition-colors",
+                  assignIndicatorsDisabled &&
+                    "bg-gray-100 cursor-not-allowed opacity-50",
+                  assignIndicatorsDropdownOpen &&
+                    "ring-2 ring-blue-500 border-blue-500"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    {assignIndicatorsSelectedOptions.length === 0 ? (
+                      <span className="text-gray-500 text-[15px]">
+                        Select indicators...
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {assignIndicatorsSelectedOptions.slice(0, 3).map((option) => (
+                          <span
+                            key={option.value}
+                            className={cn(
+                              "inline-flex items-center px-2 py-1 text-xs rounded",
+                              option.disabled
+                                ? "bg-gray-100 text-gray-600"
+                                : "bg-blue-100 text-blue-800"
+                            )}
+                          >
+                            {option.label}
+                          </span>
+                        ))}
+                        {assignIndicatorsSelectedOptions.length > 3 && (
+                          <span className="text-sm text-blue-600 px-1">
+                            +{assignIndicatorsSelectedOptions.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 shrink-0 text-gray-400 transition-transform",
+                      assignIndicatorsDropdownOpen && "rotate-180"
+                    )}
+                  />
+                </div>
+              </button>
+
+              {assignIndicatorsDropdownOpen && (
+                <div
+                  className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden flex flex-col"
+                  style={{ maxHeight: 440 }}
+                >
+                  <div className="p-2 border-b border-gray-200">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        value={assignIndicatorsSearchTerm}
+                        onChange={(e) =>
+                          setAssignIndicatorsSearchTerm(e.target.value)
+                        }
+                        placeholder="Type to search indicators..."
+                        className="pl-9 h-10 border-gray-300"
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1 min-h-0 py-0">
+                    {(() => {
+                      const searchTerm = assignIndicatorsSearchTerm.toLowerCase();
+                      const filteredSections = groupedIndicatorSections
+                        .map((section) => ({
+                          ...section,
+                          filteredIndicators: section.indicators.filter(
+                            (item) =>
+                              item.label.toLowerCase().includes(searchTerm) ||
+                              item.value.toLowerCase().includes(searchTerm)
+                          ),
+                        }))
+                        .filter((section) => section.filteredIndicators.length > 0);
+
+                      const allFilteredSelectableCodes = filteredSections
+                        .flatMap((section) => section.filteredIndicators)
+                        .filter((item) => !item.disabled)
+                        .map((item) => item.value);
+                      const selectedFilteredCount = allFilteredSelectableCodes.filter(
+                        (code) => multiSelectValue.includes(code)
+                      ).length;
+                      const allFilteredSelected =
+                        allFilteredSelectableCodes.length > 0 &&
+                        selectedFilteredCount === allFilteredSelectableCodes.length;
+                      const someFilteredSelected =
+                        selectedFilteredCount > 0 &&
+                        selectedFilteredCount < allFilteredSelectableCodes.length;
+
+                      return (
+                        <>
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (assignIndicatorsDisabled) return;
+                                if (allFilteredSelected) {
+                                  const filteredSet = new Set(
+                                    allFilteredSelectableCodes
+                                  );
+                                  handleIndicatorChange(
+                                    multiSelectValue.filter(
+                                      (code) => !filteredSet.has(code)
+                                    )
+                                  );
+                                } else {
+                                  handleIndicatorChange(
+                                    Array.from(
+                                      new Set([
+                                        ...multiSelectValue,
+                                        ...allFilteredSelectableCodes,
+                                      ])
+                                    )
+                                  );
+                                }
+                              }}
+                              className="flex items-center gap-2 text-base font-semibold text-gray-900 disabled:opacity-60"
+                              disabled={
+                                assignIndicatorsDisabled ||
+                                allFilteredSelectableCodes.length === 0
+                              }
+                            >
+                              {allFilteredSelected ? (
+                                <CheckCircle className="w-5 h-5 text-blue-600" />
+                              ) : someFilteredSelected ? (
+                                <div className="w-5 h-5 border-2 border-blue-600 rounded-sm flex items-center justify-center">
+                                  <div className="w-2.5 h-[2px] bg-blue-600 rounded-sm" />
+                                </div>
+                              ) : (
+                                <Circle className="w-5 h-5 text-gray-400" />
+                              )}
+                              <span>Select All</span>
+                            </button>
+                            <span className="text-sm text-gray-500">
+                              ({selectedFilteredCount}/{allFilteredSelectableCodes.length})
+                            </span>
+                          </div>
+
+                          {filteredSections.length === 0 && (
+                            <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                              No options found
+                            </div>
+                          )}
+
+                          {filteredSections.map((section) => {
+                            const sectionCodes = section.filteredIndicators.map(
+                              (item) => item.value
+                            );
+                            const selectableCodes = section.filteredIndicators
+                              .filter((item) => !item.disabled)
+                              .map((item) => item.value);
+                            const selectedSelectableCount = selectableCodes.filter(
+                              (code) => multiSelectValue.includes(code)
+                            ).length;
+                            const allSelectableChecked =
+                              selectableCodes.length > 0 &&
+                              selectedSelectableCount === selectableCodes.length;
+                            const someSelectableChecked =
+                              selectedSelectableCount > 0 &&
+                              selectedSelectableCount < selectableCodes.length;
+                            const isExpanded =
+                              !!expandedIndicatorSections[section.id];
+
+                            return (
+                              <Collapsible
+                                key={section.id}
+                                open={isExpanded}
+                                onOpenChange={(open) =>
+                                  setExpandedIndicatorSections((prev) => ({
+                                    ...prev,
+                                    [section.id]: open,
+                                  }))
+                                }
+                              >
+                                <div className="border-b border-gray-200 last:border-b-0">
+                                  <CollapsibleTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left bg-gray-50 hover:bg-gray-100"
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                                      )}
+                                      <span className="text-sm font-semibold text-gray-600">
+                                        {section.name}
+                                      </span>
+                                    </button>
+                                  </CollapsibleTrigger>
+                                  {isExpanded && (
+                                    <div className="px-3 pb-2 pt-2 pl-10 bg-white">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleCategorySelectAll(
+                                            section.id,
+                                            !allSelectableChecked
+                                          )
+                                        }
+                                        disabled={
+                                          assignIndicatorsDisabled ||
+                                          selectableCodes.length === 0
+                                        }
+                                        className="flex items-center gap-2 text-sm text-gray-600 disabled:opacity-60"
+                                      >
+                                        {allSelectableChecked ? (
+                                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                                        ) : someSelectableChecked ? (
+                                          <div className="w-4 h-4 border-2 border-blue-600 rounded-sm flex items-center justify-center">
+                                            <div className="w-2 h-[2px] bg-blue-600 rounded-sm" />
+                                          </div>
+                                        ) : (
+                                          <Circle className="w-4 h-4 text-gray-400" />
+                                        )}
+                                        <span>Select All ({sectionCodes.length})</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                  <CollapsibleContent>
+                                    <div className="px-0 pb-1 grid grid-cols-1">
+                                      {section.filteredIndicators.map((item) => (
+                                        <button
+                                          type="button"
+                                          key={item.value}
+                                          className={cn(
+                                            "flex items-start gap-2 text-left text-sm px-3 py-2.5 pl-10 hover:bg-gray-50 border-t border-gray-100",
+                                            (item.disabled || assignIndicatorsDisabled) &&
+                                              "opacity-60 cursor-not-allowed hover:bg-transparent"
+                                          )}
+                                          disabled={
+                                            item.disabled || assignIndicatorsDisabled
+                                          }
+                                          onClick={() =>
+                                            handleIndividualIndicatorToggle(
+                                              item.value,
+                                              !multiSelectValue.includes(item.value)
+                                            )
+                                          }
+                                        >
+                                          <span className="mt-0.5">
+                                            {multiSelectValue.includes(item.value) ? (
+                                              <CheckCircle className="w-4 h-4 text-blue-600" />
+                                            ) : (
+                                              <Circle className="w-4 h-4 text-gray-400" />
+                                            )}
+                                          </span>
+                                          <span>
+                                            <span
+                                              className={cn(
+                                                "block font-semibold text-gray-900",
+                                                item.disabled && "text-gray-500"
+                                              )}
+                                            >
+                                              {item.label}
+                                            </span>
+                                            {item.description && (
+                                              <span className="block text-sm text-gray-500 mt-0.5">
+                                                {item.description}
+                                              </span>
+                                            )}
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </CollapsibleContent>
+                                </div>
+                              </Collapsible>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
             {loadingIndicators && (
               <p className="text-sm text-muted-foreground mt-1">
                 Fetching available indicators...
