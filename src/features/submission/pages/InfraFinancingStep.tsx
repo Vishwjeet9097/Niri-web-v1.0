@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, Upload, Download, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
@@ -41,6 +41,10 @@ import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
+import {
+  generateCreditRatedULBsTemplate,
+  parseCreditRatedULBsExcel,
+} from "@/utils/excelParser";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1287,6 +1291,163 @@ export const InfraFinancingStep = () => {
           }),
         },
       };
+    });
+  };
+
+  // Excel upload functionality for Section 1.3
+  const excel13FileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading13Excel, setIsUploading13Excel] = useState(false);
+  const [showClearAll13Dialog, setShowClearAll13Dialog] = useState(false);
+
+  const handle13ExcelUploadClick = () => {
+    excel13FileInputRef.current?.click();
+  };
+
+  const handle13ExcelUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const maxFileSizeMb = 50;
+    if (file.size > maxFileSizeMb * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: `File size must be less than ${maxFileSizeMb}MB`,
+        variant: "destructive",
+      });
+      if (excel13FileInputRef.current) {
+        excel13FileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    const validExtensions = [".xlsx", ".xls"];
+    const fileExtension = file.name
+      .toLowerCase()
+      .substring(file.name.lastIndexOf("."));
+    if (!validExtensions.includes(fileExtension)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an Excel file (.xlsx or .xls)",
+        variant: "destructive",
+      });
+      if (excel13FileInputRef.current) {
+        excel13FileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setIsUploading13Excel(true);
+    try {
+      const result = await parseCreditRatedULBsExcel(file, ulbOptions);
+      if (!result.success || !result.data) {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFormData((prev) => {
+        const existing = prev.section1_3?.ulbList || [];
+        const isEntryEmpty = (e: {
+          cityName?: string;
+          ulb?: string;
+          ratingDate?: string;
+          rating?: string;
+        }) =>
+          !String(e.cityName ?? "").trim() &&
+          !String(e.ulb ?? "").trim() &&
+          !String(e.ratingDate ?? "").trim() &&
+          !String(e.rating ?? "").trim();
+
+        const nonEmptyExisting = existing.filter((e) => !isEntryEmpty(e));
+        const combined = [...nonEmptyExisting, ...result.data!];
+        const seenUlbIds = new Set<string>();
+        const merged = combined.filter((row) => {
+          const key = String(row.ulb || "").trim();
+          if (!key) return false;
+          if (seenUlbIds.has(key)) return false;
+          seenUlbIds.add(key);
+          return true;
+        });
+
+        const totalULBs = Math.max(prev.section1_3.totalULBs || 0, merged.length);
+
+        return {
+          ...prev,
+          section1_3: {
+            ...prev.section1_3,
+            totalULBs,
+            ulbList: merged,
+          },
+        };
+      });
+
+      setIndicatorValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        Object.keys(newErrors).forEach((key) => {
+          if (key.startsWith("section1_3.ulbList.")) {
+            delete newErrors[key];
+          }
+        });
+        delete newErrors["section1_3.ulbList"];
+        return newErrors;
+      });
+
+      toast({
+        title: "Upload successful",
+        description: `Successfully imported ${result.data.length} row(s).${
+          result.warnings?.length
+            ? ` ${result.warnings.length} row(s) were skipped due to invalid data.`
+            : ""
+        }`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description:
+          error?.message || "An error occurred while processing the Excel file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading13Excel(false);
+      if (excel13FileInputRef.current) {
+        excel13FileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handle13DownloadTemplate = () => {
+    try {
+      generateCreditRatedULBsTemplate();
+      toast({
+        title: "Template downloaded",
+        description: "Excel template has been downloaded for indicator 1.3.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error?.message || "Failed to generate template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handle13ClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section1_3: {
+        ...prev.section1_3,
+        ulbList: [],
+      },
+    }));
+    setShowClearAll13Dialog(false);
+    toast({
+      title: "All entries cleared",
+      description: "All credit rated ULB entries have been removed.",
     });
   };
 
@@ -2994,6 +3155,55 @@ export const InfraFinancingStep = () => {
             >
               {renderSectionValidationMessage("1.3")}
               <div className="space-y-4">
+                <div className="flex gap-2 flex-wrap items-center w-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handle13ExcelUploadClick}
+                    disabled={isIndicatorSubmitted("1.3") || isUploading13Excel}
+                    className="w-fit border-green-600 text-green-600 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {isUploading13Excel ? "Uploading..." : "Upload Excel"}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handle13DownloadTemplate}
+                    disabled={isIndicatorSubmitted("1.3")}
+                    className="w-fit border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Template
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowClearAll13Dialog(true)}
+                    disabled={
+                      isIndicatorSubmitted("1.3") ||
+                      (formData.section1_3?.ulbList || []).length === 0
+                    }
+                    className="w-fit border-red-600 text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear All
+                  </Button>
+
+                  <input
+                    ref={excel13FileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handle13ExcelUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
+
                 <div className="flex gap-4">
                   <div className="w-1/3">
                     <Label>
@@ -3579,28 +3789,67 @@ export const InfraFinancingStep = () => {
 
                 {renderFieldError("section1_3.ulbList")}
 
-                {/* Show add-row button only if totalULBs > 0 and not at limit */}
-                {(formData.section1_3.totalULBs || 0) > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addULB}
-                    disabled={
-                      isIndicatorSubmitted("1.3") ||
-                      formData.section1_3.ulbList.length >=
-                        (formData.section1_3.totalULBs || 0)
-                    }
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Credit Rated ULB
-                  </Button>
-                )}
+                <div className="flex gap-2 flex-wrap items-center w-full">
+                  <div className="flex gap-2 flex-wrap">
+                    {/* Show add-row button only if totalULBs > 0 and not at limit */}
+                    {(formData.section1_3.totalULBs || 0) > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addULB}
+                        disabled={
+                          isIndicatorSubmitted("1.3") ||
+                          formData.section1_3.ulbList.length >=
+                            (formData.section1_3.totalULBs || 0)
+                        }
+                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Credit Rated ULB
+                      </Button>
+                    )}
+                  </div>
+                </div>
                 {renderFieldError("section1_3.ulbList") && (
                   <p className="text-sm text-red-500 mt-1">
                     {renderFieldError("section1_3.ulbList")}
                   </p>
                 )}
+
+                <AlertDialog
+                  open={showClearAll13Dialog}
+                  onOpenChange={setShowClearAll13Dialog}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear All Entries?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to clear all credit rated ULB
+                        entries? This action cannot be undone.
+                        {(formData.section1_3?.ulbList || []).length > 0 && (
+                          <span className="block mt-2 font-semibold text-destructive">
+                            This will remove{" "}
+                            {(formData.section1_3?.ulbList || []).length}{" "}
+                            {(formData.section1_3?.ulbList || []).length === 1
+                              ? "entry"
+                              : "entries"}
+                            .
+                          </span>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handle13ClearAll}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Clear All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
                 {formData.section1_3.ulbList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
