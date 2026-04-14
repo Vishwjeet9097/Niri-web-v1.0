@@ -32,7 +32,7 @@ import { useFieldValidation } from "../hooks/useFieldValidation";
 import { SUBMISSION_STEPS } from "../constants/steps";
 import { withFullForm } from "../constants/abbreviations";
 import type { InfraFinancingData } from "../types";
-import { getCurrentFinancialYear } from "@/utils/dateUtils";
+import { getPreviousFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { apiService } from "@/services/api.service";
@@ -188,7 +188,7 @@ export const InfraFinancingStep = () => {
     refresh,
   } = useIndicatorAccess();
 
-  const currentFY = getCurrentFinancialYear();
+  const currentFY = getPreviousFinancialYear();
   const { toast } = useToast();
 
   // ------------------------

@@ -20,6 +20,19 @@ export const getCurrentFinancialYear = (): string => {
 };
 
 /**
+ * Returns previous Financial Year from current FY, e.g., "2024-25"
+ */
+export const getPreviousFinancialYear = (): string => {
+  const currentFY = getCurrentFinancialYear(); // e.g. 2025-26
+  const [start] = currentFY.split("-");
+  const startYear = parseInt(start, 10);
+  if (isNaN(startYear)) return currentFY;
+  const prevStart = startYear - 1;
+  const prevEndShort = String(startYear).slice(-2);
+  return `${prevStart}-${prevEndShort}`;
+};
+
+/**
  * Get Financial Year from a date in MM/YY format
  * @param mmYy - Date in MM/YY format (e.g., "04/24", "12/25")
  * @returns Financial Year in short format (e.g., "2024-25")
