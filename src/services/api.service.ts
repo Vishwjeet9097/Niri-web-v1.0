@@ -101,7 +101,7 @@ export type CumulativePreviewResponse = {
 
 class ApiService implements HttpClient {
   async markNotificationStatus(id: string): Promise<void> {
-    await this.axios.patch(`/api/notifications/status/${id}`);
+    await this.axios.post(`/api/notifications/status/${id}`);
   }
   private axios: AxiosInstance;
 
@@ -112,6 +112,47 @@ class ApiService implements HttpClient {
     });
 
     this.setupInterceptors();
+  }
+
+  private async buildEncryptedPasswordPayload(password: string): Promise<{
+    encryptedPassword: string;
+    keyId: string;
+    nonce: string;
+    timestamp: number;
+  }> {
+    const key = await UserService.fetchLoginEncryptionKey();
+    const encryptedPassword = await UserService.encryptLoginPassword(
+      password,
+      key.publicKey
+    );
+    return {
+      encryptedPassword,
+      keyId: key.keyId,
+      nonce: crypto.randomUUID(),
+      timestamp: Date.now(),
+    };
+  }
+
+  private async buildEncryptedPasswordBundle(passwords: string[]): Promise<{
+    encryptedPasswords: string[];
+    keyId: string;
+    nonce: string;
+    timestamp: number;
+  }> {
+    const key = await UserService.fetchLoginEncryptionKey();
+    const nonce = crypto.randomUUID();
+    const timestamp = Date.now();
+    const encryptedPasswords = await Promise.all(
+      passwords.map((password) =>
+        UserService.encryptLoginPassword(password, key.publicKey)
+      )
+    );
+    return {
+      encryptedPasswords,
+      keyId: key.keyId,
+      nonce,
+      timestamp,
+    };
   }
 
   private setupInterceptors(): void {
@@ -190,12 +231,18 @@ class ApiService implements HttpClient {
           }
         }
 
-        // Enhanced error handling with backend message priority
-        const backendMessage =
-          error.response?.data?.message || error.response?.data?.error;
+        const requestUrl = error.config?.url || "";
+        const isRegisterConflict =
+          requestUrl.includes("/auth/register") &&
+          error.response?.status === 409;
+
+        // Keep registration conflict errors generic to avoid account enumeration.
+        const backendMessage = isRegisterConflict
+          ? "Unable to process the registration request."
+          : error.response?.data?.message || error.response?.data?.error;
         const fallbackMessage = this.getFallbackErrorMessage(
           error.response?.status,
-          error.config?.url
+          requestUrl
         );
 
         const apiError: ApiError = {
@@ -249,7 +296,7 @@ class ApiService implements HttpClient {
     data?: any,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    return this.axios.put(url, data, config);
+    return this.axios.post(url, data, config);
   }
 
   async patch<T = any>(
@@ -257,7 +304,7 @@ class ApiService implements HttpClient {
     data?: any,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    return this.axios.patch(url, data, config);
+    return this.axios.post(url, data, config);
   }
 
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
@@ -443,9 +490,10 @@ class ApiService implements HttpClient {
     indicatorCodes?: string[]
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
+      const encrypted = await this.buildEncryptedPasswordPayload(password);
       const userData = {
         email,
-        password,
+        ...encrypted,
         firstName,
         lastName,
         contactNumber,
@@ -508,9 +556,16 @@ class ApiService implements HttpClient {
     newPassword: string
   ): Promise<{ message: string }> {
     try {
-      const response = await this.axios.put("/auth/change-password", {
+      const encrypted = await this.buildEncryptedPasswordBundle([
         currentPassword,
         newPassword,
+      ]);
+      const response = await this.axios.post("/auth/change-password", {
+        encryptedCurrentPassword: encrypted.encryptedPasswords[0],
+        encryptedNewPassword: encrypted.encryptedPasswords[1],
+        keyId: encrypted.keyId,
+        nonce: encrypted.nonce,
+        timestamp: encrypted.timestamp,
       });
       console.log(
         "🔍 API Service - Change Password Response Status:",
@@ -831,8 +886,8 @@ class ApiService implements HttpClient {
         // Append files
         this.appendFilesToFormData(multipartFormData, formData, "formData");
 
-        response = await this.axios.patch(
-          `/submission/${id}`,
+        response = await this.axios.post(
+          `/submission/${id}/update-partial`,
           multipartFormData,
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -843,7 +898,10 @@ class ApiService implements HttpClient {
         console.log("📤 Using regular JSON payload");
         console.log("📦 Full payload:", JSON.stringify(formData, null, 2));
 
-        response = await this.axios.patch(`/submission/${id}`, formData);
+        response = await this.axios.post(
+          `/submission/${id}/update-partial`,
+          formData
+        );
       }
 
       console.log(
@@ -3064,9 +3122,34 @@ class ApiService implements HttpClient {
     }
   }
 
-  async updateUser(id: string, userData: Partial<NiriUser>): Promise<NiriUser> {
+  async updateUser(
+    id: string,
+    userData: Partial<NiriUser> & { password?: string }
+  ): Promise<NiriUser> {
     try {
-      const response = await this.axios.patch(`/users/${id}`, userData);
+      let payload: Partial<NiriUser> & {
+        password?: string;
+        encryptedPassword?: string;
+        keyId?: string;
+        nonce?: string;
+        timestamp?: number;
+      } = { ...userData };
+
+      if (userData.password && String(userData.password).trim()) {
+        const encrypted = await this.buildEncryptedPasswordPayload(
+          String(userData.password).trim()
+        );
+        delete payload.password;
+        payload = {
+          ...payload,
+          encryptedPassword: encrypted.encryptedPassword,
+          keyId: encrypted.keyId,
+          nonce: encrypted.nonce,
+          timestamp: encrypted.timestamp,
+        };
+      }
+
+      const response = await this.axios.post(`/users/${id}/update`, payload);
       console.log(
         "🔍 API Service - Update User Response Status:",
         response.status
@@ -4485,7 +4568,7 @@ class ApiService implements HttpClient {
     indicatorCodes: string[]
   ): Promise<any> {
     try {
-      const response = await this.axios.patch(`/users/${userId}/indicators`, {
+      const response = await this.axios.post(`/users/${userId}/indicators/update`, {
         indicatorCodes,
       });
       console.log(

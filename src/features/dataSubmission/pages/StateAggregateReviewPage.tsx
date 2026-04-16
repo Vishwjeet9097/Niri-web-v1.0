@@ -1862,8 +1862,8 @@ export const StateAggregateReviewPage = () => {
           updateFormData.append("submission", JSON.stringify(updatePayload));
           appendFilesRecursively(updateFormData, formDataToUse);
 
-          response = await axios.patch(
-            `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}`,
+          response = await axios.post(
+            `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}/update-partial`,
             updateFormData,
             {
               headers: {

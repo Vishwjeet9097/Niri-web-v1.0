@@ -828,9 +828,8 @@ export function UserManagementPage() {
 
         // Handle specific error cases
         if (responseData.statusCode === 409) {
-          errorTitle = "User Already Exists";
-          errorMessage =
-            "A user with this email address already exists. Please use a different email.";
+          errorTitle = "Conflict";
+          errorMessage = "Unable to process the registration request.";
         } else if (responseData.statusCode === 400) {
           errorTitle = "Invalid Data";
           errorMessage = "Please check your input data and try again.";
