@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SectionCard } from "../components/SectionCard";
+import { IndicatorStepTitle } from "../components/IndicatorStepTitle";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
@@ -2008,15 +2009,7 @@ export const InfraEnablersStep = () => {
           {(visibleIndicators === null ||
             visibleIndicators.includes("4.1")) && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">4.1 - </span> Availability and
-                    use of a State/UT Project Monitoring Portal on the lines of
-                    GoI (Government Of India)
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="4.1" />}
               subtitle=""
               className="mb-6"
               indicatorStatus={getIndicatorStatus("4.1")}
@@ -2210,14 +2203,7 @@ export const InfraEnablersStep = () => {
           {(visibleIndicators === null ||
             visibleIndicators.includes("4.2")) && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold">
-                    <span className="text-primary">4.2 – </span>{" "}
-                    Adoption of {withFullForm("PM")} GatiShakti National Master Plan in infrastructure planning
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="4.2" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("4.2")}
               indicatorCode="4.2"
@@ -2762,14 +2748,7 @@ export const InfraEnablersStep = () => {
           {(visibleIndicators === null ||
             visibleIndicators.includes("4.3")) && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">4.3 – </span> Adoption of{" "}
-                    {withFullForm("ADR")}
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="4.3" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("4.3")}
               indicatorCode="4.3"
@@ -3024,14 +3003,7 @@ export const InfraEnablersStep = () => {
           {(visibleIndicators === null ||
             visibleIndicators.includes("4.4")) && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold">
-                    <span className="text-primary">4.4 – </span>
-                    Any Innovative Practice undertaken for promotion
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="4.4" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("4.4")}
               indicatorCode="4.4"
@@ -3411,14 +3383,7 @@ export const InfraEnablersStep = () => {
           {(visibleIndicators === null ||
             visibleIndicators.includes("4.5")) && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">4.5 – </span> Capacity
-                    Building – Officer Participation
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="4.5" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("4.5")}
               indicatorCode="4.5"

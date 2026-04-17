@@ -20,6 +20,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
+import { IndicatorStepTitle } from "../components/IndicatorStepTitle";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
@@ -2014,14 +2015,7 @@ export const PPPDevelopmentStep = () => {
               visibleIndicators === null ||
               visibleIndicators.includes("3.1")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">3.1 - </span> Availability
-                      of {withFullForm("PPP")} Act/Policy
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="3.1" />}
                 subtitle=""
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("3.1")}
@@ -2303,14 +2297,7 @@ export const PPPDevelopmentStep = () => {
               visibleIndicators === null ||
               visibleIndicators.includes("3.2")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">3.2 - </span> Functional
-                      PPP Cell/Unit
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="3.2" />}
                 subtitle=""
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("3.2")}
@@ -2571,14 +2558,7 @@ export const PPPDevelopmentStep = () => {
               visibleIndicators === null ||
               visibleIndicators.includes("3.3")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">3.3 - </span> Proposals
-                      Submitted under {withFullForm("VGF")}/{withFullForm("IIPDF")}{" "}
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="3.3" />}
                 subtitle=""
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("3.3")}
@@ -3237,14 +3217,7 @@ export const PPPDevelopmentStep = () => {
               visibleIndicators === null ||
               visibleIndicators.includes("3.4")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">3.4 – </span> Proportion of
-                      {withFullForm("TPC")} of PPP Projects
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="3.4" />}
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("3.4")}
                 indicatorCode="3.4"

@@ -21,6 +21,7 @@ import { Plus, Trash2, Info, Upload, Download, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
+import { IndicatorStepTitle } from "../components/IndicatorStepTitle";
 import { FileUploadSection } from "../components/FileUploadSection";
 import { FormActions } from "../components/FormActions";
 import { ProgressHeader } from "../components/ProgressHeader";
@@ -2828,13 +2829,7 @@ export const InfraFinancingStep = () => {
           {/* Section 1.1 */}
           {showIndicator("1.1") && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">1.1 -</span> % {withFullForm("Capex")} to {withFullForm("GSDP")}{" "}
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="1.1" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.1")}
               indicatorCode="1.1"
@@ -3051,16 +3046,7 @@ export const InfraFinancingStep = () => {
           {/* Section 1.2 */}
           {showIndicator("1.2") && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">1.2 -</span> % {withFullForm("Capex")} Utilization{" "}
-                    {/* <span className="font-normal text-xs text-muted-foreground">
-                      (10 marks per 1%)
-                    </span> */}
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="1.2" />}
               indicatorStatus={getIndicatorStatus("1.2")}
               indicatorCode="1.2"
               isEditable={editingIndicators.has("1.2")}
@@ -3253,14 +3239,7 @@ export const InfraFinancingStep = () => {
           {/* Section 1.3 */}
           {showIndicator("1.3") && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold">
-                    <span className="text-primary">1.3 -</span> % of Credit Rated {withFullForm("ULBs")}{" "}
-
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="1.3" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.3")}
               indicatorCode="1.3"
@@ -4086,14 +4065,7 @@ export const InfraFinancingStep = () => {
           {/* Section 1.4 */}
           {showIndicator("1.4") && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">1.4 -</span> % of {withFullForm("ULBs")}{" "}
-                    issuing Bonds{" "}
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="1.4" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.4")}
               indicatorCode="1.4"
@@ -4803,13 +4775,7 @@ export const InfraFinancingStep = () => {
           {/* Section 1.5 */}
           {showIndicator("1.5") && (
             <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">1.5 -</span> Functional Financial Intermediary For Infra Development{" "}
-                  </span>
-                </div>
-              }
+              title={<IndicatorStepTitle code="1.5" />}
               className="mb-6"
               indicatorStatus={getIndicatorStatus("1.5")}
               indicatorCode="1.5"

@@ -44,6 +44,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SectionCard } from "../components/SectionCard";
+import { IndicatorStepTitle } from "../components/IndicatorStepTitle";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
@@ -2720,14 +2721,7 @@ export const InfraDevelopmentStep = () => {
             {(visibleIndicators === null ||
               visibleIndicators.includes("2.1")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">2.1 -</span> Availability
-                      of Infrastructure Act/Policy{" "}
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="2.1" />}
                 subtitle=""
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("2.1")}
@@ -3450,13 +3444,7 @@ export const InfraDevelopmentStep = () => {
             {(visibleIndicators === null ||
               visibleIndicators.includes("2.2")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">2.2 -</span> Availability of Specialised Entity for Infrastructure Development{" "}
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="2.2" />}
                 subtitle=""
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("2.2")}
@@ -3959,14 +3947,7 @@ export const InfraDevelopmentStep = () => {
             {(visibleIndicators === null ||
               visibleIndicators.includes("2.3")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold">
-                      <span className="text-primary">2.3 -</span> Availability
-                      of Sector Infra Development Plan{" "}
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="2.3" />}
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("2.3")}
                 indicatorCode="2.3"
@@ -4671,14 +4652,7 @@ export const InfraDevelopmentStep = () => {
             {(visibleIndicators === null ||
               visibleIndicators.includes("2.4")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">2.4 -</span> Investment
-                      Ready Project Pipeline
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="2.4" />}
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("2.4")}
                 indicatorCode="2.4"
@@ -5211,14 +5185,7 @@ export const InfraDevelopmentStep = () => {
             {(visibleIndicators === null ||
               visibleIndicators.includes("2.5")) && (
               <SectionCard
-                title={
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold ">
-                      <span className="text-primary">2.5 -</span> Availability
-                      of Asset Monetization Pipeline{" "}
-                    </span>
-                  </div>
-                }
+                title={<IndicatorStepTitle code="2.5" />}
                 className="mb-6"
                 indicatorStatus={getIndicatorStatus("2.5")}
                 indicatorCode="2.5"

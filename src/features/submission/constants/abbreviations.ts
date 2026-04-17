@@ -1,6 +1,9 @@
 /**
  * Abbreviations and their full forms for the NIE-I questionnaire.
  * Use these wherever abbreviations appear so users see the full form for better understanding.
+ *
+ * Indicator **titles** are centralized in `src/utils/indicatorLabels.ts` (`INDICATOR_LIST_LABELS`);
+ * a few step headings use `withFullForm` via `INDICATOR_STEP_HEADINGS` / `IndicatorStepTitle`.
  */
 
 export const ABBREVIATIONS: Record<string, string> = {

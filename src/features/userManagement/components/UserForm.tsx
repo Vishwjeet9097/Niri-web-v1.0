@@ -34,7 +34,7 @@ import {
 import { useAuth } from "@/features/auth/AuthProvider";
 import { statesService, State } from "@/services/states.service";
 import { apiService } from "@/services/api.service";
-import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
+import { INDICATOR_SECTIONS, getIndicatorDisplayName } from "@/utils/indicatorUtils";
 import { ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
@@ -386,7 +386,7 @@ function UserFormComponent({
         );
         const formattedAvailable = validIndicators.map((ind: any) => ({
           code: ind.code,
-          name: ind.name || getIndicatorDisplayName(ind.code),
+          name: getIndicatorDisplayName(ind.code),
           category: ind.category || ind.section || "",
           id: ind.id,
         }));
@@ -676,56 +676,33 @@ function UserFormComponent({
     // Remove duplicates while preserving order (submitted/assigned first, then others)
     allCodes = Array.from(new Set(allCodes));
 
-    // Build name map - prioritize frontend mapping for 4.x indicators, then API response, then allIndicators, then fallback
+    // Display names: single catalog (`indicatorLabels.ts` via getIndicatorDisplayName).
+    // Categories still come from API / allIndicators when available.
     const indicatorNameMap: Record<string, string> = {};
     const indicatorCategoryMap: Record<string, string> = {};
 
-    // First, set frontend display names for Infrastructure Enablers (4.1-4.5) to ensure correct names
-    // This overrides any incorrect names from the backend API
-    const infraEnablersCodes = ["4.1", "4.2", "4.3", "4.4", "4.5"];
-    infraEnablersCodes.forEach((code) => {
+    allCodes.forEach((code: string) => {
       indicatorNameMap[code] = getIndicatorDisplayName(code);
     });
 
-    // Then, add from API response (but don't override 4.x indicators we just set)
     if (
       availableIndicatorsForState &&
       availableIndicatorsForState.length > 0 &&
       typeof availableIndicatorsForState[0] === "object"
     ) {
       availableIndicatorsForState.forEach((item: any) => {
-        if (item && item.code) {
-          // Only use API name if it's not a 4.x indicator (we want frontend names for those)
-          if (!infraEnablersCodes.includes(item.code) && item.name) {
-            indicatorNameMap[item.code] = item.name;
-          }
-          if (item.category) indicatorCategoryMap[item.code] = item.category;
+        if (item && item.code && item.category) {
+          indicatorCategoryMap[item.code] = item.category;
         }
       });
     }
 
-    // Then, add from allIndicators for any missing ones (especially assigned indicators)
     allIndicators.forEach((ind: any) => {
       const code = ind.code;
       if (code) {
-        // Only use allIndicators name if it's not a 4.x indicator and not already set
-        if (
-          !infraEnablersCodes.includes(code) &&
-          !indicatorNameMap[code] &&
-          ind.name
-        ) {
-          indicatorNameMap[code] = ind.name;
-        }
         if (!indicatorCategoryMap[code] && (ind.category || ind.section)) {
           indicatorCategoryMap[code] = ind.category || ind.section || "";
         }
-      }
-    });
-
-    // Finally, fallback to getIndicatorDisplayName for any remaining codes
-    allCodes.forEach((code: string) => {
-      if (!indicatorNameMap[code]) {
-        indicatorNameMap[code] = getIndicatorDisplayName(code);
       }
     });
 
@@ -747,7 +724,6 @@ function UserFormComponent({
         );
         if (found) {
           section = found.category || section;
-          description = found.name || description;
         }
       }
 
@@ -3296,33 +3272,3 @@ function UserFormComponent({
 
 // Memoize UserForm to prevent unnecessary re-renders when props haven't changed
 export const UserForm = memo(UserFormComponent);
-
-// Helper function to get indicator display name
-function getIndicatorDisplayName(indicatorCode: string): string {
-  const indicatorNames: Record<string, string> = {
-    "1.1": "Capex to GSDP Ratio",
-    "1.2": "Capex Utilization",
-    "1.3": "Credit Rated ULBs",
-    "1.4": "ULBs Issuing Bonds",
-    "1.5": "Functional Financial Intermediary For Infra Development",
-    "2.1": "Infrastructure Act/Policy",
-    "2.2": "Availability of Specialised Entity for Infrastructure Development",
-    "2.3": "Sector Infrastructure Plan",
-    "2.4": "Investment Ready Pipeline",
-    "2.5": "Asset Monetization Pipeline",
-    "3.1": "PPP Act/Policy",
-    "3.2": "PPP Cell",
-    "3.3": "VGF/IIPDF Proposals",
-    "3.4": "PPP Bankable Projects",
-    "3.5": "PPP Project Monitoring",
-    "4.1":
-      "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
-    "4.2":
-      "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
-    "4.3": "Adoption of ADR",
-    "4.4": "Any Innovative Practice undertaken for promotion",
-    "4.5": "Capacity Building – Officer Participation",
-  };
-
-  return indicatorNames[indicatorCode] || indicatorCode;
-}

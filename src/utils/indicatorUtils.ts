@@ -1,4 +1,5 @@
 import type { IndicatorSection, SectionAccess } from "@/types";
+import { getIndicatorShortTitle } from "@/utils/indicatorLabels";
 
 // NIE-I Indicator Sections Configuration
 export const INDICATOR_SECTIONS: IndicatorSection[] = [
@@ -255,35 +256,10 @@ export function validateFormDataAccess(
 }
 
 /**
- * Get indicator display name
+ * Get indicator display name (see `indicatorLabels.ts`).
  */
 export function getIndicatorDisplayName(indicatorCode: string): string {
-  const indicatorNames: Record<string, string> = {
-    "1.1": "Capex to GSDP Ratio",
-    "1.2": "Capex Utilization",
-    "1.3": "Credit Rated ULBs",
-    "1.4": "ULBs Issuing Bonds",
-    "1.5": "Functional Financial Intermediary For Infra Development",
-    "2.1": "Infrastructure Act/Policy",
-    "2.2": "Availability of Specialised Entity for Infrastructure Development",
-    "2.3": "Sector Infrastructure Plan",
-    "2.4": "Investment Ready Pipeline",
-    "2.5": "Asset Monetization Pipeline",
-    "3.1": "PPP Act/Policy",
-    "3.2": "PPP Cell",
-    "3.3": "VGF/IIPDF Proposals",
-    "3.4": "PPP Bankable Projects",
-    "3.5": "PPP Project Monitoring",
-    "4.1":
-      "Availability and use of a State/UT Project Monitoring Portal on the lines of GoI (Government Of India)",
-    "4.2":
-      "Adoption of PM GatiShakti National Master Plan in infrastructure planning",
-    "4.3": "Adoption of ADR",
-    "4.4": "Any Innovative Practice undertaken for promotion",
-    "4.5": "Capacity Building – Officer Participation",
-  };
-
-  return indicatorNames[indicatorCode] || indicatorCode;
+  return getIndicatorShortTitle(indicatorCode);
 }
 
 /**
