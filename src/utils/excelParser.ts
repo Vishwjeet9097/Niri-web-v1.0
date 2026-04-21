@@ -715,6 +715,7 @@ export async function parseULBBondsExcel(
 
 export function generateULBBondsTemplate(): void {
   const headers = [
+    "S.No.",
     "Bond Type",
     "ULB ID",
     "ULB Name",
@@ -724,8 +725,8 @@ export function generateULBBondsTemplate(): void {
     "Tenure of Bond (in months)",
   ];
   const rows = [
-    ["Municipal", "ULB001", "Example ULB", "Example City", "State Authority", "120.50", "120"],
-    ["Green", "", "Another ULB", "Another City", "Municipal Board", "65", "60"],
+    ["1", "Municipal", "ULB001", "Example ULB", "Example City", "State Authority", "120.50", "120"],
+    ["2", "Green", "", "Another ULB", "Another City", "Municipal Board", "65", "60"],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   const wb = XLSX.utils.book_new();
@@ -776,10 +777,10 @@ export async function parseInfraDevelopmentPlanExcel(
 }
 
 export function generateInfraDevelopmentPlanTemplate(): void {
-  const headers = ["Sector", "Plan Name", "Plan Duration"];
+  const headers = ["S.No.", "Sector", "Plan Name", "Plan Duration"];
   const rows = [
-    ["Roads", "Urban Roads Master Plan", "2020-2030"],
-    ["Water Supply", "City Water Plan", "2022-2028"],
+    ["1", "Roads", "Urban Roads Master Plan", "2020-2030"],
+    ["2", "Water Supply", "City Water Plan", "2022-2028"],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   const wb = XLSX.utils.book_new();
@@ -832,10 +833,10 @@ export async function parseInvestmentReadyProjectsExcel(
 }
 
 export function generateInvestmentReadyProjectsTemplate(): void {
-  const headers = ["Project Name", "Sector", "Status", "Project Cost (INR-CRORE)"];
+  const headers = ["S.No.", "Project Name", "Sector", "Status", "Project Cost (INR-CRORE)"];
   const rows = [
-    ["Urban Transport Corridor", "Roads", "DPR ready", "450"],
-    ["City STP Upgrade", "Water Supply", "Bid stage", "210.75"],
+    ["1", "Urban Transport Corridor", "Roads", "DPR ready", "450"],
+    ["2", "City STP Upgrade", "Water Supply", "Bid stage", "210.75"],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   const wb = XLSX.utils.book_new();
@@ -894,6 +895,7 @@ export async function parsePPPProjectsExcel(
 
 export function generatePPPProjectsTemplate(): void {
   const headers = [
+    "S.No.",
     "Name of Awarded PPP Projects",
     "Infrastructure Sector",
     "Date of Award",
@@ -901,8 +903,8 @@ export function generatePPPProjectsTemplate(): void {
     "Website Link",
   ];
   const rows = [
-    ["Smart Bus Terminal", "Urban Transport", "2024-05-10", "300", "https://example.com/project-1"],
-    ["Water Distribution Upgrade", "Water Supply", "15-07-2024", "150.5", ""],
+    ["1", "Smart Bus Terminal", "Urban Transport", "2024-05-10", "300", "https://example.com/project-1"],
+    ["2", "Water Distribution Upgrade", "Water Supply", "15-07-2024", "150.5", ""],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   const wb = XLSX.utils.book_new();
@@ -1220,6 +1222,7 @@ export function parseCapacityBuildingExcel(
  */
 export function generateCapacityBuildingTemplate(): void {
   const headers = [
+    "S.No.",
     "Officer Name",
     "Designation",
     "Program Name",
@@ -1230,6 +1233,7 @@ export function generateCapacityBuildingTemplate(): void {
 
   const exampleData = [
     [
+      "1",
       "John Doe",
       "Engineer",
       "Infrastructure Development Workshop",
@@ -1238,6 +1242,7 @@ export function generateCapacityBuildingTemplate(): void {
       "01/24",
     ],
     [
+      "2",
       "Jane Smith",
       "Manager",
       "PPP Training Program",
@@ -1259,7 +1264,7 @@ export function generateCapacityBuildingTemplate(): void {
     left: thinBorder,
     right: thinBorder,
   };
-  const cols = ["A", "B", "C", "D", "E", "F"];
+  const cols = ["A", "B", "C", "D", "E", "F", "G"];
   const numRows = 1 + exampleData.length;
 
   for (let r = 1; r <= numRows; r++) {
@@ -1276,7 +1281,7 @@ export function generateCapacityBuildingTemplate(): void {
   }
 
   // Column widths (narrower for a compact table)
-  const colWidths = [18, 14, 22, 18, 10, 25]; // Officer Name, Designation, Program Name, Organizer, Type, MM/YY
+  const colWidths = [8, 18, 14, 22, 18, 10, 25]; // S.No., Officer Name, Designation, Program Name, Organizer, Type, MM/YY
   worksheet["!cols"] = colWidths.map((wch) => ({ wch }));
 
   XLSX.writeFile(workbook, "Capacity_Building_Template.xlsx");

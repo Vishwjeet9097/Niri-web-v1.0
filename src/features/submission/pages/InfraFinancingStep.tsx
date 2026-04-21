@@ -4673,7 +4673,10 @@ export const InfraFinancingStep = () => {
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                            S.No.
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Bond Type
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -4700,8 +4703,13 @@ export const InfraFinancingStep = () => {
                         {formData.section1_4.bondList.map((bond, index) => (
                           <tr
                             key={bond.id || `bond-${index}`}
-                            className="bg-white"
+                            className={`border-b border-slate-200 ${
+                              index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                            } hover:bg-slate-200/70 transition-colors`}
                           >
+                            <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                              {index + 1}
+                            </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.bondType}
                             </td>
@@ -5169,7 +5177,10 @@ export const InfraFinancingStep = () => {
                           <table className="min-w-full border-separate border-spacing-0">
                             <thead>
                               <tr className="bg-[#DDE3F9]">
-                                <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                                  S.No.
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
                                   Organisation Name
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5197,8 +5208,13 @@ export const InfraFinancingStep = () => {
                                 (intermediary, index) => (
                                   <tr
                                     key={intermediary.id}
-                                    className="bg-white"
+                                    className={`border-b border-slate-200 ${
+                                      index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                    } hover:bg-slate-200/70 transition-colors`}
                                   >
+                                    <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                      {index + 1}
+                                    </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {intermediary.organisationName}
                                     </td>

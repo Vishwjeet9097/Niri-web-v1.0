@@ -92,7 +92,8 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
         <table className="min-w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-[#DDE3F9]">
-              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Organisation Name</th>
+              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">S.No.</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">Organisation Name</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Organisation Type</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Year of Establishment</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (INR-CRORE)</th>
@@ -103,7 +104,13 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
           <tbody>
             {orgList.length > 0 ? (
               orgList.map((item, index) => (
-                <tr key={item.id || index} className="border-b">
+                <tr
+                  key={item.id || index}
+                  className={`border-b border-slate-200 ${
+                    index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                  } hover:bg-slate-200/70 transition-colors`}
+                >
+                  <td className="py-3 px-4 text-sm font-medium text-slate-600">{index + 1}</td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.5") ? (
                       <Input

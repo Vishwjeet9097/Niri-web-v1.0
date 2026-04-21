@@ -2995,7 +2995,10 @@ export const PPPDevelopmentStep = () => {
                       <table className="min-w-full border-separate border-spacing-0">
                         <thead>
                           <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                              S.No.
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               Project Name
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3037,8 +3040,13 @@ export const PPPDevelopmentStep = () => {
                               return (
                                 <tr
                                   key={entry.id || `entry-${index}`}
-                                  className="bg-white"
+                                  className={`border-b border-slate-200 ${
+                                    index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                  } hover:bg-slate-200/70 transition-colors`}
                                 >
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {index + 1}
+                                  </td>
                                   <td className="py-3 px-4 text-sm">
                                     {entry.projectName}
                                   </td>
@@ -3119,8 +3127,13 @@ export const PPPDevelopmentStep = () => {
                             return (
                               <tr
                                 key={entry.id || `entry-${index}`}
-                                className="bg-white"
+                                className={`border-b border-slate-200 ${
+                                  index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                } hover:bg-slate-200/70 transition-colors`}
                               >
+                                <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                  {index + 1}
+                                </td>
                                 <td className="py-3 px-4 text-sm">
                                   {entry.projectName}
                                 </td>
@@ -3627,7 +3640,10 @@ export const PPPDevelopmentStep = () => {
                         <table className="min-w-full border-separate border-spacing-0">
                           <thead>
                             <tr className="bg-[#DDE3F9]">
-                              <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
+                              <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal w-14">
+                                S.No.
+                              </th>
+                              <th className="py-2 px-2 text-left text-sm font-normal">
                                 Project Name
                               </th>
                               <th className="py-2 px-2 text-left text-sm font-normal">
@@ -3651,8 +3667,13 @@ export const PPPDevelopmentStep = () => {
                             ).map((project, index) => (
                               <tr
                                 key={project.id || `project-${index}`}
-                                className="bg-white"
+                                className={`border-b border-slate-200 ${
+                                  index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                } hover:bg-slate-200/70 transition-colors`}
                               >
+                                <td className="py-2 px-2 text-sm font-medium text-slate-600">
+                                  {index + 1}
+                                </td>
                                 <td className="py-2 px-2 text-sm">
                                   {project.nameOfProject}
                                 </td>

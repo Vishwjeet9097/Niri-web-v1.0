@@ -4471,7 +4471,10 @@ export const InfraDevelopmentStep = () => {
                         <table className="min-w-full border-separate border-spacing-0">
                           <thead>
                             <tr className="bg-[#DDE3F9]">
-                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                                S.No.
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
                                 Sector
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
@@ -4497,11 +4500,19 @@ export const InfraDevelopmentStep = () => {
                             )
                               ? formData.section2_3.infraDevelopmentArray
                               : []
-                            ).map((entry) => {
+                            ).map((entry, index) => {
                               const file = entry.files?.[0];
                               if (!file) {
                                 return (
-                                  <tr key={entry.id} className="bg-white">
+                                  <tr
+                                    key={entry.id}
+                                    className={`border-b border-slate-200 ${
+                                      index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                    } hover:bg-slate-200/70 transition-colors`}
+                                  >
+                                    <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                      {index + 1}
+                                    </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {entry.sector}
                                     </td>
@@ -4568,7 +4579,15 @@ export const InfraDevelopmentStep = () => {
                               );
 
                               return (
-                                <tr key={entry.id} className="bg-white">
+                                <tr
+                                  key={entry.id}
+                                  className={`border-b border-slate-200 ${
+                                    index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                  } hover:bg-slate-200/70 transition-colors`}
+                                >
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {index + 1}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {entry.sector}
                                   </td>
@@ -5037,7 +5056,10 @@ export const InfraDevelopmentStep = () => {
                             <table className="min-w-full border-separate border-spacing-0">
                               <thead>
                                 <tr className="bg-[#DDE3F9]">
-                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                                    S.No.
+                                  </th>
+                                  <th className="py-3 px-4 text-left text-sm font-normal">
                                     Project Name
                                   </th>
                                   <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5060,8 +5082,16 @@ export const InfraDevelopmentStep = () => {
                                 )
                                   ? formData.section2_4.investmentReadyArray
                                   : []
-                                ).map((entry: any) => (
-                                  <tr key={entry.id} className="bg-white">
+                                ).map((entry: any, index: number) => (
+                                  <tr
+                                    key={entry.id}
+                                    className={`border-b border-slate-200 ${
+                                      index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                    } hover:bg-slate-200/70 transition-colors`}
+                                  >
+                                    <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                      {index + 1}
+                                    </td>
                                     <td className="py-3 px-4 text-sm">
                                       {entry.projectName}
                                     </td>
@@ -5565,7 +5595,10 @@ export const InfraDevelopmentStep = () => {
                             <table className="min-w-full border-separate border-spacing-0">
                               <thead>
                                 <tr className="bg-[#DDE3F9]">
-                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                                    S.No.
+                                  </th>
+                                  <th className="py-3 px-4 text-left text-sm font-normal">
                                     Project / Asset Name
                                   </th>
                                   <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5594,8 +5627,16 @@ export const InfraDevelopmentStep = () => {
                                 )
                                   ? formData.section2_5.assetMonetizationArray
                                   : []
-                                ).map((entry) => (
-                                  <tr key={entry.id} className="bg-white">
+                                ).map((entry, index) => (
+                                  <tr
+                                    key={entry.id}
+                                    className={`border-b border-slate-200 ${
+                                      index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                    } hover:bg-slate-200/70 transition-colors`}
+                                  >
+                                    <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                      {index + 1}
+                                    </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {entry.projectName}
                                     </td>
