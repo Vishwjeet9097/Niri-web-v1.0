@@ -572,10 +572,13 @@ export const Section_1_3 = ({
         <table className="min-w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-[#DDE3F9]">
+              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                S.No.
+              </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
                 ULB Name
               </th>
-              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+              <th className="py-3 px-4 text-left text-sm font-normal">
                 City Name
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
@@ -597,7 +600,15 @@ export const Section_1_3 = ({
           <tbody>
             {ulbList.length > 0 ? (
               ulbList.map((item, index) => (
-                <tr key={item.id || index} className="border-b">
+                <tr
+                  key={item.id || index}
+                  className={`border-b border-slate-200 ${
+                    index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                  } hover:bg-slate-200/70 transition-colors`}
+                >
+                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                    {index + 1}
+                  </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
                       <div>

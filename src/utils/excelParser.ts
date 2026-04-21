@@ -391,6 +391,7 @@ export function parseCreditRatedULBsExcel(
 
 export function generateCreditRatedULBsTemplate(): void {
   const headers = [
+    "S.No.",
     "ULB ID",
     "ULB Name",
     "City Name",
@@ -399,6 +400,7 @@ export function generateCreditRatedULBsTemplate(): void {
   ];
   const exampleData = [
     [
+      "1",
       "Replace with ULB ID from master list",
       "Example Municipal Corporation",
       "Example City",
@@ -406,6 +408,7 @@ export function generateCreditRatedULBsTemplate(): void {
       "AA+",
     ],
     [
+      "2",
       "",
       "Match by name if ID left blank",
       "City must match if multiple same name",
@@ -425,7 +428,7 @@ export function generateCreditRatedULBsTemplate(): void {
     left: thinBorder,
     right: thinBorder,
   };
-  const cols = ["A", "B", "C", "D", "E"];
+  const cols = ["A", "B", "C", "D", "E", "F"];
   const numRows = 1 + exampleData.length;
 
   for (let r = 1; r <= numRows; r++) {
@@ -441,7 +444,7 @@ export function generateCreditRatedULBsTemplate(): void {
     }
   }
 
-  worksheet["!cols"] = [14, 28, 14, 22, 14].map((wch) => ({ wch }));
+  worksheet["!cols"] = [8, 16, 28, 16, 22, 14].map((wch) => ({ wch }));
 
   XLSX.writeFile(workbook, "Credit_Rated_ULBs_1.3_Template.xlsx");
 }
