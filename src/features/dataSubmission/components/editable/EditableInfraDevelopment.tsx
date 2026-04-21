@@ -362,7 +362,7 @@ export const EditableInfraDevelopment = ({
               className="w-fit gap-2"
             >
               <Plus className="w-4 h-4" />
-              Add More Entry
+              Add More Act/Policy
             </Button>
             <p className="text-xs text-muted-foreground">
               Upload copy of Act/Policy
@@ -414,7 +414,7 @@ export const EditableInfraDevelopment = ({
               className="w-fit gap-2"
             >
               <Plus className="w-4 h-4" />
-              Add More Entry
+              Add More Entity
             </Button>
             <p className="text-xs text-muted-foreground">Upload evidence</p>
           </div>
@@ -509,7 +509,7 @@ export const EditableInfraDevelopment = ({
               className="w-fit gap-2"
             >
               <Plus className="w-4 h-4" />
-              Add More Entry
+              Add More Plan
             </Button>
             <p className="text-xs text-muted-foreground">
               Upload development plan

@@ -3195,7 +3195,7 @@ export const InfraDevelopmentStep = () => {
                           className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-4 h-4" />
-                          Add More Entry
+                          Add More Act/Policy
                         </Button>
                         <p className="text-xs text-muted-foreground mt-1">
                           Upload copy of Act/Policy
@@ -3730,8 +3730,8 @@ export const InfraDevelopmentStep = () => {
                           disabled={isIndicatorSubmitted("2.2")}
                           className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Plus className="w-4 h-4" />
-                          Add More Entry
+                        <Plus className="w-4 h-4" />
+                        Add More Entity
                         </Button>
                         <p className="text-xs text-muted-foreground mt-1">
                           Upload evidence
@@ -4405,7 +4405,7 @@ export const InfraDevelopmentStep = () => {
                         className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Plus className="h-4 w-4" />
-                        Add More Entry
+                        Add More Plan
                       </Button>
                       <p className="text-xs text-muted-foreground mt-1">
                         Upload plan
