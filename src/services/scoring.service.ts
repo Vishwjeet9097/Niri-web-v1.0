@@ -159,9 +159,9 @@ class ScoringService {
    * Get category based on score
    */
   private getCategoryFromScore(score: number): string {
-    if (score >= 600) return "Leaders";
-    if (score >= 400) return "Performers";
-    if (score >= 200) return "Challengers";
+    if (score > 500) return "Leaders";
+    if (score >= 301) return "Performers";
+    if (score >= 101) return "Challengers";
     return "Strivers";
   }
 
@@ -169,10 +169,10 @@ class ScoringService {
    * Get category range based on score
    */
   private getCategoryRange(score: number): string {
-    if (score >= 600) return ">600";
-    if (score >= 400) return "400-600 pts";
-    if (score >= 200) return "200-400 pts";
-    return "<200 pts";
+    if (score > 500) return ">500";
+    if (score >= 301) return "301-500 pts";
+    if (score >= 101) return "101-300 pts";
+    return "<=100 pts";
   }
 
   /**

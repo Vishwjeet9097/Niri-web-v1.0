@@ -60,25 +60,25 @@ const RankingScoringPage = () => {
   const categories = [
     {
       name: "Leaders",
-      range: ">600",
+      range: ">500",
       color: "#E6F0FF",
       description: "Top performing states",
     },
     {
       name: "Performers", 
-      range: "400-600 pts",
+      range: "301-500 pts",
       color: "#E6F9F0",
       description: "Good performance",
     },
     {
       name: "Challengers",
-      range: "200-400 pts", 
+      range: "101-300 pts", 
       color: "#F3E6FF",
       description: "Needs improvement",
     },
     {
       name: "Strivers",
-      range: "<200 pts",
+      range: "<=100 pts",
       color: "#FFF3E6", 
       description: "Requires support",
     },
