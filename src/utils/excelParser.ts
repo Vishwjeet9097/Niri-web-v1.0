@@ -639,16 +639,53 @@ function createHeaderHelpers(headerRowRaw: any[]) {
       .trim()
       .toLowerCase()
   );
+  const snoIndex = headerRow.findIndex((h) => isExcelSerialNoColumnHeader(h));
+  const isNotSno = (i: number) => snoIndex < 0 || i !== snoIndex;
   const findColumnIndex = (possibleNames: string[]): number => {
     for (const name of possibleNames) {
-      const idx = headerRow.findIndex((h: string) =>
-        h.includes(name.toLowerCase())
+      const idx = headerRow.findIndex(
+        (h: string, i) => isNotSno(i) && h.includes(name.toLowerCase())
       );
       if (idx !== -1) return idx;
     }
     return -1;
   };
-  return { headerRow, findColumnIndex };
+  return { headerRow, findColumnIndex, snoIndex };
+}
+
+/** Shown when no rows are imported for bulk upload sheets (S.No. column is ignored for matching). */
+function describeNoValidBulkRowsMessage(
+  rows: any[][],
+  dataStartIndex: number,
+  snoIndex: number,
+  warnings: string[] | undefined,
+  dataHint: string
+): string {
+  const body = rows.slice(dataStartIndex);
+  const hasAnyCell = body.some(
+    (row) => Array.isArray(row) && row.some((c) => String(c ?? "").trim() !== "")
+  );
+  const hasNonSno = body.some(
+    (row) =>
+      Array.isArray(row) &&
+      row.some(
+        (c, colIdx) =>
+          (snoIndex < 0 || colIdx !== snoIndex) &&
+          String(c ?? "").trim() !== ""
+      )
+  );
+  if (!hasAnyCell) {
+    return `All data rows are empty. Add at least one row below the header. ${dataHint} The S.No. column (if present) is not imported.`;
+  }
+  if (!hasNonSno) {
+    return `Only the S.No. column has values, or the rest of the row is empty. ${dataHint} S.No. is ignored on import.`;
+  }
+  if (warnings && warnings.length > 0) {
+    return (
+      warnings.slice(0, 6).join(" ") + (warnings.length > 6 ? " …" : "")
+    );
+  }
+  return dataHint;
 }
 
 function resolveUlbByExcelValue(
@@ -740,6 +777,13 @@ export async function parseULBBondsExcel(
   ulbOptions: CreditRatedUlbExcelUlbOption[]
 ): Promise<GenericExcelParseResult<UlbBondParsedRow>> {
   try {
+    if (!ulbOptions || ulbOptions.length === 0) {
+      return {
+        success: false,
+        error:
+          "The ULB master list is not loaded. Wait for the page to finish loading, then try again.",
+      };
+    }
     const rows = await readFirstSheetRows(file);
     if (rows.length < 2) {
       return {
@@ -747,9 +791,9 @@ export async function parseULBBondsExcel(
         error: "Excel file must contain at least a header row and one data row",
       };
     }
-    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const { findColumnIndex, snoIndex } = createHeaderHelpers(rows[0]);
     const bondTypeIndex = findColumnIndex(["bond type", "type of bond"]);
-    const ulbIdIndex = findColumnIndex(["ulb id", "ulb_id", "ulbid", "id"]);
+    const ulbIdIndex = findColumnIndex(["ulb id", "ulb_id", "ulbid"]);
     const ulbNameIndex = findColumnIndex(["ulb name", "ulb", "name of ulb"]);
     const cityNameIndex = findColumnIndex(["city name", "city"]);
     const issuingAuthorityIndex = findColumnIndex([
@@ -820,7 +864,18 @@ export async function parseULBBondsExcel(
     }
 
     if (!data.length) {
-      return { success: false, error: "No valid data rows found in Excel file", warnings };
+      const detail = describeNoValidBulkRowsMessage(
+        rows,
+        1,
+        snoIndex,
+        warnings,
+        "Use ULB names or ULB ID from the portal list, and complete all required fields per row."
+      );
+      return {
+        success: false,
+        error: `No valid data rows. ${detail}`,
+        warnings,
+      };
     }
     return { success: true, data, warnings: warnings.length ? warnings : undefined };
   } catch (error: any) {
@@ -857,7 +912,7 @@ export async function parseInfraDevelopmentPlanExcel(
     if (rows.length < 2) {
       return { success: false, error: "Excel file must contain at least a header row and one data row" };
     }
-    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const { findColumnIndex, snoIndex } = createHeaderHelpers(rows[0]);
     const sectorIndex = findColumnIndex(["sector"]);
     const planNameIndex = findColumnIndex(["plan name", "name"]);
     const planDurationIndex = findColumnIndex(["plan duration", "duration"]);
@@ -884,7 +939,16 @@ export async function parseInfraDevelopmentPlanExcel(
         noDocumentAvailable: false,
       });
     }
-    if (!data.length) return { success: false, error: "No valid data rows found in Excel file" };
+    if (!data.length) {
+      const detail = describeNoValidBulkRowsMessage(
+        rows,
+        1,
+        snoIndex,
+        undefined,
+        "Each row needs Sector, Plan Name, and Plan Duration."
+      );
+      return { success: false, error: `No valid data rows. ${detail}` };
+    }
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to parse Excel file" };
@@ -911,7 +975,7 @@ export async function parseInvestmentReadyProjectsExcel(
     if (rows.length < 2) {
       return { success: false, error: "Excel file must contain at least a header row and one data row" };
     }
-    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const { findColumnIndex, snoIndex } = createHeaderHelpers(rows[0]);
     const projectNameIndex = findColumnIndex(["project name"]);
     const sectorIndex = findColumnIndex(["sector"]);
     const statusIndex = findColumnIndex(["status"]);
@@ -940,7 +1004,16 @@ export async function parseInvestmentReadyProjectsExcel(
         projectSize,
       });
     }
-    if (!data.length) return { success: false, error: "No valid data rows found in Excel file" };
+    if (!data.length) {
+      const detail = describeNoValidBulkRowsMessage(
+        rows,
+        1,
+        snoIndex,
+        undefined,
+        "Each row needs Project Name, Sector, Status, and Project Cost (INR-CRORE)."
+      );
+      return { success: false, error: `No valid data rows. ${detail}` };
+    }
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to parse Excel file" };
@@ -967,7 +1040,7 @@ export async function parsePPPProjectsExcel(
     if (rows.length < 2) {
       return { success: false, error: "Excel file must contain at least a header row and one data row" };
     }
-    const { findColumnIndex } = createHeaderHelpers(rows[0]);
+    const { findColumnIndex, snoIndex } = createHeaderHelpers(rows[0]);
     const nameIndex = findColumnIndex(["name of awarded ppp projects", "project name"]);
     const sectorIndex = findColumnIndex(["infrastructure sector", "sector"]);
     const dateIndex = findColumnIndex(["date of award", "award date"]);
@@ -1001,7 +1074,16 @@ export async function parsePPPProjectsExcel(
         file: null,
       });
     }
-    if (!data.length) return { success: false, error: "No valid data rows found in Excel file" };
+    if (!data.length) {
+      const detail = describeNoValidBulkRowsMessage(
+        rows,
+        1,
+        snoIndex,
+        undefined,
+        "Each row needs project name, sector, date of award, and total project cost."
+      );
+      return { success: false, error: `No valid data rows. ${detail}` };
+    }
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to parse Excel file" };
@@ -1097,23 +1179,7 @@ export function parseCapacityBuildingExcel(
           return;
         }
 
-        // Parse header row (first row)
-        const headerRow = jsonData[0].map((h: any) =>
-          String(h || "")
-            .trim()
-            .toLowerCase()
-        );
-
-        // Find column indices
-        const findColumnIndex = (possibleNames: string[]): number => {
-          for (const name of possibleNames) {
-            const index = headerRow.findIndex((h: string) =>
-              h.includes(name.toLowerCase())
-            );
-            if (index !== -1) return index;
-          }
-          return -1;
-        };
+        const { findColumnIndex, snoIndex } = createHeaderHelpers(jsonData[0] || []);
 
         const officerNameIndex = findColumnIndex([
           "officer name",
@@ -1299,9 +1365,16 @@ export function parseCapacityBuildingExcel(
         }
 
         if (entries.length === 0) {
+          const detail = describeNoValidBulkRowsMessage(
+            jsonData,
+            1,
+            snoIndex,
+            warnings,
+            "Fill Officer Name, Designation, Program Name, Organizer, Type, and Conducted during (MM/YY) for each row."
+          );
           resolve({
             success: false,
-            error: "No valid data rows found in Excel file",
+            error: `No valid data rows. ${detail}`,
             warnings,
           });
           return;
