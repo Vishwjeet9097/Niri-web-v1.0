@@ -26,6 +26,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  KeyRound,
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
@@ -37,6 +38,8 @@ interface UserTableProps {
   officers: NodalOfficer[];
   serialNumberStart?: number;
   onEdit: (officer: NodalOfficer) => void;
+  onChangePassword: (officer: NodalOfficer) => void;
+  canChangePassword?: (officer: NodalOfficer) => boolean;
   onDelete: (id: string) => void;
   onAssignIndicator: (id: string, indicator: string) => void;
   selectedIds: Set<string>;
@@ -51,6 +54,8 @@ function UserTableComponent({
   officers,
   serialNumberStart = 0,
   onEdit,
+  onChangePassword,
+  canChangePassword,
   onDelete,
   onAssignIndicator,
   selectedIds,
@@ -208,6 +213,12 @@ function UserTableComponent({
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
+                    {canChangePassword?.(officer) && (
+                      <DropdownMenuItem onClick={() => onChangePassword(officer)}>
+                        <KeyRound className="w-4 h-4 mr-2" />
+                        Change Password
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       onClick={() => onDelete(officer.id)}
                       className="text-destructive focus:text-destructive"

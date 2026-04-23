@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Users, Search, Filter, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getRoleDisplayName } from "@/utils/roles";
 import {
   userManagementService,
@@ -52,6 +60,13 @@ export function UserManagementPage() {
   const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
   const [hasSubmissions, setHasSubmissions] = useState(false);
   const [checkingSubmissions, setCheckingSubmissions] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordTargetOfficer, setPasswordTargetOfficer] =
+    useState<NodalOfficer | null>(null);
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [confirmUserPassword, setConfirmUserPassword] = useState("");
+  const [passwordModalError, setPasswordModalError] = useState("");
+  const [updatingUserPassword, setUpdatingUserPassword] = useState(false);
   const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<
     string[]
   >([]);
@@ -349,6 +364,78 @@ export function UserManagementPage() {
     setEditingOfficer(officer);
     setIsMyProfileMode(false);
     setShowForm(true);
+  };
+
+  const canChangePasswordForOfficer = (officer: NodalOfficer) => {
+    if (!user?.role || !officer?.role) return false;
+    if (user.role === "ADMIN") {
+      return officer.role !== "ADMIN";
+    }
+    if (user.role === "MOSPI_APPROVER") {
+      return (
+        officer.role === "STATE_APPROVER" || officer.role === "MOSPI_REVIEWER"
+      );
+    }
+    if (user.role === "STATE_APPROVER") {
+      return officer.role === "NODAL_OFFICER";
+    }
+    return false;
+  };
+
+  const handleOpenChangePassword = (officer: NodalOfficer) => {
+    if (!canChangePasswordForOfficer(officer)) {
+      notificationService.error(
+        "You cannot change password for this user.",
+        "Access Denied"
+      );
+      return;
+    }
+    setPasswordTargetOfficer(officer);
+    setNewUserPassword("");
+    setConfirmUserPassword("");
+    setPasswordModalError("");
+    setPasswordModalOpen(true);
+  };
+
+  const handleUpdateUserPassword = async () => {
+    if (!passwordTargetOfficer?.id) return;
+    const password = newUserPassword.trim();
+    const confirmPassword = confirmUserPassword.trim();
+
+    if (!password || !confirmPassword) {
+      setPasswordModalError("Both password fields are required.");
+      return;
+    }
+    if (password.length < 8) {
+      setPasswordModalError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setPasswordModalError("New password and confirm password must match.");
+      return;
+    }
+
+    try {
+      setUpdatingUserPassword(true);
+      setPasswordModalError("");
+      await apiService.updateUser(passwordTargetOfficer.id, { password });
+      notificationService.success(
+        `Password updated for ${passwordTargetOfficer.firstName} ${passwordTargetOfficer.lastName}.`,
+        "Password Updated"
+      );
+      setPasswordModalOpen(false);
+      setPasswordTargetOfficer(null);
+      setNewUserPassword("");
+      setConfirmUserPassword("");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to update password. Please try again.";
+      setPasswordModalError(message);
+    } finally {
+      setUpdatingUserPassword(false);
+    }
   };
 
   // Helper function to check if nodal officer has any submission
@@ -1430,6 +1517,8 @@ export function UserManagementPage() {
         officers={paginatedOfficers}
         serialNumberStart={startIndex}
         onEdit={handleEditUser}
+        onChangePassword={handleOpenChangePassword}
+        canChangePassword={canChangePasswordForOfficer}
         onDelete={handleDeleteUser}
         onAssignIndicator={handleAssignIndicator}
         selectedIds={selectedIds}
@@ -1559,6 +1648,76 @@ export function UserManagementPage() {
           </div>
         )}
       </ConfirmationModal>
+
+      <Dialog
+        open={passwordModalOpen}
+        onOpenChange={(open) => {
+          setPasswordModalOpen(open);
+          if (!open) {
+            setPasswordTargetOfficer(null);
+            setNewUserPassword("");
+            setConfirmUserPassword("");
+            setPasswordModalError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Change Password
+              {passwordTargetOfficer
+                ? ` - ${passwordTargetOfficer.firstName} ${passwordTargetOfficer.lastName}`
+                : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="targetNewPassword">New Password</Label>
+              <Input
+                id="targetNewPassword"
+                type="password"
+                autoComplete="new-password"
+                value={newUserPassword}
+                onChange={(e) => {
+                  setNewUserPassword(e.target.value);
+                  setPasswordModalError("");
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="targetConfirmPassword">Confirm New Password</Label>
+              <Input
+                id="targetConfirmPassword"
+                type="password"
+                autoComplete="new-password"
+                value={confirmUserPassword}
+                onChange={(e) => {
+                  setConfirmUserPassword(e.target.value);
+                  setPasswordModalError("");
+                }}
+              />
+            </div>
+            {passwordModalError && (
+              <p className="text-sm text-destructive">{passwordModalError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPasswordModalOpen(false)}
+              disabled={updatingUserPassword}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateUserPassword}
+              disabled={updatingUserPassword}
+            >
+              {updatingUserPassword ? "Updating..." : "Update Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
