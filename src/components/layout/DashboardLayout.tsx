@@ -13,16 +13,30 @@ import {
   X,
   Users,
   User,
+  KeyRound,
+  Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 import { authService } from "@/services/auth.service";
+import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { MENU_CONFIG } from "@/utils/roles";
 import { getPublicAssetPath } from "@/config/environment";
@@ -41,6 +55,24 @@ export function DashboardLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+  });
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+    form: "",
+  });
   const user = authService.getUser();
 
   const handleLogout = async () => {
@@ -55,6 +87,92 @@ export function DashboardLayout() {
 
   const handleMyProfile = () => {
     navigate("/user-management", { state: { openMyProfile: true } });
+  };
+
+  const resetPasswordForm = () => {
+    setPasswordForm({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setShowPasswords({
+      currentPassword: false,
+      newPassword: false,
+      confirmPassword: false,
+    });
+    setPasswordErrors({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      form: "",
+    });
+  };
+
+  const handleChangePassword = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+    const nextErrors = {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      form: "",
+    };
+
+    if (!currentPassword.trim()) nextErrors.currentPassword = "Current password is required.";
+    if (!newPassword.trim()) nextErrors.newPassword = "New password is required.";
+    if (!confirmPassword.trim()) {
+      nextErrors.confirmPassword = "Confirm new password is required.";
+    }
+
+    if (newPassword && newPassword.length < 8) {
+      nextErrors.newPassword = "New password must be at least 8 characters.";
+    }
+
+    if (
+      newPassword &&
+      confirmPassword &&
+      newPassword !== confirmPassword
+    ) {
+      nextErrors.confirmPassword =
+        "New password and confirm password must match.";
+    }
+
+    if (Object.values(nextErrors).some(Boolean)) {
+      setPasswordErrors(nextErrors);
+      return;
+    }
+
+    try {
+      setPasswordErrors({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+        form: "",
+      });
+      setIsChangingPassword(true);
+      await apiService.changePassword(currentPassword, newPassword);
+      await authService.logout();
+      notificationService.toast({
+        title: "Password Updated",
+        message: "Session ended. Please sign in with your new password.",
+        type: "info",
+      });
+      navigate("/auth");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to change password.";
+      const lowered = String(message).toLowerCase();
+      if (lowered.includes("current password")) {
+        setPasswordErrors((prev) => ({ ...prev, currentPassword: message }));
+      } else if (lowered.includes("new password")) {
+        setPasswordErrors((prev) => ({ ...prev, newPassword: message }));
+      } else {
+        setPasswordErrors((prev) => ({ ...prev, form: message }));
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const isActive = (path: string) => {
@@ -139,6 +257,13 @@ export function DashboardLayout() {
                 >
                   <User className="mr-2 h-4 w-4" />
                   My Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsChangePasswordOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Change Password
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
@@ -277,6 +402,191 @@ export function DashboardLayout() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      <Dialog
+        open={isChangePasswordOpen}
+        onOpenChange={(open) => {
+          setIsChangePasswordOpen(open);
+          if (!open) resetPasswordForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <div className="relative">
+                <Input
+                  id="currentPassword"
+                  type={showPasswords.currentPassword ? "text" : "password"}
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => {
+                    setPasswordForm((prev) => ({
+                      ...prev,
+                      currentPassword: e.target.value,
+                    }));
+                    setPasswordErrors((prev) => ({
+                      ...prev,
+                      currentPassword: "",
+                      form: "",
+                    }));
+                  }}
+                  className={`pr-10 ${
+                    passwordErrors.currentPassword ? "border-destructive" : ""
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPasswords((prev) => ({
+                      ...prev,
+                      currentPassword: !prev.currentPassword,
+                    }))
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={
+                    showPasswords.currentPassword
+                      ? "Hide current password"
+                      : "Show current password"
+                  }
+                >
+                  {showPasswords.currentPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {passwordErrors.currentPassword && (
+                <p className="text-sm text-destructive">{passwordErrors.currentPassword}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showPasswords.newPassword ? "text" : "password"}
+                  value={passwordForm.newPassword}
+                  onChange={(e) => {
+                    setPasswordForm((prev) => ({
+                      ...prev,
+                      newPassword: e.target.value,
+                    }));
+                    setPasswordErrors((prev) => ({
+                      ...prev,
+                      newPassword: "",
+                      form: "",
+                    }));
+                  }}
+                  className={`pr-10 ${
+                    passwordErrors.newPassword ? "border-destructive" : ""
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPasswords((prev) => ({
+                      ...prev,
+                      newPassword: !prev.newPassword,
+                    }))
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={
+                    showPasswords.newPassword
+                      ? "Hide new password"
+                      : "Show new password"
+                  }
+                >
+                  {showPasswords.newPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {passwordErrors.newPassword && (
+                <p className="text-sm text-destructive">{passwordErrors.newPassword}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showPasswords.confirmPassword ? "text" : "password"}
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => {
+                    setPasswordForm((prev) => ({
+                      ...prev,
+                      confirmPassword: e.target.value,
+                    }));
+                    setPasswordErrors((prev) => ({
+                      ...prev,
+                      confirmPassword: "",
+                      form: "",
+                    }));
+                  }}
+                  className={`pr-10 ${
+                    passwordErrors.confirmPassword ? "border-destructive" : ""
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPasswords((prev) => ({
+                      ...prev,
+                      confirmPassword: !prev.confirmPassword,
+                    }))
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={
+                    showPasswords.confirmPassword
+                      ? "Hide confirm new password"
+                      : "Show confirm new password"
+                  }
+                >
+                  {showPasswords.confirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {passwordErrors.confirmPassword && (
+                <p className="text-sm text-destructive">{passwordErrors.confirmPassword}</p>
+              )}
+            </div>
+            {passwordErrors.form && (
+              <p className="text-sm text-destructive">{passwordErrors.form}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsChangePasswordOpen(false);
+                resetPasswordForm();
+              }}
+              disabled={isChangingPassword}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+              {isChangingPassword ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Changing...
+                </>
+              ) : (
+                "Update Password"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

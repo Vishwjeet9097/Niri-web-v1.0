@@ -39,6 +39,7 @@ export function UserManagementPage() {
   const { toast } = useToast();
   const [officers, setOfficers] = useState<NodalOfficer[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [isMyProfileMode, setIsMyProfileMode] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState<NodalOfficer | null>(
     null
   );
@@ -241,6 +242,7 @@ export function UserManagementPage() {
           stateUt: profile.stateUt || profile.stateName || profile.state || "",
         };
         setEditingOfficer(profileOfficer);
+        setIsMyProfileMode(true);
         setShowForm(true);
       } catch (error) {
         console.error("❌ Failed to open My Profile editor:", error);
@@ -338,11 +340,13 @@ export function UserManagementPage() {
   };
   const handleAddUser = () => {
     setEditingOfficer(null);
+    setIsMyProfileMode(false);
     setShowForm(true);
   };
 
   const handleEditUser = (officer: NodalOfficer) => {
     setEditingOfficer(officer);
+    setIsMyProfileMode(false);
     setShowForm(true);
   };
 
@@ -783,6 +787,7 @@ export function UserManagementPage() {
       // Hide form immediately and clear editing state BEFORE loading officers
       // This ensures user doesn't see form clearing - redirect happens simultaneously
       setShowForm(false);
+      setIsMyProfileMode(false);
       setEditingOfficer(null);
 
       // Clear sessionStorage immediately
@@ -1187,6 +1192,7 @@ export function UserManagementPage() {
 
   const handleCancel = () => {
     setShowForm(false);
+    setIsMyProfileMode(false);
     setEditingOfficer(null);
   };
 
@@ -1259,6 +1265,7 @@ export function UserManagementPage() {
       <div className="p-6 space-y-6">
         <UserForm
           officer={editingOfficer}
+          hidePasswordField={isMyProfileMode}
           onSave={handleSaveUser}
           onCancel={handleCancel}
           allIndicators={allIndicators}
