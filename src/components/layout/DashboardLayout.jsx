@@ -59,6 +59,10 @@ const ICONS = {
   users: Users,
 };
 
+const RoutedContent = React.memo(function RoutedContent() {
+  return <Outlet />;
+});
+
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,6 +79,7 @@ export function DashboardLayout() {
     newPassword: false,
     confirmPassword: false,
   });
+  const [allowCurrentPasswordInput, setAllowCurrentPasswordInput] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState({
     currentPassword: "",
     newPassword: "",
@@ -204,13 +209,8 @@ export function DashboardLayout() {
     icon: ICONS[item.icon] ?? LayoutDashboard, // icon as a component
   }));
 
-  const handleLogout = () => {
-    logout();
-    notificationService.toast({
-      title: "Logged Out",
-      message: "You have been logged out successfully",
-      type: "info",
-    });
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 
@@ -229,12 +229,28 @@ export function DashboardLayout() {
       newPassword: false,
       confirmPassword: false,
     });
+    setAllowCurrentPasswordInput(false);
     setPasswordErrors({
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
       form: "",
     });
+  };
+
+  const blockPasswordPaste = (e) => {
+    e.preventDefault();
+  };
+
+  const blockPasswordPasteShortcuts = (e) => {
+    const key = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && key === "v") {
+      e.preventDefault();
+      return;
+    }
+    if (e.shiftKey && e.key === "Insert") {
+      e.preventDefault();
+    }
   };
 
   const handleChangePassword = async () => {
@@ -276,11 +292,6 @@ export function DashboardLayout() {
       setIsChangingPassword(true);
       await apiService.changePassword(currentPassword, newPassword);
       await logout();
-      notificationService.toast({
-        title: "Password Updated",
-        message: "Session ended. Please sign in with your new password.",
-        type: "info",
-      });
       navigate("/login");
     } catch (error) {
       const message =
@@ -555,7 +566,7 @@ export function DashboardLayout() {
 
         {/* Main Content (scrollable area) */}
         <main className="flex-1 ml-0  overflow-y-auto p-6 lg:p-8 bg-background">
-          <Outlet />
+          <RoutedContent />
         </main>
       </div>
 
@@ -578,13 +589,31 @@ export function DashboardLayout() {
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
           </DialogHeader>
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value={user?.email || ""}
+            readOnly
+            tabIndex={-1}
+            aria-hidden="true"
+            className="hidden"
+          />
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Current Password</Label>
               <div className="relative">
                 <Input
                   id="currentPassword"
+                  name="current-password-manual"
                   type={showPasswords.currentPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  readOnly={!allowCurrentPasswordInput}
+                  onFocus={() => setAllowCurrentPasswordInput(true)}
+                  onPointerDown={() => setAllowCurrentPasswordInput(true)}
+                  onPaste={blockPasswordPaste}
+                  onKeyDown={blockPasswordPasteShortcuts}
+                  onDrop={(e) => e.preventDefault()}
                   value={passwordForm.currentPassword}
                   onChange={(e) => {
                     setPasswordForm((prev) => ({
@@ -632,7 +661,12 @@ export function DashboardLayout() {
               <div className="relative">
                 <Input
                   id="newPassword"
+                  name="newPassword"
                   type={showPasswords.newPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  onPaste={blockPasswordPaste}
+                  onKeyDown={blockPasswordPasteShortcuts}
+                  onDrop={(e) => e.preventDefault()}
                   value={passwordForm.newPassword}
                   onChange={(e) => {
                     setPasswordForm((prev) => ({
@@ -680,7 +714,12 @@ export function DashboardLayout() {
               <div className="relative">
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type={showPasswords.confirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  onPaste={blockPasswordPaste}
+                  onKeyDown={blockPasswordPasteShortcuts}
+                  onDrop={(e) => e.preventDefault()}
                   value={passwordForm.confirmPassword}
                   onChange={(e) => {
                     setPasswordForm((prev) => ({

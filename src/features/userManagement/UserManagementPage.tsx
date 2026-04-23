@@ -68,6 +68,7 @@ export function UserManagementPage() {
   const submittedIndicatorsLoadedRef = useRef<string>("");
   const lastRefreshTimeRef = useRef<number>(0);
   const refreshDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchInputManualEditRef = useRef(false);
 
   // Minimum time between refreshes (2 seconds)
   const MIN_REFRESH_INTERVAL = 2000;
@@ -1320,15 +1321,40 @@ export function UserManagementPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
+            name="user-search-filter"
+            autoComplete="new-password"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder={
               user?.role === "STATE_APPROVER"
                 ? "Search by name or email"
                 : "Search by name, email or state name..."
             }
             value={searchTerm}
+            onKeyDown={() => {
+              searchInputManualEditRef.current = true;
+            }}
+            onPaste={() => {
+              searchInputManualEditRef.current = true;
+            }}
+            onPointerDown={() => {
+              searchInputManualEditRef.current = true;
+            }}
+            onBlur={() => {
+              searchInputManualEditRef.current = false;
+            }}
             onChange={(e) => {
+              // Only accept user-initiated edits; ignore browser/password-manager autofill
+              // that can happen when opening/closing unrelated password dialogs.
+              if (
+                !searchInputManualEditRef.current ||
+                document.activeElement !== e.currentTarget
+              ) {
+                return;
+              }
               setSearchTerm(e.target.value);
               setCurrentPage(1); // Reset to first page when searching
+              searchInputManualEditRef.current = false;
             }}
             className="pl-10"
           />
