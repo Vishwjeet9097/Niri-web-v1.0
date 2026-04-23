@@ -695,15 +695,19 @@ export function UserManagementPage() {
           updatePayload.password = String(officerData.password).trim();
         }
 
-        // Only include stateUt if the role requires it (set to empty string for MOSPI_APPROVER and ADMIN to clear state)
+        // stateUt: region-scoped roles use form; MOSPI_APPROVER may have a state when set by Admin
         if (
           officerData.role !== "MOSPI_APPROVER" &&
           officerData.role !== "ADMIN"
         ) {
           updatePayload.stateUt = officerData.stateUt || "";
+        } else if (
+          officerData.role === "MOSPI_APPROVER" &&
+          user?.role === "ADMIN" &&
+          String(officerData.stateUt || "").trim()
+        ) {
+          updatePayload.stateUt = String(officerData.stateUt).trim();
         } else {
-          // Explicitly set to empty string for MOSPI_APPROVER and ADMIN to clear state in backend
-          // (Backend has NOT NULL constraint, so we use empty string instead of null)
           updatePayload.stateUt = "";
         }
 
@@ -1354,6 +1358,7 @@ export function UserManagementPage() {
         <UserForm
           officer={editingOfficer}
           hidePasswordField={isMyProfileMode}
+          disableRoleSelect={isMyProfileMode}
           onSave={handleSaveUser}
           onCancel={handleCancel}
           allIndicators={allIndicators}

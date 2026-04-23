@@ -65,6 +65,8 @@ interface UserFormProps {
   stateApproverHasSubmission?: boolean;
   submittedIndicatorsInState?: string[];
   hidePasswordField?: boolean;
+  /** When true (e.g. "My Profile"), role cannot be changed */
+  disableRoleSelect?: boolean;
 }
 
 function UserFormComponent({
@@ -77,6 +79,7 @@ function UserFormComponent({
   stateApproverHasSubmission = false,
   submittedIndicatorsInState = [],
   hidePasswordField = false,
+  disableRoleSelect = false,
 }: UserFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1607,18 +1610,27 @@ function UserFormComponent({
     // Indicator assignment is optional for NODAL_OFFICER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
-    // ✅ State validation - ADMIN and MOSPI_APPROVER roles don't require state
+    // State: MOSPI_REVIEWER = multiple; MOSPI_APPROVER = single when an admin (or MoSPI
+    // approver) creates the user; other non-central roles = single. Target ADMIN = none.
     if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
       if (formData.role === "MOSPI_REVIEWER") {
-        // Validate multiple states for MOSPI_REVIEWER
         if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
           newErrors.stateId = "Please select at least one state";
+        }
+      } else if (
+        formData.role === "MOSPI_APPROVER" &&
+        (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER")
+      ) {
+        if (
+          !formData.stateId ||
+          (Array.isArray(formData.stateId) && formData.stateId.length === 0)
+        ) {
+          newErrors.stateId = "State is required";
         }
       } else if (
         formData.role !== "MOSPI_APPROVER" &&
         formData.role !== "ADMIN"
       ) {
-        // Validate single state for other roles (excluding MOSPI_APPROVER and ADMIN)
         if (
           !formData.stateId ||
           (Array.isArray(formData.stateId) && formData.stateId.length === 0)
@@ -2547,7 +2559,9 @@ function UserFormComponent({
             return (
               <Select
                 value={currentRole}
-                disabled={user?.role === "STATE_APPROVER"}
+                disabled={
+                  user?.role === "STATE_APPROVER" || disableRoleSelect
+                }
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
@@ -2585,8 +2599,10 @@ function UserFormComponent({
         </div>
 
         <div className="space-y-2">
-          {formData?.role !== "MOSPI_APPROVER" &&
-            formData?.role !== "ADMIN" && (
+          {((formData?.role !== "MOSPI_APPROVER" &&
+            formData?.role !== "ADMIN") ||
+            (formData?.role === "MOSPI_APPROVER" &&
+              (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER"))) && (
               <>
                 <Label htmlFor="stateId" className="flex items-center gap-2">
                   State/UT
@@ -2735,8 +2751,11 @@ function UserFormComponent({
                   Clear
                 </Button>
               </div>
-            ) : formData.role !== "MOSPI_APPROVER" &&
-              formData.role !== "ADMIN" ? (
+            ) : (formData.role === "MOSPI_APPROVER" &&
+                (user?.role === "ADMIN" ||
+                  user?.role === "MOSPI_APPROVER")) ||
+              (formData.role !== "MOSPI_APPROVER" &&
+                formData.role !== "ADMIN") ? (
               <Select
                 value={
                   typeof formData.stateId === "string"
