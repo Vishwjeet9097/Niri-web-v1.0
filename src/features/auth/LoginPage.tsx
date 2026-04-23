@@ -494,10 +494,8 @@ export function LoginPage() {
                     (For Official Use Only Nodal Officer, State Reviewers, Ministry of Statistics and Programme Implementation (MoSPI) Reviewer & Approver)
                   </p>
                   <p className="mb-2">
-                    By continuing, you agree to our{" "}
-                    <a href="#" className="text-blue-600 hover:underline">Terms of Services</a>{" "}
-                    &{" "}
-                    <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
+                    By continuing, you agree to our Terms of Services & Privacy
+                    Policy
                   </p>
                   {/* <p className="text-xs">
                     Powered by National Informatics Centre
