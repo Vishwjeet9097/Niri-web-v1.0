@@ -553,16 +553,19 @@ class ApiService implements HttpClient {
 
   async changePassword(
     currentPassword: string,
-    newPassword: string
+    newPassword: string,
+    confirmNewPassword: string
   ): Promise<{ message: string }> {
     try {
       const encrypted = await this.buildEncryptedPasswordBundle([
         currentPassword,
         newPassword,
+        confirmNewPassword,
       ]);
       const response = await this.axios.post("/auth/change-password", {
         encryptedCurrentPassword: encrypted.encryptedPasswords[0],
         encryptedNewPassword: encrypted.encryptedPasswords[1],
+        encryptedConfirmNewPassword: encrypted.encryptedPasswords[2],
         keyId: encrypted.keyId,
         nonce: encrypted.nonce,
         timestamp: encrypted.timestamp,

@@ -168,7 +168,11 @@ export function DashboardLayout() {
         form: "",
       });
       setIsChangingPassword(true);
-      await apiService.changePassword(currentPassword, newPassword);
+      await apiService.changePassword(
+        currentPassword,
+        newPassword,
+        confirmPassword
+      );
       await logout();
       navigate("/login");
     } catch (error: any) {
