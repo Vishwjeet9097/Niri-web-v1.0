@@ -96,6 +96,27 @@ interface CreditRatedUlbParseResult {
 }
 
 /**
+ * S.No. / Sl No / Sr No etc. (template-only, not in UI). This column must never
+ * be used to resolve ULB, date, or rating, or short substrings in its header
+ * (e.g. "date" inside "S.No" matching logic) can break parsing.
+ */
+function isExcelSerialNoColumnHeader(h: string): boolean {
+  const t = h.trim().toLowerCase();
+  if (!t) return false;
+  const compact = t.replace(/[^a-z0-9]/g, "");
+  if (compact === "sno" || compact === "slno" || compact === "srno")
+    return true;
+  if (
+    compact === "serial" ||
+    compact === "serno" ||
+    compact.startsWith("serialno")
+  )
+    return true;
+  if (t === "#" || /^#\.?\s*no\.?$/.test(t)) return true;
+  return false;
+}
+
+/**
  * Parse Excel for Indicator 1.3 — columns only (no evidence file in sheet).
  * Required headers: identify ULB via "ULB ID" or "ULB Name" (+ optional "City Name"), plus rating date and rating.
  */
@@ -111,6 +132,15 @@ export function parseCreditRatedULBsExcel(
         const data = e.target?.result;
         if (!data) {
           resolve({ success: false, error: "Failed to read file" });
+          return;
+        }
+
+        if (!ulbOptions || ulbOptions.length === 0) {
+          resolve({
+            success: false,
+            error:
+              "The ULB master list is not loaded for your state. Wait for the page to finish loading (or refresh), then try the upload again.",
+          });
           return;
         }
 
@@ -136,27 +166,71 @@ export function parseCreditRatedULBsExcel(
           return;
         }
 
-        const headerRow = jsonData[0].map((h: any) =>
+        const findHeaderRowIndex = (rows: any[][]): number => {
+          const max = Math.min(rows.length, 10);
+          for (let r = 0; r < max; r++) {
+            const row = rows[r];
+            if (!Array.isArray(row)) continue;
+            const cells = row.map((c) =>
+              String(c ?? "")
+                .trim()
+                .toLowerCase()
+            );
+            const hasUlbName = cells.some(
+              (c) =>
+                c === "ulb" ||
+                c === "ulb name" ||
+                c.includes("ulb name") ||
+                c.includes("name of ulb")
+            );
+            const hasRatingCol = cells.some(
+              (c) =>
+                c.includes("select rating") ||
+                c === "rating" ||
+                (c.includes("rating") && c.includes("credit"))
+            );
+            if (hasUlbName && hasRatingCol) return r;
+          }
+          return 0;
+        };
+
+        const headerRowIndex = findHeaderRowIndex(jsonData);
+        const dataStartIndex = headerRowIndex + 1;
+        if (dataStartIndex >= jsonData.length) {
+          resolve({
+            success: false,
+            error: "Add at least one data row under the column headers",
+          });
+          return;
+        }
+
+        const headerRow = jsonData[headerRowIndex].map((h: any) =>
           String(h || "")
             .trim()
             .toLowerCase()
         );
 
+        const snoIndex = headerRow.findIndex((h) =>
+          isExcelSerialNoColumnHeader(h)
+        );
+        const isNotSno = (i: number) => snoIndex < 0 || i !== snoIndex;
+
         const findColumnIndex = (possibleNames: string[]): number => {
           for (const name of possibleNames) {
-            const index = headerRow.findIndex((h: string) =>
-              h.includes(name.toLowerCase())
+            const index = headerRow.findIndex(
+              (h: string, i) => isNotSno(i) && h.includes(name.toLowerCase())
             );
             if (index !== -1) return index;
           }
           return -1;
         };
 
+        // Do not use a bare "id" match: it can bind to the wrong column (e.g. headers
+        // containing the letters "id" as a substring).
         const ulbIdIndex = findColumnIndex([
           "ulb id",
           "ulb_id",
           "ulbid",
-          "id",
         ]);
         const ulbNameIndex = findColumnIndex([
           "ulb name",
@@ -174,11 +248,33 @@ export function parseCreditRatedULBsExcel(
           "rating date",
           "date",
         ]);
-        const ratingIndex = findColumnIndex([
-          "select rating",
-          "rating",
-          "credit rating",
-        ]);
+        // A bare "rating" / "credit rating" find matches "Credit Rating Date" first; that must
+        // be the date column, not the grade. Prefer "Select Rating", then any "rating" column
+        // whose header is not a date field, else any other "rating" column.
+        let ratingIndex = findColumnIndex(["select rating"]);
+        if (ratingIndex === -1) {
+          ratingIndex = headerRow.findIndex(
+            (h, i) =>
+              isNotSno(i) &&
+              h.includes("rating") &&
+              !h.includes("date")
+          );
+        }
+        if (ratingIndex === -1 && ratingDateIndex !== -1) {
+          ratingIndex = headerRow.findIndex(
+            (h, i) =>
+              isNotSno(i) &&
+              i !== ratingDateIndex &&
+              h.includes("rating")
+          );
+        }
+        if (ratingIndex !== -1 && ratingIndex === ratingDateIndex) {
+          const alt = headerRow.findIndex(
+            (h, i) =>
+              isNotSno(i) && i !== ratingDateIndex && h.includes("rating")
+          );
+          if (alt !== -1) ratingIndex = alt;
+        }
 
         const missingColumns: string[] = [];
         if (ulbIdIndex === -1 && ulbNameIndex === -1) {
@@ -289,7 +385,7 @@ export function parseCreditRatedULBsExcel(
         const entries: CreditRatedUlbParsedRow[] = [];
         const warnings: string[] = [];
 
-        for (let i = 1; i < jsonData.length; i++) {
+        for (let i = dataStartIndex; i < jsonData.length; i++) {
           const row = jsonData[i];
           if (!Array.isArray(row)) continue;
 
@@ -360,9 +456,41 @@ export function parseCreditRatedULBsExcel(
         }
 
         if (entries.length === 0) {
+          const hasAnyCellInDataRows = jsonData
+            .slice(dataStartIndex)
+            .some(
+              (row) =>
+                Array.isArray(row) &&
+                row.some((c) => String(c ?? "").trim() !== "")
+            );
+          const hasNonSnoData = jsonData
+            .slice(dataStartIndex)
+            .some((row) => {
+              if (!Array.isArray(row)) return false;
+              return row.some((c, colIdx) => {
+                if (snoIndex >= 0 && colIdx === snoIndex) return false;
+                return String(c ?? "").trim() !== "";
+              });
+            });
+
+          let detail: string;
+          if (!hasAnyCellInDataRows) {
+            detail =
+              "All rows under the header are empty. Add at least one data row: ULB Name, Credit Rating Date, and Select Rating, using names from the portal (same as the on-screen list). S.No. is optional in Excel and is not imported—only the other columns are used.";
+          } else if (!hasNonSnoData) {
+            detail =
+              "Only the S.No. column has values. Enter ULB Name, date, and rating in each data row. S.No. is ignored on import; it is not sent to the server.";
+          } else {
+            const hint =
+              "Use ULB names (or valid ULB IDs) from the portal master list, valid dates, and allowed ratings (e.g. AA+, BBB).";
+            detail =
+              warnings.length > 0
+                ? warnings.slice(0, 6).join(" ") + (warnings.length > 6 ? " …" : "")
+                : hint;
+          }
           resolve({
             success: false,
-            error: "No valid data rows found in Excel file",
+            error: `No valid data rows. ${detail}`,
             warnings,
           });
           return;
@@ -392,29 +520,16 @@ export function parseCreditRatedULBsExcel(
 export function generateCreditRatedULBsTemplate(): void {
   const headers = [
     "S.No.",
-    "ULB ID",
     "ULB Name",
     "City Name",
     "Credit Rating Date",
     "Select Rating",
   ];
+  // Empty example rows: sample placeholder names never match the state ULB list and
+  // make uploads look "broken" if the user re-uploads the template as-is.
   const exampleData = [
-    [
-      "1",
-      "Replace with ULB ID from master list",
-      "Example Municipal Corporation",
-      "Example City",
-      "2024-06-15",
-      "AA+",
-    ],
-    [
-      "2",
-      "",
-      "Match by name if ID left blank",
-      "City must match if multiple same name",
-      "15-06-2024",
-      "BBB",
-    ],
+    ["", "", "", "", ""],
+    ["", "", "", "", ""],
   ];
 
   const worksheet = XLSX.utils.aoa_to_sheet([headers, ...exampleData]);
@@ -428,7 +543,7 @@ export function generateCreditRatedULBsTemplate(): void {
     left: thinBorder,
     right: thinBorder,
   };
-  const cols = ["A", "B", "C", "D", "E", "F"];
+  const cols = ["A", "B", "C", "D", "E"];
   const numRows = 1 + exampleData.length;
 
   for (let r = 1; r <= numRows; r++) {
@@ -444,7 +559,7 @@ export function generateCreditRatedULBsTemplate(): void {
     }
   }
 
-  worksheet["!cols"] = [8, 16, 28, 16, 22, 14].map((wch) => ({ wch }));
+  worksheet["!cols"] = [8, 32, 16, 22, 14].map((wch) => ({ wch }));
 
   XLSX.writeFile(workbook, "Credit_Rated_ULBs_1.3_Template.xlsx");
 }
