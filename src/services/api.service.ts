@@ -3127,32 +3127,10 @@ class ApiService implements HttpClient {
 
   async updateUser(
     id: string,
-    userData: Partial<NiriUser> & { password?: string }
+    userData: Partial<NiriUser>
   ): Promise<NiriUser> {
     try {
-      let payload: Partial<NiriUser> & {
-        password?: string;
-        encryptedPassword?: string;
-        keyId?: string;
-        nonce?: string;
-        timestamp?: number;
-      } = { ...userData };
-
-      if (userData.password && String(userData.password).trim()) {
-        const encrypted = await this.buildEncryptedPasswordPayload(
-          String(userData.password).trim()
-        );
-        delete payload.password;
-        payload = {
-          ...payload,
-          encryptedPassword: encrypted.encryptedPassword,
-          keyId: encrypted.keyId,
-          nonce: encrypted.nonce,
-          timestamp: encrypted.timestamp,
-        };
-      }
-
-      const response = await this.axios.post(`/users/${id}/update`, payload);
+      const response = await this.axios.post(`/users/${id}/update`, userData);
       console.log(
         "🔍 API Service - Update User Response Status:",
         response.status
@@ -3172,6 +3150,36 @@ class ApiService implements HttpClient {
       // Handle 304 as success
       if (error.response?.status === 304) {
         console.log("📋 Update User 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
+  }
+
+  async updateUserPassword(
+    id: string,
+    newPassword: string,
+    confirmNewPassword: string
+  ): Promise<{ message: string }> {
+    try {
+      const encrypted = await this.buildEncryptedPasswordBundle([
+        newPassword,
+        confirmNewPassword,
+      ]);
+      const response = await this.axios.post(`/users/${id}/update-password`, {
+        encryptedNewPassword: encrypted.encryptedPasswords[0],
+        encryptedConfirmNewPassword: encrypted.encryptedPasswords[1],
+        keyId: encrypted.keyId,
+        nonce: encrypted.nonce,
+        timestamp: encrypted.timestamp,
+      });
+
+      const updatePasswordData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      return updatePasswordData;
+    } catch (error: any) {
+      if (error.response?.status === 304) {
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }

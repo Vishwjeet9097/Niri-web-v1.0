@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Users, Search, Filter, Loader2 } from "lucide-react";
+import { Plus, Users, Search, Filter, Loader2, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +67,9 @@ export function UserManagementPage() {
   const [confirmUserPassword, setConfirmUserPassword] = useState("");
   const [passwordModalError, setPasswordModalError] = useState("");
   const [updatingUserPassword, setUpdatingUserPassword] = useState(false);
+  const [showTargetNewPassword, setShowTargetNewPassword] = useState(false);
+  const [showTargetConfirmPassword, setShowTargetConfirmPassword] =
+    useState(false);
   const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<
     string[]
   >([]);
@@ -418,7 +421,11 @@ export function UserManagementPage() {
     try {
       setUpdatingUserPassword(true);
       setPasswordModalError("");
-      await apiService.updateUser(passwordTargetOfficer.id, { password });
+      await apiService.updateUserPassword(
+        passwordTargetOfficer.id,
+        password,
+        confirmPassword
+      );
       notificationService.success(
         `Password updated for ${passwordTargetOfficer.firstName} ${passwordTargetOfficer.lastName}.`,
         "Password Updated"
@@ -688,12 +695,6 @@ export function UserManagementPage() {
             | "ADMIN",
           indicatorCodes: officerData.assignedIndicators || [],
         };
-
-        // Optional password update during edit.
-        // Only send when a new password is explicitly entered.
-        if (officerData.password && String(officerData.password).trim()) {
-          updatePayload.password = String(officerData.password).trim();
-        }
 
         // stateUt: region-scoped roles use form; MOSPI_APPROVER may have a state when set by Admin
         if (
@@ -1663,6 +1664,8 @@ export function UserManagementPage() {
             setNewUserPassword("");
             setConfirmUserPassword("");
             setPasswordModalError("");
+            setShowTargetNewPassword(false);
+            setShowTargetConfirmPassword(false);
           }
         }}
       >
@@ -1678,29 +1681,65 @@ export function UserManagementPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="targetNewPassword">New Password</Label>
-              <Input
-                id="targetNewPassword"
-                type="password"
-                autoComplete="new-password"
-                value={newUserPassword}
-                onChange={(e) => {
-                  setNewUserPassword(e.target.value);
-                  setPasswordModalError("");
-                }}
-              />
+              <div className="relative">
+                <Input
+                  id="targetNewPassword"
+                  type={showTargetNewPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={newUserPassword}
+                  onChange={(e) => {
+                    setNewUserPassword(e.target.value);
+                    setPasswordModalError("");
+                  }}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTargetNewPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  aria-label={
+                    showTargetNewPassword ? "Hide new password" : "Show new password"
+                  }
+                >
+                  {showTargetNewPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="targetConfirmPassword">Confirm New Password</Label>
-              <Input
-                id="targetConfirmPassword"
-                type="password"
-                autoComplete="new-password"
-                value={confirmUserPassword}
-                onChange={(e) => {
-                  setConfirmUserPassword(e.target.value);
-                  setPasswordModalError("");
-                }}
-              />
+              <div className="relative">
+                <Input
+                  id="targetConfirmPassword"
+                  type={showTargetConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={confirmUserPassword}
+                  onChange={(e) => {
+                    setConfirmUserPassword(e.target.value);
+                    setPasswordModalError("");
+                  }}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTargetConfirmPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  aria-label={
+                    showTargetConfirmPassword
+                      ? "Hide confirm new password"
+                      : "Show confirm new password"
+                  }
+                >
+                  {showTargetConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             {passwordModalError && (
               <p className="text-sm text-destructive">{passwordModalError}</p>
