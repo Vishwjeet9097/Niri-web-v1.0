@@ -87,34 +87,20 @@ export const UserService = {
   }> {
     try {
       console.log("🔐 Attempting login for:", email);
-      let payload: Record<string, unknown> = {
-        email,
+      const key = await this.fetchLoginEncryptionKey();
+      const encryptedPassword = await this.encryptLoginPassword(
         password,
+        key.publicKey
+      );
+      const payload: Record<string, unknown> = {
+        email,
+        encryptedPassword,
+        keyId: key.keyId,
+        nonce: crypto.randomUUID(),
+        timestamp: Date.now(),
         captchaId: captcha.captchaId,
         captchaAnswer: captcha.captchaAnswer,
       };
-
-      try {
-        const key = await this.fetchLoginEncryptionKey();
-        const encryptedPassword = await this.encryptLoginPassword(
-          password,
-          key.publicKey
-        );
-        payload = {
-          email,
-          encryptedPassword,
-          keyId: key.keyId,
-          nonce: crypto.randomUUID(),
-          timestamp: Date.now(),
-          captchaId: captcha.captchaId,
-          captchaAnswer: captcha.captchaAnswer,
-        };
-      } catch (encError) {
-        console.warn(
-          "Login encryption key unavailable; using protected TLS fallback.",
-          encError
-        );
-      }
 
       const res: AxiosResponse<LoginApiResponse> =
         await apiV2.post<LoginApiResponse>(config.loginPath, payload);

@@ -445,9 +445,13 @@ class ApiService implements HttpClient {
     password: string
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
+      const encrypted = await this.buildEncryptedPasswordPayload(password);
       const response = await this.axios.post("/auth/login", {
         email,
-        password,
+        encryptedPassword: encrypted.encryptedPassword,
+        keyId: encrypted.keyId,
+        nonce: encrypted.nonce,
+        timestamp: encrypted.timestamp,
       });
       console.log("🔍 API Service - Login Response Status:", response.status);
       console.log("🔍 API Service - Login Response Data:", response.data);

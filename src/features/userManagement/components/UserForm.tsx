@@ -1610,22 +1610,11 @@ function UserFormComponent({
     // Indicator assignment is optional for NODAL_OFFICER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
-    // State: MOSPI_REVIEWER = multiple; MOSPI_APPROVER = single when an admin (or MoSPI
-    // approver) creates the user; other non-central roles = single. Target ADMIN = none.
+    // State: MOSPI_REVIEWER = multiple; MOSPI_APPROVER/ADMIN = none; other roles = single.
     if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
       if (formData.role === "MOSPI_REVIEWER") {
         if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
           newErrors.stateId = "Please select at least one state";
-        }
-      } else if (
-        formData.role === "MOSPI_APPROVER" &&
-        (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER")
-      ) {
-        if (
-          !formData.stateId ||
-          (Array.isArray(formData.stateId) && formData.stateId.length === 0)
-        ) {
-          newErrors.stateId = "State is required";
         }
       } else if (
         formData.role !== "MOSPI_APPROVER" &&
@@ -1648,7 +1637,9 @@ function UserFormComponent({
     if (!validate()) return;
 
     const normalizedStateId =
-      formData.role === "MOSPI_REVIEWER"
+      formData.role === "MOSPI_APPROVER" || formData.role === "ADMIN"
+        ? []
+        : formData.role === "MOSPI_REVIEWER"
         ? Array.isArray(formData.stateId)
           ? formData.stateId.filter(Boolean)
           : formData.stateId
@@ -1825,7 +1816,9 @@ function UserFormComponent({
     }
 
     const normalizedStateId =
-      formData.role === "MOSPI_REVIEWER"
+      formData.role === "MOSPI_APPROVER" || formData.role === "ADMIN"
+        ? []
+        : formData.role === "MOSPI_REVIEWER"
         ? Array.isArray(formData.stateId)
           ? formData.stateId.filter(Boolean)
           : formData.stateId
@@ -2599,10 +2592,8 @@ function UserFormComponent({
         </div>
 
         <div className="space-y-2">
-          {((formData?.role !== "MOSPI_APPROVER" &&
-            formData?.role !== "ADMIN") ||
-            (formData?.role === "MOSPI_APPROVER" &&
-              (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER"))) && (
+          {formData?.role !== "MOSPI_APPROVER" &&
+            formData?.role !== "ADMIN" && (
               <>
                 <Label htmlFor="stateId" className="flex items-center gap-2">
                   State/UT
@@ -2689,7 +2680,9 @@ function UserFormComponent({
             />
           )} */}
 
-          {user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
+          {formData.role !== "MOSPI_APPROVER" &&
+          formData.role !== "ADMIN" &&
+          (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") ? (
             formData.role === "MOSPI_REVIEWER" ? (
               <div
                 style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
@@ -2829,7 +2822,8 @@ function UserFormComponent({
                 </SelectContent>
               </Select>
             ) : null
-          ) : (
+          ) : formData.role !== "MOSPI_APPROVER" &&
+            formData.role !== "ADMIN" ? (
             <Input
               id="stateId"
               value={user?.state || "Loading..."}
@@ -2837,7 +2831,8 @@ function UserFormComponent({
               className="bg-muted"
               placeholder="Your current state"
             />
-          )}
+          ) : null
+          }
 
           {formData?.role !== "ADMIN" &&
             formData?.role !== "MOSPI_APPROVER" && (
