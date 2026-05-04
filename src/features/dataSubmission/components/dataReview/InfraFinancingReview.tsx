@@ -54,6 +54,7 @@ import {
   isSubmissionFromNodalOfficer,
   isIndicatorFromNodalOfficer,
 } from "@/utils/indicatorStatusUtils";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import { notificationService } from "@/services/notification.service";
 
 import { Section_1_3 } from "./Sections/Section_1_3";
@@ -553,7 +554,10 @@ export const InfraFinancingReview = ({
   }>(formData?.section1_5 || { ffiArray: [] });
 
   // Validation error state - using centralized hooks
-  const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  const {
+    assignedIndicators: hookAssignedIndicators,
+    availableIndicators: hookAvailableIndicators,
+  } = useIndicatorAccess();
 
   // State for edit functionality indicator wise - moved here to be available before useMemo
   const { setEditable, isEditable, clearAllEditing } =
@@ -6056,17 +6060,48 @@ export const InfraFinancingReview = ({
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData(
-            { infraFinancing: formData },
-            "infraFinancing"
-          );
-          const assignedIndicators = STEP_SECTIONS.infraFinancing
-            .filter((s) => sections.includes(s.sectionKey))
-            .map((s) => s.indicator);
+          const userRole = getUserRole();
+          const effectiveIsNodal =
+            isNodalOfficer || userRole === "NODAL_OFFICER";
+          const rawFull = submission?.formData;
+          const persistedFull: Record<string, unknown> =
+            typeof rawFull === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(rawFull) as Record<string, unknown>;
+                  } catch {
+                    return {};
+                  }
+                })()
+              : ((rawFull || {}) as Record<string, unknown>);
+          const effectiveAssigned =
+            assignedIndicators.length > 0
+              ? assignedIndicators
+              : hookAssignedIndicators.length > 0
+                ? hookAssignedIndicators
+                : [];
+          const visibleForState =
+            userRole === "STATE_APPROVER"
+              ? [
+                  ...new Set([
+                    ...(hookAvailableIndicators || []),
+                    ...getSubmittedIndicatorCodesFromFormData(persistedFull),
+                  ]),
+                ]
+              : null;
           const { completed, total, progress } = computeStepProgress(
             { infraFinancing: formData } as any,
             "infraFinancing",
-            { assignedIndicators }
+            {
+              assignedIndicators: effectiveAssigned,
+              availableIndicators:
+                userRole === "STATE_APPROVER" && visibleForState
+                  ? visibleForState
+                  : hookAvailableIndicators,
+              isNodalOfficer: effectiveIsNodal,
+              isStateApprover: userRole === "STATE_APPROVER",
+              countCompletedByStatus: true,
+            }
           );
           return (
             <ProgressHeader

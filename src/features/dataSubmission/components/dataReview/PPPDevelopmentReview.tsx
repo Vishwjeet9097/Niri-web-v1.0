@@ -74,6 +74,7 @@ import {
   isSubmissionFromNodalOfficer,
   isIndicatorFromNodalOfficer,
 } from "@/utils/indicatorStatusUtils";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import { useFieldValidation } from "@/features/submission/hooks/useFieldValidation";
 import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
 import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
@@ -196,7 +197,10 @@ export const PPPDevelopmentReview = ({
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
-  const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  const {
+    assignedIndicators: hookAssignedIndicators,
+    availableIndicators: hookAvailableIndicators,
+  } = useIndicatorAccess();
 
   // State for edit functionality indicator wise - moved here to be available before useMemo
   const { setEditable, isEditable, clearAllEditing } =
@@ -4463,17 +4467,49 @@ export const PPPDevelopmentReview = ({
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData(
-            { pppDevelopment: formData },
-            "pppDevelopment"
-          );
-          const assignedIndicators = STEP_SECTIONS.pppDevelopment
-            .filter((s) => sections.includes(s.sectionKey))
-            .map((s) => s.indicator);
+          const userRole = getUserRole();
+          const effectiveIsNodal =
+            isNodalOfficer || userRole === "NODAL_OFFICER";
+          const rawFull = submission?.formData;
+          const persistedFull: Record<string, unknown> =
+            typeof rawFull === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(rawFull) as Record<string, unknown>;
+                  } catch {
+                    return {};
+                  }
+                })()
+              : ((rawFull || {}) as Record<string, unknown>);
+          const effectiveAssigned =
+            assignedIndicators.length > 0
+              ? assignedIndicators
+              : hookAssignedIndicators.length > 0
+                ? hookAssignedIndicators
+                : [];
+          const visibleForState =
+            userRole === "STATE_APPROVER"
+              ? [
+                  ...new Set([
+                    ...(hookAvailableIndicators || []),
+                    ...getSubmittedIndicatorCodesFromFormData(persistedFull),
+                  ]),
+                ]
+              : null;
+          const stepPayload = fullFormDataForValidation || {};
           const { completed, total, progress } = computeStepProgress(
-            { pppDevelopment: formData } as any,
+            { pppDevelopment: stepPayload } as any,
             "pppDevelopment",
-            { assignedIndicators }
+            {
+              assignedIndicators: effectiveAssigned,
+              availableIndicators:
+                userRole === "STATE_APPROVER" && visibleForState
+                  ? visibleForState
+                  : hookAvailableIndicators,
+              isNodalOfficer: effectiveIsNodal,
+              isStateApprover: userRole === "STATE_APPROVER",
+              countCompletedByStatus: true,
+            }
           );
           return (
             <ProgressHeader

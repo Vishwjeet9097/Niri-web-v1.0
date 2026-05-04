@@ -83,6 +83,7 @@ import {
   isSubmissionFromNodalOfficer,
   isIndicatorFromNodalOfficer,
 } from "@/utils/indicatorStatusUtils";
+import { getSubmittedIndicatorCodesFromFormData } from "@/utils/indicatorUtils";
 import {
   IMPACT_OPTIONS,
   TRAINING_TYPE_OPTIONS,
@@ -252,7 +253,10 @@ export const InfraEnablersReview = ({
   const [formDataState, setFormDataState] = useState(() =>
     normalizeFormData(formData)
   );
-  const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  const {
+    assignedIndicators: hookAssignedIndicators,
+    availableIndicators: hookAvailableIndicators,
+  } = useIndicatorAccess();
 
   // State for edit functionality indicator wise - moved here to be available before useMemo
   const { setEditable, isEditable, clearAllEditing } =
@@ -4472,17 +4476,48 @@ export const InfraEnablersReview = ({
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData(
-            { infraEnablers: state },
-            "infraEnablers"
-          );
-          const assignedIndicators = STEP_SECTIONS.infraEnablers
-            .filter((s) => sections.includes(s.sectionKey))
-            .map((s) => s.indicator);
+          const userRole = getUserRole();
+          const effectiveIsNodal =
+            isNodalOfficer || userRole === "NODAL_OFFICER";
+          const rawFull = submission?.formData;
+          const persistedFull: Record<string, unknown> =
+            typeof rawFull === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(rawFull) as Record<string, unknown>;
+                  } catch {
+                    return {};
+                  }
+                })()
+              : ((rawFull || {}) as Record<string, unknown>);
+          const effectiveAssigned =
+            assignedIndicators.length > 0
+              ? assignedIndicators
+              : hookAssignedIndicators.length > 0
+                ? hookAssignedIndicators
+                : [];
+          const visibleForState =
+            userRole === "STATE_APPROVER"
+              ? [
+                  ...new Set([
+                    ...(hookAvailableIndicators || []),
+                    ...getSubmittedIndicatorCodesFromFormData(persistedFull),
+                  ]),
+                ]
+              : null;
           const { completed, total, progress } = computeStepProgress(
             { infraEnablers: state } as any,
             "infraEnablers",
-            { assignedIndicators }
+            {
+              assignedIndicators: effectiveAssigned,
+              availableIndicators:
+                userRole === "STATE_APPROVER" && visibleForState
+                  ? visibleForState
+                  : hookAvailableIndicators,
+              isNodalOfficer: effectiveIsNodal,
+              isStateApprover: userRole === "STATE_APPROVER",
+              countCompletedByStatus: true,
+            }
           );
           return (
             <ProgressHeader

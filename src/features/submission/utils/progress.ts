@@ -451,9 +451,11 @@ export function isSectionFilled(
   return hasMeaningfulValue(data);
 }
 
-/** Statuses that count as "completed" for the progress bar (submitted or accepted) */
+/** Statuses that count as "completed" for the progress bar (submitted onward, incl. MoSPI pipeline) */
 const COMPLETED_STATUSES = new Set([
   "SUBMITTED_TO_STATE",
+  "SUBMITTED_TO_MOSPI_REVIEWER",
+  "SUBMITTED_TO_MOSPI_APPROVER",
   "RESUBMITTED",
   "ACCEPTED",
   "APPROVED",

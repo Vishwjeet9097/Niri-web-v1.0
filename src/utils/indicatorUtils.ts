@@ -69,6 +69,8 @@ export function getSectionByIndicator(
 /** Section-level statuses that mean the indicator has been submitted (used to keep it visible but non-editable for State Approver) */
 const SUBMITTED_SECTION_STATUSES = [
   "SUBMITTED_TO_STATE",
+  "SUBMITTED_TO_MOSPI_REVIEWER",
+  "SUBMITTED_TO_MOSPI_APPROVER",
   "RESUBMITTED",
   "ACCEPTED",
   "APPROVED",
