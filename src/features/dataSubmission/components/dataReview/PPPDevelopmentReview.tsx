@@ -5114,7 +5114,10 @@ export const PPPDevelopmentReview = ({
                   <table className="min-w-full border-separate border-spacing-0 ">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                          S.No.
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
                           Project Name
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5158,7 +5161,7 @@ export const PPPDevelopmentReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("3.3") ? 8 : 7}
+                                colSpan={shouldBeEditable("3.3") ? 9 : 8}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No VGF/IIPDF proposals data available
@@ -5179,7 +5182,15 @@ export const PPPDevelopmentReview = ({
                             }
                           );
                           return (
-                            <tr key={item.id || index} className="border-b">
+                            <tr
+                              key={item.id || index}
+                              className={`border-b border-slate-200 ${
+                                index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                              } hover:bg-slate-200/70 transition-colors`}
+                            >
+                              <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                {index + 1}
+                              </td>
                               <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable3_3 ? (
                                   <div>
@@ -6155,7 +6166,10 @@ export const PPPDevelopmentReview = ({
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
+                        <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal w-16">
+                          S.No.
+                        </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
                           Name of Project
                         </th>
                         <th className="py-2 px-2 text-left text-sm font-normal">
@@ -6196,7 +6210,7 @@ export const PPPDevelopmentReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("3.4") ? 7 : 6}
+                                colSpan={shouldBeEditable("3.4") ? 8 : 7}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No projects available
@@ -6206,7 +6220,15 @@ export const PPPDevelopmentReview = ({
                         }
 
                         return projects.map((project: any, idx: number) => (
-                          <tr key={project.id || idx} className="border-b">
+                          <tr
+                            key={project.id || idx}
+                            className={`border-b border-slate-200 ${
+                              idx % 2 === 0 ? "bg-white" : "bg-slate-100"
+                            } hover:bg-slate-200/70 transition-colors`}
+                          >
+                            <td className="py-2 px-2 text-sm font-medium text-slate-600">
+                              {idx + 1}
+                            </td>
                             <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("3.4") ? (
                                 <Input

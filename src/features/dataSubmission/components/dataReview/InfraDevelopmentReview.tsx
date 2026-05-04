@@ -5237,21 +5237,17 @@ export const InfraDevelopmentReview = ({
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                            S.No.
+                          </th>
                           {/* Hide sector column when "yes" is selected */}
                           {formDataState?.section2_1?.hasOverarchingPolicy !==
                             "yes" && (
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               Sector
                             </th>
                           )}
-                          <th
-                            className={`py-3 px-4 text-left ${
-                              formDataState?.section2_1
-                                ?.hasOverarchingPolicy === "yes"
-                                ? "rounded-tl-xl"
-                                : ""
-                            } text-sm font-normal`}
-                          >
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5276,12 +5272,12 @@ export const InfraDevelopmentReview = ({
                             const colSpan = shouldBeEditable("2.1")
                               ? formDataState?.section2_1
                                   ?.hasOverarchingPolicy === "yes"
-                                ? 3
-                                : 4
+                                ? 4
+                                : 5
                               : formDataState?.section2_1
                                   ?.hasOverarchingPolicy === "yes"
-                              ? 2
-                              : 3;
+                              ? 3
+                              : 4;
                             return (
                               <tr>
                                 <td
@@ -5311,7 +5307,15 @@ export const InfraDevelopmentReview = ({
                               }
 
                               return (
-                                <tr key={item.id || index} className="border-b">
+                                <tr
+                                  key={item.id || index}
+                                  className={`border-b border-slate-200 ${
+                                    index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                  } hover:bg-slate-200/70 transition-colors`}
+                                >
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {index + 1}
+                                  </td>
                                   {/* Hide sector column when "yes" is selected */}
                                   {formDataState?.section2_1
                                     ?.hasOverarchingPolicy !== "yes" && (
@@ -5860,7 +5864,10 @@ export const InfraDevelopmentReview = ({
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                            S.No.
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Sector
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5885,7 +5892,7 @@ export const InfraDevelopmentReview = ({
                             : [];
 
                           if (!infraActArray.length) {
-                            const colSpan = shouldBeEditable("2.1") ? 4 : 3;
+                            const colSpan = shouldBeEditable("2.1") ? 5 : 4;
                             return (
                               <tr>
                                 <td
@@ -5901,7 +5908,15 @@ export const InfraDevelopmentReview = ({
                           return infraActArray.map(
                             (item: any, index: number) => {
                               return (
-                                <tr key={item.id || index} className="border-b">
+                                <tr
+                                  key={item.id || index}
+                                  className={`border-b border-slate-200 ${
+                                    index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                  } hover:bg-slate-200/70 transition-colors`}
+                                >
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {index + 1}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {shouldBeEditable("2.1") ? (
                                       <div>
@@ -6584,7 +6599,10 @@ export const InfraDevelopmentReview = ({
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                            S.No.
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -6609,7 +6627,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={shouldBeEditable("2.2") ? 3 : 2}
+                                  colSpan={shouldBeEditable("2.2") ? 4 : 3}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -6620,7 +6638,15 @@ export const InfraDevelopmentReview = ({
 
                           return specializedEntityArray.map(
                             (item: any, index: number) => (
-                              <tr key={item.id || index} className="border-b">
+                              <tr
+                                key={item.id || index}
+                                className={`border-b border-slate-200 ${
+                                  index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                } hover:bg-slate-200/70 transition-colors`}
+                              >
+                                <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                  {index + 1}
+                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.2") ? (
                                     <div className="space-y-1.5">
@@ -7229,7 +7255,10 @@ export const InfraDevelopmentReview = ({
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                            S.No.
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Sector
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -7257,7 +7286,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={shouldBeEditable("2.3") ? 4 : 3}
+                                  colSpan={shouldBeEditable("2.3") ? 5 : 4}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -7268,7 +7297,15 @@ export const InfraDevelopmentReview = ({
 
                           return infraDevelopmentArray.map(
                             (item: any, index: number) => (
-                              <tr key={item.id || index} className="border-b">
+                              <tr
+                                key={item.id || index}
+                                className={`border-b border-slate-200 ${
+                                  index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                } hover:bg-slate-200/70 transition-colors`}
+                              >
+                                <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                  {index + 1}
+                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
                                     <div>
@@ -8086,7 +8123,10 @@ export const InfraDevelopmentReview = ({
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                            S.No.
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Project Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -8128,7 +8168,15 @@ export const InfraDevelopmentReview = ({
 
                           return investmentReadyArray.map(
                             (item: any, index: number) => (
-                              <tr key={item.id || index} className="border-b">
+                              <tr
+                                key={item.id || index}
+                                className={`border-b border-slate-200 ${
+                                  index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                } hover:bg-slate-200/70 transition-colors`}
+                              >
+                                <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                  {index + 1}
+                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
                                     <div>
@@ -8642,7 +8690,10 @@ export const InfraDevelopmentReview = ({
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                          S.No.
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
                           Project/Asset Name
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
@@ -8679,7 +8730,7 @@ export const InfraDevelopmentReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("2.5") ? 7 : 6}
+                                colSpan={shouldBeEditable("2.5") ? 8 : 7}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No asset monetization pipeline data available
@@ -8690,7 +8741,15 @@ export const InfraDevelopmentReview = ({
 
                         return assetMonetizationArray.map(
                           (item: any, index: number) => (
-                            <tr key={item.id || index} className="border-b">
+                            <tr
+                              key={item.id || index}
+                              className={`border-b border-slate-200 ${
+                                index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                              } hover:bg-slate-200/70 transition-colors`}
+                            >
+                              <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                {index + 1}
+                              </td>
                               <td className="py-3 px-4 text-sm font-normal">
                                 {shouldBeEditable("2.5") ? (
                                   <div>

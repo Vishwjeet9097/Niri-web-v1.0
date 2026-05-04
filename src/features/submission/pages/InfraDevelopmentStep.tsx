@@ -3212,10 +3212,13 @@ export const InfraDevelopmentStep = () => {
                         <table className="min-w-full border-separate border-spacing-0 ">
                           <thead>
                             <tr className="bg-[#DDE3F9]">
+                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                                S.No.
+                              </th>
                               {/* Hide sector column when "yes" is selected */}
                               {formData.section2_1.hasOverarchingPolicy !==
                                 "yes" && (
-                                <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                <th className="py-3 px-4 text-left text-sm font-normal">
                                   Sector
                                 </th>
                               )}
@@ -3223,7 +3226,7 @@ export const InfraDevelopmentStep = () => {
                               {formData.section2_1.hasOverarchingPolicy ===
                                 "yes" && (
                                 <>
-                                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                  <th className="py-3 px-4 text-left text-sm font-normal">
                                     Policy Name
                                   </th>
                                   <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3255,11 +3258,17 @@ export const InfraDevelopmentStep = () => {
                             {(Array.isArray(formData.section2_1?.infraActArray)
                               ? formData.section2_1.infraActArray
                               : []
-                            ).map((entry) => {
+                            ).map((entry, index) => {
                               const file = entry.files?.[0];
+                              const rowStripe = `border-b border-slate-200 ${
+                                index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                              } hover:bg-slate-200/70 transition-colors`;
                               if (!file) {
                                 return (
-                                  <tr key={entry.id} className="bg-white">
+                                  <tr key={entry.id} className={rowStripe}>
+                                    <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                      {index + 1}
+                                    </td>
                                     {/* Hide sector column when "yes" is selected */}
                                     {formData.section2_1
                                       .hasOverarchingPolicy !== "yes" && (
@@ -3346,7 +3355,10 @@ export const InfraDevelopmentStep = () => {
                               );
 
                               return (
-                                <tr key={entry.id} className="bg-white">
+                                <tr key={entry.id} className={rowStripe}>
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {index + 1}
+                                  </td>
                                   {/* Hide sector column when "yes" is selected */}
                                   {formData.section2_1.hasOverarchingPolicy !==
                                     "yes" && (
@@ -3778,7 +3790,10 @@ export const InfraDevelopmentStep = () => {
                         <table className="min-w-full border-separate border-spacing-0 ">
                           <thead>
                             <tr className="bg-[#DDE3F9]">
-                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                                S.No.
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
                                 Entity Name
                               </th>
                               <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3801,11 +3816,17 @@ export const InfraDevelopmentStep = () => {
                             )
                               ? formData.section2_2.specializedEntityArray
                               : []
-                            ).map((entry) => {
+                            ).map((entry, index) => {
                               const file = entry.files?.[0];
+                              const rowStripe = `border-b border-slate-200 ${
+                                index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                              } hover:bg-slate-200/70 transition-colors`;
                               if (!file) {
                                 return (
-                                  <tr key={entry.id} className="bg-white">
+                                  <tr key={entry.id} className={rowStripe}>
+                                    <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                      {index + 1}
+                                    </td>
                                     <td className="py-3 px-4 text-sm font-normal">
                                       {entry.entityName || "-"}
                                     </td>
@@ -3869,7 +3890,10 @@ export const InfraDevelopmentStep = () => {
                               );
 
                               return (
-                                <tr key={entry.id} className="bg-white">
+                                <tr key={entry.id} className={rowStripe}>
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {index + 1}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {entry.entityName || "-"}
                                   </td>

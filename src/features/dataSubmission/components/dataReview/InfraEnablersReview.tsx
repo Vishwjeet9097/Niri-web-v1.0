@@ -4762,7 +4762,10 @@ export const InfraEnablersReview = ({
                       <table className="min-w-full border-separate border-spacing-0">
                         <thead>
                           <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                              S.No.
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               Project Name
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
@@ -4793,7 +4796,7 @@ export const InfraEnablersReview = ({
                               return (
                                 <tr>
                                   <td
-                                    colSpan={shouldBeEditable("4.2") ? 5 : 4}
+                                    colSpan={shouldBeEditable("4.2") ? 6 : 5}
                                     className="py-8 text-center text-muted-foreground"
                                   >
                                     No projects available
@@ -4832,8 +4835,13 @@ export const InfraEnablersReview = ({
                               return (
                                 <tr
                                   key={project.id || idx}
-                                  className="border-b"
+                                  className={`border-b border-slate-200 ${
+                                    idx % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                  } hover:bg-slate-200/70 transition-colors`}
                                 >
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {idx + 1}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {shouldBeEditable("4.2") ? (
                                       <Input
@@ -5665,7 +5673,10 @@ export const InfraEnablersReview = ({
                       <table className="min-w-full border-separate border-spacing-0">
                         <thead>
                           <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                              S.No.
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               Practice Name
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
@@ -5693,7 +5704,7 @@ export const InfraEnablersReview = ({
                               return (
                                 <tr>
                                   <td
-                                    colSpan={shouldBeEditable("4.4") ? 4 : 3}
+                                    colSpan={shouldBeEditable("4.4") ? 5 : 4}
                                     className="py-8 text-center text-muted-foreground"
                                   >
                                     No practices available
@@ -5706,8 +5717,13 @@ export const InfraEnablersReview = ({
                               (practice: any, idx: number) => (
                                 <tr
                                   key={practice.id || idx}
-                                  className="border-b"
+                                  className={`border-b border-slate-200 ${
+                                    idx % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                  } hover:bg-slate-200/70 transition-colors`}
                                 >
+                                  <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                    {idx + 1}
+                                  </td>
                                   <td className="py-3 px-4 text-sm font-normal">
                                     {shouldBeEditable("4.4") ? (
                                       <Input
@@ -6302,7 +6318,10 @@ export const InfraEnablersReview = ({
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
+                        <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal w-16">
+                          S.No.
+                        </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
                           Officer Name
                         </th>
                         <th className="py-2 px-2 text-left text-sm font-normal">
@@ -6344,7 +6363,7 @@ export const InfraEnablersReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("4.5") ? 7 : 6}
+                                colSpan={shouldBeEditable("4.5") ? 8 : 7}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No capacity building data available
@@ -6354,7 +6373,15 @@ export const InfraEnablersReview = ({
                         }
 
                         return capacityArray.map((item: any, idx: number) => (
-                          <tr key={item.id || idx} className="border-b">
+                          <tr
+                            key={item.id || idx}
+                            className={`border-b border-slate-200 ${
+                              idx % 2 === 0 ? "bg-white" : "bg-slate-100"
+                            } hover:bg-slate-200/70 transition-colors`}
+                          >
+                            <td className="py-2 px-2 text-sm font-medium text-slate-600">
+                              {idx + 1}
+                            </td>
                             <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
                                 <Input

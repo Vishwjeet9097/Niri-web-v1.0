@@ -7214,10 +7214,13 @@ export const InfraFinancingReview = ({
 
                     {/* Table Display */}
                     <div className="overflow-x-auto rounded-xl">
-                      <table className="w-full text-sm">
+                      <table className="min-w-full border-separate border-spacing-0 text-sm">
                         <thead>
                           <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                              S.No.
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
                               Organisation Name
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
@@ -7254,7 +7257,7 @@ export const InfraFinancingReview = ({
                               return (
                                 <tr>
                                   <td
-                                    colSpan={shouldBeEditable("1.5") ? 7 : 6}
+                                    colSpan={shouldBeEditable("1.5") ? 8 : 7}
                                     className="py-8 text-center text-muted-foreground"
                                   >
                                     No financial intermediary data available
@@ -7264,7 +7267,15 @@ export const InfraFinancingReview = ({
                             }
 
                             return ffiArray.map((item: any, index: number) => (
-                              <tr key={item.id || index} className="border-b">
+                              <tr
+                                key={item.id || index}
+                                className={`border-b border-slate-200 ${
+                                  index % 2 === 0 ? "bg-white" : "bg-slate-100"
+                                } hover:bg-slate-200/70 transition-colors`}
+                              >
+                                <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                                  {index + 1}
+                                </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("1.5") ? (
                                     <div>
