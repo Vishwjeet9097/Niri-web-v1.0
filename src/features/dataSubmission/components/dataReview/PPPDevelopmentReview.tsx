@@ -5026,6 +5026,17 @@ export const PPPDevelopmentReview = ({
                     <RadioGroup
                       value={state?.section3_3?.available || ""}
                       onValueChange={(value: "yes" | "no") => {
+                        const defaultVGFRow = {
+                          projectName: "",
+                          sector: "",
+                          scheme: "",
+                          submissionDate: "",
+                          totalProjectCost: "",
+                          statusOfProject: "",
+                          proofLinkOrText: "",
+                          file: null,
+                          noDocumentAvailable: false,
+                        };
                         setFormDataState((prev: any) => ({
                           ...prev,
                           section3_3: {
@@ -5033,23 +5044,14 @@ export const PPPDevelopmentReview = ({
                             available: value,
                             comment: value === "no" ? (prev?.section3_3?.comment ?? "") : "",
                             VGFArray:
-                              value === "no"
-                                ? []
-                                : Array.isArray(prev?.section3_3?.VGFArray) &&
+                              value === "yes"
+                                ? Array.isArray(prev?.section3_3?.VGFArray) &&
                                     prev.section3_3.VGFArray.length > 0
                                   ? prev.section3_3.VGFArray
-                                  : [
-                                      {
-                                        projectName: "",
-                                        sector: "",
-                                        scheme: "",
-                                        submissionDate: "",
-                                        totalProjectCost: "",
-                                        statusOfProject: "",
-                                        file: null,
-                                        noDocumentAvailable: false,
-                                      },
-                                    ],
+                                  : [defaultVGFRow]
+                                : Array.isArray(prev?.section3_3?.VGFArray)
+                                  ? prev.section3_3.VGFArray
+                                  : [],
                           },
                         }));
                         if (value === "no") setShowAddVGFForm(false);

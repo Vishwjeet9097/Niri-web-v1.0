@@ -999,6 +999,8 @@ export const InfraEnablersReview = ({
       },
       section4_3: formDataState?.section4_3 || {
         adopted: "",
+        adrName: "",
+        notificationYear: "",
         file: null,
         comment: "",
         noDocumentAvailable: false,
@@ -1075,6 +1077,8 @@ export const InfraEnablersReview = ({
     } else if (sectionId === "4.3") {
       allSectionFields.push(
         `${sectionPrefix}.adopted`,
+        `${sectionPrefix}.adrName`,
+        `${sectionPrefix}.notificationYear`,
         `${sectionPrefix}.file`,
         `${sectionPrefix}.comment`
       );
@@ -1981,8 +1985,11 @@ export const InfraEnablersReview = ({
         },
         section4_3: formDataState?.section4_3 || {
           adopted: "",
+          adrName: "",
+          notificationYear: "",
           file: null,
           comment: "",
+          noDocumentAvailable: false,
         },
         section4_4: formDataState?.section4_4 || {
           implemented: "",
@@ -2056,6 +2063,8 @@ export const InfraEnablersReview = ({
         } else if (sectionId === "4.3") {
           allSectionFields.push(
             `${sectionPrefix}.adopted`,
+            `${sectionPrefix}.adrName`,
+            `${sectionPrefix}.notificationYear`,
             `${sectionPrefix}.file`,
             `${sectionPrefix}.comment`
           );
@@ -2226,7 +2235,8 @@ export const InfraEnablersReview = ({
             {
               adopted: formDataState?.section4_2?.adopted ?? null,
               files: files4_2,
-              projects: projects4_2,
+              projects:
+                formDataState?.section4_2?.adopted === "yes" ? projects4_2 : [],
               comment: formDataState?.section4_2?.comment ?? null,
             },
           ];
@@ -2256,10 +2266,26 @@ export const InfraEnablersReview = ({
           fields = [
             {
               adopted: formDataState?.section4_3?.adopted ?? null,
-              file: files4_3.length > 0 ? files4_3[0] : null,
+              adrName:
+                formDataState?.section4_3?.adopted === "yes"
+                  ? formDataState?.section4_3?.adrName ?? null
+                  : null,
+              notificationYear:
+                formDataState?.section4_3?.adopted === "yes"
+                  ? formDataState?.section4_3?.notificationYear ?? null
+                  : null,
+              file:
+                formDataState?.section4_3?.adopted === "yes" &&
+                !formDataState?.section4_3?.noDocumentAvailable
+                  ? files4_3.length > 0
+                    ? files4_3[0]
+                    : null
+                  : null,
               comment: formDataState?.section4_3?.comment ?? null,
               noDocumentAvailable:
-                formDataState?.section4_3?.noDocumentAvailable ?? false,
+                formDataState?.section4_3?.adopted === "yes"
+                  ? formDataState?.section4_3?.noDocumentAvailable ?? false
+                  : false,
             },
           ];
           break;
@@ -2279,7 +2305,10 @@ export const InfraEnablersReview = ({
           fields = [
             {
               implemented: formDataState?.section4_4?.implemented ?? null,
-              practices: practices4_4,
+              practices:
+                formDataState?.section4_4?.implemented === "yes"
+                  ? practices4_4
+                  : [],
               comment: formDataState?.section4_4?.comment ?? null,
             },
           ];
@@ -2302,7 +2331,10 @@ export const InfraEnablersReview = ({
           fields = [
             {
               participated: formDataState?.section4_5?.participated ?? null,
-              capacityArray: capacityArray4_5,
+              capacityArray:
+                formDataState?.section4_5?.participated === "yes"
+                  ? capacityArray4_5
+                  : [],
               comment: formDataState?.section4_5?.comment ?? null,
             },
           ];
@@ -2366,8 +2398,11 @@ export const InfraEnablersReview = ({
         },
         section4_3: formDataState?.section4_3 || {
           adopted: "",
+          adrName: "",
+          notificationYear: "",
           file: null,
           comment: "",
+          noDocumentAvailable: false,
         },
         section4_4: formDataState?.section4_4 || {
           implemented: "",
@@ -2441,6 +2476,8 @@ export const InfraEnablersReview = ({
         } else if (sectionId === "4.3") {
           allSectionFields.push(
             `${sectionPrefix}.adopted`,
+            `${sectionPrefix}.adrName`,
+            `${sectionPrefix}.notificationYear`,
             `${sectionPrefix}.file`,
             `${sectionPrefix}.comment`
           );
@@ -3021,63 +3058,8 @@ export const InfraEnablersReview = ({
       // When switching from "yes" to "no", clear related fields
       let clearedFields: any = {};
 
-      if (value === "no") {
-        switch (sectionId) {
-          case "4.1":
-            if (fieldName === "available" || fieldName === "allEligible") {
-              clearedFields = {
-                websiteLink: "",
-                file: null,
-                files: [],
-                comment: "",
-                noDocumentAvailable: false,
-              };
-            }
-            break;
-          case "4.2":
-            if (fieldName === "available") {
-              clearedFields = { file: null, files: [], comment: "" };
-            }
-            break;
-          case "4.3":
-            if (fieldName === "adopted") {
-              // Clear projects array (which may contain files)
-              clearedFields = {
-                projects: [],
-                file: null,
-                files: [],
-                comment: "",
-              };
-            }
-            break;
-          case "4.4":
-            if (fieldName === "adopted") {
-              clearedFields = { file: null, files: [], comment: "" };
-            }
-            break;
-          case "4.5":
-            if (fieldName === "implemented") {
-              // Clear practices array (which may contain files)
-              clearedFields = {
-                practices: [],
-                file: null,
-                files: [],
-                comment: "",
-              };
-            }
-            break;
-          case "4.6":
-            if (fieldName === "participated") {
-              // Clear capacityArray (which may contain files)
-              clearedFields = { capacityArray: [], comment: "" };
-            }
-            break;
-        }
-        console.log(
-          `[InfraEnablersReview] Clearing fields for ${sectionId}.${fieldName}:`,
-          clearedFields
-        );
-      }
+      // Keep existing values while user is toggling and editing.
+      // Dependent fields are sanitized at save time based on Yes/No choice.
 
       return {
         ...prev,
@@ -5491,6 +5473,37 @@ export const InfraEnablersReview = ({
 
                 {formDataState?.section4_3?.adopted === "yes" && (
                   <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <Label className="mb-2 block">ADR Name*</Label>
+                        <Input
+                          type="text"
+                          value={formDataState?.section4_3?.adrName || ""}
+                          onChange={(e) =>
+                            handleFieldUpdate("4.3", "adrName", e.target.value)
+                          }
+                          placeholder="Enter ADR name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="mb-2 block">
+                          Year of Notification*
+                        </Label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={4}
+                          value={
+                            formDataState?.section4_3?.notificationYear || ""
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "");
+                            handleFieldUpdate("4.3", "notificationYear", value);
+                          }}
+                          placeholder="Enter year (YYYY)"
+                        />
+                      </div>
+                    </div>
                     {shouldBeEditable("4.3") && (
                       <div className="flex items-center space-x-2 mb-3">
                         <Checkbox
