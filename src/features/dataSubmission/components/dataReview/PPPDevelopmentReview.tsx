@@ -5470,6 +5470,20 @@ export const PPPDevelopmentReview = ({
                                           e.target.value || ""
                                         );
                                       }}
+                                      onClick={(e) => {
+                                        const inputEl =
+                                          e.currentTarget as HTMLInputElement & {
+                                            showPicker?: () => void;
+                                          };
+                                        inputEl.showPicker?.();
+                                      }}
+                                      onFocus={(e) => {
+                                        const inputEl =
+                                          e.currentTarget as HTMLInputElement & {
+                                            showPicker?: () => void;
+                                          };
+                                        inputEl.showPicker?.();
+                                      }}
                                       className={
                                         getFieldError(
                                           `section3_3.VGFArray.${index}.submissionDate`
@@ -5798,6 +5812,7 @@ export const PPPDevelopmentReview = ({
                 {/* Add More Project Button - Only visible when in edit mode */}
                 {shouldBeEditable("3.3") && !showAddVGFForm && (
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
@@ -5931,6 +5946,20 @@ export const PPPDevelopmentReview = ({
                               submissionDate: e.target.value || "",
                             });
                           }}
+                          onClick={(e) => {
+                            const inputEl =
+                              e.currentTarget as HTMLInputElement & {
+                                showPicker?: () => void;
+                              };
+                            inputEl.showPicker?.();
+                          }}
+                          onFocus={(e) => {
+                            const inputEl =
+                              e.currentTarget as HTMLInputElement & {
+                                showPicker?: () => void;
+                              };
+                            inputEl.showPicker?.();
+                          }}
                           className={cn(
                             "w-full bg-[#fff] border border-[#C6C6C6]",
                             !newVGFItem.submissionDate &&
@@ -5956,54 +5985,25 @@ export const PPPDevelopmentReview = ({
                     </div>
                     {/* Row 3: File Upload */}
                     <div className="mb-4">
-                      {/* No Document Available Checkbox */}
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Checkbox
-                          id="no-doc-3.3-new"
-                          checked={newVGFItem.noDocumentAvailable || false}
-                          onCheckedChange={(checked) => {
-                            const noDocument = checked as boolean;
-                            setNewVGFItem({
-                              ...newVGFItem,
-                              noDocumentAvailable: noDocument,
-                              file: noDocument ? null : newVGFItem.file,
-                            });
-                          }}
-                        />
-                        <label
-                          htmlFor="no-doc-3.3-new"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          No document available
-                        </label>
-                      </div>
-
-                      {newVGFItem.noDocumentAvailable ? (
-                        <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                          No document available
-                        </div>
-                      ) : (
-                        <>
-                          <Label>Upload File</Label>
-                          <EditableFileDisplay
-                            files={newVGFItem.file}
-                            isEditable={true}
-                            submissionId={submissionId}
-                            onFilesChange={(updatedFile) => {
-                              setNewVGFItem({
-                                ...newVGFItem,
-                                file: updatedFile as FileUpload | null,
-                                noDocumentAvailable: false,
-                              });
-                            }}
-                            label=""
-                            multiple={false}
-                          />
-                        </>
-                      )}
+                      <Label>Upload File</Label>
+                      <EditableFileDisplay
+                        files={newVGFItem.file}
+                        isEditable={true}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFile) => {
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            file: updatedFile as FileUpload | null,
+                            noDocumentAvailable: false,
+                          });
+                        }}
+                        label=""
+                        multiple={false}
+                      />
                     </div>
                     <div className="flex gap-2 mt-4">
                       <Button
+                        type="button"
                         variant="default"
                         size="sm"
                         onClick={handleAddNewVGFItem}
@@ -6013,6 +6013,7 @@ export const PPPDevelopmentReview = ({
                         Save Proposal
                       </Button>
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         onClick={handleCancelAddVGF}
