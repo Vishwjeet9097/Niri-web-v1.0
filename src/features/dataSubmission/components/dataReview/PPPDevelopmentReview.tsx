@@ -88,6 +88,18 @@ import {
   PROJECT_STATUS_OPTIONS,
 } from "@/features/submission/constants/steps";
 
+const VGF_SCHEME_OPTIONS = [
+  "DEA's VGF",
+  "DEA's IIPDF scheme",
+  "State-specific VGF scheme",
+  "State-specific IIPDF Scheme",
+  "Ministry VGF",
+  // Keep legacy values so older saved rows still display correctly.
+  "IIPDF",
+  "Central VGF",
+  "State VGF",
+] as const;
+
 interface PPPDevelopmentReviewProps {
   submissionId: string;
   formData?: any;
@@ -676,6 +688,7 @@ export const PPPDevelopmentReview = ({
     submissionDate: "",
     totalProjectCost: "",
     statusOfProject: "",
+    proofLinkOrText: "",
     file: null as FileUpload | null,
     noDocumentAvailable: false,
   });
@@ -1087,6 +1100,7 @@ export const PPPDevelopmentReview = ({
             `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
             `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
             `${sectionPrefix}.VGFArray.${index}.submissionDate`,
+            `${sectionPrefix}.VGFArray.${index}.proofLinkOrText`,
             `${sectionPrefix}.VGFArray.${index}.file`
           );
         });
@@ -1166,6 +1180,7 @@ export const PPPDevelopmentReview = ({
           submissionDate: "",
           totalProjectCost: "",
           statusOfProject: "",
+          proofLinkOrText: "",
           file: null,
           noDocumentAvailable: false,
         });
@@ -1268,6 +1283,7 @@ export const PPPDevelopmentReview = ({
           submissionDate: "",
           totalProjectCost: "",
           statusOfProject: "",
+          proofLinkOrText: "",
           file: null,
           noDocumentAvailable: false,
         });
@@ -2475,9 +2491,7 @@ export const PPPDevelopmentReview = ({
       const newVGFItemWithId = {
         ...newVGFItem,
         id: `vgf-${Date.now()}`,
-        submissionDate: newVGFItem.submissionDate
-          ? new Date(newVGFItem.submissionDate).toISOString()
-          : null,
+        submissionDate: newVGFItem.submissionDate || "",
         file: newVGFItem.noDocumentAvailable ? null : newVGFItem.file,
         noDocumentAvailable: newVGFItem.noDocumentAvailable || false,
       };
@@ -2497,6 +2511,7 @@ export const PPPDevelopmentReview = ({
       submissionDate: "",
       totalProjectCost: "",
       statusOfProject: "",
+      proofLinkOrText: "",
       file: null,
       noDocumentAvailable: false,
     });
@@ -2512,6 +2527,7 @@ export const PPPDevelopmentReview = ({
       submissionDate: "",
       totalProjectCost: "",
       statusOfProject: "",
+      proofLinkOrText: "",
       file: null,
       noDocumentAvailable: false,
     });
@@ -2642,6 +2658,7 @@ export const PPPDevelopmentReview = ({
                 `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
                 `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
                 `${sectionPrefix}.VGFArray.${index}.submissionDate`,
+                `${sectionPrefix}.VGFArray.${index}.proofLinkOrText`,
                 `${sectionPrefix}.VGFArray.${index}.file`
               );
             });
@@ -2775,6 +2792,7 @@ export const PPPDevelopmentReview = ({
                   totalProjectCost: item?.totalProjectCost ?? null,
                   statusOfProject: item?.statusOfProject ?? null,
                   submissionDate: item?.submissionDate ?? null,
+                  proofLinkOrText: item?.proofLinkOrText ?? null,
                   file: item?.file ?? null,
                   marksObtained: item?.marksObtained ?? null,
                 })
@@ -2909,6 +2927,7 @@ export const PPPDevelopmentReview = ({
                 `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
                 `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
                 `${sectionPrefix}.VGFArray.${index}.submissionDate`,
+                `${sectionPrefix}.VGFArray.${index}.proofLinkOrText`,
                 `${sectionPrefix}.VGFArray.${index}.file`
               );
             });
@@ -5110,36 +5129,39 @@ export const PPPDevelopmentReview = ({
                 {/* When Yes: proposals table and Add More */}
                 {state?.section3_3?.available === "yes" && (
                 <>
-                <div className="overflow-x-auto rounded-xl">
-                  <table className="min-w-full border-separate border-spacing-0 ">
+                <div className="w-full overflow-hidden rounded-xl">
+                  <table className="w-full table-fixed border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal w-16">
+                        <th className="py-3 px-2 text-left rounded-tl-xl text-sm font-normal w-[4%] whitespace-nowrap">
                           S.No.
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[13%]">
                           Project Name
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[12%]">
                           Sector
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[12%]">
                           Scheme
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[11%]">
                           Total Project Cost (INR-CRORE)
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[11%]">
                           Status of Project
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[10%] whitespace-nowrap">
                           Submission Date
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[11%] whitespace-nowrap">
+                          Website Link
+                        </th>
+                        <th className="py-3 px-2 text-left text-sm font-normal w-[11%] whitespace-nowrap">
                           Uploaded File
                         </th>
                         {shouldBeEditable("3.3") && (
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-3 px-2 text-center rounded-tr-xl text-sm font-normal w-[4%] whitespace-nowrap">
                             Action
                           </th>
                         )}
@@ -5161,7 +5183,7 @@ export const PPPDevelopmentReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("3.3") ? 9 : 8}
+                                colSpan={shouldBeEditable("3.3") ? 10 : 9}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No VGF/IIPDF proposals data available
@@ -5188,10 +5210,10 @@ export const PPPDevelopmentReview = ({
                                 index % 2 === 0 ? "bg-white" : "bg-slate-100"
                               } hover:bg-slate-200/70 transition-colors`}
                             >
-                              <td className="py-3 px-4 text-sm font-medium text-slate-600">
+                              <td className="py-3 px-2 text-sm font-medium text-slate-600 align-top">
                                 {index + 1}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-2 text-sm font-normal align-top">
                                 {isEditable3_3 ? (
                                   <div>
                                     <Input
@@ -5219,7 +5241,7 @@ export const PPPDevelopmentReview = ({
                                   item.projectName || ""
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-2 text-sm font-normal align-top min-w-0">
                                 {shouldBeEditable("3.3") ? (
                                   <div>
                                     <Select
@@ -5238,8 +5260,8 @@ export const PPPDevelopmentReview = ({
                                           getFieldError(
                                             `section3_3.VGFArray.${index}.sector`
                                           )
-                                            ? "w-full border-red-500"
-                                            : "w-full"
+                                            ? "w-full h-9 min-w-0 border-red-500 [&>span]:truncate"
+                                            : "w-full h-9 min-w-0 [&>span]:truncate"
                                         }
                                       >
                                         <SelectValue placeholder="Select sector" />
@@ -5269,7 +5291,7 @@ export const PPPDevelopmentReview = ({
                                   item.sector || ""
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-2 text-sm font-normal align-top min-w-0">
                                 {shouldBeEditable("3.3") ? (
                                   <div>
                                     <Select
@@ -5288,22 +5310,18 @@ export const PPPDevelopmentReview = ({
                                           getFieldError(
                                             `section3_3.VGFArray.${index}.scheme`
                                           )
-                                            ? "w-full border-red-500"
-                                            : "w-full"
+                                            ? "w-full h-9 min-w-0 border-red-500 [&>span]:truncate"
+                                            : "w-full h-9 min-w-0 [&>span]:truncate"
                                         }
                                       >
                                         <SelectValue placeholder="Select scheme" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="IIPDF">
-                                          IIPDF
-                                        </SelectItem>
-                                        <SelectItem value="Central VGF">
-                                          Central VGF
-                                        </SelectItem>
-                                        <SelectItem value="State VGF">
-                                          State VGF
-                                        </SelectItem>
+                                        {VGF_SCHEME_OPTIONS.map((scheme) => (
+                                          <SelectItem key={scheme} value={scheme}>
+                                            {scheme}
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                     {getFieldError(
@@ -5311,7 +5329,7 @@ export const PPPDevelopmentReview = ({
                                     ) && (
                                       <p className="text-sm text-red-500 mt-1">
                                         {getFieldError(
-                                          `section3_3.VGFArray.${index}.statusOfProject`
+                                          `section3_3.VGFArray.${index}.scheme`
                                         )}
                                       </p>
                                     )}
@@ -5320,7 +5338,7 @@ export const PPPDevelopmentReview = ({
                                   item.scheme || ""
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-2 text-sm font-normal align-top">
                                 {shouldBeEditable("3.3") ? (
                                   <div>
                                     <Input
@@ -5365,7 +5383,7 @@ export const PPPDevelopmentReview = ({
                                   item.totalProjectCost || "-"
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-2 text-sm font-normal align-top min-w-0">
                                 {shouldBeEditable("3.3") ? (
                                   <div>
                                     <Select
@@ -5384,8 +5402,8 @@ export const PPPDevelopmentReview = ({
                                           getFieldError(
                                             `section3_3.VGFArray.${index}.statusOfProject`
                                           )
-                                            ? "w-full border-red-500"
-                                            : "w-full"
+                                            ? "w-full h-9 min-w-0 border-red-500 [&>span]:truncate"
+                                            : "w-full h-9 min-w-0 [&>span]:truncate"
                                         }
                                       >
                                         <SelectValue placeholder="Select status" />
@@ -5417,11 +5435,13 @@ export const PPPDevelopmentReview = ({
                                   item.statusOfProject || "-"
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
+                              <td className="py-3 px-3 text-sm font-normal align-top">
                                 {shouldBeEditable("3.3") ? (
                                   <div>
                                     <Input
                                       type="date"
+                                      name={`section3_3-review-submission-date-${index}`}
+                                      autoComplete="off"
                                       max={
                                         new Date().toISOString().split("T")[0]
                                       }
@@ -5447,11 +5467,7 @@ export const PPPDevelopmentReview = ({
                                         handleTableFieldUpdate(
                                           index,
                                           "submissionDate",
-                                          e.target.value
-                                            ? new Date(
-                                                e.target.value
-                                              ).toISOString()
-                                            : ""
+                                          e.target.value || ""
                                         );
                                       }}
                                       className={
@@ -5480,230 +5496,196 @@ export const PPPDevelopmentReview = ({
                                   "-"
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-3 text-sm font-normal align-top">
+                                {shouldBeEditable("3.3") ? (
+                                  <div>
+                                    <Input
+                                      type="text"
+                                      placeholder="Website Link proof"
+                                      value={item.proofLinkOrText || ""}
+                                      onChange={(e) =>
+                                        handleTableFieldUpdate(
+                                          index,
+                                          "proofLinkOrText",
+                                          e.target.value
+                                        )
+                                      }
+                                      className={
+                                        getFieldError(
+                                          `section3_3.VGFArray.${index}.proofLinkOrText`
+                                        )
+                                          ? "w-full border-red-500"
+                                          : "w-full"
+                                      }
+                                    />
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.proofLinkOrText`
+                                    ) && (
+                                      <p className="text-sm text-red-500 mt-1">
+                                        {getFieldError(
+                                          `section3_3.VGFArray.${index}.proofLinkOrText`
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : item.proofLinkOrText ? (
+                                  <a
+                                    href={item.proofLinkOrText}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary underline break-all"
+                                  >
+                                    {item.proofLinkOrText}
+                                  </a>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="py-3 px-3 text-sm font-normal align-top">
                                 {shouldBeEditable("3.3") ? (
                                   <div className="space-y-1.5">
-                                    {/* No Document Available Checkbox */}
-                                    <div className="flex items-center space-x-2 py-1">
-                                      <Checkbox
-                                        id={`no-doc-3.3-${index}`}
-                                        checked={
-                                          item.noDocumentAvailable || false
-                                        }
-                                        onCheckedChange={(checked) => {
-                                          const noDocument = checked as boolean;
-                                          // Update noDocumentAvailable and clear file if checked
-                                          setFormDataState((prev: any) => {
-                                            const current =
-                                              prev?.section3_3?.VGFArray;
-                                            const rows = Array.isArray(current)
-                                              ? [...current]
-                                              : [];
-                                            const currentRow = {
-                                              ...(rows[index] || {}),
-                                            };
-                                            currentRow.noDocumentAvailable =
-                                              noDocument;
-                                            currentRow.file = noDocument
-                                              ? null
-                                              : currentRow.file;
-                                            rows[index] = currentRow;
-                                            return {
-                                              ...prev,
-                                              section3_3: {
-                                                ...(prev?.section3_3 || {}),
-                                                VGFArray: rows,
-                                              },
-                                            };
-                                          });
-
-                                          // Clear validation error
-                                          if (
-                                            getFieldError(
-                                              `section3_3.VGFArray.${index}.file`
-                                            )
-                                          ) {
-                                            setIndicatorValidationErrors(
-                                              (prev) => {
-                                                const updated = { ...prev };
-                                                delete updated[
-                                                  `section3_3.VGFArray.${index}.file`
-                                                ];
-                                                return updated;
-                                              }
-                                            );
+                                    {/* Only show ONE file (single file upload) */}
+                                    {item.file ? (
+                                      <div className="flex flex-wrap gap-1.5">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                          title={
+                                            extractOriginalName(
+                                              item.file.fileName || "",
+                                              (item.file as any)?.originalName
+                                            ) || "Unknown file"
                                           }
-                                        }}
-                                      />
-                                      <label
-                                        htmlFor={`no-doc-3.3-${index}`}
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                      >
-                                        No document available
-                                      </label>
-                                    </div>
-
-                                    {item.noDocumentAvailable ? (
-                                      <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
-                                        No document available
+                                        >
+                                          <Upload className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">
+                                            {extractOriginalName(
+                                              item.file.fileName || "",
+                                              (item.file as any)?.originalName
+                                            ) || "Unknown file"}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              handleTableFieldUpdate(
+                                                index,
+                                                "file",
+                                                null
+                                              );
+                                            }}
+                                            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                          </button>
+                                        </Badge>
                                       </div>
                                     ) : (
-                                      <>
-                                        {/* Only show ONE file (single file upload) */}
-                                        {item.file ? (
-                                          <div className="flex flex-wrap gap-1.5">
-                                            <Badge
-                                              variant="secondary"
-                                              className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                              title={
-                                                extractOriginalName(
-                                                  item.file.fileName || "",
-                                                  (item.file as any)
-                                                    ?.originalName
-                                                ) || "Unknown file"
-                                              }
-                                            >
-                                              <Upload className="w-3 h-3 flex-shrink-0" />
-                                              <span className="truncate">
-                                                {extractOriginalName(
-                                                  item.file.fileName || "",
-                                                  (item.file as any)
-                                                    ?.originalName
-                                                ) || "Unknown file"}
-                                              </span>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  handleTableFieldUpdate(
-                                                    index,
-                                                    "file",
-                                                    null
-                                                  );
-                                                }}
-                                                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                              >
-                                                <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                              </button>
-                                            </Badge>
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground text-xs">
-                                            No file
-                                          </span>
-                                        )}
-                                        {/* Upload button for both add and replace */}
-                                        <div className="flex items-center">
-                                          <input
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            onChange={async (e) => {
-                                              const selectedFile =
-                                                e.target.files?.[0];
-                                              if (selectedFile) {
-                                                // Upload file immediately (same as create submission)
-                                                try {
-                                                  const response =
-                                                    await apiService.uploadFile(
-                                                      submissionId,
-                                                      selectedFile
-                                                    );
-                                                  const fileData =
-                                                    response?.data || response;
-
-                                                  const newFile: FileUpload = {
-                                                    id:
-                                                      fileData.id ??
-                                                      crypto.randomUUID(),
-                                                    file: null, // File not stored locally when backend handles upload
-                                                    fileName:
-                                                      fileData.fileName ||
-                                                      fileData.filename ||
-                                                      selectedFile.name,
-                                                    originalName:
-                                                      selectedFile.name ||
-                                                      fileData.originalName ||
-                                                      fileData.data
-                                                        ?.originalName, // Preserve original file name
-                                                    fileSize: Number(
-                                                      fileData.fileSize ??
-                                                        fileData.size ??
-                                                        selectedFile.size ??
-                                                        0
-                                                    ),
-                                                    uploadedAt: Number(
-                                                      fileData.uploadedAt ??
-                                                        Date.now()
-                                                    ),
-                                                    filePath:
-                                                      fileData.filePath ??
-                                                      fileData.file ??
-                                                      fileData.url ??
-                                                      fileData.path,
-                                                    fileUrl:
-                                                      fileData.fileUrl ||
-                                                      fileData.url,
-                                                    mimeType: fileData.mimeType,
-                                                  };
-
-                                                  // Update file and clear noDocumentAvailable
-                                                  setFormDataState(
-                                                    (prev: any) => {
-                                                      const current =
-                                                        prev?.section3_3
-                                                          ?.VGFArray;
-                                                      const rows =
-                                                        Array.isArray(current)
-                                                          ? [...current]
-                                                          : [];
-                                                      const currentRow = {
-                                                        ...(rows[index] || {}),
-                                                      };
-                                                      currentRow.file = newFile;
-                                                      currentRow.noDocumentAvailable =
-                                                        false;
-                                                      rows[index] = currentRow;
-                                                      return {
-                                                        ...prev,
-                                                        section3_3: {
-                                                          ...(prev?.section3_3 ||
-                                                            {}),
-                                                          VGFArray: rows,
-                                                        },
-                                                      };
-                                                    }
-                                                  );
-
-                                                  e.target.value = ""; // Reset input
-                                                } catch (error: any) {
-                                                  console.error(
-                                                    "Failed to upload file:",
-                                                    error
-                                                  );
-                                                }
-                                              }
-                                            }}
-                                            className="hidden"
-                                            id={`file-input-3.3-${index}`}
-                                          />
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                              document
-                                                .getElementById(
-                                                  `file-input-3.3-${index}`
-                                                )
-                                                ?.click()
-                                            }
-                                            className="h-6 px-2 text-xs"
-                                          >
-                                            <Upload className="w-3 h-3 mr-1" />
-                                            Upload
-                                          </Button>
-                                        </div>
-                                      </>
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
                                     )}
+                                    {/* Upload button for both add and replace */}
+                                    <div className="flex items-center">
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        onChange={async (e) => {
+                                          const selectedFile = e.target.files?.[0];
+                                          if (selectedFile) {
+                                            try {
+                                              const response =
+                                                await apiService.uploadFile(
+                                                  submissionId,
+                                                  selectedFile
+                                                );
+                                              const fileData =
+                                                response?.data || response;
+
+                                              const newFile: FileUpload = {
+                                                id:
+                                                  fileData.id ??
+                                                  crypto.randomUUID(),
+                                                file: null,
+                                                fileName:
+                                                  fileData.fileName ||
+                                                  fileData.filename ||
+                                                  selectedFile.name,
+                                                originalName:
+                                                  selectedFile.name ||
+                                                  fileData.originalName ||
+                                                  fileData.data?.originalName,
+                                                fileSize: Number(
+                                                  fileData.fileSize ??
+                                                    fileData.size ??
+                                                    selectedFile.size ??
+                                                    0
+                                                ),
+                                                uploadedAt: Number(
+                                                  fileData.uploadedAt ??
+                                                    Date.now()
+                                                ),
+                                                filePath:
+                                                  fileData.filePath ??
+                                                  fileData.file ??
+                                                  fileData.url ??
+                                                  fileData.path,
+                                                fileUrl:
+                                                  fileData.fileUrl ||
+                                                  fileData.url,
+                                                mimeType: fileData.mimeType,
+                                              };
+
+                                              setFormDataState((prev: any) => {
+                                                const current =
+                                                  prev?.section3_3?.VGFArray;
+                                                const rows = Array.isArray(current)
+                                                  ? [...current]
+                                                  : [];
+                                                const currentRow = {
+                                                  ...(rows[index] || {}),
+                                                };
+                                                currentRow.file = newFile;
+                                                currentRow.noDocumentAvailable =
+                                                  false;
+                                                rows[index] = currentRow;
+                                                return {
+                                                  ...prev,
+                                                  section3_3: {
+                                                    ...(prev?.section3_3 || {}),
+                                                    VGFArray: rows,
+                                                  },
+                                                };
+                                              });
+
+                                              e.target.value = "";
+                                            } catch (error: any) {
+                                              console.error(
+                                                "Failed to upload file:",
+                                                error
+                                              );
+                                            }
+                                          }
+                                        }}
+                                        className="hidden"
+                                        id={`file-input-3.3-${index}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          document
+                                            .getElementById(
+                                              `file-input-3.3-${index}`
+                                            )
+                                            ?.click()
+                                        }
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        <Upload className="w-3 h-3 mr-1" />
+                                        Upload
+                                      </Button>
+                                    </div>
                                   </div>
                                 ) : item.noDocumentAvailable ? (
                                   <div className="px-3 py-2 rounded-md bg-gray-100 text-gray-600 text-sm">
@@ -5777,9 +5759,9 @@ export const PPPDevelopmentReview = ({
                                 )}
                               </td>
                               {isEditable3_3 && (
-                                <td className="py-3 px-4 text-sm font-normal">
+                                <td className="py-3 px-4 text-sm font-normal text-center align-top">
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="icon"
                                     type="button"
                                     onClick={(e) => {
@@ -5797,7 +5779,7 @@ export const PPPDevelopmentReview = ({
                                       // Use index for deletion since items may not have IDs
                                       handleRemoveVGFEntry(index);
                                     }}
-                                    className="text-red-500 hover:text-red-700 border-none bg-none cursor-pointer"
+                                    className="h-8 w-8 text-red-500 hover:text-red-700 cursor-pointer"
                                     disabled={false}
                                     title="Delete entry"
                                   >
@@ -5880,11 +5862,11 @@ export const PPPDevelopmentReview = ({
                             <SelectValue placeholder="Select scheme" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="IIPDF">IIPDF</SelectItem>
-                            <SelectItem value="Central VGF">
-                              Central VGF
-                            </SelectItem>
-                            <SelectItem value="State VGF">State VGF</SelectItem>
+                            {VGF_SCHEME_OPTIONS.map((scheme) => (
+                              <SelectItem key={scheme} value={scheme}>
+                                {scheme}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -5939,14 +5921,14 @@ export const PPPDevelopmentReview = ({
                         <Label>Submission Date</Label>
                         <Input
                           type="date"
+                          name="section3_3-new-submission-date"
+                          autoComplete="off"
                           max={new Date().toISOString().split("T")[0]}
                           value={formatDateForInput(newVGFItem.submissionDate)}
                           onChange={(e) => {
                             setNewVGFItem({
                               ...newVGFItem,
-                              submissionDate: e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : "",
+                              submissionDate: e.target.value || "",
                             });
                           }}
                           className={cn(
@@ -5956,6 +5938,21 @@ export const PPPDevelopmentReview = ({
                           )}
                         />
                       </div>
+                    </div>
+                    <div className="mb-4">
+                      <Label>Website Link</Label>
+                      <Input
+                        type="text"
+                        placeholder="Website Link proof"
+                        value={newVGFItem.proofLinkOrText || ""}
+                        onChange={(e) =>
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            proofLinkOrText: e.target.value,
+                          })
+                        }
+                        className="bg-white"
+                      />
                     </div>
                     {/* Row 3: File Upload */}
                     <div className="mb-4">
