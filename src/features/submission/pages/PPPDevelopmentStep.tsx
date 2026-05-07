@@ -2844,22 +2844,27 @@ export const PPPDevelopmentStep = () => {
                           </Label>
                           <Input
                             type="date"
+                            name={`section3_3-submission-date-${entry.id}`}
+                            autoComplete="off"
                             max={new Date().toISOString().split("T")[0]}
                             value={
                               entry.submissionDate
                                 ? (() => {
-                                    // Convert ISO string to YYYY-MM-DD format for date input
-                                    const d = new Date(entry.submissionDate);
-                                    if (isNaN(d.getTime())) return "";
-                                    const year = d.getFullYear();
-                                    const month = String(
-                                      d.getMonth() + 1
-                                    ).padStart(2, "0");
-                                    const day = String(d.getDate()).padStart(
-                                      2,
-                                      "0"
-                                    );
-                                    return `${year}-${month}-${day}`;
+                                    // Keep browser date input value normalized to YYYY-MM-DD
+                                    const rawDate = String(
+                                      entry.submissionDate
+                                    ).trim();
+                                    if (
+                                      /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+                                    ) {
+                                      return rawDate;
+                                    }
+
+                                    const parsed = Date.parse(rawDate);
+                                    if (Number.isNaN(parsed)) return "";
+                                    return new Date(parsed)
+                                      .toISOString()
+                                      .split("T")[0];
                                   })()
                                 : ""
                             }
@@ -2869,9 +2874,7 @@ export const PPPDevelopmentStep = () => {
                               updateProject(
                                 entry.id,
                                 "submissionDate",
-                                e.target.value
-                                  ? new Date(e.target.value).toISOString()
-                                  : ""
+                                e.target.value || ""
                               );
                             }}
                             disabled={isIndicatorSubmitted("3.3")}
